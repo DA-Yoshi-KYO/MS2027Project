@@ -17,10 +17,15 @@
 # Unity source files
 *.cginc                 text
 *.compute               text linguist-language=hlsl
-*.cs                    text diff=csharp
+*.cs                    text diff=csharp eol=lf
 *.hlsl                  text linguist-language=hlsl
 *.raytrace              text linguist-language=hlsl
 *.shader                text
+
+# C# project files (force LF regardless of local core.autocrlf)
+*.csproj                text eol=lf
+*.sln                   text eol=lf
+*.editorconfig          text eol=lf
 
 # Unity JSON files
 *.asmdef                unity-json

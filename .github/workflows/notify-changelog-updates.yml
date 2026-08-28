@@ -7,7 +7,8 @@
 #   body: {"event_type": "confluence-page-content-updated", "client_payload": {"pageId": "<ページID>"}}
 #
 # 事前準備 (リポジトリの Settings > Secrets and variables > Actions で設定):
-#   Secrets:   CONFLUENCE_EMAIL, CONFLUENCE_API_TOKEN (sync-spec-pages.ymlと共用), DISCORD_WEBHOOK_URL
+#   Secrets:   CONFLUENCE_EMAIL, CONFLUENCE_API_TOKEN (sync-spec-pages.ymlと共用),
+#              DISCORD_WEBHOOK_PLANNER (discord-notify-push.ymlのleveldesign通知と共用)
 #   Variables: CONFLUENCE_BASE_URL (sync-spec-pages.ymlと共用)
 
 name: Notify Changelog Updates to Discord
@@ -34,5 +35,5 @@ jobs:
           CONFLUENCE_EMAIL: ${{ secrets.CONFLUENCE_EMAIL }}
           CONFLUENCE_API_TOKEN: ${{ secrets.CONFLUENCE_API_TOKEN }}
           CONFLUENCE_PAGE_ID: ${{ github.event.client_payload.pageId }}
-          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_PLANNER }}
         run: node .github/scripts/notify-changelog-diff.js

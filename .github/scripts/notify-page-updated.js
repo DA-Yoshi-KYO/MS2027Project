@@ -96,23 +96,40 @@ async function fetchPage({ baseUrl, headers, pageId, expand }) {
   return res.json();
 }
 
-function buildDiscordMessage({ page, pageUrl }) {
+function buildDiscordPayload({ page, pageUrl }) {
   const editor = page.version?.by?.displayName ?? "不明";
   const summary = (page.version?.message ?? "").trim();
   const isFirstVersion = (page.version?.number ?? 0) <= 1;
   const verb = isFirstVersion ? "公開" : "更新";
+  const fields = [
+    { name: "ページ", value: page.title, inline: true },
+    { name: "更新者", value: editor, inline: true },
+    { name: "更新日時", value: page.version?.when ?? "不明", inline: true },
+  ];
 
   if (summary) {
-    return `📝 **${page.title}** が${verb}されました(${editor})\n> ${summary}\n${pageUrl}`;
+    fields.push({ name: "変更の概要", value: summary, inline: false });
+  } else if (!isFirstVersion) {
+    fields.push({ name: "変更の概要", value: "(未入力です)", inline: false });
   }
-  return `📝 **${page.title}** が${verb}されました(${editor})\n(変更の概要は未入力です)\n${pageUrl}`;
+
+  return {
+    embeds: [
+      {
+        title: `📝 ページが${verb}されました: ${page.title}`,
+        url: pageUrl,
+        color: 3447003,
+        fields,
+      },
+    ],
+  };
 }
 
-async function postToDiscord({ webhookUrl, content }) {
+async function postToDiscord({ webhookUrl, payload }) {
   const res = await fetch(webhookUrl, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ content }),
+    body: JSON.stringify(payload),
   });
   if (!res.ok) {
     throw new Error(`Discordへの送信に失敗しました: HTTP ${res.status} ${await res.text()}`);
@@ -221,9 +238,9 @@ async function main() {
   const page = await fetchPage({ baseUrl, headers, pageId, expand: "version,history,space" });
   const pageUrl = `${page._links.base}${page._links.webui}`;
 
-  const content = buildDiscordMessage({ page, pageUrl });
+  const payload = buildDiscordPayload({ page, pageUrl });
   console.log(`Discordに通知します: ${page.title}`);
-  await postToDiscord({ webhookUrl, content });
+  await postToDiscord({ webhookUrl, payload });
   console.log("Discordへ通知しました。");
 
   try {

@@ -67,6 +67,7 @@ jobs:
           if [ "$ACTION" = "closed" ]; then
             title="✅ ${kind}クローズ: #${ISSUE_NUMBER} ${ISSUE_TITLE}"
             desc="クローズ: ${ACTOR}"
+            color=10181046   # 紫(クローズは種別によらず紫で統一)
           else
             emoji="🐛"
             [ "$LABEL_NAME" = "実装依頼" ] && emoji="🛠️"

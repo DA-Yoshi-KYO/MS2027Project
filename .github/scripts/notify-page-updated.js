@@ -265,6 +265,12 @@ async function main() {
   await postToDiscord({ webhookUrl, payload });
   console.log("Discordへ通知しました。");
 
+  const summary = (page.version?.message ?? "").trim();
+  if (!summary) {
+    console.log("変更の概要が未入力のため、変更履歴ページへの追記はスキップします。");
+    return;
+  }
+
   try {
     await appendChangelogRow({
       baseUrl,
@@ -275,7 +281,7 @@ async function main() {
         editor: page.version?.by?.displayName ?? "不明",
         pageUrl,
         pageTitle: page.title,
-        summary: (page.version?.message ?? "").trim(),
+        summary,
       },
     });
     console.log("変更履歴ページに追記しました。");

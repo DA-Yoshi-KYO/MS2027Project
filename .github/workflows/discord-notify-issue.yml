@@ -1,9 +1,11 @@
-# Issue に「バグ修正」または「実装依頼」ラベルが付いたタイミングでDiscordへ通知する。
+# Issue に「バグ修正」または「実装依頼」ラベルが付いたタイミング、および
+# それらのラベルが付いているIssueがクローズされたタイミングでDiscordへ通知する。
 # テンプレート経由(作成と同時にラベルが付く)でも、Blank issueに後から手動でラベルを
 # 付けた場合でも、labeledイベントとして同じロジックで拾える。
 #   バグ修正   → 赤
 #   実装依頼   → 緑
-# 上記以外のラベルが付いたときは何もしない。ラベルが一切付かないIssueは通知されない。
+# 上記2つ以外のラベルが付いたときは何もしない。ラベルが一切付かないIssueは通知されない
+# (クローズ時も、その時点でどちらのラベルも付いていなければ通知しない)。
 #
 # 事前準備 (リポジトリの Settings > Secrets and variables > Actions で設定):
 #   Secrets: DISCORD_WEBHOOK_ISSUE
@@ -12,21 +14,42 @@ name: Discord Notify - Issue
 
 on:
   issues:
-    types: [labeled]
+    types: [labeled, closed]
 
 jobs:
   notify:
-    if: github.event.label.name == 'バグ修正' || github.event.label.name == '実装依頼'
     runs-on: ubuntu-latest
     steps:
+      - name: Determine relevant label
+        id: label
+        env:
+          ACTION: ${{ github.event.action }}
+          EVENT_LABEL: ${{ github.event.label.name }}
+          LABELS_JSON: ${{ toJson(github.event.issue.labels) }}
+        run: |
+          if [ "$ACTION" = "labeled" ]; then
+            name="$EVENT_LABEL"
+          else
+            # closed: クローズ時点で付いているラベルから判定(両方付いていればバグ修正を優先)
+            name=$(echo "$LABELS_JSON" | jq -r '
+              if any(.[]; .name == "バグ修正") then "バグ修正"
+              elif any(.[]; .name == "実装依頼") then "実装依頼"
+              else "" end
+            ')
+          fi
+          echo "name=$name" >> "$GITHUB_OUTPUT"
+
       - name: Send Discord notification
+        if: steps.label.outputs.name == 'バグ修正' || steps.label.outputs.name == '実装依頼'
         env:
           DISCORD_WEBHOOK_ISSUE: ${{ secrets.DISCORD_WEBHOOK_ISSUE }}
+          ACTION: ${{ github.event.action }}
           ISSUE_TITLE: ${{ github.event.issue.title }}
           ISSUE_URL: ${{ github.event.issue.html_url }}
           ISSUE_NUMBER: ${{ github.event.issue.number }}
           ISSUE_AUTHOR: ${{ github.event.issue.user.login }}
-          LABEL_NAME: ${{ github.event.label.name }}
+          ACTOR: ${{ github.event.sender.login }}
+          LABEL_NAME: ${{ steps.label.outputs.name }}
         run: |
           if [ -z "$DISCORD_WEBHOOK_ISSUE" ]; then
             echo "DISCORD_WEBHOOK_ISSUE が未設定のためスキップします" >&2
@@ -34,17 +57,22 @@ jobs:
           fi
 
           if [ "$LABEL_NAME" = "バグ修正" ]; then
-            emoji="🐛"
             kind="バグ修正依頼"
             color=15548997   # 赤
           else
-            emoji="🛠️"
             kind="実装依頼"
-            color=3066993    # 緑(実装依頼)
+            color=3066993    # 緑
           fi
 
-          title="${emoji} ${kind}: #${ISSUE_NUMBER} ${ISSUE_TITLE}"
-          desc="作成者: ${ISSUE_AUTHOR}"
+          if [ "$ACTION" = "closed" ]; then
+            title="✅ ${kind}クローズ: #${ISSUE_NUMBER} ${ISSUE_TITLE}"
+            desc="クローズ: ${ACTOR}"
+          else
+            emoji="🐛"
+            [ "$LABEL_NAME" = "実装依頼" ] && emoji="🛠️"
+            title="${emoji} ${kind}: #${ISSUE_NUMBER} ${ISSUE_TITLE}"
+            desc="作成者: ${ISSUE_AUTHOR}"
+          fi
 
           payload=$(jq -n \
             --arg title "$title" \

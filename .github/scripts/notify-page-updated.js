@@ -1,23 +1,29 @@
-// Confluenceページが更新されたら、更新時に入力された「変更の概要」(version.message)を
-// Discordに通知する。
+// Confluenceページが更新されたら、
+// 1) 更新時に入力された「変更の概要」(version.message)をDiscordに通知し、
+// 2) 専用の「変更履歴」ページの表に1行自動追記する。
 //
 // Confluenceの編集画面で「更新」を押すと出てくる公開ダイアログには
 // 「変更の概要を追加(任意)」という入力欄があり、そこに入力した内容が
-// REST APIの version.message として取得できる。本文の自動差分計算はせず、
-// 編集者が書いた概要をそのまま転記するだけのシンプルな仕組み。
+// REST APIの version.message として取得できる。
+//
+// 注意: 「変更履歴」ページ自体はConfluence Automationの監視対象CQL条件から
+// 除外しておくこと(例: `ancestor = <フォルダID> AND id != <変更履歴ページID>`)。
+// 除外しないと、この処理の書き込みが再度トリガーを発火させ無限ループする。
 //
 // 必要な環境変数:
-//   CONFLUENCE_BASE_URL   例: https://xxxx.atlassian.net
-//   CONFLUENCE_EMAIL      APIトークンを発行したAtlassianアカウントのメールアドレス
-//   CONFLUENCE_API_TOKEN  https://id.atlassian.com/manage-profile/security/api-tokens で発行
-//   CONFLUENCE_PAGE_ID    通知対象のページID(Confluence Automationから渡される)
-//   DISCORD_WEBHOOK_URL   通知先のDiscord Webhook URL
+//   CONFLUENCE_BASE_URL          例: https://xxxx.atlassian.net
+//   CONFLUENCE_EMAIL             APIトークンを発行したAtlassianアカウントのメールアドレス
+//   CONFLUENCE_API_TOKEN         https://id.atlassian.com/manage-profile/security/api-tokens で発行
+//   CONFLUENCE_PAGE_ID           通知対象のページID(Confluence Automationから渡される)
+//   CONFLUENCE_CHANGELOG_PAGE_ID 変更履歴ページのID(表に行を追記する対象)
+//   DISCORD_WEBHOOK_URL          通知先のDiscord Webhook URL
 
 const REQUIRED = [
   "CONFLUENCE_BASE_URL",
   "CONFLUENCE_EMAIL",
   "CONFLUENCE_API_TOKEN",
   "CONFLUENCE_PAGE_ID",
+  "CONFLUENCE_CHANGELOG_PAGE_ID",
   "DISCORD_WEBHOOK_URL",
 ];
 
@@ -29,8 +35,60 @@ function requireEnv(name) {
   return value;
 }
 
-async function fetchPage({ baseUrl, headers, pageId }) {
-  const url = `${baseUrl}/wiki/rest/api/content/${pageId}?expand=version,history,space`;
+function escapeHtml(text) {
+  return String(text)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+function stripTags(html) {
+  return html
+    .replace(/<[^>]*>/g, "")
+    .replace(/&nbsp;/g, " ")
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+// <tr> ごとに { raw, isHeader, cells: [{html, text}] } を返す
+function parseTableRows(tableHtml) {
+  const rows = [];
+  const rowRe = /<tr[^>]*>([\s\S]*?)<\/tr>/gi;
+  let rowMatch;
+  while ((rowMatch = rowRe.exec(tableHtml)) !== null) {
+    const raw = rowMatch[0];
+    const inner = rowMatch[1];
+    const isHeader = /<th[\s>]/i.test(raw);
+    const cellRe = /<t[hd][^>]*>([\s\S]*?)<\/t[hd]>/gi;
+    const cells = [];
+    let cellMatch;
+    while ((cellMatch = cellRe.exec(inner)) !== null) {
+      cells.push({ html: cellMatch[1], text: stripTags(cellMatch[1]) });
+    }
+    rows.push({ raw, isHeader, cells });
+  }
+  return rows;
+}
+
+// Confluenceの version.when (タイムゾーン付きISO文字列) から "8/29(土)" 形式を作る
+function formatDateJa(whenIso) {
+  const match = whenIso.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (!match) return whenIso;
+  const [, y, mo, d] = match;
+  const weekday = ["日", "月", "火", "水", "木", "金", "土"][
+    new Date(Date.UTC(Number(y), Number(mo) - 1, Number(d))).getUTCDay()
+  ];
+  return `${Number(mo)}/${Number(d)}(${weekday})`;
+}
+
+async function fetchPage({ baseUrl, headers, pageId, expand }) {
+  const url = `${baseUrl}/wiki/rest/api/content/${pageId}?expand=${expand}`;
   const res = await fetch(url, { headers });
   if (!res.ok) {
     throw new Error(`${url} -> HTTP ${res.status}: ${await res.text()}`);
@@ -38,7 +96,7 @@ async function fetchPage({ baseUrl, headers, pageId }) {
   return res.json();
 }
 
-function buildMessage({ page, pageUrl }) {
+function buildDiscordMessage({ page, pageUrl }) {
   const editor = page.version?.by?.displayName ?? "不明";
   const summary = (page.version?.message ?? "").trim();
   const isFirstVersion = (page.version?.number ?? 0) <= 1;
@@ -61,6 +119,76 @@ async function postToDiscord({ webhookUrl, content }) {
   }
 }
 
+// 変更履歴ページの最初の表に1行追記する。
+// 同じ日付・担当者・ページの行が既にあれば、新しい行は作らずその行の備考欄に追記する。
+async function appendChangelogRow({ baseUrl, headers, changelogPageId, row }) {
+  const changelogPage = await fetchPage({
+    baseUrl,
+    headers,
+    pageId: changelogPageId,
+    expand: "body.storage,version",
+  });
+
+  const html = changelogPage.body.storage.value;
+  const tableStart = html.indexOf("<table");
+  const tableEndTagIdx = html.indexOf("</table>", tableStart);
+  if (tableStart === -1 || tableEndTagIdx === -1) {
+    throw new Error("変更履歴ページに表が見つかりませんでした。");
+  }
+  const tableEnd = tableEndTagIdx + "</table>".length;
+  const tableHtml = html.slice(tableStart, tableEnd);
+
+  const rows = parseTableRows(tableHtml);
+  const summaryText = row.summary || "(概要未入力)";
+  const existing = rows.find(
+    (r) =>
+      !r.isHeader &&
+      r.cells.length >= 4 &&
+      r.cells[0].text === row.date &&
+      r.cells[1].text === row.editor &&
+      r.cells[2].text === row.pageTitle
+  );
+
+  let updatedTableHtml;
+  if (existing) {
+    const mergedRemarksHtml = `${existing.cells[3].html}<br/>${escapeHtml(summaryText)}`;
+    const mergedRowHtml =
+      "<tr>" +
+      `<td>${existing.cells[0].html}</td>` +
+      `<td>${existing.cells[1].html}</td>` +
+      `<td>${existing.cells[2].html}</td>` +
+      `<td>${mergedRemarksHtml}</td>` +
+      "</tr>";
+    updatedTableHtml = tableHtml.replace(existing.raw, mergedRowHtml);
+  } else {
+    const newRowHtml =
+      "<tr>" +
+      `<td>${escapeHtml(row.date)}</td>` +
+      `<td>${escapeHtml(row.editor)}</td>` +
+      `<td><a href="${row.pageUrl}">${escapeHtml(row.pageTitle)}</a></td>` +
+      `<td>${escapeHtml(summaryText)}</td>` +
+      "</tr>";
+    updatedTableHtml =
+      tableHtml.slice(0, tableHtml.length - "</table>".length) + newRowHtml + "</table>";
+  }
+
+  const newHtml = html.slice(0, tableStart) + updatedTableHtml + html.slice(tableEnd);
+
+  const res = await fetch(`${baseUrl}/wiki/rest/api/content/${changelogPageId}`, {
+    method: "PUT",
+    headers: { ...headers, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      version: { number: changelogPage.version.number + 1 },
+      type: "page",
+      title: changelogPage.title,
+      body: { storage: { value: newHtml, representation: "storage" } },
+    }),
+  });
+  if (!res.ok) {
+    throw new Error(`変更履歴ページへの追記に失敗しました: HTTP ${res.status} ${await res.text()}`);
+  }
+}
+
 async function main() {
   for (const name of REQUIRED) requireEnv(name);
 
@@ -68,19 +196,41 @@ async function main() {
   const email = process.env.CONFLUENCE_EMAIL;
   const apiToken = process.env.CONFLUENCE_API_TOKEN;
   const pageId = process.env.CONFLUENCE_PAGE_ID;
+  const changelogPageId = process.env.CONFLUENCE_CHANGELOG_PAGE_ID;
   const webhookUrl = process.env.DISCORD_WEBHOOK_URL;
 
   const auth = Buffer.from(`${email}:${apiToken}`).toString("base64");
   const headers = { Authorization: `Basic ${auth}`, Accept: "application/json" };
 
   console.log(`ページ ${pageId} の情報を取得します...`);
-  const page = await fetchPage({ baseUrl, headers, pageId });
+  const page = await fetchPage({ baseUrl, headers, pageId, expand: "version,history,space" });
   const pageUrl = `${page._links.base}${page._links.webui}`;
 
-  const content = buildMessage({ page, pageUrl });
+  const content = buildDiscordMessage({ page, pageUrl });
   console.log(`Discordに通知します: ${page.title}`);
   await postToDiscord({ webhookUrl, content });
-  console.log("通知しました。");
+  console.log("Discordへ通知しました。");
+
+  try {
+    await appendChangelogRow({
+      baseUrl,
+      headers,
+      changelogPageId,
+      row: {
+        date: formatDateJa(page.version.when),
+        editor: page.version?.by?.displayName ?? "不明",
+        pageUrl,
+        pageTitle: page.title,
+        summary: (page.version?.message ?? "").trim(),
+      },
+    });
+    console.log("変更履歴ページに追記しました。");
+  } catch (err) {
+    // Discord通知は既に成功しているので、ここで失敗してもジョブ全体は失敗として
+    // 検知できるようにログを残しつつ、後続処理があれば止めない。
+    console.error("変更履歴ページへの追記でエラーが発生しました:", err);
+    process.exitCode = 1;
+  }
 }
 
 main().catch((err) => {

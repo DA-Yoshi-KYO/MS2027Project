@@ -1,0 +1,26 @@
+#!/bin/sh
+# Enforce a conventional-commit style prefix on commit messages.
+# Setup (once per clone): git config core.hooksPath .githooks
+
+commit_msg_file="$1"
+first_line=$(head -n 1 "$commit_msg_file")
+
+# Allow merge commits and fixup/squash commits to pass through untouched.
+case "$first_line" in
+    Merge\ *|fixup!\ *|squash!\ *)
+        exit 0
+        ;;
+esac
+
+pattern='^(feat|fix|docs|style|refactor|perf|test|chore|build|ci|revert|update)(\([a-zA-Z0-9_-]+\))?: .+'
+
+if ! echo "$first_line" | grep -qE "$pattern"; then
+    echo "エラー: コミットメッセージにprefixがありません。" >&2
+    echo "  例: feat: ○○機能を追加" >&2
+    echo "  使用可能なprefix: feat, fix, docs, style, refactor, perf, test, chore, build, ci, revert" >&2
+    echo "" >&2
+    echo "  実際のメッセージ: \"$first_line\"" >&2
+    exit 1
+fi
+
+exit 0

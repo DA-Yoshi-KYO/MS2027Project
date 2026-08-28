@@ -6,16 +6,20 @@
 // 「変更の概要を追加(任意)」という入力欄があり、そこに入力した内容が
 // REST APIの version.message として取得できる。
 //
-// 注意: 「変更履歴」ページ自体はConfluence Automationの監視対象CQL条件から
-// 除外しておくこと(例: `ancestor = <フォルダID> AND id != <変更履歴ページID>`)。
-// 除外しないと、この処理の書き込みが再度トリガーを発火させ無限ループする。
+// 対象フォルダ配下かどうかの判定は、Confluence Automation側のCQL条件(検索インデックス
+// 経由で遅延が必要になる)ではなく、ここでページIDから直接取得した ancestors で行う。
+// 直接GETは検索インデックスを経由しないため、保存直後でも正確に判定でき、
+// Automation側の遅延をほぼ無くせる。
+// 「変更履歴」ページ自身の編集(この処理自身の書き込みが引き起こす再トリガー)も
+// ここで弾くので、Automation側でIDを除外するCQL条件も不要。
 //
 // 必要な環境変数:
 //   CONFLUENCE_BASE_URL          例: https://xxxx.atlassian.net
 //   CONFLUENCE_EMAIL             APIトークンを発行したAtlassianアカウントのメールアドレス
 //   CONFLUENCE_API_TOKEN         https://id.atlassian.com/manage-profile/security/api-tokens で発行
 //   CONFLUENCE_PAGE_ID           通知対象のページID(Confluence Automationから渡される)
-//   CONFLUENCE_CHANGELOG_PAGE_ID 変更履歴ページのID(表に行を追記する対象)
+//   CONFLUENCE_FOLDER_ID         監視対象フォルダのページID(この配下のページだけ処理する)
+//   CONFLUENCE_CHANGELOG_PAGE_ID 変更履歴ページのID(表に行を追記する対象。処理対象からは除外される)
 //   DISCORD_WEBHOOK_URL          通知先のDiscord Webhook URL
 
 const REQUIRED = [
@@ -23,6 +27,7 @@ const REQUIRED = [
   "CONFLUENCE_EMAIL",
   "CONFLUENCE_API_TOKEN",
   "CONFLUENCE_PAGE_ID",
+  "CONFLUENCE_FOLDER_ID",
   "CONFLUENCE_CHANGELOG_PAGE_ID",
   "DISCORD_WEBHOOK_URL",
 ];
@@ -228,15 +233,32 @@ async function main() {
   const email = process.env.CONFLUENCE_EMAIL;
   const apiToken = process.env.CONFLUENCE_API_TOKEN;
   const pageId = process.env.CONFLUENCE_PAGE_ID;
+  const folderId = process.env.CONFLUENCE_FOLDER_ID;
   const changelogPageId = process.env.CONFLUENCE_CHANGELOG_PAGE_ID;
   const webhookUrl = process.env.DISCORD_WEBHOOK_URL;
 
   const auth = Buffer.from(`${email}:${apiToken}`).toString("base64");
   const headers = { Authorization: `Basic ${auth}`, Accept: "application/json" };
 
+  if (pageId === changelogPageId) {
+    console.log("変更履歴ページ自身の編集のため、処理をスキップします(無限ループ防止)。");
+    return;
+  }
+
   console.log(`ページ ${pageId} の情報を取得します...`);
-  const page = await fetchPage({ baseUrl, headers, pageId, expand: "version,history,space" });
+  const page = await fetchPage({
+    baseUrl,
+    headers,
+    pageId,
+    expand: "version,history,space,ancestors",
+  });
   const pageUrl = `${page._links.base}${page._links.webui}`;
+
+  const ancestorIds = (page.ancestors ?? []).map((a) => String(a.id));
+  if (!ancestorIds.includes(String(folderId))) {
+    console.log(`ページ ${pageId} は監視対象フォルダ(${folderId})の配下ではないため、処理をスキップします。`);
+    return;
+  }
 
   const payload = buildDiscordPayload({ page, pageUrl });
   console.log(`Discordに通知します: ${page.title}`);

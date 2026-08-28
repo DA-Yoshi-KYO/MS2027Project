@@ -7,14 +7,15 @@
 #   POST https://api.github.com/repos/<owner>/<repo>/dispatches
 #   body: {"event_type": "confluence-page-content-updated", "client_payload": {"pageId": "<ページID>"}}
 #
-#   注意: Automation側のCQL条件で「変更履歴」ページ自身は監視対象から除外しておくこと
-#   (例: `ancestor = <フォルダID> AND id != <変更履歴ページID>`)。除外しないと、
-#   この処理の追記が再度トリガーを発火させ無限ループする。
+#   対象フォルダ配下かどうかの判定・変更履歴ページ自身の除外は、スクリプト側で
+#   ページIDから直接取得したancestorsで行う(検索インデックス経由のCQL条件は使わない)。
+#   これによりAutomation側の遅延ステップはほぼ不要(数秒あれば十分)。
 #
 # 事前準備 (リポジトリの Settings > Secrets and variables > Actions で設定):
 #   Secrets:   CONFLUENCE_EMAIL, CONFLUENCE_API_TOKEN (sync-spec-pages.ymlと共用),
 #              DISCORD_WEBHOOK_PLANNER (discord-notify-push.ymlのleveldesign通知と共用)
 #   Variables: CONFLUENCE_BASE_URL (sync-spec-pages.ymlと共用),
+#              CONFLUENCE_FOLDER_ID (監視対象フォルダのID。sync-spec-pages.ymlと共用),
 #              CONFLUENCE_CHANGELOG_PAGE_ID (変更履歴ページのID)
 
 name: Notify Changelog Updates to Discord
@@ -41,6 +42,7 @@ jobs:
           CONFLUENCE_EMAIL: ${{ secrets.CONFLUENCE_EMAIL }}
           CONFLUENCE_API_TOKEN: ${{ secrets.CONFLUENCE_API_TOKEN }}
           CONFLUENCE_PAGE_ID: ${{ github.event.client_payload.pageId }}
+          CONFLUENCE_FOLDER_ID: ${{ vars.CONFLUENCE_FOLDER_ID }}
           CONFLUENCE_CHANGELOG_PAGE_ID: ${{ vars.CONFLUENCE_CHANGELOG_PAGE_ID }}
           DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_PLANNER }}
         run: node .github/scripts/notify-page-updated.js

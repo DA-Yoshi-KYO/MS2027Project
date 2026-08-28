@@ -1,0 +1,56 @@
+# Issue に「バグ修正」または「実装」ラベルが付いたタイミングでDiscordへ通知する。
+# テンプレート経由(作成と同時にラベルが付く)でも、Blank issueに後から手動でラベルを
+# 付けた場合でも、labeledイベントとして同じロジックで拾える。
+#   バグ修正 → 赤
+#   実装     → 緑
+# 上記以外のラベルが付いたときは何もしない。ラベルが一切付かないIssueは通知されない。
+#
+# 事前準備 (リポジトリの Settings > Secrets and variables > Actions で設定):
+#   Secrets: DISCORD_WEBHOOK_ISSUE
+
+name: Discord Notify - Issue
+
+on:
+  issues:
+    types: [labeled]
+
+jobs:
+  notify:
+    if: github.event.label.name == 'バグ修正' || github.event.label.name == '実装'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send Discord notification
+        env:
+          DISCORD_WEBHOOK_ISSUE: ${{ secrets.DISCORD_WEBHOOK_ISSUE }}
+          ISSUE_TITLE: ${{ github.event.issue.title }}
+          ISSUE_URL: ${{ github.event.issue.html_url }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+          ISSUE_AUTHOR: ${{ github.event.issue.user.login }}
+          LABEL_NAME: ${{ github.event.label.name }}
+        run: |
+          if [ -z "$DISCORD_WEBHOOK_ISSUE" ]; then
+            echo "DISCORD_WEBHOOK_ISSUE が未設定のためスキップします" >&2
+            exit 0
+          fi
+
+          if [ "$LABEL_NAME" = "バグ修正" ]; then
+            emoji="🐛"
+            kind="バグ修正依頼"
+            color=15548997   # 赤
+          else
+            emoji="🛠️"
+            kind="実装依頼"
+            color=3066993    # 緑
+          fi
+
+          title="${emoji} ${kind}: #${ISSUE_NUMBER} ${ISSUE_TITLE}"
+          desc="作成者: ${ISSUE_AUTHOR}"
+
+          payload=$(jq -n \
+            --arg title "$title" \
+            --arg desc "$desc" \
+            --arg url "$ISSUE_URL" \
+            --argjson color "$color" \
+            '{ embeds: [{ title: $title, description: $desc, url: $url, color: $color }] }')
+
+          curl -sf -X POST -H "Content-Type: application/json" -d "$payload" "$DISCORD_WEBHOOK_ISSUE"

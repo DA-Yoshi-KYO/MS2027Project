@@ -161,7 +161,7 @@ async function appendChangelogRow({ baseUrl, headers, changelogPageId, row }) {
   });
 
   const html = changelogPage.body.storage.value;
-  const summaryText = row.summary || "(概要未入力)";
+  const summaryText = row.summary || "";
   const newRowHtml =
     "<tr>" +
     `<td>${escapeHtml(row.date)}</td>` +
@@ -195,7 +195,9 @@ async function appendChangelogRow({ baseUrl, headers, changelogPageId, row }) {
 
     let updatedTableHtml;
     if (existing) {
-      const mergedRemarksHtml = `${existing.cells[3].html}<br/>${escapeHtml(summaryText)}`;
+      const mergedRemarksHtml = summaryText
+        ? `${existing.cells[3].html}<br/>${escapeHtml(summaryText)}`
+        : existing.cells[3].html;
       const mergedRowHtml =
         "<tr>" +
         `<td>${existing.cells[0].html}</td>` +
@@ -266,10 +268,6 @@ async function main() {
   console.log("Discordへ通知しました。");
 
   const summary = (page.version?.message ?? "").trim();
-  if (!summary) {
-    console.log("変更の概要が未入力のため、変更履歴ページへの追記はスキップします。");
-    return;
-  }
 
   try {
     await appendChangelogRow({

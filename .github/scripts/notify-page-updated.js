@@ -268,6 +268,9 @@ async function main() {
   console.log("Discordへ通知しました。");
 
   const summary = (page.version?.message ?? "").trim();
+  const isFirstVersion = (page.version?.number ?? 0) <= 1;
+  // 公開(初版)時は概要を入力する欄が無いため、備考の既定値として「ページ作成」を使う
+  const changelogSummary = summary || (isFirstVersion ? "ページ作成" : "");
 
   try {
     await appendChangelogRow({
@@ -279,7 +282,7 @@ async function main() {
         editor: page.version?.by?.displayName ?? "不明",
         pageUrl,
         pageTitle: page.title,
-        summary,
+        summary: changelogSummary,
       },
     });
     console.log("変更履歴ページに追記しました。");

@@ -119,7 +119,16 @@ async function postToDiscord({ webhookUrl, content }) {
   }
 }
 
-// 変更履歴ページの最初の表に1行追記する。
+const CHANGELOG_HEADER_ROW = "<tr><th>日付</th><th>担当者</th><th>ページ</th><th>備考</th></tr>";
+
+// tbody(あれば)の直前、無ければtableの直前に文字列を挿入する
+function insertBeforeTableClose(tableHtml, insertHtml) {
+  const closeTag = tableHtml.includes("</tbody>") ? "</tbody>" : "</table>";
+  const idx = tableHtml.lastIndexOf(closeTag);
+  return tableHtml.slice(0, idx) + insertHtml + tableHtml.slice(idx);
+}
+
+// 変更履歴ページの最初の表に1行追記する。表がまだ無ければヘッダー付きで新規作成する。
 // 同じ日付・担当者・ページの行が既にあれば、新しい行は作らずその行の備考欄に追記する。
 async function appendChangelogRow({ baseUrl, headers, changelogPageId, row }) {
   const changelogPage = await fetchPage({
@@ -130,49 +139,55 @@ async function appendChangelogRow({ baseUrl, headers, changelogPageId, row }) {
   });
 
   const html = changelogPage.body.storage.value;
-  const tableStart = html.indexOf("<table");
-  const tableEndTagIdx = html.indexOf("</table>", tableStart);
-  if (tableStart === -1 || tableEndTagIdx === -1) {
-    throw new Error("変更履歴ページに表が見つかりませんでした。");
-  }
-  const tableEnd = tableEndTagIdx + "</table>".length;
-  const tableHtml = html.slice(tableStart, tableEnd);
-
-  const rows = parseTableRows(tableHtml);
   const summaryText = row.summary || "(概要未入力)";
-  const existing = rows.find(
-    (r) =>
-      !r.isHeader &&
-      r.cells.length >= 4 &&
-      r.cells[0].text === row.date &&
-      r.cells[1].text === row.editor &&
-      r.cells[2].text === row.pageTitle
-  );
+  const newRowHtml =
+    "<tr>" +
+    `<td>${escapeHtml(row.date)}</td>` +
+    `<td>${escapeHtml(row.editor)}</td>` +
+    `<td><a href="${row.pageUrl}">${escapeHtml(row.pageTitle)}</a></td>` +
+    `<td>${escapeHtml(summaryText)}</td>` +
+    "</tr>";
 
-  let updatedTableHtml;
-  if (existing) {
-    const mergedRemarksHtml = `${existing.cells[3].html}<br/>${escapeHtml(summaryText)}`;
-    const mergedRowHtml =
-      "<tr>" +
-      `<td>${existing.cells[0].html}</td>` +
-      `<td>${existing.cells[1].html}</td>` +
-      `<td>${existing.cells[2].html}</td>` +
-      `<td>${mergedRemarksHtml}</td>` +
-      "</tr>";
-    updatedTableHtml = tableHtml.replace(existing.raw, mergedRowHtml);
+  const tableStart = html.indexOf("<table");
+  const tableEndTagIdx = tableStart === -1 ? -1 : html.indexOf("</table>", tableStart);
+
+  let newHtml;
+  if (tableStart === -1 || tableEndTagIdx === -1) {
+    // 表がまだ無いページ: ヘッダー付きの表を新規作成して末尾に追加する
+    console.log("変更履歴ページに表が無いため、ヘッダー付きの表を新規作成します。");
+    const newTableHtml = `<table><tbody>${CHANGELOG_HEADER_ROW}${newRowHtml}</tbody></table>`;
+    newHtml = html + newTableHtml;
   } else {
-    const newRowHtml =
-      "<tr>" +
-      `<td>${escapeHtml(row.date)}</td>` +
-      `<td>${escapeHtml(row.editor)}</td>` +
-      `<td><a href="${row.pageUrl}">${escapeHtml(row.pageTitle)}</a></td>` +
-      `<td>${escapeHtml(summaryText)}</td>` +
-      "</tr>";
-    updatedTableHtml =
-      tableHtml.slice(0, tableHtml.length - "</table>".length) + newRowHtml + "</table>";
-  }
+    const tableEnd = tableEndTagIdx + "</table>".length;
+    const tableHtml = html.slice(tableStart, tableEnd);
 
-  const newHtml = html.slice(0, tableStart) + updatedTableHtml + html.slice(tableEnd);
+    const rows = parseTableRows(tableHtml);
+    const existing = rows.find(
+      (r) =>
+        !r.isHeader &&
+        r.cells.length >= 4 &&
+        r.cells[0].text === row.date &&
+        r.cells[1].text === row.editor &&
+        r.cells[2].text === row.pageTitle
+    );
+
+    let updatedTableHtml;
+    if (existing) {
+      const mergedRemarksHtml = `${existing.cells[3].html}<br/>${escapeHtml(summaryText)}`;
+      const mergedRowHtml =
+        "<tr>" +
+        `<td>${existing.cells[0].html}</td>` +
+        `<td>${existing.cells[1].html}</td>` +
+        `<td>${existing.cells[2].html}</td>` +
+        `<td>${mergedRemarksHtml}</td>` +
+        "</tr>";
+      updatedTableHtml = tableHtml.replace(existing.raw, mergedRowHtml);
+    } else {
+      updatedTableHtml = insertBeforeTableClose(tableHtml, newRowHtml);
+    }
+
+    newHtml = html.slice(0, tableStart) + updatedTableHtml + html.slice(tableEnd);
+  }
 
   const res = await fetch(`${baseUrl}/wiki/rest/api/content/${changelogPageId}`, {
     method: "PUT",

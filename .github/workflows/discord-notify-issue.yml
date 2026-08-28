@@ -1,8 +1,8 @@
-# Issue に「バグ修正」または「実装」ラベルが付いたタイミングでDiscordへ通知する。
+# Issue に「バグ修正」または「実装依頼」ラベルが付いたタイミングでDiscordへ通知する。
 # テンプレート経由(作成と同時にラベルが付く)でも、Blank issueに後から手動でラベルを
 # 付けた場合でも、labeledイベントとして同じロジックで拾える。
-#   バグ修正 → 赤
-#   実装     → 緑
+#   バグ修正   → 赤
+#   実装依頼   → 緑
 # 上記以外のラベルが付いたときは何もしない。ラベルが一切付かないIssueは通知されない。
 #
 # 事前準備 (リポジトリの Settings > Secrets and variables > Actions で設定):
@@ -16,7 +16,7 @@ on:
 
 jobs:
   notify:
-    if: github.event.label.name == 'バグ修正' || github.event.label.name == '実装'
+    if: github.event.label.name == 'バグ修正' || github.event.label.name == '実装依頼'
     runs-on: ubuntu-latest
     steps:
       - name: Send Discord notification
@@ -40,7 +40,7 @@ jobs:
           else
             emoji="🛠️"
             kind="実装依頼"
-            color=3066993    # 緑
+            color=3066993    # 緑(実装依頼)
           fi
 
           title="${emoji} ${kind}: #${ISSUE_NUMBER} ${ISSUE_TITLE}"

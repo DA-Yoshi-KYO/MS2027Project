@@ -1,0 +1,114 @@
+<Window x:Class="StackPrBuilder.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Stack PR Builder" Height="860" Width="1100" MinHeight="600" MinWidth="800">
+    <Grid Margin="10">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="2*" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="1*" />
+        </Grid.RowDefinitions>
+
+        <!-- 入力欄: リポジトリ / base / 分割対象ブランチ -->
+        <Grid Grid.Row="0" Margin="0,0,0,8">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="150" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="200" />
+            </Grid.ColumnDefinitions>
+            <TextBlock Grid.Column="0" Text="リポジトリパス:" VerticalAlignment="Center" Margin="0,0,6,0" />
+            <TextBox x:Name="RepoPathBox" Grid.Column="1" VerticalAlignment="Center" Margin="0,0,12,0" />
+            <TextBlock Grid.Column="2" Text="Base:" VerticalAlignment="Center" Margin="0,0,6,0" />
+            <TextBox x:Name="BaseBranchBox" Grid.Column="3" Text="develop" VerticalAlignment="Center" Margin="0,0,12,0" />
+            <TextBlock Grid.Column="4" Text="分割対象ブランチ:" VerticalAlignment="Center" Margin="0,0,6,0" />
+            <ComboBox x:Name="SourceBranchCombo" Grid.Column="5" VerticalAlignment="Center" IsEditable="True" />
+        </Grid>
+
+        <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,0,0,8">
+            <Button x:Name="FetchButton" Content="Fetch (リモート最新化)" Padding="10,4" Margin="0,0,8,0" Click="FetchButton_Click" />
+            <Button x:Name="LoadCommitsButton" Content="① コミット読み込み(自動fetch付き)" Padding="10,4" Margin="0,0,8,0" Click="LoadCommitsButton_Click" />
+            <Button x:Name="LoadPrListButton" Content="現在のPR一覧を表示" Padding="10,4" Click="LoadPrListButton_Click" />
+        </StackPanel>
+
+        <!-- コミット一覧: GroupNumber列だけ編集可能。行を選択して↑↓で並び替え。 -->
+        <DataGrid x:Name="CommitsGrid" Grid.Row="2" AutoGenerateColumns="False" CanUserAddRows="False"
+                  IsReadOnly="False" SelectionMode="Single" SelectionUnit="FullRow" Margin="0,0,0,8">
+            <DataGrid.Columns>
+                <DataGridTextColumn Header="SHA" Binding="{Binding ShortSha}" IsReadOnly="True" Width="80" />
+                <DataGridTextColumn Header="メッセージ" Binding="{Binding MessageShort}" IsReadOnly="True" Width="*" />
+                <DataGridTextColumn Header="Author" Binding="{Binding Author}" IsReadOnly="True" Width="120" />
+                <DataGridTextColumn Header="日時" Binding="{Binding When}" IsReadOnly="True" Width="140" />
+                <DataGridTextColumn Header="レイヤー番号" Binding="{Binding GroupNumber, Mode=TwoWay, UpdateSourceTrigger=LostFocus}" Width="90" />
+            </DataGrid.Columns>
+        </DataGrid>
+
+        <!-- 並び替え: 選択行を↑↓で移動 → 確定でcherry-pick再構築 -->
+        <StackPanel Grid.Row="3" Orientation="Horizontal" Margin="0,0,0,8">
+            <Button x:Name="MoveUpButton" Content="↑ 選択行を上へ" Padding="10,4" Margin="0,0,8,0" Click="MoveUpButton_Click" />
+            <Button x:Name="MoveDownButton" Content="↓ 選択行を下へ" Padding="10,4" Margin="0,0,16,0" Click="MoveDownButton_Click" />
+            <Button x:Name="ApplyReorderButton" Content="並び替えを確定 (cherry-pickで再構築)" Padding="10,4" Margin="0,0,8,0" Click="ApplyReorderButton_Click" />
+            <TextBlock Text="※作業ツリーを一時的にbaseへ切替えて再構築します。未コミットの変更があると失敗します。" VerticalAlignment="Center" Foreground="Gray" />
+        </StackPanel>
+
+        <StackPanel Grid.Row="4" Orientation="Vertical" Margin="0,0,0,8">
+            <StackPanel Orientation="Horizontal" Margin="0,0,0,2">
+                <Button x:Name="ComputeLayersButton" Content="② レイヤー計算(グループ番号から組み立て)" Padding="10,4" Margin="0,0,16,0" Click="ComputeLayersButton_Click" />
+                <TextBlock Text="大要素:" VerticalAlignment="Center" Margin="0,0,4,0" />
+                <TextBox x:Name="MajorElementBox" Width="140" FontFamily="Consolas" VerticalAlignment="Center" Margin="0,0,8,0"
+                         InputMethod.IsInputMethodEnabled="False"
+                         PreviewTextInput="AsciiOnlyTextBox_PreviewTextInput"
+                         DataObject.Pasting="AsciiOnlyTextBox_Pasting" />
+                <Button x:Name="ApplyMajorElementButton" Content="全レイヤーへ一括反映" Padding="10,4" Click="ApplyMajorElementButton_Click" />
+            </StackPanel>
+            <TextBlock Text="※番号は表示順で増加方向のみ(同じ番号=同じPR)。大要素はスタック全体の分類名(例: PlayerStatus)、要素は各レイヤーの内容。ブランチ名は stacked/大要素/要素 になります。"
+                       Foreground="Gray" FontSize="11" TextWrapping="Wrap" />
+        </StackPanel>
+
+        <ItemsControl x:Name="LayersList" Grid.Row="5" Margin="0,0,0,8">
+            <ItemsControl.ItemTemplate>
+                <DataTemplate>
+                    <Border BorderBrush="LightGray" BorderThickness="0,0,0,1" Padding="4">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock Text="{Binding GroupNumber, StringFormat='レイヤー {0}:'}" Width="90" VerticalAlignment="Center" FontWeight="Bold" />
+                            <TextBlock Text="{Binding Summary}" Width="220" VerticalAlignment="Center" />
+                            <TextBlock Text="ブランチ名:" VerticalAlignment="Center" Margin="8,0,4,0" />
+                            <TextBlock Text="stacked/" VerticalAlignment="Center" FontFamily="Consolas" Foreground="Gray" />
+                            <TextBlock Text="大要素:" VerticalAlignment="Center" Margin="4,0,2,0" Foreground="Gray" FontSize="10" />
+                            <TextBox Text="{Binding MajorElement, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Width="110" FontFamily="Consolas"
+                                     InputMethod.IsInputMethodEnabled="False"
+                                     PreviewTextInput="AsciiOnlyTextBox_PreviewTextInput"
+                                     DataObject.Pasting="AsciiOnlyTextBox_Pasting" />
+                            <TextBlock Text="/" VerticalAlignment="Center" FontFamily="Consolas" Foreground="Gray" Margin="2,0" />
+                            <TextBlock Text="要素:" VerticalAlignment="Center" Margin="4,0,2,0" Foreground="Gray" FontSize="10" />
+                            <TextBox Text="{Binding Element, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" Width="150" FontFamily="Consolas"
+                                     InputMethod.IsInputMethodEnabled="False"
+                                     PreviewTextInput="AsciiOnlyTextBox_PreviewTextInput"
+                                     DataObject.Pasting="AsciiOnlyTextBox_Pasting" />
+                        </StackPanel>
+                    </Border>
+                </DataTemplate>
+            </ItemsControl.ItemTemplate>
+        </ItemsControl>
+
+        <StackPanel Grid.Row="6" Orientation="Horizontal" Margin="0,0,0,8">
+            <Button x:Name="BuildStackButton" Content="③ Stack作成 (push + gh stack init + submit)" Padding="10,4" Margin="0,0,8,0" Click="BuildStackButton_Click" />
+            <Button x:Name="SyncButton" Content="Sync (自動リベース連鎖)" Padding="10,4" Margin="0,0,8,0" Click="SyncButton_Click" />
+            <Button x:Name="MergeAllButton" Content="Merge All (一括マージ)" Padding="10,4" Margin="0,0,16,0" Click="MergeAllButton_Click" />
+            <CheckBox x:Name="CloseSourcePrCheckBox" Content="Stack作成成功時に分割元PRをクローズする" IsChecked="True" VerticalAlignment="Center" />
+        </StackPanel>
+
+        <TextBlock Grid.Row="7" Text="ログ:" Margin="0,0,0,4" />
+        <TextBox x:Name="LogBox" Grid.Row="8" IsReadOnly="True" VerticalScrollBarVisibility="Auto"
+                 HorizontalScrollBarVisibility="Auto" TextWrapping="NoWrap" FontFamily="Consolas" Background="#111"
+                 Foreground="#DDD" />
+    </Grid>
+</Window>

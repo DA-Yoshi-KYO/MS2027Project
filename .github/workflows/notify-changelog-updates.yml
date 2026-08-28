@@ -1,0 +1,38 @@
+# Confluenceの「仕様書」フォルダ配下のページが更新されたとき、
+# ページ内「変更履歴」表に新しく追加された行だけをDiscordに通知する。
+#
+# トリガー: repository_dispatch (type: confluence-page-content-updated)
+#   Confluence Automationの「ページが更新された」ルールから、対象ページIDを添えて呼び出される。
+#   POST https://api.github.com/repos/<owner>/<repo>/dispatches
+#   body: {"event_type": "confluence-page-content-updated", "client_payload": {"pageId": "<ページID>"}}
+#
+# 事前準備 (リポジトリの Settings > Secrets and variables > Actions で設定):
+#   Secrets:   CONFLUENCE_EMAIL, CONFLUENCE_API_TOKEN (sync-spec-pages.ymlと共用), DISCORD_WEBHOOK_URL
+#   Variables: CONFLUENCE_BASE_URL (sync-spec-pages.ymlと共用)
+
+name: Notify Changelog Updates to Discord
+
+on:
+  repository_dispatch:
+    types: [confluence-page-content-updated]
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Notify changelog diff to Discord
+        env:
+          CONFLUENCE_BASE_URL: ${{ vars.CONFLUENCE_BASE_URL }}
+          CONFLUENCE_EMAIL: ${{ secrets.CONFLUENCE_EMAIL }}
+          CONFLUENCE_API_TOKEN: ${{ secrets.CONFLUENCE_API_TOKEN }}
+          CONFLUENCE_PAGE_ID: ${{ github.event.client_payload.pageId }}
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+        run: node .github/scripts/notify-changelog-diff.js

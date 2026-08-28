@@ -1,0 +1,74 @@
+name: Set Priority Field
+
+on:
+  issues:
+    types: [opened]
+
+jobs:
+  set-priority:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Add issue to project and set priority
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.PROJECT_TOKEN }}
+          script: |
+            const projectId = "PVT_kwHOCtvlDs4BfWgY";
+            const fieldId = "PVTSSF_lAHOCtvlDs4BfWgYzhZqNc0";
+
+            const optionMap = {
+              "最優先・即対応": "36646037",
+              "優先度高": "1de74670",
+              "優先度中": "ab37c080",
+              "優先度低": "14f2d13a"
+            };
+
+            const body = context.payload.issue.body || "";
+            const match = body.match(/### 優先度\s*\n\s*(.+)/);
+            const selectedLabel = match ? match[1].trim() : null;
+
+            if (!selectedLabel || !optionMap[selectedLabel]) {
+              console.log("優先度が本文から抽出できませんでした:", selectedLabel);
+              return;
+            }
+
+            const optionId = optionMap[selectedLabel];
+
+            // 1. IssueをProjectに追加
+            const addResult = await github.graphql(`
+              mutation($projectId: ID!, $contentId: ID!) {
+                addProjectV2ItemById(input: {projectId: $projectId, contentId: $contentId}) {
+                  item {
+                    id
+                  }
+                }
+              }
+            `, {
+              projectId: projectId,
+              contentId: context.payload.issue.node_id
+            });
+
+            const itemId = addResult.addProjectV2ItemById.item.id;
+
+            // 2. 優先度フィールドを設定
+            await github.graphql(`
+              mutation($projectId: ID!, $itemId: ID!, $fieldId: ID!, $optionId: String!) {
+                updateProjectV2ItemFieldValue(input: {
+                  projectId: $projectId,
+                  itemId: $itemId,
+                  fieldId: $fieldId,
+                  value: { singleSelectOptionId: $optionId }
+                }) {
+                  projectV2Item {
+                    id
+                  }
+                }
+              }
+            `, {
+              projectId: projectId,
+              itemId: itemId,
+              fieldId: fieldId,
+              optionId: optionId
+            });
+
+            console.log(`優先度「${selectedLabel}」を設定しました`);

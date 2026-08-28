@@ -1,0 +1,53 @@
+# 選択肢の追加・削除は .github/spec-pages.json を編集すること
+# options 内の AUTO-GENERATED の範囲は sync-spec-pages ワークフロー(ボタン実行)が自動で書き換えます。手動編集した場合は次回実行時に上書きされます
+
+name: 実装依頼
+description: 新しいタスクを依頼する
+title: "依頼:"
+labels: ["実装"]
+# milestone: 開始時に変更
+projects: ["DA-Yoshi-KYO/14"]
+body:
+  - type: textarea
+    id: description
+    attributes:
+      placeholder: |
+        例: プレイヤーの移動処理を実装してください。
+      label: 概要
+    validations:
+      required: false
+  - type: dropdown
+    id: priority
+    attributes:
+      label: 優先度
+      description: このIssueの優先度を選択してください
+      options:
+        - 最優先・即対応
+        - 優先度高
+        - 優先度中
+        - 優先度低
+      default: 2
+    validations:
+      required: true
+  - type: dropdown
+    id: spec_page
+    attributes:
+      label: 関連する仕様書ページ
+      description: 該当するページを選択してください(リンクは自動でコメントされます)
+      options:
+        # BEGIN AUTO-GENERATED spec-pages
+        - 変更履歴
+        - プレイヤー
+        - サウンドリスト
+        - Wave
+        - 仕様書フォーマット
+        - 変更履歴シート
+        - エフェクト
+        - データ表
+        - 勝利・敗北
+        - 武器
+        - UI
+        - エネミー
+        # END AUTO-GENERATED spec-pages
+    validations:
+      required: true

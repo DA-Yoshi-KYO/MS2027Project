@@ -1,0 +1,28 @@
+name: バグ報告
+description: 不具合を報告する
+title: "バグ:"
+labels: ["バグ修正"]
+# milestone: 開始時に変更
+projects: ["DA-Yoshi-KYO/14"]
+body:
+  - type: textarea
+    id: description
+    attributes:
+      placeholder: |
+        例: 特定の位置でスコープを除くと画面が真っ黒になる(動画添付)
+      label: 概要
+    validations:
+      required: true
+  - type: dropdown
+    id: priority
+    attributes:
+      label: 優先度
+      description: このIssueの優先度を選択してください
+      options:
+        - 最優先・即対応
+        - 優先度高
+        - 優先度中
+        - 優先度低
+      default: 2
+    validations:
+      required: true

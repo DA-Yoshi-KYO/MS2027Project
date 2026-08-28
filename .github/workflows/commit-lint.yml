@@ -1,0 +1,67 @@
+name: Commit Message Lint
+
+on:
+  pull_request:
+    branches: [main, develop]
+  push:
+    branches: [develop]
+
+jobs:
+  check-prefix:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check commit message prefixes
+        run: |
+          set -e
+          pattern='^(feat|fix|docs|style|refactor|perf|test|chore|build|ci|revert|update)(\([a-zA-Z0-9_-]+\))?: .+'
+
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            base="${{ github.event.pull_request.base.sha }}"
+            head="${{ github.event.pull_request.head.sha }}"
+            range="$base..$head"
+          else
+            # pushイベントの場合、今回のpushで追加されたコミット範囲をチェック
+            before="${{ github.event.before }}"
+            after="${{ github.event.after }}"
+            # 初回push等でbeforeが全ゼロの場合はafter単体のみチェック
+            if echo "$before" | grep -qE '^0+$'; then
+              range="$after"
+              range="$(git rev-list -n 1 "$after")"
+            else
+              range="$before..$after"
+            fi
+          fi
+
+          failed=0
+
+          if echo "$range" | grep -q '\.\.'; then
+            commit_list=$(git rev-list "$range")
+          else
+            commit_list="$range"
+          fi
+
+          while IFS= read -r sha; do
+            [ -z "$sha" ] && continue
+            subject=$(git log -1 --format='%s' "$sha")
+            case "$subject" in
+              "Merge "*|"fixup! "*|"squash! "*)
+                continue
+                ;;
+            esac
+            if ! echo "$subject" | grep -qE "$pattern"; then
+              echo "::error::prefixがありません: \"$subject\" ($sha)"
+              failed=1
+            fi
+          done <<< "$commit_list"
+
+          if [ "$failed" -eq 1 ]; then
+            echo ""
+            echo "使用可能なprefix: feat, fix, docs, style, refactor, perf, test, chore, build, ci, revert, update"
+            echo "例: feat: ○○機能を追加"
+            exit 1
+          fi

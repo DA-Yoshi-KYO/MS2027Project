@@ -1,0 +1,47 @@
+# 選択肢の追加・削除は .github/spec-pages.json を編集すること
+# (Confluence由来の項目は sync-spec-pages ワークフローのボタン実行でも更新できます)
+
+name: Add Spec Link Comment
+
+on:
+  issues:
+    types: [opened]
+
+permissions:
+  issues: write
+
+jobs:
+  add-spec-link:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Post spec page link as comment
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require("fs");
+
+            const data = JSON.parse(fs.readFileSync(".github/spec-pages.json", "utf8"));
+            const urlMap = Object.fromEntries(data.pages.map(p => [p.title, p.url]));
+
+            const body = context.payload.issue.body || "";
+            const match = body.match(/### 関連する仕様書ページ\s*\n\s*(.+)/);
+            const selected = match ? match[1].trim() : null;
+
+            if (!selected || !urlMap[selected]) {
+              console.log("仕様書ページが本文から抽出できませんでした:", selected);
+              return;
+            }
+
+            const url = urlMap[selected];
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: `📄 関連する仕様書ページ: [${selected}](${url})`
+            });
+
+            console.log(`リンクをコメントしました: ${selected} -> ${url}`);

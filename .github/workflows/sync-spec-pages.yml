@@ -1,0 +1,82 @@
+# Confluenceの「仕様書」フォルダ配下のページ一覧を取得し、
+# .github/spec-pages.json と feature_report.yml のドロップダウンを最新化して develop に直接pushする。
+#
+# トリガー:
+#   - repository_dispatch (type: confluence-page-updated)
+#     Confluence Automationの「Webリクエストを送信」アクションから
+#     POST https://api.github.com/repos/<owner>/<repo>/dispatches
+#     body: {"event_type": "confluence-page-updated"}
+#     Authorization ヘッダーには repo 権限を持つGitHubトークンが必要(Confluence Automation側に登録)
+#   - workflow_dispatch (Actionsタブからの手動実行。動作確認・不具合時のリトライ用)
+#
+# 事前準備 (リポジトリの Settings > Secrets and variables > Actions で設定):
+#   Secrets:   CONFLUENCE_EMAIL, CONFLUENCE_API_TOKEN
+#   Variables: CONFLUENCE_BASE_URL, CONFLUENCE_SPACE_KEY, CONFLUENCE_FOLDER_ID
+#
+# 同時実行対策:
+#   Confluence側の連続更新でwebhookが立て続けに発火しても、concurrencyで直列化することで
+#   develop への push 競合を避ける(内容はフォルダの最新全件を都度取得するため、
+#   後から実行されたジョブの結果が常に最新の正として上書きされる想定)。
+
+name: Sync Spec Pages from Confluence
+
+on:
+  repository_dispatch:
+    types: [confluence-page-updated]
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+concurrency:
+  group: sync-spec-pages
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: develop
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Sync spec pages from Confluence
+        env:
+          CONFLUENCE_BASE_URL: ${{ vars.CONFLUENCE_BASE_URL }}
+          CONFLUENCE_EMAIL: ${{ secrets.CONFLUENCE_EMAIL }}
+          CONFLUENCE_API_TOKEN: ${{ secrets.CONFLUENCE_API_TOKEN }}
+          CONFLUENCE_SPACE_KEY: ${{ vars.CONFLUENCE_SPACE_KEY }}
+          CONFLUENCE_FOLDER_ID: ${{ vars.CONFLUENCE_FOLDER_ID }}
+        run: node .github/scripts/sync-spec-pages.js
+
+      - name: Commit and push (with rebase retry)
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add .github/spec-pages.json .github/ISSUE_TEMPLATE/feature_report.yml
+
+          if git diff --cached --quiet; then
+            echo "変更なし"
+            exit 0
+          fi
+
+          git commit -m "chore: Confluence仕様書ページの一覧を同期"
+
+          for i in 1 2 3; do
+            if git push origin HEAD:develop; then
+              echo "push成功"
+              exit 0
+            fi
+            echo "push失敗。リベースしてリトライします (${i}回目)"
+            git fetch origin develop
+            git rebase origin/develop
+          done
+
+          echo "3回リトライしてもpushできませんでした" >&2
+          exit 1

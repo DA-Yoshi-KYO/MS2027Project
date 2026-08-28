@@ -17,7 +17,7 @@ pattern='^(feat|fix|docs|style|refactor|perf|test|chore|build|ci|revert|update)(
 if ! echo "$first_line" | grep -qE "$pattern"; then
     echo "エラー: コミットメッセージにprefixがありません。" >&2
     echo "  例: feat: ○○機能を追加" >&2
-    echo "  使用可能なprefix: feat, fix, docs, style, refactor, perf, test, chore, build, ci, revert" >&2
+    echo "  使用可能なprefix: feat, fix, update, docs, style, refactor, perf, test, chore, build, ci, revert" >&2
     echo "" >&2
     echo "  実際のメッセージ: \"$first_line\"" >&2
     exit 1

@@ -1,0 +1,54 @@
+# Pull Request の作成・マージをDiscordの「プルリクエスト」チャンネルへ通知する。
+# stacked/** ブランチから作られるPRも、通常のPRと同じ opened イベントとして届くため
+# 区別せず同じ通知ロジックで扱う。
+#
+# 事前準備 (リポジトリの Settings > Secrets and variables > Actions で設定):
+#   Secrets: DISCORD_WEBHOOK_PR
+
+name: Discord Notify - Pull Request
+
+on:
+  pull_request:
+    types: [opened, closed]
+
+jobs:
+  notify:
+    if: github.event.action == 'opened' || github.event.pull_request.merged == true
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send Discord notification
+        env:
+          DISCORD_WEBHOOK_PR: ${{ secrets.DISCORD_WEBHOOK_PR }}
+          ACTION: ${{ github.event.action }}
+          MERGED: ${{ github.event.pull_request.merged }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_AUTHOR: ${{ github.event.pull_request.user.login }}
+          BASE_REF: ${{ github.event.pull_request.base.ref }}
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}
+          MERGED_BY: ${{ github.event.pull_request.merged_by.login }}
+        run: |
+          if [ -z "$DISCORD_WEBHOOK_PR" ]; then
+            echo "DISCORD_WEBHOOK_PR が未設定のためスキップします" >&2
+            exit 0
+          fi
+
+          if [ "$ACTION" = "opened" ]; then
+            title="🔀 PR作成: #${PR_NUMBER} ${PR_TITLE}"
+            desc="${HEAD_REF} → ${BASE_REF}\n作成者: ${PR_AUTHOR}"
+            color=3066993
+          else
+            title="✅ PRマージ: #${PR_NUMBER} ${PR_TITLE}"
+            desc="${HEAD_REF} → ${BASE_REF}\nマージ者: ${MERGED_BY}"
+            color=10181046
+          fi
+
+          payload=$(jq -n \
+            --arg title "$title" \
+            --arg desc "$(printf '%b' "$desc")" \
+            --arg url "$PR_URL" \
+            --argjson color "$color" \
+            '{ embeds: [{ title: $title, description: $desc, url: $url, color: $color }] }')
+
+          curl -sf -X POST -H "Content-Type: application/json" -d "$payload" "$DISCORD_WEBHOOK_PR"

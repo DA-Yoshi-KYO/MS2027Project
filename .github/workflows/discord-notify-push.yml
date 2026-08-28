@@ -1,0 +1,91 @@
+# push を検知して、ブランチに応じたDiscordチャンネルへ通知する。
+#
+# 振り分けルール:
+#   develop への直push、または個人名ブランチ(吉田京志郎/** 等)からのpush → プログラマー進捗
+#   leveldesign への push                                                → プランナー進捗
+#   designer への push                                                  → デザイナー進捗
+#
+# 事前準備 (リポジトリの Settings > Secrets and variables > Actions で設定):
+#   Secrets: DISCORD_WEBHOOK_PROGRAMMER, DISCORD_WEBHOOK_PLANNER, DISCORD_WEBHOOK_DESIGNER
+
+name: Discord Notify - Push
+
+on:
+  push:
+    branches:
+      - develop
+      - leveldesign
+      - designer
+      - "吉田京志郎/**"
+      - "秋野翔太/**"
+      - "宇留野陸斗/**"
+      - "中出峻輔/**"
+      - "元浪梨緒/**"
+      - "吉本竜/**"
+      - "中田颯吾/**"
+      - "大平理月/**"
+      - "岩間翔大/**"
+      - "宮地瑛大/**"
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Determine target channel
+        id: route
+        run: |
+          ref="${GITHUB_REF#refs/heads/}"
+          if [ "$ref" = "leveldesign" ]; then
+            echo "channel=PLANNER" >> "$GITHUB_OUTPUT"
+          elif [ "$ref" = "designer" ]; then
+            echo "channel=DESIGNER" >> "$GITHUB_OUTPUT"
+          else
+            echo "channel=PROGRAMMER" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Send Discord notification
+        env:
+          DISCORD_WEBHOOK_PROGRAMMER: ${{ secrets.DISCORD_WEBHOOK_PROGRAMMER }}
+          DISCORD_WEBHOOK_PLANNER: ${{ secrets.DISCORD_WEBHOOK_PLANNER }}
+          DISCORD_WEBHOOK_DESIGNER: ${{ secrets.DISCORD_WEBHOOK_DESIGNER }}
+          CHANNEL: ${{ steps.route.outputs.channel }}
+          REF_NAME: ${{ github.ref_name }}
+          PUSHER: ${{ github.actor }}
+          COMPARE_URL: ${{ github.event.compare }}
+          REPO_URL: ${{ github.event.repository.html_url }}
+        run: |
+          case "$CHANNEL" in
+            PLANNER) url="$DISCORD_WEBHOOK_PLANNER" ;;
+            DESIGNER) url="$DISCORD_WEBHOOK_DESIGNER" ;;
+            *) url="$DISCORD_WEBHOOK_PROGRAMMER" ;;
+          esac
+
+          if [ -z "$url" ]; then
+            echo "対応するWebhook Secretが未設定のためスキップします ($CHANNEL)" >&2
+            exit 0
+          fi
+
+          # 今回のpushで追加されたコミット一覧を1行ずつのMarkdown箇条書きにする
+          commits_json=$(jq -c '[.commits[] | {message: (.message | split("\n")[0]), url: .url, author: .author.name}]' "$GITHUB_EVENT_PATH")
+
+          description=$(echo "$commits_json" | jq -r '.[] | "- [\(.message)](\(.url)) (\(.author))"')
+          if [ -z "$description" ]; then
+            description="(コミットなし)"
+          fi
+
+          payload=$(jq -n \
+            --arg title "📦 ${REF_NAME} へpush" \
+            --arg desc "$description" \
+            --arg url "$COMPARE_URL" \
+            --arg author "$PUSHER" \
+            '{
+              embeds: [{
+                title: $title,
+                description: $desc,
+                url: $url,
+                color: 3447003,
+                footer: { text: $author }
+              }]
+            }')
+
+          curl -sf -X POST -H "Content-Type: application/json" -d "$payload" "$url"

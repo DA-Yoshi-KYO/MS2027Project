@@ -41,11 +41,13 @@ async function fetchPage({ baseUrl, headers, pageId }) {
 function buildMessage({ page, pageUrl }) {
   const editor = page.version?.by?.displayName ?? "不明";
   const summary = (page.version?.message ?? "").trim();
+  const isFirstVersion = (page.version?.number ?? 0) <= 1;
+  const verb = isFirstVersion ? "公開" : "更新";
 
   if (summary) {
-    return `📝 **${page.title}** が更新されました(${editor})\n> ${summary}\n${pageUrl}`;
+    return `📝 **${page.title}** が${verb}されました(${editor})\n> ${summary}\n${pageUrl}`;
   }
-  return `📝 **${page.title}** が更新されました(${editor})\n(変更の概要は未入力です)\n${pageUrl}`;
+  return `📝 **${page.title}** が${verb}されました(${editor})\n(変更の概要は未入力です)\n${pageUrl}`;
 }
 
 async function postToDiscord({ webhookUrl, content }) {

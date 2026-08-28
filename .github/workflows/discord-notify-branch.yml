@@ -1,0 +1,44 @@
+# 新規ブランチの作成をDiscordの専用チャンネルへ通知する。
+# stacked/ で始まるブランチ(スタックしたPR運用で自動生成されるもの)は対象外。
+#
+# 事前準備 (リポジトリの Settings > Secrets and variables > Actions で設定):
+#   Secrets: DISCORD_WEBHOOK_BRANCH
+
+name: Discord Notify - Branch Created
+
+on:
+  create
+
+jobs:
+  notify:
+    if: github.event.ref_type == 'branch' && !startsWith(github.event.ref, 'stacked/')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send Discord notification
+        env:
+          DISCORD_WEBHOOK_BRANCH: ${{ secrets.DISCORD_WEBHOOK_BRANCH }}
+          REF: ${{ github.event.ref }}
+          ACTOR: ${{ github.actor }}
+          REPO_URL: ${{ github.event.repository.html_url }}
+        run: |
+          if [ -z "$DISCORD_WEBHOOK_BRANCH" ]; then
+            echo "DISCORD_WEBHOOK_BRANCH が未設定のためスキップします" >&2
+            exit 0
+          fi
+
+          branch_url="${REPO_URL}/tree/${REF}"
+
+          payload=$(jq -n \
+            --arg title "🌱 ブランチ作成: ${REF}" \
+            --arg url "$branch_url" \
+            --arg author "$ACTOR" \
+            '{
+              embeds: [{
+                title: $title,
+                url: $url,
+                color: 3447003,
+                footer: { text: $author }
+              }]
+            }')
+
+          curl -sf -X POST -H "Content-Type: application/json" -d "$payload" "$DISCORD_WEBHOOK_BRANCH"

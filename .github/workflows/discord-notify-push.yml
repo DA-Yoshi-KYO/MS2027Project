@@ -68,10 +68,13 @@ jobs:
           # 今回のpushで追加されたコミット一覧を1行ずつのMarkdown箇条書きにする
           commits_json=$(jq -c '[.commits[] | {message: (.message | split("\n")[0]), url: .url, author: .author.name}]' "$GITHUB_EVENT_PATH")
 
-          description=$(echo "$commits_json" | jq -r '.[] | "- [\(.message)](\(.url)) (\(.author))"')
-          if [ -z "$description" ]; then
-            description="(コミットなし)"
+          # 新規コミットが無い場合(既存コミットからのブランチ作成など)は通知しない
+          if [ "$(echo "$commits_json" | jq 'length')" = "0" ]; then
+            echo "新規コミットが無いためスキップします(ブランチ作成のみ等)" >&2
+            exit 0
           fi
+
+          description=$(echo "$commits_json" | jq -r '.[] | "- [\(.message)](\(.url)) (\(.author))"')
 
           payload=$(jq -n \
             --arg title "📦 ${REF_NAME} へpush" \

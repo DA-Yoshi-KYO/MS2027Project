@@ -1,5 +1,10 @@
-// Confluenceページが更新されたら、表の中身などは見ずに
-// 「ページが更新されました」という通知だけをDiscordに送る。
+// Confluenceページが更新されたら、更新時に入力された「変更の概要」(version.message)を
+// Discordに通知する。
+//
+// Confluenceの編集画面で「更新」を押すと出てくる公開ダイアログには
+// 「変更の概要を追加(任意)」という入力欄があり、そこに入力した内容が
+// REST APIの version.message として取得できる。本文の自動差分計算はせず、
+// 編集者が書いた概要をそのまま転記するだけのシンプルな仕組み。
 //
 // 必要な環境変数:
 //   CONFLUENCE_BASE_URL   例: https://xxxx.atlassian.net
@@ -33,29 +38,21 @@ async function fetchPage({ baseUrl, headers, pageId }) {
   return res.json();
 }
 
-async function postToDiscord({ webhookUrl, page, pageUrl }) {
+function buildMessage({ page, pageUrl }) {
   const editor = page.version?.by?.displayName ?? "不明";
-  const when = page.version?.when ?? "";
+  const summary = (page.version?.message ?? "").trim();
 
-  const payload = {
-    embeds: [
-      {
-        title: `📝 ページが更新されました: ${page.title}`,
-        url: pageUrl,
-        color: 3447003,
-        fields: [
-          { name: "スペース", value: page.space?.name ?? page.space?.key ?? "不明", inline: true },
-          { name: "更新者", value: editor, inline: true },
-          { name: "更新日時", value: when, inline: true },
-        ],
-      },
-    ],
-  };
+  if (summary) {
+    return `📝 **${page.title}** が更新されました(${editor})\n> ${summary}\n${pageUrl}`;
+  }
+  return `📝 **${page.title}** が更新されました(${editor})\n(変更の概要は未入力です)\n${pageUrl}`;
+}
 
+async function postToDiscord({ webhookUrl, content }) {
   const res = await fetch(webhookUrl, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
+    body: JSON.stringify({ content }),
   });
   if (!res.ok) {
     throw new Error(`Discordへの送信に失敗しました: HTTP ${res.status} ${await res.text()}`);
@@ -78,8 +75,9 @@ async function main() {
   const page = await fetchPage({ baseUrl, headers, pageId });
   const pageUrl = `${page._links.base}${page._links.webui}`;
 
+  const content = buildMessage({ page, pageUrl });
   console.log(`Discordに通知します: ${page.title}`);
-  await postToDiscord({ webhookUrl, page, pageUrl });
+  await postToDiscord({ webhookUrl, content });
   console.log("通知しました。");
 }
 

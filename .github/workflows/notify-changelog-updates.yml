@@ -1,5 +1,5 @@
 # Confluenceの「仕様書」フォルダ配下のページが更新されたとき、
-# 表の中身は見ずに「ページが更新された」ことだけをDiscordに通知する。
+# 更新時に入力された「変更の概要」(公開ダイアログの任意入力欄)をDiscordに通知する。
 #
 # トリガー: repository_dispatch (type: confluence-page-content-updated)
 #   Confluence Automationの「ページを編集した」ルールから、対象ページIDを添えて呼び出される。

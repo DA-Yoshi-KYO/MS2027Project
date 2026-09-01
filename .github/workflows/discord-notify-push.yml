@@ -5,8 +5,13 @@
 #   leveldesign への push                                                → プランナー進捗
 #   designer への push                                                  → デザイナー進捗
 #
+# 先頭コミットの親コミット数をGitHub APIで確認し、2つ以上ならマージコミット
+# (PRマージ・git mergeいずれも含む)とみなして、直pushと区別できるように
+# タイトル(🔀 マージされました / 📦 push)と色を出し分ける。
+#
 # 事前準備 (リポジトリの Settings > Secrets and variables > Actions で設定):
 #   Secrets: DISCORD_WEBHOOK_PROGRAMMER, DISCORD_WEBHOOK_PLANNER, DISCORD_WEBHOOK_DESIGNER
+#   (GH_TOKENは既定のsecrets.GITHUB_TOKENを使用。追加設定不要)
 
 name: Discord Notify - Push
 
@@ -53,6 +58,8 @@ jobs:
           PUSHER: ${{ github.actor }}
           COMPARE_URL: ${{ github.event.compare }}
           REPO_URL: ${{ github.event.repository.html_url }}
+          HEAD_SHA: ${{ github.sha }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           case "$CHANNEL" in
             PLANNER) url="$DISCORD_WEBHOOK_PLANNER" ;;
@@ -76,17 +83,29 @@ jobs:
 
           description=$(echo "$commits_json" | jq -r '.[] | "- [\(.message)](\(.url)) (\(.author))"')
 
+          # 先頭コミットの親が2つ以上ならマージコミット(PRマージ・git merge問わず)とみなし、
+          # 直pushと見た目で区別できるようにタイトル・色を変える。
+          parent_count=$(gh api "repos/${REPO_URL#https://github.com/}/commits/${HEAD_SHA}" --jq '.parents | length')
+          if [ "$parent_count" -ge 2 ]; then
+            title="🔀 ${REF_NAME} にマージされました"
+            color=7288001
+          else
+            title="📦 ${REF_NAME} へpush"
+            color=3447003
+          fi
+
           payload=$(jq -n \
-            --arg title "📦 ${REF_NAME} へpush" \
+            --arg title "$title" \
             --arg desc "$description" \
             --arg url "$COMPARE_URL" \
             --arg author "$PUSHER" \
+            --argjson color "$color" \
             '{
               embeds: [{
                 title: $title,
                 description: $desc,
                 url: $url,
-                color: 3447003,
+                color: $color,
                 footer: { text: $author }
               }]
             }')

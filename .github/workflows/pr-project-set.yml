@@ -1,0 +1,146 @@
+# PR作成時に GitHub Projects (MS2027 / org: DA-Yoshi-KYO, number: 15) へ
+# PRを追加し、以下のフィールドを初期値としてセットする。
+#
+#   Status:     In Progress
+#   Start date: ブランチ作成日 (base branchとの分岐点=merge-baseのコミット日時)
+#   End date:   PR作成日
+#
+# フィールドID/選択肢IDはハードコードせず、毎回名前で検索して解決する
+# (Project側でIDが変わっても追従できるようにするため)。
+#
+# 事前準備: set-priority.yml と同じ Secrets: PROJECT_TOKEN
+# (Projects v2 への書き込み権限を持つトークン)が必要。
+
+name: Set PR Project Fields
+
+on:
+  pull_request:
+    types: [opened, reopened]
+
+jobs:
+  set-project-fields:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Add PR to Project and set fields
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.PROJECT_TOKEN }}
+          script: |
+            const ORG = "DA-Yoshi-KYO";
+            const PROJECT_NUMBER = 15;
+            const STATUS_FIELD_NAME = "Status";
+            const STATUS_OPTION_NAME = "In Progress";
+            const START_DATE_FIELD_NAME = "Start date";
+            const END_DATE_FIELD_NAME = "End date";
+
+            const { owner, repo } = context.repo;
+            const pr = context.payload.pull_request;
+
+            // 1. Projectとフィールド定義を名前で解決する
+            const projectQuery = await github.graphql(
+              `
+              query($org: String!, $number: Int!) {
+                organization(login: $org) {
+                  projectV2(number: $number) {
+                    id
+                    fields(first: 50) {
+                      nodes {
+                        ... on ProjectV2FieldCommon { id name }
+                        ... on ProjectV2SingleSelectField {
+                          id
+                          name
+                          options { id name }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+              `,
+              { org: ORG, number: PROJECT_NUMBER }
+            );
+
+            const project = projectQuery.organization.projectV2;
+            if (!project) {
+              core.setFailed(`Project number ${PROJECT_NUMBER} が org「${ORG}」に見つかりませんでした`);
+              return;
+            }
+
+            const fields = project.fields.nodes;
+            const statusField = fields.find((f) => f.name === STATUS_FIELD_NAME);
+            const startDateField = fields.find((f) => f.name === START_DATE_FIELD_NAME);
+            const endDateField = fields.find((f) => f.name === END_DATE_FIELD_NAME);
+            const inProgressOption = statusField?.options?.find(
+              (o) => o.name === STATUS_OPTION_NAME
+            );
+
+            if (!statusField || !inProgressOption) {
+              console.log(
+                `Statusフィールド、または選択肢「${STATUS_OPTION_NAME}」が見つかりませんでした。Status設定をスキップします`
+              );
+            }
+            if (!startDateField) {
+              console.log(`フィールド「${START_DATE_FIELD_NAME}」が見つかりませんでした。開始日設定をスキップします`);
+            }
+            if (!endDateField) {
+              console.log(`フィールド「${END_DATE_FIELD_NAME}」が見つかりませんでした。終了日設定をスキップします`);
+            }
+
+            // 2. PRをProjectに追加(既に追加済みでも安全)
+            const addResult = await github.graphql(
+              `
+              mutation($projectId: ID!, $contentId: ID!) {
+                addProjectV2ItemById(input: {projectId: $projectId, contentId: $contentId}) {
+                  item { id }
+                }
+              }
+              `,
+              { projectId: project.id, contentId: pr.node_id }
+            );
+            const itemId = addResult.addProjectV2ItemById.item.id;
+            console.log(`PR #${pr.number} をProject「MS2027」に追加しました`);
+
+            const setFieldValue = async (fieldId, value, label) => {
+              await github.graphql(
+                `
+                mutation($projectId: ID!, $itemId: ID!, $fieldId: ID!, $value: ProjectV2FieldValue!) {
+                  updateProjectV2ItemFieldValue(input: {
+                    projectId: $projectId,
+                    itemId: $itemId,
+                    fieldId: $fieldId,
+                    value: $value
+                  }) {
+                    projectV2Item { id }
+                  }
+                }
+                `,
+                { projectId: project.id, itemId, fieldId, value }
+              );
+              console.log(`${label} を設定しました`);
+            };
+
+            // 3. Status = In Progress
+            if (statusField && inProgressOption) {
+              await setFieldValue(
+                statusField.id,
+                { singleSelectOptionId: inProgressOption.id },
+                `Status「${STATUS_OPTION_NAME}」`
+              );
+            }
+
+            // 4. Start date = ブランチ作成日 (base branchとのmerge-baseコミット日時)
+            if (startDateField) {
+              const { data: compare } = await github.rest.repos.compareCommitsWithBasehead({
+                owner,
+                repo,
+                basehead: `${pr.base.sha}...${pr.head.sha}`,
+              });
+              const startDate = compare.merge_base_commit.commit.committer.date.slice(0, 10);
+              await setFieldValue(startDateField.id, { date: startDate }, `Start date「${startDate}」`);
+            }
+
+            // 5. End date = PR作成日
+            if (endDateField) {
+              const endDate = pr.created_at.slice(0, 10);
+              await setFieldValue(endDateField.id, { date: endDate }, `End date「${endDate}」`);
+            }

@@ -1,0 +1,46 @@
+# PRに最低1つLabelが付いていることを必須にするチェック。
+# Labelが1つも無い場合はこのジョブを失敗させる。
+#
+# 注意: このワークフローだけではマージをブロックできない。
+# GitHubリポジトリの Settings > Branches > Branch protection rules で
+# 対象ブランチ(develop等)に対して
+# 「Require status checks to pass before merging」を有効にし、
+# このジョブ「require-label」を必須ステータスチェックとして追加すること。
+
+name: Require PR Label
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize, labeled, unlabeled]
+
+permissions:
+  pull-requests: read
+
+jobs:
+  require-label:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check that at least one label is set
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const pr = context.payload.pull_request;
+
+            // labeled/unlabeledイベント直後などのラグを避けるため最新状態を取得
+            const { data: current } = await github.rest.pulls.get({
+              owner,
+              repo,
+              pull_number: pr.number,
+            });
+
+            if (!current.labels || current.labels.length === 0) {
+              core.setFailed(
+                "このPRにはLabelが1つも設定されていません。最低1つLabelを付けてください。"
+              );
+              return;
+            }
+
+            console.log(
+              `Label OK: ${current.labels.map((l) => l.name).join(", ")}`
+            );

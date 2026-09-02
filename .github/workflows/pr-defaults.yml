@@ -1,0 +1,83 @@
+# PR作成時にAssignee(作成者)とMilestoneの初期値を自動セットする。
+#
+# Assignee: PR作成者を自動でアサイン。
+# Milestone: base branchとの分岐点(merge-base)のコミット日時を「ブランチ作成日」とみなし、
+#            開いているMilestoneのうち期限日(due_on)がその日以降で最も近いものを自動セットする。
+#            (手動で既にMilestoneが設定されている場合は上書きしない)
+
+name: Set PR Defaults
+
+on:
+  pull_request:
+    types: [opened, reopened]
+
+permissions:
+  pull-requests: write
+  issues: write
+
+jobs:
+  set-defaults:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Assign PR author
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const pr = context.payload.pull_request;
+            await github.rest.issues.addAssignees({
+              owner,
+              repo,
+              issue_number: pr.number,
+              assignees: [pr.user.login],
+            });
+            console.log(`Assignee「${pr.user.login}」を設定しました`);
+
+      - name: Set milestone based on branch creation date
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const pr = context.payload.pull_request;
+
+            if (pr.milestone) {
+              console.log(`既にMilestone「${pr.milestone.title}」が設定されているためスキップします`);
+              return;
+            }
+
+            // base branchとの分岐点(merge-base)のコミット日時を「ブランチ作成日」とみなす
+            const { data: compare } = await github.rest.repos.compareCommitsWithBasehead({
+              owner,
+              repo,
+              basehead: `${pr.base.sha}...${pr.head.sha}`,
+            });
+
+            const branchCreatedAt = new Date(
+              compare.merge_base_commit.commit.committer.date
+            );
+            console.log(`ブランチ作成日(merge-base): ${branchCreatedAt.toISOString()}`);
+
+            // 開いているMilestoneのうち、期限日がブランチ作成日以降で最も近いものを選ぶ
+            const milestones = await github.paginate(
+              github.rest.issues.listMilestones,
+              { owner, repo, state: "open", sort: "due_on", direction: "asc" }
+            );
+
+            const candidate = milestones
+              .filter((m) => m.due_on && new Date(m.due_on) >= branchCreatedAt)
+              .sort((a, b) => new Date(a.due_on) - new Date(b.due_on))[0];
+
+            if (!candidate) {
+              console.log(
+                "条件に合うMilestoneが見つからなかったためスキップします(期限日未設定 or 該当なし)"
+              );
+              return;
+            }
+
+            await github.rest.issues.update({
+              owner,
+              repo,
+              issue_number: pr.number,
+              milestone: candidate.number,
+            });
+            console.log(`Milestone「${candidate.title}」を設定しました`);

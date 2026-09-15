@@ -12,7 +12,6 @@ using UnityEngine;
 =====================================+
 */
 
-[InitializeOnLoad]
 public static class CSE_MayaPreviewImporter
 {
     // =========================================================
@@ -44,21 +43,6 @@ public static class CSE_MayaPreviewImporter
 
     // ‰Šú‰»Ï‚İ‚©
     private static bool s_initialized;
-
-
-    // =========================================================
-    // Static Constructor
-    // =========================================================
-
-    static CSE_MayaPreviewImporter()
-    {
-        // EditorXVˆ—‚Ö“o˜^
-        EditorApplication.update += Update;
-
-        // ‰Šúó‘Ôİ’è
-        InitializeWatcher();
-    }
-
 
     // =========================================================
     // ‰Šú‰»

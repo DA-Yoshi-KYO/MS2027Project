@@ -76,6 +76,7 @@ public class CS_MayaPreviewRuntimeServer : MonoBehaviour
     private TcpListener _listener;
 
     private Thread _serverThread;
+    private TcpClient _activeClient;
 
     private volatile bool _serverRunning;
 
@@ -213,7 +214,7 @@ public class CS_MayaPreviewRuntimeServer : MonoBehaviour
     // Start
     // =========================================================
 
-    private void Start()
+    private void OnEnable()
     {
         StartServer();
     }
@@ -313,6 +314,9 @@ public class CS_MayaPreviewRuntimeServer : MonoBehaviour
             {
                 client =
                     _listener.AcceptTcpClient();
+                _activeClient = client;
+                if (!_serverRunning) { client.Close(); break; }
+                client.ReceiveTimeout = 10000;
 
 
                 using (
@@ -771,6 +775,8 @@ public class CS_MayaPreviewRuntimeServer : MonoBehaviour
 
 
         _serverRunning = false;
+        try { _activeClient?.Close(); } catch { }
+        _activeClient = null;
 
 
         try
@@ -816,6 +822,11 @@ public class CS_MayaPreviewRuntimeServer : MonoBehaviour
     // =========================================================
     // OnDestroy
     // =========================================================
+
+    private void OnDisable()
+    {
+        StopServer();
+    }
 
     private void OnDestroy()
     {

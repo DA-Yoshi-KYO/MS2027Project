@@ -19,6 +19,7 @@ public class CS_MayaPreviewCameraController : MonoBehaviour
     private int _dragButton = -1;
     private CS_MayaPreviewSelection _selection;
     private CS_MayaPreviewInspector _inspector;
+    private CS_MayaPreviewTransformTool _transformTool;
 
     private void Awake()
     {
@@ -26,6 +27,7 @@ public class CS_MayaPreviewCameraController : MonoBehaviour
         _pivot = transform.position + transform.forward * distance;
         _selection = gameObject.AddComponent<CS_MayaPreviewSelection>();
         _inspector = gameObject.AddComponent<CS_MayaPreviewInspector>();
+        _transformTool = gameObject.AddComponent<CS_MayaPreviewTransformTool>();
     }
 
     private void OnDisable() => _dragButton = -1;
@@ -40,6 +42,11 @@ public class CS_MayaPreviewCameraController : MonoBehaviour
         var mouse = Mouse.current;
         var keyboard = Keyboard.current;
         if (!Application.isFocused || mouse == null || keyboard == null) return;
+        if (_transformTool.IsDragging)
+        {
+            _transformTool.HandleInput(mouse, keyboard);
+            return;
+        }
         if (_inspector != null && _inspector.BlocksInput(mouse.position.ReadValue()))
         {
             _dragButton = -1;
@@ -47,6 +54,7 @@ public class CS_MayaPreviewCameraController : MonoBehaviour
         }
 
         bool alt = keyboard.leftAltKey.isPressed || keyboard.rightAltKey.isPressed;
+        if (!alt && _transformTool.HandleInput(mouse, keyboard)) return;
         float scroll = mouse.scroll.ReadValue().y;
         if (scroll != 0f && _camera.pixelRect.Contains(mouse.position.ReadValue()))
         {

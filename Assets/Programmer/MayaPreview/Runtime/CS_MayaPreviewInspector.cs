@@ -14,6 +14,8 @@ public class CS_MayaPreviewInspector : MonoBehaviour
     private readonly Dictionary<string, string> _fields = new Dictionary<string, string>();
     private readonly List<Rect> _iconRects = new List<Rect>();
     private bool _typing;
+    private bool _inspectorOpen = true;
+    private Rect InspectorButton => new Rect(Mathf.Max(0, Screen.width - 330), 24, 140, 28);
     private Vector2 _scroll;
     private bool _hierarchyOpen = true;
     private Vector2 _hierarchyScroll;
@@ -57,7 +59,7 @@ public class CS_MayaPreviewInspector : MonoBehaviour
     {
         Vector2 point = new Vector2(screenPosition.x, Screen.height - screenPosition.y);
         if (HierarchyButton.Contains(point) || (_hierarchyOpen && HierarchyPanel.Contains(point))) return true;
-        if (_typing || (_selection.SelectedObject != null && Panel.Contains(point))) return true;
+        if (InspectorButton.Contains(point) || _typing || (_inspectorOpen && _selection.SelectedObject != null && Panel.Contains(point))) return true;
         foreach (Rect rect in _iconRects) if (rect.Contains(point)) return true;
         return false;
     }
@@ -66,6 +68,8 @@ public class CS_MayaPreviewInspector : MonoBehaviour
     {
         _iconRects.Clear();
         DrawHierarchy();
+        if (GUI.Button(InspectorButton, _inspectorOpen ? "Inspector  -" : "Inspector  +"))
+        { _inspectorOpen = !_inspectorOpen; GUI.FocusControl(null); _typing = false; }
         foreach (var light in _lights) if (light != null) WorldIcon(light.gameObject, true);
         foreach (var camera in _cameras) if (camera != null && camera != _view) WorldIcon(camera.gameObject, false);
 
@@ -75,12 +79,11 @@ public class CS_MayaPreviewInspector : MonoBehaviour
             _editing = target; _fields.Clear(); _scroll = Vector2.zero;
             GUI.FocusControl(null); _typing = false;
         }
-        if (target == null) return;
+        if (target == null || !_inspectorOpen) return;
         DrawPanel(Panel);
         GUILayout.BeginArea(Panel);
         GUILayout.BeginHorizontal();
         GUILayout.Label("Inspector - " + target.name);
-        if (GUILayout.Button("X", GUILayout.Width(26))) _selection.SelectObject(null);
         GUILayout.EndHorizontal();
         _scroll = GUILayout.BeginScrollView(_scroll);
         Transform t = target.transform;
@@ -319,7 +322,7 @@ public class CS_MayaPreviewInspector : MonoBehaviour
         Vector3 point = _view.WorldToScreenPoint(target.transform.position);
         if (point.z <= _view.nearClipPlane || !_view.pixelRect.Contains(point)) return;
         Rect rect = new Rect(point.x - 16, Screen.height - point.y - 16, 32, 32);
-        if (_selection.SelectedObject != null && Panel.Overlaps(rect)) return;
+        if ((_inspectorOpen && _selection.SelectedObject != null && Panel.Overlaps(rect)) || InspectorButton.Overlaps(rect)) return;
         if ((_hierarchyOpen && HierarchyPanel.Overlaps(rect)) || HierarchyButton.Overlaps(rect)
             || (rect.x > Screen.width - 54 && rect.y < 54)) return;
         Icon(target, sun, rect);

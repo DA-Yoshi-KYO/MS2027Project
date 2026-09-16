@@ -1,0 +1,734 @@
+{
+  "materials": [
+    {
+      "index": 0,
+      "name": "N00_000_00_FaceMouth_00_FACE (Instance)",
+      "baseColorTexture": "00__01.png",
+      "normalTexture": "02_Shader_NoneNormal.png",
+      "emissionTexture": "01_Shader_NoneBlack.png",
+      "baseColorFactor": [
+        1,
+        1,
+        1,
+        1
+      ],
+      "metallicFactor": 0,
+      "roughnessFactor": 0.9,
+      "emissiveFactor": [
+        0,
+        0,
+        0
+      ],
+      "alphaMode": "MASK",
+      "alphaCutoff": 0.5,
+      "doubleSided": false
+    },
+    {
+      "index": 1,
+      "name": "N00_000_00_EyeIris_00_EYE (Instance)",
+      "baseColorTexture": "03__02.png",
+      "normalTexture": "02_Shader_NoneNormal.png",
+      "emissionTexture": "01_Shader_NoneBlack.png",
+      "baseColorFactor": [
+        1,
+        1,
+        1,
+        1
+      ],
+      "metallicFactor": 0,
+      "roughnessFactor": 0.9,
+      "emissiveFactor": [
+        0,
+        0,
+        0
+      ],
+      "alphaMode": "BLEND",
+      "alphaCutoff": 0.5,
+      "doubleSided": false
+    },
+    {
+      "index": 2,
+      "name": "N00_000_00_Face_00_SKIN (Instance)",
+      "baseColorTexture": "04__04.png",
+      "normalTexture": "05__05.png",
+      "emissionTexture": "01_Shader_NoneBlack.png",
+      "baseColorFactor": [
+        1,
+        1,
+        1,
+        1
+      ],
+      "metallicFactor": 0,
+      "roughnessFactor": 0.9,
+      "emissiveFactor": [
+        0,
+        0,
+        0
+      ],
+      "alphaMode": "MASK",
+      "alphaCutoff": 0.5,
+      "doubleSided": true
+    },
+    {
+      "index": 3,
+      "name": "N00_000_00_EyeWhite_00_EYE (Instance)",
+      "baseColorTexture": "06__06.png",
+      "normalTexture": "02_Shader_NoneNormal.png",
+      "emissionTexture": "01_Shader_NoneBlack.png",
+      "baseColorFactor": [
+        1,
+        1,
+        1,
+        1
+      ],
+      "metallicFactor": 0,
+      "roughnessFactor": 0.9,
+      "emissiveFactor": [
+        0,
+        0,
+        0
+      ],
+      "alphaMode": "MASK",
+      "alphaCutoff": 0.5,
+      "doubleSided": false
+    },
+    {
+      "index": 4,
+      "name": "N00_000_00_FaceBrow_00_FACE (Instance)",
+      "baseColorTexture": "07__07.png",
+      "normalTexture": "02_Shader_NoneNormal.png",
+      "emissionTexture": "01_Shader_NoneBlack.png",
+      "baseColorFactor": [
+        1,
+        1,
+        1,
+        1
+      ],
+      "metallicFactor": 0,
+      "roughnessFactor": 0.9,
+      "emissiveFactor": [
+        0,
+        0,
+        0
+      ],
+      "alphaMode": "BLEND",
+      "alphaCutoff": 0.5,
+      "doubleSided": true
+    },
+    {
+      "index": 5,
+      "name": "N00_000_00_FaceEyelash_00_FACE (Instance)",
+      "baseColorTexture": "08__08.png",
+      "normalTexture": "02_Shader_NoneNormal.png",
+      "emissionTexture": "01_Shader_NoneBlack.png",
+      "baseColorFactor": [
+        1,
+        1,
+        1,
+        1
+      ],
+      "metallicFactor": 0,
+      "roughnessFactor": 0.9,
+      "emissiveFactor": [
+        0,
+        0,
+        0
+      ],
+      "alphaMode": "BLEND",
+      "alphaCutoff": 0.5,
+      "doubleSided": true
+    },
+    {
+      "index": 6,
+      "name": "N00_000_00_FaceEyeline_00_FACE (Instance)",
+      "baseColorTexture": "09__09.png",
+      "normalTexture": "02_Shader_NoneNormal.png",
+      "emissionTexture": "01_Shader_NoneBlack.png",
+      "baseColorFactor": [
+        1,
+        1,
+        1,
+        1
+      ],
+      "metallicFactor": 0,
+      "roughnessFactor": 0.9,
+      "emissiveFactor": [
+        0,
+        0,
+        0
+      ],
+      "alphaMode": "BLEND",
+      "alphaCutoff": 0.5,
+      "doubleSided": true
+    },
+    {
+      "index": 7,
+      "name": "N00_000_00_Body_00_SKIN (Instance)",
+      "baseColorTexture": "10__10.png",
+      "normalTexture": "11__11.png",
+      "emissionTexture": "01_Shader_NoneBlack.png",
+      "baseColorFactor": [
+        1,
+        1,
+        1,
+        1
+      ],
+      "metallicFactor": 0,
+      "roughnessFactor": 0.9,
+      "emissiveFactor": [
+        0,
+        0,
+        0
+      ],
+      "alphaMode": "MASK",
+      "alphaCutoff": 0.5,
+      "doubleSided": false
+    },
+    {
+      "index": 8,
+      "name": "N00_000_00_HairBack_00_HAIR (Instance)",
+      "baseColorTexture": "12__12.png",
+      "normalTexture": "13_N00_000_00_HairBack_00_nml.png",
+      "emissionTexture": "01_Shader_NoneBlack.png",
+      "baseColorFactor": [
+        1,
+        1,
+        1,
+        1
+      ],
+      "metallicFactor": 0,
+      "roughnessFactor": 0.9,
+      "emissiveFactor": [
+        0.858823538,
+        0.694117665,
+        0.694117665
+      ],
+      "alphaMode": "MASK",
+      "alphaCutoff": 0.5,
+      "doubleSided": false
+    },
+    {
+      "index": 9,
+      "name": "N00_008_01_Shoes_01_CLOTH_01 (Instance)",
+      "baseColorTexture": "14__13.png",
+      "normalTexture": "02_Shader_NoneNormal.png",
+      "emissionTexture": "01_Shader_NoneBlack.png",
+      "baseColorFactor": [
+        1,
+        1,
+        1,
+        1
+      ],
+      "metallicFactor": 0,
+      "roughnessFactor": 0.9,
+      "emissiveFactor": [
+        0,
+        0,
+        0
+      ],
+      "alphaMode": "MASK",
+      "alphaCutoff": 0.5,
+      "doubleSided": true
+    },
+    {
+      "index": 10,
+      "name": "N00_007_01_Tops_01_CLOTH_01 (Instance)",
+      "baseColorTexture": "15__14.png",
+      "normalTexture": "02_Shader_NoneNormal.png",
+      "emissionTexture": "01_Shader_NoneBlack.png",
+      "baseColorFactor": [
+        1,
+        1,
+        1,
+        1
+      ],
+      "metallicFactor": 0,
+      "roughnessFactor": 0.9,
+      "emissiveFactor": [
+        0,
+        0,
+        0
+      ],
+      "alphaMode": "MASK",
+      "alphaCutoff": 0.5,
+      "doubleSided": true
+    },
+    {
+      "index": 11,
+      "name": "N00_002_03_Tops_01_CLOTH_01 (Instance)",
+      "baseColorTexture": "16__15.png",
+      "normalTexture": "02_Shader_NoneNormal.png",
+      "emissionTexture": "01_Shader_NoneBlack.png",
+      "baseColorFactor": [
+        1,
+        1,
+        1,
+        1
+      ],
+      "metallicFactor": 0,
+      "roughnessFactor": 0.9,
+      "emissiveFactor": [
+        0,
+        0,
+        0
+      ],
+      "alphaMode": "MASK",
+      "alphaCutoff": 0.5,
+      "doubleSided": true
+    },
+    {
+      "index": 12,
+      "name": "N00_002_03_Tops_01_CLOTH_02 (Instance)",
+      "baseColorTexture": "17__16.png",
+      "normalTexture": "02_Shader_NoneNormal.png",
+      "emissionTexture": "01_Shader_NoneBlack.png",
+      "baseColorFactor": [
+        1,
+        1,
+        1,
+        1
+      ],
+      "metallicFactor": 0,
+      "roughnessFactor": 0.9,
+      "emissiveFactor": [
+        0,
+        0,
+        0
+      ],
+      "alphaMode": "MASK",
+      "alphaCutoff": 0.5,
+      "doubleSided": true
+    },
+    {
+      "index": 13,
+      "name": "N00_002_03_Tops_01_CLOTH_03 (Instance)",
+      "baseColorTexture": "18__17.png",
+      "normalTexture": "02_Shader_NoneNormal.png",
+      "emissionTexture": "01_Shader_NoneBlack.png",
+      "baseColorFactor": [
+        1,
+        1,
+        1,
+        1
+      ],
+      "metallicFactor": 0,
+      "roughnessFactor": 0.9,
+      "emissiveFactor": [
+        0,
+        0,
+        0
+      ],
+      "alphaMode": "MASK",
+      "alphaCutoff": 0.5,
+      "doubleSided": true
+    },
+    {
+      "index": 14,
+      "name": "N00_008_01_Shoes_01_CLOTH_02 (Instance)",
+      "baseColorTexture": "19__18.png",
+      "normalTexture": "02_Shader_NoneNormal.png",
+      "emissionTexture": "01_Shader_NoneBlack.png",
+      "baseColorFactor": [
+        1,
+        1,
+        1,
+        1
+      ],
+      "metallicFactor": 0,
+      "roughnessFactor": 0.9,
+      "emissiveFactor": [
+        0,
+        0,
+        0
+      ],
+      "alphaMode": "MASK",
+      "alphaCutoff": 0.5,
+      "doubleSided": true
+    },
+    {
+      "index": 15,
+      "name": "N00_010_01_Onepiece_00_CLOTH (Instance)",
+      "baseColorTexture": "20__19.png",
+      "normalTexture": "02_Shader_NoneNormal.png",
+      "emissionTexture": "01_Shader_NoneBlack.png",
+      "baseColorFactor": [
+        1,
+        1,
+        1,
+        1
+      ],
+      "metallicFactor": 0,
+      "roughnessFactor": 0.9,
+      "emissiveFactor": [
+        0,
+        0,
+        0
+      ],
+      "alphaMode": "MASK",
+      "alphaCutoff": 0.5,
+      "doubleSided": true
+    },
+    {
+      "index": 16,
+      "name": "N00_007_01_Tops_01_CLOTH_02 (Instance)",
+      "baseColorTexture": "21__20.png",
+      "normalTexture": "02_Shader_NoneNormal.png",
+      "emissionTexture": "01_Shader_NoneBlack.png",
+      "baseColorFactor": [
+        1,
+        1,
+        1,
+        1
+      ],
+      "metallicFactor": 0,
+      "roughnessFactor": 0.9,
+      "emissiveFactor": [
+        0,
+        0,
+        0
+      ],
+      "alphaMode": "MASK",
+      "alphaCutoff": 0.5,
+      "doubleSided": true
+    },
+    {
+      "index": 17,
+      "name": "N00_007_01_Tops_01_CLOTH_03 (Instance)",
+      "baseColorTexture": "22__21.png",
+      "normalTexture": "02_Shader_NoneNormal.png",
+      "emissionTexture": "01_Shader_NoneBlack.png",
+      "baseColorFactor": [
+        1,
+        1,
+        1,
+        1
+      ],
+      "metallicFactor": 0,
+      "roughnessFactor": 0.9,
+      "emissiveFactor": [
+        0,
+        0,
+        0
+      ],
+      "alphaMode": "MASK",
+      "alphaCutoff": 0.5,
+      "doubleSided": true
+    },
+    {
+      "index": 18,
+      "name": "N00_000_Hair_00_HAIR_01 (Instance)",
+      "baseColorTexture": "23__22.png",
+      "normalTexture": "25_N00_000_Hair_00_nml_01.png",
+      "emissionTexture": "24__23.png",
+      "baseColorFactor": [
+        1,
+        1,
+        1,
+        1
+      ],
+      "metallicFactor": 0,
+      "roughnessFactor": 0.9,
+      "emissiveFactor": [
+        0,
+        0,
+        0
+      ],
+      "alphaMode": "MASK",
+      "alphaCutoff": 0.5,
+      "doubleSided": true
+    },
+    {
+      "index": 19,
+      "name": "N00_000_Hair_00_HAIR_03 (Instance)",
+      "baseColorTexture": "26__26.png",
+      "normalTexture": "28_N00_000_Hair_00_nml_03.png",
+      "emissionTexture": "27__27.png",
+      "baseColorFactor": [
+        1,
+        1,
+        1,
+        1
+      ],
+      "metallicFactor": 0,
+      "roughnessFactor": 0.9,
+      "emissiveFactor": [
+        0,
+        0,
+        0
+      ],
+      "alphaMode": "MASK",
+      "alphaCutoff": 0.5,
+      "doubleSided": true
+    },
+    {
+      "index": 20,
+      "name": "N00_000_Hair_00_HAIR_04 (Instance)",
+      "baseColorTexture": "29__28.png",
+      "normalTexture": "31_N00_000_Hair_00_nml_04.png",
+      "emissionTexture": "30__29.png",
+      "baseColorFactor": [
+        1,
+        1,
+        1,
+        1
+      ],
+      "metallicFactor": 0,
+      "roughnessFactor": 0.9,
+      "emissiveFactor": [
+        0,
+        0,
+        0
+      ],
+      "alphaMode": "MASK",
+      "alphaCutoff": 0.5,
+      "doubleSided": true
+    }
+  ],
+  "textures": [
+    {
+      "index": 0,
+      "name": "_01",
+      "file": "00__01.png",
+      "width": 512,
+      "height": 512
+    },
+    {
+      "index": 1,
+      "name": "Shader_NoneBlack",
+      "file": "01_Shader_NoneBlack.png",
+      "width": 8,
+      "height": 8
+    },
+    {
+      "index": 2,
+      "name": "Shader_NoneNormal",
+      "file": "02_Shader_NoneNormal.png",
+      "width": 8,
+      "height": 8
+    },
+    {
+      "index": 3,
+      "name": "_02",
+      "file": "03__02.png",
+      "width": 1024,
+      "height": 512
+    },
+    {
+      "index": 4,
+      "name": "_04",
+      "file": "04__04.png",
+      "width": 1024,
+      "height": 1024
+    },
+    {
+      "index": 5,
+      "name": "_05",
+      "file": "05__05.png",
+      "width": 1024,
+      "height": 1024
+    },
+    {
+      "index": 6,
+      "name": "_06",
+      "file": "06__06.png",
+      "width": 1024,
+      "height": 512
+    },
+    {
+      "index": 7,
+      "name": "_07",
+      "file": "07__07.png",
+      "width": 1024,
+      "height": 256
+    },
+    {
+      "index": 8,
+      "name": "_08",
+      "file": "08__08.png",
+      "width": 1024,
+      "height": 256
+    },
+    {
+      "index": 9,
+      "name": "_09",
+      "file": "09__09.png",
+      "width": 1024,
+      "height": 256
+    },
+    {
+      "index": 10,
+      "name": "_10",
+      "file": "10__10.png",
+      "width": 2048,
+      "height": 2048
+    },
+    {
+      "index": 11,
+      "name": "_11",
+      "file": "11__11.png",
+      "width": 2048,
+      "height": 2048
+    },
+    {
+      "index": 12,
+      "name": "_12",
+      "file": "12__12.png",
+      "width": 1024,
+      "height": 1024
+    },
+    {
+      "index": 13,
+      "name": "N00_000_00_HairBack_00_nml",
+      "file": "13_N00_000_00_HairBack_00_nml.png",
+      "width": 512,
+      "height": 512
+    },
+    {
+      "index": 14,
+      "name": "_13",
+      "file": "14__13.png",
+      "width": 512,
+      "height": 1024
+    },
+    {
+      "index": 15,
+      "name": "_14",
+      "file": "15__14.png",
+      "width": 2048,
+      "height": 2048
+    },
+    {
+      "index": 16,
+      "name": "_15",
+      "file": "16__15.png",
+      "width": 2048,
+      "height": 2048
+    },
+    {
+      "index": 17,
+      "name": "_16",
+      "file": "17__16.png",
+      "width": 2048,
+      "height": 2048
+    },
+    {
+      "index": 18,
+      "name": "_17",
+      "file": "18__17.png",
+      "width": 2048,
+      "height": 2048
+    },
+    {
+      "index": 19,
+      "name": "_18",
+      "file": "19__18.png",
+      "width": 512,
+      "height": 1024
+    },
+    {
+      "index": 20,
+      "name": "_19",
+      "file": "20__19.png",
+      "width": 2048,
+      "height": 2048
+    },
+    {
+      "index": 21,
+      "name": "_20",
+      "file": "21__20.png",
+      "width": 2048,
+      "height": 2048
+    },
+    {
+      "index": 22,
+      "name": "_21",
+      "file": "22__21.png",
+      "width": 2048,
+      "height": 2048
+    },
+    {
+      "index": 23,
+      "name": "_22",
+      "file": "23__22.png",
+      "width": 512,
+      "height": 1024
+    },
+    {
+      "index": 24,
+      "name": "_23",
+      "file": "24__23.png",
+      "width": 512,
+      "height": 1024
+    },
+    {
+      "index": 25,
+      "name": "N00_000_Hair_00_nml_01",
+      "file": "25_N00_000_Hair_00_nml_01.png",
+      "width": 512,
+      "height": 1024
+    },
+    {
+      "index": 26,
+      "name": "_26",
+      "file": "26__26.png",
+      "width": 512,
+      "height": 1024
+    },
+    {
+      "index": 27,
+      "name": "_27",
+      "file": "27__27.png",
+      "width": 512,
+      "height": 1024
+    },
+    {
+      "index": 28,
+      "name": "N00_000_Hair_00_nml_03",
+      "file": "28_N00_000_Hair_00_nml_03.png",
+      "width": 512,
+      "height": 1024
+    },
+    {
+      "index": 29,
+      "name": "_28",
+      "file": "29__28.png",
+      "width": 512,
+      "height": 1024
+    },
+    {
+      "index": 30,
+      "name": "_29",
+      "file": "30__29.png",
+      "width": 512,
+      "height": 1024
+    },
+    {
+      "index": 31,
+      "name": "N00_000_Hair_00_nml_04",
+      "file": "31_N00_000_Hair_00_nml_04.png",
+      "width": 512,
+      "height": 1024
+    },
+    {
+      "index": 32,
+      "name": "Thumbnail",
+      "file": "32_Thumbnail.png",
+      "width": 2048,
+      "height": 2048
+    },
+    {
+      "index": 33,
+      "name": "MatcapWarp",
+      "file": "33_MatcapWarp.png",
+      "width": 8,
+      "height": 8
+    },
+    {
+      "index": 34,
+      "name": "N00_000_00_Face_00_out",
+      "file": "34_N00_000_00_Face_00_out.png",
+      "width": 256,
+      "height": 256
+    }
+  ]
+}

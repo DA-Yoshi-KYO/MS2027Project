@@ -682,6 +682,18 @@ public class CS_MayaPreviewRuntimeServer : MonoBehaviour
         // MeshçXêV
         // =====================================================
 
+        // The legacy payload has no face-vertex normals. Split triangle corners
+        // so RecalculateNormals does not smooth across hard edges.
+        Vector3[] faceVertices = new Vector3[unityTriangles.Length];
+        int[] faceTriangles = new int[unityTriangles.Length];
+        for (int i = 0; i < unityTriangles.Length; i++)
+        {
+            faceVertices[i] = unityVertices[unityTriangles[i]];
+            faceTriangles[i] = i;
+        }
+        unityVertices = faceVertices;
+        unityTriangles = faceTriangles;
+
         mesh.Clear();
 
 
@@ -712,6 +724,7 @@ public class CS_MayaPreviewRuntimeServer : MonoBehaviour
         mesh.RecalculateNormals();
 
         mesh.RecalculateBounds();
+        CS_MayaPreviewSelection.NotifyMeshChanged(mesh);
 
 
         // =====================================================

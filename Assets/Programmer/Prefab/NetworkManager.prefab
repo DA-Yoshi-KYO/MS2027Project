@@ -11,6 +11,7 @@ GameObject:
   - component: {fileID: 8906613541744871842}
   - component: {fileID: 2122996947065201308}
   - component: {fileID: 546622562970425626}
+  - component: {fileID: 8901257750485465481}
   m_Layer: 0
   m_Name: NetworkManager
   m_TagString: Untagged
@@ -106,3 +107,15 @@ MonoBehaviour:
     PacketDelayMS: 0
     PacketJitterMS: 0
     PacketDropRate: 0
+--- !u!114 &8901257750485465481
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7919696997535826561}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d1205d4b3c27340449273f090e1e118a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CS_ConnectionGate

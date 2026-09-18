@@ -10,7 +10,7 @@ using UnityEngine;
 public sealed class TetoGameReadyImporter : AssetPostprocessor
 {
     private const string TargetFile = "Teto_GameReady.fbx";
-    private const string SetupMarker = "TetoGameReady_HDRP_v1";
+    private const string SetupMarker = "TetoGameReady_HDRP_v5";
 
     private struct MaterialSpec
     {
@@ -203,7 +203,22 @@ public sealed class TetoGameReadyImporter : AssetPostprocessor
         importer.userData = SetupMarker;
         importer.SaveAndReimport();
         AssetDatabase.SaveAssets();
-        Debug.Log("Teto_GameReady: HDRP Materials / Textures / Rig setup 完了");
+        
+        // Verify what Unity actually created from the FBX after the reimport.
+        GameObject importedModel = AssetDatabase.LoadAssetAtPath<GameObject>(fbxPath);
+        if (importedModel != null)
+        {
+            var renderers = importedModel.GetComponentsInChildren<SkinnedMeshRenderer>(true);
+            int blendShapeCount = 0;
+            foreach (var r in renderers)
+                if (r.sharedMesh != null) blendShapeCount += r.sharedMesh.blendShapeCount;
+
+            if (renderers.Length == 0)
+                Debug.LogError("Teto_GameReady: FBX は読み込まれましたが SkinnedMeshRenderer が 0 個です。FBX構造を確認してください。");
+            else
+                Debug.Log($"Teto_GameReady: Import OK / SkinnedMeshRenderer={renderers.Length} / BlendShapes={blendShapeCount} / Transforms={importedModel.GetComponentsInChildren<Transform>(true).Length}");
+        }
+        Debug.Log("Teto_GameReady: HDRP Materials / Textures / Generic Rig setup 完了");
     }
 
     private static Texture2D LoadTex(string root, string file)

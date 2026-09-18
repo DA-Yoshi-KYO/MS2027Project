@@ -1,191 +1,35 @@
 {
-  "fbx_bytes": 43378115,
+  "fbx_bytes": 16138234,
+  "brace_balance": 0,
+  "brace_min_balance": 0,
+  "object_count": 743,
+  "unique_object_ids": 743,
+  "duplicate_object_ids": 0,
+  "connections": 873,
+  "missing_connection_refs": [],
+  "geometry_objects": 60,
+  "model_objects": 236,
+  "nodeattribute_objects": 233,
+  "material_objects": 21,
+  "deformer_objects": 192,
+  "pose_objects": 1,
+  "contains_hips": true,
+  "contains_bind_pose": true,
+  "contains_documents": true,
+  "contains_cluster_transform": true,
+  "contains_cluster_transform_link": true,
+  "contains_cluster_associate": true,
   "triangles": 42965,
-  "vertices": [
-    28483,
-    103158,
-    48501
+  "mesh_vertices": [
+    4069,
+    9378,
+    16167
   ],
-  "bones": 233,
-  "materials": 21,
-  "textures": 35,
   "blendshapes": 57,
-  "texture_total_bytes": 8648296,
-  "texture_dimensions": [
-    {
-      "file": "00__01.png",
-      "width": 512,
-      "height": 512
-    },
-    {
-      "file": "01_Shader_NoneBlack.png",
-      "width": 8,
-      "height": 8
-    },
-    {
-      "file": "02_Shader_NoneNormal.png",
-      "width": 8,
-      "height": 8
-    },
-    {
-      "file": "03__02.png",
-      "width": 1024,
-      "height": 512
-    },
-    {
-      "file": "04__04.png",
-      "width": 1024,
-      "height": 1024
-    },
-    {
-      "file": "05__05.png",
-      "width": 1024,
-      "height": 1024
-    },
-    {
-      "file": "06__06.png",
-      "width": 1024,
-      "height": 512
-    },
-    {
-      "file": "07__07.png",
-      "width": 1024,
-      "height": 256
-    },
-    {
-      "file": "08__08.png",
-      "width": 1024,
-      "height": 256
-    },
-    {
-      "file": "09__09.png",
-      "width": 1024,
-      "height": 256
-    },
-    {
-      "file": "10__10.png",
-      "width": 2048,
-      "height": 2048
-    },
-    {
-      "file": "11__11.png",
-      "width": 2048,
-      "height": 2048
-    },
-    {
-      "file": "12__12.png",
-      "width": 1024,
-      "height": 1024
-    },
-    {
-      "file": "13_N00_000_00_HairBack_00_nml.png",
-      "width": 512,
-      "height": 512
-    },
-    {
-      "file": "14__13.png",
-      "width": 512,
-      "height": 1024
-    },
-    {
-      "file": "15__14.png",
-      "width": 2048,
-      "height": 2048
-    },
-    {
-      "file": "16__15.png",
-      "width": 2048,
-      "height": 2048
-    },
-    {
-      "file": "17__16.png",
-      "width": 2048,
-      "height": 2048
-    },
-    {
-      "file": "18__17.png",
-      "width": 2048,
-      "height": 2048
-    },
-    {
-      "file": "19__18.png",
-      "width": 512,
-      "height": 1024
-    },
-    {
-      "file": "20__19.png",
-      "width": 2048,
-      "height": 2048
-    },
-    {
-      "file": "21__20.png",
-      "width": 2048,
-      "height": 2048
-    },
-    {
-      "file": "22__21.png",
-      "width": 2048,
-      "height": 2048
-    },
-    {
-      "file": "23__22.png",
-      "width": 512,
-      "height": 1024
-    },
-    {
-      "file": "24__23.png",
-      "width": 512,
-      "height": 1024
-    },
-    {
-      "file": "25_N00_000_Hair_00_nml_01.png",
-      "width": 512,
-      "height": 1024
-    },
-    {
-      "file": "26__26.png",
-      "width": 512,
-      "height": 1024
-    },
-    {
-      "file": "27__27.png",
-      "width": 512,
-      "height": 1024
-    },
-    {
-      "file": "28_N00_000_Hair_00_nml_03.png",
-      "width": 512,
-      "height": 1024
-    },
-    {
-      "file": "29__28.png",
-      "width": 512,
-      "height": 1024
-    },
-    {
-      "file": "30__29.png",
-      "width": 512,
-      "height": 1024
-    },
-    {
-      "file": "31_N00_000_Hair_00_nml_04.png",
-      "width": 512,
-      "height": 1024
-    },
-    {
-      "file": "32_Thumbnail.png",
-      "width": 2048,
-      "height": 2048
-    },
-    {
-      "file": "33_MatcapWarp.png",
-      "width": 8,
-      "height": 8
-    },
-    {
-      "file": "34_N00_000_00_Face_00_out.png",
-      "width": 256,
-      "height": 256
-    }
-  ]
+  "joints": 233,
+  "used_skin_joints": 129,
+  "materials": 21,
+  "textures_png": 35,
+  "max_bind_identity_residual": 0.0,
+  "bind_test_pass": true
 }

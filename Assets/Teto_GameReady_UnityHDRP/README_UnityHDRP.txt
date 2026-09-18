@@ -1,36 +1,61 @@
-Teto GameReady Unity HDRP Bundle
-================================
+Teto GameReady Unity HDRP v5
 
-Source: 重音テトSV　麻十a十式v1.5.vrm
-FBX: Models/Teto_GameReady.fbx (FBX 7.4 ASCII)
-Triangles: 42,965 (no polygon reduction)
-Skinned meshes: 3
-Bones/Joints: 233
-Materials: 21
-Extracted PNG textures: 35 (original resolution; no resizing)
-Face BlendShapes: 57
+目的
+- 元VRMをポリゴン削減せずFBX化
+- Skeleton / Skin Weight / BindPose / BlendShapeをFBXへ保持
+- 元VRM内の35画像を個別PNGとしてそのまま外出し
+- Unity 6.x HDRPでHDRP/Lit Materialを自動生成・Remap
+- RigはGeneric。Humanoid化は自動では行わない
 
-Unity 6.x / HDRP import
------------------------
-1. Copy the entire Teto_GameReady_UnityHDRP folder under your Unity project's Assets/.
-2. Let Unity compile Editor/TetoGameReadyImporter.cs.
-3. The script detects Models/Teto_GameReady.fbx, creates Materials/*.mat using HDRP/Lit, assigns BaseColor/Normal/Emission textures, configures alpha/double-sided settings, remaps the FBX material slots, and reimports the model.
-4. It also tries to create a Humanoid Avatar using the original VRM humanoid mapping. If Humanoid setup fails, it falls back to Generic.
-5. If assets were imported before the Editor script compiled, run Tools > Teto GameReady > Rebuild HDRP Materials.
+v5の重要修正
+- v4でSkin ClusterのTransformを誤ってmesh bind(identity)として書いていたため、Unityで首・腕・胴体などがボーン方向へ伸びていた。
+- v5ではFBXの一般的なSkin Cluster構造に合わせ、
+    Transform              = boneWorld^-1 * meshWorld
+    TransformLink          = boneWorld
+    TransformAssociateModel= skeletonRootWorld
+  とした。
+- このVRMではmeshWorldとskeletonRootWorldがidentityなので、Transformは元VRMのinverseBindMatrixそのものになる。
+- 全使用ボーンについて TransformLink * Transform = identity になることを数値検証済み。
 
-Notes
------
-- No polygon decimation.
-- No texture resizing/compression was performed in the files here. Unity may apply its own platform texture compression at import/build time.
-- VRM/MToon-specific toon shading is intentionally replaced by Unity HDRP/Lit as requested. Therefore the exact VRM toon look is not guaranteed to match 1:1; texture/material slot correspondence is preserved.
-- BlendShape/morph target data is included in the FBX for the face mesh.
-- MaterialMap.json records the original VRM material-to-texture mapping.
+元モデル統計
+- Mesh: 3 (Face / Body / Hair)
+- Vertices: 4069 / 9378 / 16167
+- Triangles: 7128 + 15401 + 20436 = 42965
+- Skeleton joints: 233
+- Skinで実際に使用されるjoint: 129
+- Materials: 21
+- BlendShapes: 57
+- PNG images: 35
 
-License
--------
-The source VRM metadata indicates non-commercial/CC BY-NC style restrictions. Confirm the model author's terms before commercial distribution.
+Unityへの導入
+1. Assets内に以前の Teto_GameReady_UnityHDRP フォルダがある場合は削除する。
+2. この Teto_GameReady_UnityHDRP フォルダだけをAssets以下へコピーする。
+3. UnityのImportが終わるまで待つ。
+4. Tools > Teto GameReady > Rebuild HDRP Materials を実行する。
+5. Consoleに以下のような表示が出ることを確認する。
+   Teto_GameReady: Import OK / SkinnedMeshRenderer=3 / BlendShapes=57 / Transforms=...
+6. Models/Teto_GameReady.fbx をSceneまたはHierarchyへドラッグする。
 
-[2026-09-15 修正]
-- 自動ImporterがHumanoid Avatarを強制生成していたため、Unity環境によって "Required human bone Hips not found" が出る問題を修正。
-- マテリアル/テクスチャ自動設定とRig設定を分離し、Rigは安全なGenericでImportするよう変更。
-- FBX内のスキン、ボーン、BlendShapeは保持。Humanoidリターゲットが必要な場合はRigタブから別途設定する。
+フォルダ
+- Models/Teto_GameReady.fbx : FBX本体
+- Textures/*.png             : 元VRMから無変換で取り出したPNG
+- MaterialMap.json           : MaterialとTextureの対応
+- Editor/TetoGameReadyImporter.cs : HDRP/Lit Material自動生成・自動Remap
+- Validation.json            : 変換後FBXの構造検証結果
+
+Validationの主な確認項目
+- 42965 triangles
+- 233 joints
+- 57 BlendShapes
+- Object ID重複なし
+- Connection参照切れなし
+- FBX括弧構造正常
+- Hips存在
+- BindPose存在
+- Cluster Transform / TransformLink / TransformAssociateModel存在
+- bind matrix residual = 0.0
+
+注意
+- 今回は前回までの自作Bind行列の誤りを修正した版。
+- Unity Editorそのものはこの実行環境では起動できないため、最終レンダリング確認だけはUnity側で行う必要がある。
+- Humanoid Avatar化は別工程。まずGenericでSkinned Meshが正しく見えることを確認する。

@@ -3,7 +3,8 @@
 # PRを追加し、以下のフィールドを初期値としてセットする。
 #
 #   Status:     In Progress
-#   Start date: ブランチ作成日 (base branchとの分岐点=merge-baseのコミット日時)
+#   Start date: ブランチ作成日 (Activity APIのbranch_creation日時。
+#               取得できない場合は base branchとの分岐点=merge-baseのコミット日時)
 #   End date:   PR作成日
 #
 # フィールドID/選択肢IDはハードコードせず、毎回名前で検索して解決する
@@ -129,14 +130,39 @@ jobs:
               );
             }
 
-            // 4. Start date = ブランチ作成日 (base branchとのmerge-baseコミット日時)
+            // 4. Start date = ブランチ作成日 (Activity APIのbranch_creation日時)
+            //    取得できない場合 (作成イベントが無い等) は base branchとのmerge-baseコミット日時で代替する
             if (startDateField) {
-              const { data: compare } = await github.rest.repos.compareCommitsWithBasehead({
-                owner,
-                repo,
-                basehead: `${pr.base.sha}...${pr.head.sha}`,
-              });
-              const startDate = compare.merge_base_commit.commit.committer.date.slice(0, 10);
+              let startDate;
+              try {
+                const headRepo = pr.head.repo;
+                const { data: activities } = await github.request(
+                  "GET /repos/{owner}/{repo}/activity",
+                  {
+                    owner: headRepo.owner.login,
+                    repo: headRepo.name,
+                    ref: `refs/heads/${pr.head.ref}`,
+                    activity_type: "branch_creation",
+                    per_page: 1, // 新しい順。削除→再作成された場合は最新の作成日を使う
+                  }
+                );
+                if (activities.length > 0) {
+                  startDate = activities[0].timestamp.slice(0, 10);
+                  console.log(`ブランチ作成日(Activity API): ${activities[0].timestamp}`);
+                }
+              } catch (e) {
+                console.log(`Activity APIでブランチ作成日を取得できませんでした: ${e.message}`);
+              }
+
+              if (!startDate) {
+                const { data: compare } = await github.rest.repos.compareCommitsWithBasehead({
+                  owner,
+                  repo,
+                  basehead: `${pr.base.sha}...${pr.head.sha}`,
+                });
+                startDate = compare.merge_base_commit.commit.committer.date.slice(0, 10);
+                console.log(`ブランチ作成日が取得できないためmerge-baseの日時を使用: ${startDate}`);
+              }
               await setFieldValue(startDateField.id, { date: startDate }, `Start date「${startDate}」`);
             }
 

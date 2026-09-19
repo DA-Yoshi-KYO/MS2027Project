@@ -5,13 +5,15 @@
 #   - gollum (Wikiのページ作成・更新)
 #   - repository_dispatch (type: confluence-page-updated)
 #       sync-spec-pages.yml と同じ Confluence Automation のルールを共用する(追加設定不要)
+#   - schedule (1時間ごと。Confluence側の編集をAutomation無しでも取り込むための保険。
+#       変更がなければ何もせず終了する。ずらした分(17分)は毎正時の混雑を避けるため)
 #   - workflow_dispatch (手動実行。dry_run / force_direction を指定可能)
 #
 # 事前準備 (Settings > Secrets and variables > Actions):
 #   Secrets:   CONFLUENCE_EMAIL, CONFLUENCE_API_TOKEN (sync-spec-pages.ymlと共用)
 #              DISCORD_WEBHOOK_PLANNER (衝突・エラー通知。未設定なら通知なし)
 #   Variables: CONFLUENCE_BASE_URL, CONFLUENCE_SPACE_KEY (sync-spec-pages.ymlと共用)
-#              WIKI_SYNC_ENABLED  "true" にするまで gollum / repository_dispatch 起動では何もしない
+#              WIKI_SYNC_ENABLED  "true" にするまで gollum / repository_dispatch / schedule 起動では何もしない
 #
 # 導入手順:
 #   1. 手動実行(dry_run=true)で、作成・更新される内容をログで確認する
@@ -31,6 +33,8 @@ on:
   gollum:
   repository_dispatch:
     types: [confluence-page-updated]
+  schedule:
+    - cron: "17 * * * *"
   workflow_dispatch:
     inputs:
       dry_run:

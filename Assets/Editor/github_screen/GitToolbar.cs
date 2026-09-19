@@ -61,13 +61,23 @@ namespace MS2027.EditorTools
         private static MainToolbarElement CreateLabel(string text)
         {
             var label = new MainToolbarLabel(new MainToolbarContent(text, current.Detail ?? current.Status));
-            label.populateContextMenu = menu =>
-            {
-                menu.AppendAction("今すぐ再確認", _ => Refresh());
-                menu.AppendAction("Gitの実行ファイルを指定…", _ => SelectGit());
-                menu.AppendAction("Gitの自動検出に戻す", _ => ResetGit());
-            };
+            label.populateContextMenu = PopulateGitMenu;
             return label;
+        }
+
+        private static void PopulateGitMenu(DropdownMenu menu)
+        {
+            menu.AppendAction("今すぐ再確認", _ => Refresh());
+            menu.AppendAction("Gitの実行ファイルを指定…", _ => SelectGit());
+            menu.AppendAction("Gitの自動検出に戻す", _ => ResetGit());
+        }
+
+        private static void OnGitContextMenu(ContextualMenuPopulateEvent evt)
+        {
+            // Own this menu before Unity's overlay handlers append their Hide action.
+            evt.menu.MenuItems().Clear();
+            PopulateGitMenu(evt.menu);
+            evt.StopImmediatePropagation();
         }
 
         private static string Escape(string text) => (text ?? "").Replace("&", "&amp;").Replace("<", "&lt;").Replace(">", "&gt;");
@@ -169,6 +179,8 @@ namespace MS2027.EditorTools
 
         private static void StyleLabel(VisualElement root)
         {
+            root.UnregisterCallback<ContextualMenuPopulateEvent>(OnGitContextMenu, TrickleDown.TrickleDown);
+            root.RegisterCallback<ContextualMenuPopulateEvent>(OnGitContextMenu, TrickleDown.TrickleDown);
             // Replace Unity's automatically appended drag instructions on our own elements only.
             root.tooltip = current.Detail ?? current.Status;
             root.Query<VisualElement>().ForEach(element =>

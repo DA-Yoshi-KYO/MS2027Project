@@ -1,3 +1,12 @@
+/* ================================================
+ * Unity上部にブランチ名とdevelopの最新状況を表示するクラス
+ * ================================================
+ * 制作者：吉本竜
+ * ------------------------------------------------
+ * 2026-09-20 | 初回作成
+ * 2026-09-20 | ファイル名に合わせてクラス名をCSED_GitToolbarに変更
+ *            | 日本語コメントを追加
+ * ================================================ */
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -15,18 +24,21 @@ using UnityEngine.UIElements;
 namespace MS2027.EditorTools
 {
     [InitializeOnLoad]
-    internal static class GitToolbar
+    internal static class CSED_GitToolbar
     {
+        // 登録先と各PCのGit設定。既存設定を引き継ぐため保存キー名は維持する。
         private const string ToolbarPath = "Git/ブランチとdevelop";
         private const string StatusPath = "Git/developの最新状況";
         private const string GitPreference = "MS2027.GitToolbar.Executable";
         private static readonly string ProjectRoot = Path.GetFullPath(Path.Combine(Application.dataPath, ".."));
         private static readonly CancellationTokenSource Lifetime = new CancellationTokenSource();
+        // バックグラウンドの確認結果をUpdateで受け取り、画面へ反映する。
         private static Task<Snapshot> pending;
         private static Snapshot current = new Snapshot { Branch = "確認中…", Status = "develop: 確認中…" };
         private static double nextCheck;
         private static bool refreshRequested;
         private static string executable;
+        // 通信は60秒間隔。前回確認したリモートのコミットと通信結果を保持する。
         private static string remoteHash;
         private static string remoteError;
         private static DateTime remoteChecked;
@@ -36,25 +48,37 @@ namespace MS2027.EditorTools
         private static double nextVisibilityCheck;
         private static double nextLayoutCheck;
 
-        static GitToolbar()
+        /// <summary>
+        /// Unity起動・再コンパイル時に更新処理と終了処理を登録する。
+        /// </summary>
+        static CSED_GitToolbar()
         {
             EditorApplication.update += Update;
             AssemblyReloadEvents.beforeAssemblyReload += Stop;
             EditorApplication.quitting += Stop;
         }
 
+        /// <summary>
+        /// 現在のブランチ名を左側のツールバー項目として生成する。
+        /// </summary>
         [MainToolbarElement(ToolbarPath, defaultDockPosition = MainToolbarDockPosition.Left, defaultDockIndex = 100)]
         private static MainToolbarElement CreateToolbar()
         {
             return CreateLabel("Git: " + Escape(current.Branch));
         }
 
+        /// <summary>
+        /// developの取り込み状況を右側のツールバー項目として生成する。
+        /// </summary>
         [MainToolbarElement(StatusPath, defaultDockPosition = MainToolbarDockPosition.Right, defaultDockIndex = 0)]
         private static MainToolbarElement CreateStatus()
         {
             return CreateLabel(StatusText());
         }
 
+        /// <summary>
+        /// 最新は緑、未取り込み・確認できない状態は黄色の表示文字列にする。
+        /// </summary>
         private static string StatusText()
         {
             string status = Escape(current.Status);
@@ -63,6 +87,9 @@ namespace MS2027.EditorTools
             return status;
         }
 
+        /// <summary>
+        /// 表示ラベルに簡略ツールチップとGit専用メニューを設定する。
+        /// </summary>
         private static MainToolbarElement CreateLabel(string text)
         {
             var label = new MainToolbarLabel(new MainToolbarContent(text, current.Detail ?? current.Status));
@@ -70,6 +97,9 @@ namespace MS2027.EditorTools
             return label;
         }
 
+        /// <summary>
+        /// 再確認とGit実行ファイルの設定だけをメニューへ追加する。
+        /// </summary>
         private static void PopulateGitMenu(DropdownMenu menu)
         {
             menu.AppendAction("今すぐ再確認", _ => Refresh());
@@ -77,16 +107,25 @@ namespace MS2027.EditorTools
             menu.AppendAction("Gitの自動検出に戻す", _ => ResetGit());
         }
 
+        /// <summary>
+        /// Unity標準のHide項目を追加させず、Git専用メニューへ置き換える。
+        /// </summary>
         private static void OnGitContextMenu(ContextualMenuPopulateEvent evt)
         {
-            // Own this menu before Unity's overlay handlers append their Hide action.
+            // UnityのオーバーレイがHideを追加する前に、このメニューの処理を完了する。
             evt.menu.MenuItems().Clear();
             PopulateGitMenu(evt.menu);
             evt.StopImmediatePropagation();
         }
 
+        /// <summary>
+        /// ブランチ名の記号がリッチテキストのタグとして解釈されるのを防ぐ。
+        /// </summary>
         private static string Escape(string text) => (text ?? "").Replace("&", "&amp;").Replace("<", "&lt;").Replace(">", "&gt;");
 
+        /// <summary>
+        /// 表示調整、確認結果の反映、約5秒ごとの非同期Git確認を進める。
+        /// </summary>
         private static void Update()
         {
             if (Lifetime.IsCancellationRequested) return;
@@ -102,8 +141,8 @@ namespace MS2027.EditorTools
                 current = pending.Status == TaskStatus.RanToCompletion ? pending.Result :
                     new Snapshot { Branch = current.Branch, Status = "Git: 確認できません", Warning = true };
                 pending = null;
-                // Keep the existing elements and their measured widths; rebuilding briefly
-                // restores Unity's default width and makes the neighbouring tools jump.
+                // 要素と計測済みの幅を維持する。作り直すと一瞬だけ既定の幅に戻り、
+                // 隣のツール類が左右に揺れるため、文字だけを更新する。
                 ApplyToolbarLayout();
             }
             if (refreshRequested)
@@ -119,9 +158,12 @@ namespace MS2027.EditorTools
             pending = Task.Run(() => ReadStatus(configured, Lifetime.Token));
         }
 
+        /// <summary>
+        /// 文字の省略を解除し、左右の文字幅に左右されず再生ボタン類を中央に置く。
+        /// </summary>
         private static void ApplyToolbarLayout()
         {
-            // Unity's label has a default width limit. Remove it only for this Git display.
+            // Unity 6.3の内部APIでGit表示だけを取得し、ラベルの既定幅制限を解除する。
             var method = typeof(MainToolbar).GetMethod("TryGetOverlay", BindingFlags.Static | BindingFlags.NonPublic);
             if (method == null) return;
             var arguments = new object[] { ToolbarPath, null };
@@ -134,7 +176,7 @@ namespace MS2027.EditorTools
             if ((bool)method.Invoke(null, statusArguments) && statusArguments[1] is UnityEditor.Overlays.Overlay statusOverlay)
                 StyleLabel(statusOverlay.rootVisualElement, StatusText());
 
-            // Anchor the playback section to the window centre, independent of either side's text.
+            // 左右の文字量が変わっても、再生ボタン類の位置を画面中央に保つ。
             for (var container = root.parent; container != null; container = container.parent)
             {
                 var type = container.GetType();
@@ -157,7 +199,7 @@ namespace MS2027.EditorTools
                 middle.style.flexGrow = 0;
                 middle.style.flexShrink = 0;
                 middle.style.width = StyleKeyword.Auto;
-                // Centre the visible controls, excluding the overlay's dragger/padding.
+                // ドラッグ領域や余白を除外し、見えているボタン群の中心で位置を計算する。
                 Rect controls = default;
                 bool foundControls = false;
                 middle.Query<VisualElement>().ForEach(element =>
@@ -182,11 +224,14 @@ namespace MS2027.EditorTools
             }
         }
 
+        /// <summary>
+        /// 既存ラベルの文字と必要幅を更新し、縦位置・ツールチップ・メニューを整える。
+        /// </summary>
         private static void StyleLabel(VisualElement root, string text)
         {
             root.UnregisterCallback<ContextualMenuPopulateEvent>(OnGitContextMenu, TrickleDown.TrickleDown);
             root.RegisterCallback<ContextualMenuPopulateEvent>(OnGitContextMenu, TrickleDown.TrickleDown);
-            // Replace Unity's automatically appended drag instructions on our own elements only.
+            // Git表示だけ、Unityが付加するドラッグ操作の説明を簡略ツールチップに置き換える。
             root.tooltip = current.Detail ?? current.Status;
             root.Query<VisualElement>().ForEach(element =>
             {
@@ -197,7 +242,7 @@ namespace MS2027.EditorTools
                 if (label.name != "EditorToolbarButtonText") return;
                 if (label.text != text) label.text = text;
                 label.enableRichText = true;
-                // Keep Unity's standard text metrics so the baseline matches adjacent tools.
+                // Unity標準の文字サイズと高さを使い、隣のツールと文字の縦位置を揃える。
                 label.style.fontSize = StyleKeyword.Null;
                 label.style.height = StyleKeyword.Null;
                 label.style.whiteSpace = WhiteSpace.NoWrap;
@@ -216,14 +261,17 @@ namespace MS2027.EditorTools
 
         }
 
+        /// <summary>
+        /// 初回だけGit表示を有効にする。Unity内部APIが変わった場合は処理を中止する。
+        /// </summary>
         private static void EnsureInitialVisibility()
         {
             if (visibilityInitialized || visibilityAttempts >= 30 ||
                 EditorApplication.timeSinceStartup < nextVisibilityCheck) return;
             nextVisibilityCheck = EditorApplication.timeSinceStartup + 1;
             visibilityAttempts++;
-            // Unity 6.3 has no public API for initially showing a registered toolbar overlay.
-            // Only enable our own element once; respect subsequent user layout changes.
+            // Unity 6.3には登録済みツールバーを初回表示する公開APIがないため内部APIを使う。
+            // 自作項目だけを一度有効にし、以降はユーザーのレイアウト設定を維持する。
             try
             {
                 var method = typeof(MainToolbar).GetMethod("TryGetOverlay", BindingFlags.Static | BindingFlags.NonPublic);
@@ -241,18 +289,24 @@ namespace MS2027.EditorTools
             }
             catch (Exception)
             {
-                // Registration still works; use the toolbar context menu if Unity changes this API.
+                // 内部APIが変更された場合も登録は残るため、ツールバーのメニューから表示できる。
                 visibilityInitialized = true;
             }
         }
 
+        /// <summary>
+        /// 進行中の確認が完了した後で、キャッシュを破棄して再確認するよう予約する。
+        /// </summary>
         [MenuItem("Tools/Git表示/今すぐ再確認")]
         private static void Refresh()
         {
-            // The main update loop resets the cache after the worker finishes.
+            // 実行中の処理と競合しないよう、キャッシュの破棄はUpdate側で行う。
             refreshRequested = true;
         }
 
+        /// <summary>
+        /// 選択したGit実行ファイルを、このPCのEditorPrefsに保存する。
+        /// </summary>
         [MenuItem("Tools/Git表示/Gitの実行ファイルを指定…")]
         private static void SelectGit()
         {
@@ -262,6 +316,9 @@ namespace MS2027.EditorTools
             Refresh();
         }
 
+        /// <summary>
+        /// Git実行ファイルの手動指定を解除して、自動検出へ戻す。
+        /// </summary>
         [MenuItem("Tools/Git表示/Gitの自動検出に戻す")]
         private static void ResetGit()
         {
@@ -269,8 +326,14 @@ namespace MS2027.EditorTools
             Refresh();
         }
 
+        /// <summary>
+        /// 終了・再コンパイル時に、実行中のGit確認へキャンセルを通知する。
+        /// </summary>
         private static void Stop() => Lifetime.Cancel();
 
+        /// <summary>
+        /// 作業ブランチがリモートdevelopの履歴を含むか確認する。バックグラウンド専用でUnityのUIには触れない。
+        /// </summary>
         private static Snapshot ReadStatus(string configured, CancellationToken token)
         {
             var state = new Snapshot { Branch = "不明", Warning = true };
@@ -301,7 +364,7 @@ namespace MS2027.EditorTools
                 {
                     remoteHash = null;
                     remoteError = null;
-                    // Query the server directly; do not trust stale remote-tracking refs.
+                    // 古いリモート追跡参照ではなく、サーバーに直接問い合わせてdevelopを確認する。
                     var remote = Run(executable, "ls-remote --exit-code origin refs/heads/develop", token);
                     remoteChecked = DateTime.UtcNow;
                     if (remote.Code == 0 && !string.IsNullOrWhiteSpace(remote.Output))
@@ -325,7 +388,7 @@ namespace MS2027.EditorTools
                 }
                 if (Run(executable, "cat-file -e " + remoteHash + "^{commit}", token).Code != 0)
                 {
-                    // Obtain ancestry without changing branches, remote-tracking refs, or FETCH_HEAD.
+                    // 履歴オブジェクトだけを取得し、ブランチ・リモート追跡参照・FETCH_HEADは変更しない。
                     var fetch = Run(executable, "fetch --no-tags --no-write-fetch-head --refmap= origin " + remoteHash, token);
                     if (fetch.Code != 0)
                     {
@@ -365,6 +428,9 @@ namespace MS2027.EditorTools
             }
         }
 
+        /// <summary>
+        /// Gitのエラー文から通信失敗を判定し、認証・設定の失敗と区別する。
+        /// </summary>
         private static bool IsNetworkError(string error)
         {
             string message = error.ToLowerInvariant();
@@ -375,6 +441,9 @@ namespace MS2027.EditorTools
                 message.Contains("no route to host") || message.Contains("could not connect");
         }
 
+        /// <summary>
+        /// 手動指定を優先し、未指定ならPATHと一般的なインストール先からGitを探す。
+        /// </summary>
         private static string FindGit(string configured, CancellationToken token)
         {
             if (!string.IsNullOrEmpty(configured))
@@ -400,6 +469,9 @@ namespace MS2027.EditorTools
             return null;
         }
 
+        /// <summary>
+        /// Gitを非表示で実行して出力を回収する。約15秒のタイムアウトとキャンセルに対応する。
+        /// </summary>
         private static CommandResult Run(string git, string arguments, CancellationToken token)
         {
             token.ThrowIfCancellationRequested();
@@ -429,7 +501,7 @@ namespace MS2027.EditorTools
                         token.ThrowIfCancellationRequested();
                         return new CommandResult(-2, "", "Connection timed out");
                     }
-                    // A spawned helper may still own a redirected pipe; bound that wait too.
+                    // 子プロセスが出力先を保持している場合も、読み取り完了を無期限には待たない。
                     if (!Task.WaitAll(new Task[] { output, error }, 1000))
                         return new CommandResult(-2, "", "Connection timed out");
                     return new CommandResult(process.ExitCode, output.Result.Trim(), error.Result.Trim());
@@ -438,6 +510,9 @@ namespace MS2027.EditorTools
             catch (System.ComponentModel.Win32Exception) { return new CommandResult(-1, "", "Git could not start"); }
         }
 
+        /// <summary>
+        /// 画面へ渡すブランチ名、状態、ツールチップ、表示色の判定結果。
+        /// </summary>
         private sealed class Snapshot
         {
             public string Branch;
@@ -447,6 +522,9 @@ namespace MS2027.EditorTools
             public bool Latest;
         }
 
+        /// <summary>
+        /// Gitの終了コードと標準出力・標準エラー。負のコードは起動失敗やタイムアウトを表す。
+        /// </summary>
         private struct CommandResult
         {
             public readonly int Code;

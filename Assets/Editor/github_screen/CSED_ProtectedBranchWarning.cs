@@ -41,6 +41,7 @@ namespace MS2027.EditorTools
             public string[] protectedBranches = Array.Empty<string>();
         }
 
+
         /// <summary>
         /// 警告監視を開始し、再コンパイル・終了時の解除処理を登録する。
         /// </summary>

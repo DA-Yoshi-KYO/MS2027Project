@@ -6,10 +6,10 @@ using UnityEngine;
 
 public class CS_ConnectionGate : MonoBehaviour
 {
-    [SerializeField] private const int _maxPlayers = 4;
-    [SerializeField] static bool AcceptingConnections = true;
+    [SerializeField] private int _maxPlayers = 4;
+    [SerializeField] private bool _acceptingConnections = true;
 
-    public static bool IsAcceptingConnections => AcceptingConnections;
+    public bool IsAcceptingConnections => _acceptingConnections;
    
 
     void Start()
@@ -20,7 +20,7 @@ public class CS_ConnectionGate : MonoBehaviour
     void Approve(NetworkManager.ConnectionApprovalRequest req,NetworkManager.ConnectionApprovalResponse res)
     {
         var nm = NetworkManager.Singleton;
-        if (!AcceptingConnections)
+        if (!_acceptingConnections)
         {
             res.Approved = false;
             res.Reason = "ゲームが既に開始されています";
@@ -39,6 +39,6 @@ public class CS_ConnectionGate : MonoBehaviour
     // 接続受付状態を設定するメソッド
     public void SetAcceptingConnections(bool value)
     {
-        AcceptingConnections = value;
+        _acceptingConnections = value;
     }
 }

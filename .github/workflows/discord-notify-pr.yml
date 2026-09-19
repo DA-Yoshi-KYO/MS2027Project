@@ -28,6 +28,8 @@ jobs:
           BASE_REF: ${{ github.event.pull_request.base.ref }}
           HEAD_REF: ${{ github.event.pull_request.head.ref }}
           MERGED_BY: ${{ github.event.pull_request.merged_by.login }}
+          # PR作成時にメンションするDiscordユーザーID (リポジトリ変数 DISCORD_MENTION_USER_ID で上書き可)
+          MENTION_USER_ID: ${{ vars.DISCORD_MENTION_USER_ID || '550266248705998848' }}
         run: |
           if [ -z "$DISCORD_WEBHOOK_PR" ]; then
             echo "DISCORD_WEBHOOK_PR が未設定のためスキップします" >&2
@@ -38,17 +40,22 @@ jobs:
             title="🔀 PR作成: #${PR_NUMBER} ${PR_TITLE}"
             desc="${HEAD_REF} → ${BASE_REF}\n作成者: ${PR_AUTHOR}"
             color=3066993
+            mention="$MENTION_USER_ID"
           else
             title="✅ PRマージ: #${PR_NUMBER} ${PR_TITLE}"
             desc="${HEAD_REF} → ${BASE_REF}\nマージ者: ${MERGED_BY}"
             color=10181046
+            mention=""
           fi
 
+          # メンションはPR作成時のみ。allowed_mentions で指定ユーザー以外への通知を防ぐ
           payload=$(jq -n \
             --arg title "$title" \
             --arg desc "$(printf '%b' "$desc")" \
             --arg url "$PR_URL" \
             --argjson color "$color" \
-            '{ embeds: [{ title: $title, description: $desc, url: $url, color: $color }] }')
+            --arg mention "$mention" \
+            '{ embeds: [{ title: $title, description: $desc, url: $url, color: $color }] }
+             + (if $mention != "" then { content: "<@\($mention)>", allowed_mentions: { users: [$mention] } } else {} end)')
 
           curl -sf -X POST -H "Content-Type: application/json" -d "$payload" "$DISCORD_WEBHOOK_PR"

@@ -52,10 +52,15 @@ namespace MS2027.EditorTools
         [MainToolbarElement(StatusPath, defaultDockPosition = MainToolbarDockPosition.Right, defaultDockIndex = 0)]
         private static MainToolbarElement CreateStatus()
         {
+            return CreateLabel(StatusText());
+        }
+
+        private static string StatusText()
+        {
             string status = Escape(current.Status);
             if (current.Warning) status = "<color=#FFD54F>" + status + "</color>";
             else if (current.Latest) status = "<color=#81C784>" + status + "</color>";
-            return CreateLabel(status);
+            return status;
         }
 
         private static MainToolbarElement CreateLabel(string text)
@@ -97,8 +102,8 @@ namespace MS2027.EditorTools
                 current = pending.Status == TaskStatus.RanToCompletion ? pending.Result :
                     new Snapshot { Branch = current.Branch, Status = "Git: 確認できません", Warning = true };
                 pending = null;
-                MainToolbar.Refresh(ToolbarPath);
-                MainToolbar.Refresh(StatusPath);
+                // Keep the existing elements and their measured widths; rebuilding briefly
+                // restores Unity's default width and makes the neighbouring tools jump.
                 ApplyToolbarLayout();
             }
             if (refreshRequested)
@@ -124,10 +129,10 @@ namespace MS2027.EditorTools
             var overlay = arguments[1] as UnityEditor.Overlays.Overlay;
             if (overlay == null) return;
             var root = overlay.rootVisualElement;
-            StyleLabel(root);
+            StyleLabel(root, "Git: " + Escape(current.Branch));
             var statusArguments = new object[] { StatusPath, null };
             if ((bool)method.Invoke(null, statusArguments) && statusArguments[1] is UnityEditor.Overlays.Overlay statusOverlay)
-                StyleLabel(statusOverlay.rootVisualElement);
+                StyleLabel(statusOverlay.rootVisualElement, StatusText());
 
             // Anchor the playback section to the window centre, independent of either side's text.
             for (var container = root.parent; container != null; container = container.parent)
@@ -177,7 +182,7 @@ namespace MS2027.EditorTools
             }
         }
 
-        private static void StyleLabel(VisualElement root)
+        private static void StyleLabel(VisualElement root, string text)
         {
             root.UnregisterCallback<ContextualMenuPopulateEvent>(OnGitContextMenu, TrickleDown.TrickleDown);
             root.RegisterCallback<ContextualMenuPopulateEvent>(OnGitContextMenu, TrickleDown.TrickleDown);
@@ -190,6 +195,7 @@ namespace MS2027.EditorTools
             root.Query<TextElement>().ForEach(label =>
             {
                 if (label.name != "EditorToolbarButtonText") return;
+                if (label.text != text) label.text = text;
                 label.enableRichText = true;
                 // Keep Unity's standard text metrics so the baseline matches adjacent tools.
                 label.style.fontSize = StyleKeyword.Null;

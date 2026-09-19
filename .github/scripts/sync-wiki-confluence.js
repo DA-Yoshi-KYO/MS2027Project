@@ -19,7 +19,7 @@
 //   WIKI_DIR            Wiki リポジトリのチェックアウト先
 // 任意:
 //   DRY_RUN=true        読み取りと判定のみ。Confluence・Wiki・状態ファイルへは何も書かない
-//   FORCE_DIRECTION     wiki-to-confluence | confluence-to-wiki  衝突ページをその向きで上書き
+//   FORCE_DIRECTION     wiki-to-confluence | confluence-to-wiki (none/空=指定なし)  衝突ページをその向きで上書き
 //   CONFLUENCE_WIKI_FOLDER_ID  「Wiki」フォルダのID(未指定なら状態ファイル、なければ新規作成)
 //   DISCORD_WEBHOOK_URL 衝突・エラーの通知先
 //   GITHUB_REPOSITORY / GITHUB_OUTPUT / GITHUB_STEP_SUMMARY (Actions が自動設定)
@@ -166,7 +166,7 @@ async function main() {
   const spaceKey = requireEnv("CONFLUENCE_SPACE_KEY");
   const wikiDir = path.resolve(requireEnv("WIKI_DIR"));
   const dryRun = /^true$/i.test(process.env.DRY_RUN || "");
-  const forceDirection = process.env.FORCE_DIRECTION || "";
+  const forceDirection = process.env.FORCE_DIRECTION === "none" ? "" : process.env.FORCE_DIRECTION || "";
   if (forceDirection && !["wiki-to-confluence", "confluence-to-wiki"].includes(forceDirection)) {
     throw new Error(`FORCE_DIRECTION が不正です: ${forceDirection}`);
   }

@@ -84,7 +84,7 @@ jobs:
           DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_PLANNER }}
           WIKI_DIR: wiki
           DRY_RUN: ${{ inputs.dry_run }}
-          FORCE_DIRECTION: ${{ inputs.force_direction == 'none' && '' || inputs.force_direction }}
+          FORCE_DIRECTION: ${{ inputs.force_direction }}
         run: node .github/scripts/sync-wiki-confluence.js
 
       # スクリプトが一部のページでエラーになっても、成功したページの結果(状態ファイル含む)は保存する

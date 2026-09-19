@@ -13,6 +13,7 @@
 #   Secrets:   CONFLUENCE_EMAIL, CONFLUENCE_API_TOKEN (sync-spec-pages.ymlと共用)
 #              DISCORD_WEBHOOK_PLANNER (衝突・エラー通知。未設定なら通知なし)
 #   Variables: CONFLUENCE_BASE_URL, CONFLUENCE_SPACE_KEY (sync-spec-pages.ymlと共用)
+#              CONFLUENCE_EXTRA_FOLDER_IDS (任意) Wiki以外に、Confluence起点の新規ページをWikiへ取り込むフォルダのID(カンマ区切り)
 #              WIKI_SYNC_ENABLED  "true" にするまで gollum / repository_dispatch / schedule 起動では何もしない
 #
 # 導入手順:
@@ -85,6 +86,7 @@ jobs:
           CONFLUENCE_EMAIL: ${{ secrets.CONFLUENCE_EMAIL }}
           CONFLUENCE_API_TOKEN: ${{ secrets.CONFLUENCE_API_TOKEN }}
           CONFLUENCE_SPACE_KEY: ${{ vars.CONFLUENCE_SPACE_KEY }}
+          CONFLUENCE_EXTRA_FOLDER_IDS: ${{ vars.CONFLUENCE_EXTRA_FOLDER_IDS }}
           DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_PLANNER }}
           WIKI_DIR: wiki
           DRY_RUN: ${{ inputs.dry_run }}

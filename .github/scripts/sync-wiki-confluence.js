@@ -21,6 +21,8 @@
 //   DRY_RUN=true        読み取りと判定のみ。Confluence・Wiki・状態ファイルへは何も書かない
 //   FORCE_DIRECTION     wiki-to-confluence | confluence-to-wiki (none/空=指定なし)  衝突ページをその向きで上書き
 //   CONFLUENCE_WIKI_FOLDER_ID  「Wiki」フォルダのID(未指定なら状態ファイル、なければ新規作成)
+//   CONFLUENCE_EXTRA_FOLDER_IDS  Wiki以外に、Confluence起点の新規ページを取り込む追加フォルダのID(カンマ区切り)
+//                       配下(サブフォルダ含む)のページが、Wikiに新規ページとして取り込まれる
 //   DISCORD_WEBHOOK_URL 衝突・エラーの通知先
 //   GITHUB_REPOSITORY / GITHUB_OUTPUT / GITHUB_STEP_SUMMARY (Actions が自動設定)
 
@@ -171,6 +173,10 @@ async function main() {
     throw new Error(`FORCE_DIRECTION が不正です: ${forceDirection}`);
   }
 
+  const extraFolderIds = (process.env.CONFLUENCE_EXTRA_FOLDER_IDS || "")
+    .split(/[,\s]+/)
+    .filter(Boolean);
+
   const client = createConfluenceClient({
     baseUrl,
     email: requireEnv("CONFLUENCE_EMAIL"),
@@ -287,28 +293,42 @@ async function main() {
   }
 
   // ---- Confluence 側にだけある新規ページ -> Wiki に作成 ----
-  if (folderId) {
+  // 対象は「Wiki」フォルダと、CONFLUENCE_EXTRA_FOLDER_IDS で指定した追加フォルダの配下(サブフォルダ含む)
+  const scanRoots = [...new Set([folderId, ...extraFolderIds].filter(Boolean))];
+  const candidateIds = new Set();
+  for (const root of scanRoots) {
     try {
-      const knownIds = new Set(Object.values(state.pages).map((p) => p.id));
-      for (const id of await client.listDescendantPageIds(folderId)) {
-        if (knownIds.has(id)) continue;
-        const page = await client.getPage(id);
-        if (!page || page.status !== "current") continue;
-        const name = wikiNameOf(page.title);
-        if (state.pages[name] || fs.existsSync(wikiFilePath(wikiDir, name))) {
-          report.warnings.push(`Confluence「${page.title}」(id=${id}): Wikiに同名ページ ${name} があるため取り込みをスキップ`);
-          continue;
-        }
-        const md = normalizeMarkdown(storageToMarkdown(page.storage));
-        log(`新規: Confluence「${page.title}」-> Wiki ${name}`);
-        if (!dryRun) {
-          fs.writeFileSync(wikiFilePath(wikiDir, name), md, "utf8");
-          state.pages[name] = { id, wikiHash: sha(md), confHash: sha(md), version: page.version };
-        }
-        report.created.push(`${name} (Confluence起点)`);
-      }
+      for (const id of await client.listDescendantPageIds(root)) candidateIds.add(id);
     } catch (err) {
-      report.errors.push(`Confluence新規ページの取り込み: ${err.message}`);
+      report.errors.push(`フォルダ ${root} の配下ページ取得: ${err.message}`);
+    }
+  }
+  const knownIds = new Set(Object.values(state.pages).map((p) => p.id));
+  for (const id of candidateIds) {
+    if (knownIds.has(id)) continue;
+    try {
+      const page = await client.getPage(id);
+      if (!page || page.status !== "current") continue;
+      // ライブドキュメント等、storage形式の本文を持たないページは取り込めない
+      if (!page.storage || !page.storage.trim()) {
+        report.warnings.push(`Confluence「${page.title}」(id=${id}): storage形式の本文が空(ライブドキュメント等)のため取り込みをスキップ`);
+        continue;
+      }
+      const name = wikiNameOf(page.title);
+      if (state.pages[name] || fs.existsSync(wikiFilePath(wikiDir, name))) {
+        report.warnings.push(`Confluence「${page.title}」(id=${id}): Wikiに同名ページ ${name} があるため取り込みをスキップ`);
+        continue;
+      }
+      const md = normalizeMarkdown(storageToMarkdown(page.storage));
+      log(`新規: Confluence「${page.title}」-> Wiki ${name}`);
+      if (!dryRun) {
+        fs.writeFileSync(wikiFilePath(wikiDir, name), md, "utf8");
+        state.pages[name] = { id, wikiHash: sha(md), confHash: sha(md), version: page.version };
+      }
+      report.created.push(`${name} (Confluence起点)`);
+    } catch (err) {
+      // 1ページの失敗(取得不可の種類のページなど)で他ページの同期や毎時のジョブを止めない
+      report.warnings.push(`Confluence id=${id}: 取り込みに失敗したためスキップ (${err.message.slice(0, 160)})`);
     }
   }
 

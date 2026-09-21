@@ -1,0 +1,20 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9c3c863a4a5235446bd428dcf73d38be, type: 3}
+  m_Name: DB_PlayerAttack2
+  m_EditorClassIdentifier: 
+  _damage: 12
+  _hitDelay: 0.15
+  _duration: 0.40
+  _comboWindow: 0.50
+  _hitRange: 1.2
+  _hitRadius: 0.9

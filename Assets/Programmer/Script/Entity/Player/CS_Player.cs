@@ -53,6 +53,7 @@ public class CS_Player : NetworkBehaviour
     private const string _moveActionName = "Move";
     private const string _mouseLookActionName = "Look";
     private const string _stickLookActionName = "LookStick";
+    private const string _attackActionName = "Attack";
 
     private Rigidbody _rigidbody;
 
@@ -60,11 +61,15 @@ public class CS_Player : NetworkBehaviour
     private InputAction _moveAction;
     private InputAction _mouseLookAction;
     private InputAction _stickLookAction;
+    private InputAction _attackAction;
 
     private bool _isControlled;     // このプレイヤーを自分が操作するか
     private Vector2 _moveInput;
     private float _yaw;
     private float _pitch = 11f;
+
+    public bool isControlled => _isControlled;          // このプレイヤーを自分が操作しているか
+    public InputAction attackAction => _attackAction;   // 攻撃ボタン(CS_PlayerAttackが使う)
 
     private void Awake()
     {
@@ -182,6 +187,7 @@ public class CS_Player : NetworkBehaviour
         _moveAction = actionMap.FindAction(_moveActionName, true);
         _mouseLookAction = actionMap.FindAction(_mouseLookActionName, true);
         _stickLookAction = actionMap.FindAction(_stickLookActionName, true);
+        _attackAction = actionMap.FindAction(_attackActionName, true);
 
         actionMap.Enable();
     }
@@ -198,6 +204,7 @@ public class CS_Player : NetworkBehaviour
         _moveAction = null;
         _mouseLookAction = null;
         _stickLookAction = null;
+        _attackAction = null;
     }
 
     // 入力を読み取り、移動入力と視点(yaw/pitch)を更新する

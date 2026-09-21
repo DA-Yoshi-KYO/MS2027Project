@@ -15,6 +15,7 @@ GameObject:
   - component: {fileID: 4634168698148057521}
   - component: {fileID: 5961151079834445413}
   - component: {fileID: 8737621041715150547}
+  - component: {fileID: 4190031888519332874}
   m_Layer: 0
   m_Name: Player
   m_TagString: Untagged
@@ -157,7 +158,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Unity.Netcode.Runtime::Unity.Netcode.NetworkObject
-  GlobalObjectIdHash: 2681437817
+  GlobalObjectIdHash: 2789187359
   InScenePlacedSourceGlobalObjectIdHash: 0
   m_InScenePlacedDisabledByDefault: 0
   DeferredDespawnTick: 0
@@ -196,6 +197,26 @@ MonoBehaviour:
   _mouseSensitivity: 0.1
   _stickSensitivity: 180
   _inputActions: {fileID: -944628639613478452, guid: de03fe454c9197247bc7c167002c44b0, type: 3}
+--- !u!114 &4190031888519332874
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1825699444668748530}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: faf93ed352297f644a0b7e6637593ca5, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CS_PlayerAttack
+  ShowTopMostFoldoutHeaderGroup: 1
+  _attackSteps:
+  - {fileID: 11400000, guid: 16c61d084960ba64dae2ed5da664b045, type: 2}
+  - {fileID: 11400000, guid: 76c0a9a32dc0bd048ba495ed3ab9c27b, type: 2}
+  - {fileID: 11400000, guid: e44d5cf926290df4fbed9120d78f05da, type: 2}
+  _targetLayers:
+    serializedVersion: 2
+    m_Bits: 4294967295
 --- !u!1 &3298430547158640491
 GameObject:
   m_ObjectHideFlags: 0

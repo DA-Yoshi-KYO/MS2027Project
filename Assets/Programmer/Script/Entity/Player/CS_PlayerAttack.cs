@@ -26,10 +26,12 @@ using UnityEngine;
  * ・入力(攻撃ボタン)はCS_Playerが持っているものを使う
  * ・フレンドリーファイアは常に有効(チーム判定なし)。IDamageableを実装していれば
  *   プレイヤーだろうと敵だろうと関係なく当たる
+ * ・実際のダメージ = CSO_AttackData.CalculateDamage() × CS_PlayerStats.attackPower(倍率)
  */
 // ========================================
 
 [RequireComponent(typeof(CS_Player))]
+[RequireComponent(typeof(CS_PlayerStats))]
 public class CS_PlayerAttack : NetworkBehaviour
 {
     [Header("コンボ")]
@@ -42,6 +44,7 @@ public class CS_PlayerAttack : NetworkBehaviour
     private const int _hitBufferSize = 16;  // 一度に判定できるコライダーの上限
 
     private CS_Player _player;
+    private CS_PlayerStats _stats;
     private readonly Collider[] _hitBuffer = new Collider[_hitBufferSize];
     private readonly HashSet<IDamageable> _hitTargets = new HashSet<IDamageable>();
 
@@ -53,6 +56,7 @@ public class CS_PlayerAttack : NetworkBehaviour
     private void Awake()
     {
         _player = GetComponent<CS_Player>();
+        _stats = GetComponent<CS_PlayerStats>();
 
         if (HasValidSteps()) return;
 
@@ -205,7 +209,8 @@ public class CS_PlayerAttack : NetworkBehaviour
 
         foreach (IDamageable target in _hitTargets)
         {
-            target.TakeDamage(step.CalculateDamage(context, target));
+            float damage = step.CalculateDamage(context, target) * _stats.attackPower;
+            target.TakeDamage(damage);
             step.OnHit(context, target);
         }
     }

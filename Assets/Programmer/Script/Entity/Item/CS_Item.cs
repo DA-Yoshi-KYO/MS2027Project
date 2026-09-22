@@ -13,7 +13,7 @@ using UnityEngine;
 /// </summary>
 public class CS_ItemGenerator : MonoBehaviour
 {
-    CS_ItemRegister[] itemSpawnPoints
+    CS_ItemRegister[] itemSpawnPoints;
 
     public bool GenerateRandomPoint(CS_ItemBase item, Transform spawnPoint)
     {

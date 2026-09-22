@@ -24,6 +24,8 @@ using UnityEngine;
  *   2. サーバーが正面に球状の判定を出し、当たったIDamageableのTakeDamageを呼ぶ
  *   ※ オフライン(NetworkManagerが動いていない)のテストシーンでは、その場で判定する
  * ・入力(攻撃ボタン)はCS_Playerが持っているものを使う
+ * ・フレンドリーファイアは常に有効(チーム判定なし)。IDamageableを実装していれば
+ *   プレイヤーだろうと敵だろうと関係なく当たる
  */
 // ========================================
 
@@ -61,7 +63,7 @@ public class CS_PlayerAttack : NetworkBehaviour
     private void Update()
     {
         // 自分が操作していないプレイヤーは何もしない
-        if (!_player.isControlled) return;
+        if (!_player.canAct) return;
 
         if (_player.attackAction.WasPressedThisFrame())
         {

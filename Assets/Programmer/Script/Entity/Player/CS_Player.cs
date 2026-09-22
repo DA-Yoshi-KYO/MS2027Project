@@ -24,10 +24,13 @@ using UnityEngine.InputSystem;
  *   3. LateUpdate   : カメラをプレイヤーの周りに配置する
  * ・カメラはプレイヤーの子だが、回転がプレイヤーに引っ張られないよう
  *   LateUpdateでワールド座標を直接指定している
+ * ・死亡中(CS_PlayerHealth.isDead)は移動・攻撃を行わない(canActで判定)
+ *   視点操作(カメラ)は死亡中も継続する
  */
 // ========================================
 
 [RequireComponent(typeof(Rigidbody))]
+[RequireComponent(typeof(CS_PlayerHealth))]
 public class CS_Player : NetworkBehaviour
 {
     [Header("移動")]
@@ -56,6 +59,7 @@ public class CS_Player : NetworkBehaviour
     private const string _attackActionName = "Attack";
 
     private Rigidbody _rigidbody;
+    private CS_PlayerHealth _health;
 
     private InputActionAsset _runtimeActions;   // プレイヤーごとに複製した入力アセット
     private InputAction _moveAction;
@@ -69,11 +73,13 @@ public class CS_Player : NetworkBehaviour
     private float _pitch = 11f;
 
     public bool isControlled => _isControlled;          // このプレイヤーを自分が操作しているか
+    public bool canAct => _isControlled && !_health.isDead;   // 移動・攻撃してよいか(CS_PlayerAttackも参照)
     public InputAction attackAction => _attackAction;   // 攻撃ボタン(CS_PlayerAttackが使う)
 
     private void Awake()
     {
         _rigidbody = GetComponent<Rigidbody>();
+        _health = GetComponent<CS_PlayerHealth>();
     }
 
     // オフライン(NetworkManagerが動いていない)のテストシーン用
@@ -117,7 +123,7 @@ public class CS_Player : NetworkBehaviour
 
     private void FixedUpdate()
     {
-        if (!_isControlled) return;
+        if (!canAct) return;
 
         RotateToCamera();
         Move();

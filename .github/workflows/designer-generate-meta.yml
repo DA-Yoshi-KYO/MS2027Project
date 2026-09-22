@@ -1,6 +1,6 @@
 name: Generate Designer Meta Files
 
-# DesignerOutput 上で Unity を batchmode 起動し、Assets/Designer 以下の不足 .meta を生成して commit する。
+# designer_output 上で Unity を batchmode 起動し、Assets/Designer 以下の不足 .meta を生成して commit する。
 # 既存ファイルの .meta(GUID) は変更しないため、参照は壊れない。
 # 必要な Secrets: UNITY_LICENSE / UNITY_EMAIL / UNITY_PASSWORD
 # 詳細: ClaudeUsers/meta自動生成フローガイド.md
@@ -10,9 +10,9 @@ on:
   workflow_run:
     workflows: [Sync Designer Assets to Output]
     types: [completed]
-  # 管理者が DesignerOutput へ直接 push した場合
+  # 管理者が designer_output へ直接 push した場合
   push:
-    branches: [DesignerOutput]
+    branches: [designer_output]
     paths:
       - 'Assets/Designer/**'
   workflow_dispatch:
@@ -29,10 +29,10 @@ jobs:
     if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout DesignerOutput (LFS は後で必要な場合のみ取得)
+      - name: Checkout designer_output (LFS は後で必要な場合のみ取得)
         uses: actions/checkout@v4
         with:
-          ref: DesignerOutput
+          ref: designer_output
         env:
           GIT_LFS_SKIP_SMUDGE: 1
 
@@ -98,7 +98,7 @@ jobs:
           if ! git diff --cached --quiet; then
             git diff --cached --name-status
             git commit -m "chore: auto-generate .meta files for Assets/Designer"
-            git push origin HEAD:DesignerOutput
+            git push origin HEAD:designer_output
           else
             echo "No new .meta files to commit"
           fi

@@ -88,7 +88,7 @@ Unity Personal は `.alf` を使った手動アクティベーション(license.
 
 | タイミング | 送信元 | 通知 |
 |---|---|---|
-| `designer_develop` への push | `discord-notify-push.yml` | デザイナー進捗チャンネルに「📝 作業進捗」+ コミット一覧 |
+| `designer_develop` への `Artist/`(作業データ)の push | `discord-notify-push.yml` | デザイナー進捗チャンネルに「📝 作業進捗」+ コミット一覧 |
 | `.meta` 生成まで完了した時 | `designer-generate-meta.yml` | デザイナー進捗チャンネルに「✅ 作業完了」+ 元の `designer_develop` のコミット一覧 + 担当者へのメンション |
 
 - 「作業完了」のコミット一覧は、同期ワークフローが artifact として渡した `designer_develop` の push 内容を使う(bot の `chore:` コミットは出さない)。

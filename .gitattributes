@@ -184,6 +184,10 @@ LightingData.asset     binary
 # ロック未所有のファイルはチェックアウト時に read-only になる。
 # 自動ロック取得/チェックは .githooks/pre-commit で行う。
 Assets/Designer/**/*.mb     lockable
+Artist/**/*.mb     lockable
 Assets/Designer/**/*.fbx    lockable
+Artist/**/*.fbx    lockable
 Assets/Designer/**/*.FBX    lockable
+Artist/**/*.FBX    lockable
 Assets/Designer/**/*.abc    lockable
+Artist/**/*.abc    lockable

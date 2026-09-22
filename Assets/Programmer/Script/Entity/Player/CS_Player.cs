@@ -71,6 +71,7 @@ public class CS_Player : NetworkBehaviour
     private InputAction _stickLookAction;
     private InputAction _attackAction;
     private InputAction _jumpAction;
+    private InputAction _specialAction;
 
     private bool _isControlled;     // このプレイヤーを自分が操作するか
     private Vector2 _moveInput;
@@ -81,6 +82,7 @@ public class CS_Player : NetworkBehaviour
     public bool isControlled => _isControlled;          // このプレイヤーを自分が操作しているか
     public bool canAct => _isControlled && !_health.isDead;   // 移動・攻撃してよいか(CS_PlayerAttackも参照)
     public InputAction attackAction => _attackAction;   // 攻撃ボタン(CS_PlayerAttackが使う)
+    public InputAction specialAction => _specialAction; // 必殺技ボタン(CS_PlayerSpecialAttackが使う)
 
     private void Awake()
     {
@@ -205,6 +207,7 @@ public class CS_Player : NetworkBehaviour
         _stickLookAction = player.LookStick;
         _attackAction = player.Attack;
         _jumpAction = player.Jump;
+        _specialAction = player.Special;
     }
 
     // アクションへの参照を外す(アクション自体は共有のシングルトンが持ち続ける)
@@ -215,6 +218,7 @@ public class CS_Player : NetworkBehaviour
         _stickLookAction = null;
         _attackAction = null;
         _jumpAction = null;
+        _specialAction = null;
     }
 
     // 入力を読み取り、移動入力と視点(yaw/pitch)を更新する

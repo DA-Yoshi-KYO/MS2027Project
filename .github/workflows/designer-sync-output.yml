@@ -1,0 +1,65 @@
+name: Sync Designer Assets to Output
+
+# DesignerDevelop の Assets/Designer 以下の実体ファイルだけを DesignerOutput へミラーする。
+# .meta は DesignerOutput 側で一元管理する(Generate Designer Meta Files が生成)ため同期しない。
+# 詳細: ClaudeUsers/meta自動生成フローガイド.md
+
+on:
+  push:
+    branches: [DesignerDevelop]
+    paths:
+      - 'Assets/Designer/**'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+# DesignerOutput へ push するワークフロー同士を直列化する
+concurrency:
+  group: designer-output
+  cancel-in-progress: false
+
+env:
+  # LFS 実体はダウンロードせずポインタのまま同期する(実体はデザイナーの push で既にサーバーにある)
+  GIT_LFS_SKIP_SMUDGE: 1
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout DesignerOutput
+        uses: actions/checkout@v4
+        with:
+          ref: DesignerOutput
+
+      - name: Checkout DesignerDevelop
+        uses: actions/checkout@v4
+        with:
+          ref: DesignerDevelop
+          path: .dev-src
+
+      - name: Mirror Assets/Designer (実体ファイルのみ、.metaは触らない)
+        run: |
+          mkdir -p Assets/Designer
+          rsync -a --delete --exclude '*.meta' \
+            .dev-src/Assets/Designer/ Assets/Designer/
+          rm -rf .dev-src
+
+      - name: Remove orphaned .meta（実体が削除された場合の掃除）
+        run: |
+          find Assets/Designer -name '*.meta' -print0 | while IFS= read -r -d '' meta; do
+            src="${meta%.meta}"
+            [ -e "$src" ] || rm -- "$meta"
+          done
+
+      - name: Commit & push if changed
+        run: |
+          git config user.name "sync-bot"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A Assets/Designer
+          if ! git diff --cached --quiet; then
+            git commit -m "chore: sync Assets/Designer from DesignerDevelop"
+            git push origin HEAD:DesignerOutput
+          else
+            echo "No changes"
+          fi

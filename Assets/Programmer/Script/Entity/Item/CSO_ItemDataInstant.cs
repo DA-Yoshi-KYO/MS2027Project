@@ -21,7 +21,7 @@ public class CSO_ItemDataInstant : CSO_ItemData
     [Header("効果")]
     [SerializeField] private CSO_ItemEffect[] _effects;
 
-    public override bool Use(GameObject picker)
+    public override bool OnPickup(GameObject picker)
     {
         if (_effects == null) return true;
 

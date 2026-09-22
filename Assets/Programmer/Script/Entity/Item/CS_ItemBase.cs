@@ -45,7 +45,7 @@ public class CS_ItemBase : NetworkBehaviour
         // オンライン時は、サーバー/ホスト以外の判定を無視する(拾得はサーバーだけが確定させる)
         if (IsSpawned && !IsServer) return;
 
-        if (_itemData.Use(other.gameObject))
+        if (_itemData.OnPickup(other.gameObject))
         {
             Consume();
         }

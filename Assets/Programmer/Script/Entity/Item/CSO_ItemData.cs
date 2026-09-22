@@ -19,9 +19,9 @@ using UnityEngine;
 /*
  * メモ
  * ■ 新しい入手形態を追加したいとき
- *   このクラスを継承し、Useをoverrideする
+ *   このクラスを継承し、OnPickupをoverrideする
  *   例) 即時発動: CSO_ItemDataInstant(実装済み。効果をその場で適用して消費する)
- *       携帯型  : 今後CSO_ItemDataCarriableなどを追加予定(インベントリに追加する)
+ *       携帯型  : CSO_ItemDataCarriable(実装済み。ICarriableItemHolderのスロットに格納する)
  */
 // ========================================
 
@@ -37,5 +37,5 @@ public abstract class CSO_ItemData : ScriptableObject
     public string description => _description;
 
     // 拾われたときの処理。フィールドから消費して良いときはtrueを返す
-    public abstract bool Use(GameObject picker);
+    public abstract bool OnPickup(GameObject picker);
 }

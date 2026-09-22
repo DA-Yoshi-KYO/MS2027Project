@@ -7,21 +7,38 @@
  * ================================================ */
 
 using System.Collections.Generic;
+using Unity.Netcode;
 using UnityEngine;
 
 /// <summary>
 /// アイテムをフィールド上に生成するクラス
 /// </summary>
+// ========================================
+/*
+ * メモ
+ * ・生成の権威はサーバーのみが持つ
+ *   オンライン: サーバー/ホスト以外は何もしない(サーバーが生成したNetworkObjectが同期されてくるのを待つだけでよい)
+ *   オフライン(NetworkManagerが動いていないテストシーン): その場で生成する
+ * ・生成するアイテムのプレハブはNetworkPrefabsList(DefaultNetworkPrefabs)に登録しておくこと
+ */
+// ========================================
 public class CS_ItemGenerator : MonoBehaviour
 {
     [SerializeField][Tooltip("初期生成するアイテムの数")][Min(0)] private int _initGenerateNum = 0;      // 初期生成するアイテムの数
     [SerializeField][Tooltip("初期生成するアイテムの候補")] private CS_ItemBase[] _initGenerateItemKinds;    // 初期生成するアイテムの候補
     private CS_ItemGeneratePoint[] _itemGeneratePoints; // アイテム生成用のポイント
 
+    // このマシンが生成の権威を持つか(オフライン、またはサーバー/ホスト)
+    private static bool HasAuthority =>
+        NetworkManager.Singleton == null || !NetworkManager.Singleton.IsListening || NetworkManager.Singleton.IsServer;
+
     void Awake()
     {
+        // クライアントはサーバーが生成したものが同期されてくるのを待つだけでよい
+        if (!HasAuthority) return;
+
         // シーンに存在するアイテム召還用のポイントを取得する
-        var generatePointObjects = GameObject.FindGameObjectsWithTag("ItemGeneratePoints");
+        var generatePointObjects = GameObject.FindGameObjectsWithTag("ItemGeneratePoint");
         if (generatePointObjects.Length <= 0) 
             return;   // シーンにポイントが存在しない場合処理を飛ばす
 
@@ -71,7 +88,7 @@ public class CS_ItemGenerator : MonoBehaviour
 
         // 除外した後の生成位置候補からランダムに決定し、アイテムを生成する
         var point = pointList[Random.Range(0, pointList.Count)];
-        Instantiate(item.gameObject, point.transform);
+        SpawnItem(item, point.transform);
         point.item = item;
 
         return true;    //　生成に成功
@@ -85,8 +102,19 @@ public class CS_ItemGenerator : MonoBehaviour
     /// <returns>生成に成功したかどうか</returns>
     public bool Generate(CS_ItemBase item, Transform spawnPoint)
     {
-        Instantiate(item.gameObject, spawnPoint);
+        SpawnItem(item, spawnPoint);
 
         return true;
+    }
+
+    // アイテムを生成する(オンラインならネットワークに同期させる)
+    private void SpawnItem(CS_ItemBase item, Transform spawnPoint)
+    {
+        CS_ItemBase instance = Instantiate(item, spawnPoint);
+
+        if (NetworkManager.Singleton != null && NetworkManager.Singleton.IsListening)
+        {
+            instance.NetworkObject.Spawn();
+        }
     }
 }

@@ -1,0 +1,19 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 237e3b95e619e4b41b9e5499f0001490, type: 3}
+  m_Name: DB_ItemDataInstant_Heal
+  m_EditorClassIdentifier:
+  _itemName: HPポーション
+  _icon: {fileID: 0}
+  _description: HPを回復する
+  _effects:
+  - {fileID: 11400000, guid: 5929d7ffe2714277b44f49509044e70d, type: 3}

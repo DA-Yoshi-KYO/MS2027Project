@@ -14,7 +14,12 @@ using UnityEngine;
 public class CS_ItemGeneratePoint : MonoBehaviour
 {
     private CS_ItemBase _item;
-    public CS_ItemBase item => _item;
+    public CS_ItemBase item
+    {
+        get { return _item; }
+        set { _item = value; }
+    }
+
 
     
 }

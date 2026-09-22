@@ -1,0 +1,104 @@
+name: Generate Designer Meta Files
+
+# DesignerOutput 上で Unity を batchmode 起動し、Assets/Designer 以下の不足 .meta を生成して commit する。
+# 既存ファイルの .meta(GUID) は変更しないため、参照は壊れない。
+# 必要な Secrets: UNITY_LICENSE / UNITY_EMAIL / UNITY_PASSWORD
+# 詳細: ClaudeUsers/meta自動生成フローガイド.md
+
+on:
+  # GITHUB_TOKEN による push は他のワークフローを起動しないため、同期ワークフローの完了を契機にする
+  workflow_run:
+    workflows: [Sync Designer Assets to Output]
+    types: [completed]
+  # 管理者が DesignerOutput へ直接 push した場合
+  push:
+    branches: [DesignerOutput]
+    paths:
+      - 'Assets/Designer/**'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: designer-output
+  cancel-in-progress: false
+
+jobs:
+  generate-meta:
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout DesignerOutput (LFS は後で必要な場合のみ取得)
+        uses: actions/checkout@v4
+        with:
+          ref: DesignerOutput
+        env:
+          GIT_LFS_SKIP_SMUDGE: 1
+
+      - name: Check for files without .meta
+        id: check
+        run: |
+          # Unity がインポート対象外にする隠しファイル・~終わり・.tmp は除外
+          missing=$(find Assets/Designer \
+            \( -name '.*' -o -name '*~' -o -name '*.tmp' \) -prune -o \
+            ! -name '*.meta' -print | while IFS= read -r f; do
+              [ -e "$f.meta" ] || echo "$f"
+            done)
+          if [ -z "$missing" ]; then
+            echo "すべてのファイルに .meta があります。Unity の起動をスキップします。"
+            echo "needed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "::group::.meta が無いファイル"
+            echo "$missing"
+            echo "::endgroup::"
+            echo "needed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Pull LFS objects
+        if: steps.check.outputs.needed == 'true'
+        run: git lfs pull
+
+      - name: Free disk space
+        if: steps.check.outputs.needed == 'true'
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL
+          df -h /
+
+      - name: Cache Library
+        if: steps.check.outputs.needed == 'true'
+        uses: actions/cache@v4
+        with:
+          path: Library
+          key: Library-DesignerMeta-${{ github.sha }}
+          restore-keys: Library-DesignerMeta-
+
+      - name: Generate .meta via Unity batchmode
+        if: steps.check.outputs.needed == 'true'
+        uses: game-ci/unity-builder@v4
+        env:
+          UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+          UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
+          UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
+        with:
+          targetPlatform: StandaloneLinux64
+          buildMethod: DesignerMetaGenerator.Run
+          versioning: None
+          allowDirtyBuild: true
+
+      - name: Commit generated .meta files
+        if: steps.check.outputs.needed == 'true'
+        run: |
+          # Docker 内で root 所有になったファイルを戻す
+          sudo chown -R "$(id -u):$(id -g)" .
+          git config user.name "unity-meta-bot"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          # .meta 以外(Unity が再シリアライズしたアセット等)はコミットしない
+          git add -A -- Assets/Designer.meta ':(glob)Assets/Designer/**/*.meta'
+          if ! git diff --cached --quiet; then
+            git diff --cached --name-status
+            git commit -m "chore: auto-generate .meta files for Assets/Designer"
+            git push origin HEAD:DesignerOutput
+          else
+            echo "No new .meta files to commit"
+          fi

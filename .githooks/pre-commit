@@ -1,12 +1,12 @@
 #!/bin/sh
-# Designer アセット(.mb/.fbx/.abc)の疑似排他ロック。
+# Designer アセット(Artist/ と Assets/Designer/ の .mb/.fbx/.abc)の疑似排他ロック。
 #  - ロックが無いファイル → コミット者のロックを自動取得(=作成者確定)
 #  - 他人がロック中のファイル → コミットを拒否
 # 対象・運用の詳細: ClaudeUsers/アセットロック運用ガイド.md
 # Setup (once per clone): git config core.hooksPath .githooks
 # ※ GitHub Desktop 同梱の Git には bash が無いため POSIX sh で書くこと
 
-TARGET_REGEX='^Assets/Designer/.*\.(mb|fbx|abc)$'
+TARGET_REGEX='^(Artist|Assets/Designer)/.*\.(mb|fbx|abc)$'
 
 # マージの完了コミットは他人の変更を取り込むだけなのでチェックしない
 if git rev-parse -q --verify MERGE_HEAD >/dev/null; then

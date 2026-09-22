@@ -3,9 +3,10 @@
 # 振り分けルール:
 #   develop への直push、または個人名ブランチ(吉田京志郎/** 等)からのpush → プログラマー進捗
 #   leveldesign への push                                                → プランナー進捗
-#   designer_develop への push                                          → デザイナー進捗(📝 作業進捗)
-#     (Assets/Designer を触ったコミットのみ。develop の取り込みは通知しない)
-#   ※ designer_output の「✅ 作業完了」通知は designer-generate-meta.yml が送る
+#   designer_develop への push(Artist/ の作業データ)                 → デザイナー進捗(📝 作業進捗)
+#     (Artist/ を触ったコミットのみ。develop の取り込みは通知しない)
+#   ※ Assets/Designer/ への完成データの push は designer_output 経由で
+#     「✅ 作業完了」として designer-generate-meta.yml が送る
 #
 # 先頭コミットの親コミット数をGitHub APIで確認し、2つ以上ならマージコミット
 # (PRマージ・git mergeいずれも含む)とみなして、直pushと区別できるように
@@ -76,8 +77,8 @@ jobs:
 
           # 今回のpushで追加されたコミット一覧を1行ずつのMarkdown箇条書きにする
           if [ "$REF_NAME" = "designer_develop" ]; then
-            # develop の取り込み(マージ・プログラマー側のコミット)は流さず、Assets/Designer を触ったコミットだけにする
-            commits_json=$(jq -c '[.commits[] | select([.added[]?, .modified[]?, .removed[]?] | any(startswith("Assets/Designer/"))) | {message: (.message | split("\n")[0]), url: .url, author: .author.name}]' "$GITHUB_EVENT_PATH")
+            # develop の取り込み(マージ・プログラマー側のコミット)は流さず、作業データ(Artist/)を触ったコミットだけにする
+            commits_json=$(jq -c '[.commits[] | select([.added[]?, .modified[]?, .removed[]?] | any(startswith("Artist/"))) | {message: (.message | split("\n")[0]), url: .url, author: .author.name}]' "$GITHUB_EVENT_PATH")
           else
             commits_json=$(jq -c '[.commits[] | {message: (.message | split("\n")[0]), url: .url, author: .author.name}]' "$GITHUB_EVENT_PATH")
           fi

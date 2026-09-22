@@ -70,7 +70,7 @@ jobs:
       - name: Save designer_develop commits
         if: steps.push.outputs.pushed == 'true'
         run: |
-          jq -c '[.commits[]? | {message: (.message | split("\n")[0]), url: .url, author: .author.name}]' \
+          jq -c '[.commits[]? | select([.added[]?, .modified[]?, .removed[]?] | any(startswith("Assets/Designer/"))) | {message: (.message | split("\n")[0]), url: .url, author: .author.name}]' \
             "$GITHUB_EVENT_PATH" > designer-commits.json
 
       - name: Upload designer_develop commits

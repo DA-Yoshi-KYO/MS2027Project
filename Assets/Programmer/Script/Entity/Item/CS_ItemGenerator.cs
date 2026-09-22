@@ -88,7 +88,7 @@ public class CS_ItemGenerator : MonoBehaviour
 
         // 除外した後の生成位置候補からランダムに決定し、アイテムを生成する
         var point = pointList[Random.Range(0, pointList.Count)];
-        SpawnItem(item, point.transform);
+        Generate(item, point.transform);
         point.item = item;
 
         return true;    //　生成に成功
@@ -102,19 +102,13 @@ public class CS_ItemGenerator : MonoBehaviour
     /// <returns>生成に成功したかどうか</returns>
     public bool Generate(CS_ItemBase item, Transform spawnPoint)
     {
-        SpawnItem(item, spawnPoint);
-
-        return true;
-    }
-
-    // アイテムを生成する(オンラインならネットワークに同期させる)
-    private void SpawnItem(CS_ItemBase item, Transform spawnPoint)
-    {
         CS_ItemBase instance = Instantiate(item, spawnPoint);
 
         if (NetworkManager.Singleton != null && NetworkManager.Singleton.IsListening)
         {
             instance.NetworkObject.Spawn();
         }
+
+        return true;
     }
 }

@@ -19,7 +19,4 @@ public class CS_ItemGeneratePoint : MonoBehaviour
         get { return _item; }
         set { _item = value; }
     }
-
-
-    
 }

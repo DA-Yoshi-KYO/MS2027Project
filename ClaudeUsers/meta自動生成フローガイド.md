@@ -83,3 +83,14 @@ Unity Personal は `.alf` を使った手動アクティベーション(license.
 - game-ci の Docker イメージは `ProjectSettings/ProjectVersion.txt`(現在 6000.3.23f1)から自動選択される。該当バージョンのイメージが無い場合は `unityVersion` を明示する必要がある。
 - デザイナーが Unity で作った `.meta` を `designer_develop` に commit しても同期されない(`designer_output` 側の `.meta` が正)。
 - `designer_develop` を develop に追従させる場合、develop の `Assets/Designer` が designer_develop と異なると同期時に上書き・削除されるので注意。
+
+## Discord 通知
+
+| タイミング | 送信元 | 通知 |
+|---|---|---|
+| `designer_develop` への push | `discord-notify-push.yml` | デザイナー進捗チャンネルに「📝 作業進捗」+ コミット一覧 |
+| `.meta` 生成まで完了した時 | `designer-generate-meta.yml` | デザイナー進捗チャンネルに「✅ 作業完了」+ 元の `designer_develop` のコミット一覧 + 担当者へのメンション |
+
+- 「作業完了」のコミット一覧は、同期ワークフローが artifact として渡した `designer_develop` の push 内容を使う(bot の `chore:` コミットは出さない)。
+- 同期で差分が無かった場合(同じ内容の上書き等)は「作業完了」は送らない。
+- メンション先はワークフロー内の `MENTION_USER_ID` で変更できる。

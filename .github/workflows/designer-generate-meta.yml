@@ -2,7 +2,8 @@ name: Generate Designer Meta Files
 
 # designer_output 上で Unity を batchmode 起動し、Assets/Designer 以下の不足 .meta を生成して commit する。
 # 既存ファイルの .meta(GUID) は変更しないため、参照は壊れない。
-# 必要な Secrets: UNITY_LICENSE / UNITY_EMAIL / UNITY_PASSWORD
+# 完了後、designer_output の更新を「作業完了」として Discord のデザイナー進捗チャンネルへ通知する。
+# 必要な Secrets: UNITY_LICENSE / UNITY_EMAIL / UNITY_PASSWORD / DISCORD_WEBHOOK_DESIGNER
 # 詳細: ClaudeUsers/meta自動生成フローガイド.md
 
 on:
@@ -19,6 +20,7 @@ on:
 
 permissions:
   contents: write
+  actions: read  # 同期ワークフローの artifact(コミット一覧)取得用
 
 concurrency:
   group: designer-output
@@ -102,3 +104,57 @@ jobs:
           else
             echo "No new .meta files to commit"
           fi
+
+      # ---- 「作業完了」通知 ----
+      - name: Download designer_develop commits
+        if: github.event_name == 'workflow_run'
+        continue-on-error: true
+        uses: actions/download-artifact@v4
+        with:
+          name: designer-commits
+          run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Notify Discord (作業完了)
+        env:
+          DISCORD_WEBHOOK_DESIGNER: ${{ secrets.DISCORD_WEBHOOK_DESIGNER }}
+          MENTION_USER_ID: '550266248705998848'
+          REPO_URL: ${{ github.event.repository.html_url }}
+        run: |
+          if [ -z "$DISCORD_WEBHOOK_DESIGNER" ]; then
+            echo "DISCORD_WEBHOOK_DESIGNER が未設定のためスキップします" >&2
+            exit 0
+          fi
+
+          # 同期経由なら designer_develop のコミット、直接 push なら push されたコミットを使う
+          if [ -f designer-commits.json ]; then
+            commits_json=$(cat designer-commits.json)
+          elif [ "$GITHUB_EVENT_NAME" = "push" ]; then
+            commits_json=$(jq -c '[.commits[] | {message: (.message | split("\n")[0]), url: .url, author: .author.name}]' "$GITHUB_EVENT_PATH")
+          else
+            commits_json='[]'
+          fi
+
+          if [ "$(echo "$commits_json" | jq 'length')" = "0" ]; then
+            echo "通知対象のコミットが無いためスキップします" >&2
+            exit 0
+          fi
+
+          description=$(echo "$commits_json" | jq -r '.[] | "- [\(.message)](\(.url)) (\(.author))"')
+
+          payload=$(jq -n \
+            --arg desc "$description" \
+            --arg url "$REPO_URL/tree/designer_output" \
+            --arg uid "$MENTION_USER_ID" \
+            '{
+              content: "<@\($uid)>",
+              allowed_mentions: { users: [$uid] },
+              embeds: [{
+                title: "✅ 作業完了 (designer_output)",
+                description: $desc,
+                url: $url,
+                color: 5763719
+              }]
+            }')
+
+          curl -sf -X POST -H "Content-Type: application/json" -d "$payload" "$DISCORD_WEBHOOK_DESIGNER"

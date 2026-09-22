@@ -53,6 +53,7 @@ jobs:
           done
 
       - name: Commit & push if changed
+        id: push
         run: |
           git config user.name "sync-bot"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
@@ -60,6 +61,22 @@ jobs:
           if ! git diff --cached --quiet; then
             git commit -m "chore: sync Assets/Designer from designer_develop"
             git push origin HEAD:designer_output
+            echo "pushed=true" >> "$GITHUB_OUTPUT"
           else
             echo "No changes"
           fi
+
+      # 「作業完了」通知(Generate Designer Meta Files)で designer_develop のコミット一覧を使うため受け渡す
+      - name: Save designer_develop commits
+        if: steps.push.outputs.pushed == 'true'
+        run: |
+          jq -c '[.commits[]? | {message: (.message | split("\n")[0]), url: .url, author: .author.name}]' \
+            "$GITHUB_EVENT_PATH" > designer-commits.json
+
+      - name: Upload designer_develop commits
+        if: steps.push.outputs.pushed == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: designer-commits
+          path: designer-commits.json
+          retention-days: 1

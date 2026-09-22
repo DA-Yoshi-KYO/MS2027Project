@@ -3,7 +3,8 @@
 # 振り分けルール:
 #   develop への直push、または個人名ブランチ(吉田京志郎/** 等)からのpush → プログラマー進捗
 #   leveldesign への push                                                → プランナー進捗
-#   designer への push                                                  → デザイナー進捗
+#   designer_develop への push                                          → デザイナー進捗(📝 作業進捗)
+#   ※ designer_output の「✅ 作業完了」通知は designer-generate-meta.yml が送る
 #
 # 先頭コミットの親コミット数をGitHub APIで確認し、2つ以上ならマージコミット
 # (PRマージ・git mergeいずれも含む)とみなして、直pushと区別できるように
@@ -20,7 +21,7 @@ on:
     branches:
       - develop
       - leveldesign
-      - designer
+      - designer_develop
       - "吉田京志郎/**"
       - "秋野翔太/**"
       - "宇留野陸斗/**"
@@ -42,7 +43,7 @@ jobs:
           ref="${GITHUB_REF#refs/heads/}"
           if [ "$ref" = "leveldesign" ]; then
             echo "channel=PLANNER" >> "$GITHUB_OUTPUT"
-          elif [ "$ref" = "designer" ]; then
+          elif [ "$ref" = "designer_develop" ]; then
             echo "channel=DESIGNER" >> "$GITHUB_OUTPUT"
           else
             echo "channel=PROGRAMMER" >> "$GITHUB_OUTPUT"
@@ -89,6 +90,10 @@ jobs:
           if [ "$parent_count" -ge 2 ]; then
             title="🔀 ${REF_NAME} にマージされました"
             color=7288001
+          elif [ "$REF_NAME" = "designer_develop" ]; then
+            # designer_output 側の「作業完了」通知は Generate Designer Meta Files が送る
+            title="📝 作業進捗 (designer_develop)"
+            color=16705372
           else
             title="📦 ${REF_NAME} へpush"
             color=3447003

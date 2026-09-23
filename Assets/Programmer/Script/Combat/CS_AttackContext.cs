@@ -13,7 +13,7 @@ public readonly struct AttackContext
     private readonly int _stepIndex;
 
     public Transform attacker => _attacker;     // 攻撃した側
-    public int stepIndex => _stepIndex;         // 何段目か(0始まり)
+    public int stepIndex => _stepIndex;         // 何段目か(0始まり)。必殺技の場合は-1
 
     public AttackContext(Transform attacker, int stepIndex)
     {

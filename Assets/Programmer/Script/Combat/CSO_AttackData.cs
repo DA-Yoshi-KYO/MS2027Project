@@ -49,12 +49,16 @@ public class CSO_AttackData : ScriptableObject
     [SerializeField] private float _hitRange = 1.2f;        // 正面へどれだけ離れた位置に判定を出すか
     [SerializeField] private float _hitRadius = 0.9f;       // 判定(球)の半径
 
+    [Header("必殺ゲージ")]
+    [SerializeField] private float _gaugeGain = 10f;         // ヒット1回につき溜まる必殺ゲージ量
+
     public float damage => _damage;
     public float hitDelay => _hitDelay;
     public float duration => _duration;
     public float comboWindow => _comboWindow;
     public float hitRange => _hitRange;
     public float hitRadius => _hitRadius;
+    public float gaugeGain => _gaugeGain;
 
     // ダメージ量を計算する(ユニークな計算をしたいときはoverrideする)
     public virtual float CalculateDamage(AttackContext context, IDamageable target)
@@ -73,5 +77,6 @@ public class CSO_AttackData : ScriptableObject
         _duration = Mathf.Max(0.05f, _duration);
         _hitDelay = Mathf.Clamp(_hitDelay, 0f, _duration);
         _comboWindow = Mathf.Max(0f, _comboWindow);
+        _gaugeGain = Mathf.Max(0f, _gaugeGain);
     }
 }

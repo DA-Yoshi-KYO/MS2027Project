@@ -24,10 +24,18 @@ using UnityEngine;
  *   2. サーバーが正面に球状の判定を出し、当たったIDamageableのTakeDamageを呼ぶ
  *   ※ オフライン(NetworkManagerが動いていない)のテストシーンでは、その場で判定する
  * ・入力(攻撃ボタン)はCS_Playerが持っているものを使う
+ * ・フレンドリーファイアは常に有効(チーム判定なし)。IDamageableを実装していれば
+ *   プレイヤーだろうと敵だろうと関係なく当たる
+ * ・実際のダメージ = CSO_AttackData.CalculateDamage() × CS_PlayerStats.attackPower(倍率)
+ * ・ヒットする度に、各段のGauge Gain分だけCS_PlayerSpecialGaugeが溜まる
+ * ・必殺技(CS_PlayerSpecialAttack)を行っている間は、通常攻撃を行わない(isAttacking/isPerformingSpecialで排他制御)
  */
 // ========================================
 
 [RequireComponent(typeof(CS_Player))]
+[RequireComponent(typeof(CS_PlayerStats))]
+[RequireComponent(typeof(CS_PlayerSpecialGauge))]
+[RequireComponent(typeof(CS_PlayerSpecialAttack))]
 public class CS_PlayerAttack : NetworkBehaviour
 {
     [Header("コンボ")]
@@ -40,6 +48,9 @@ public class CS_PlayerAttack : NetworkBehaviour
     private const int _hitBufferSize = 16;  // 一度に判定できるコライダーの上限
 
     private CS_Player _player;
+    private CS_PlayerStats _stats;
+    private CS_PlayerSpecialGauge _gauge;
+    private CS_PlayerSpecialAttack _specialAttack;
     private readonly Collider[] _hitBuffer = new Collider[_hitBufferSize];
     private readonly HashSet<IDamageable> _hitTargets = new HashSet<IDamageable>();
 
@@ -48,9 +59,14 @@ public class CS_PlayerAttack : NetworkBehaviour
     private bool _hasHit;                   // 現在の段の攻撃判定を行ったか
     private bool _isInputBuffered;          // 攻撃モーション中に次の入力があったか(先行入力)
 
+    public bool isAttacking => _currentStep != _noStep;   // コンボ中か(CS_PlayerSpecialAttackが参照)
+
     private void Awake()
     {
         _player = GetComponent<CS_Player>();
+        _stats = GetComponent<CS_PlayerStats>();
+        _gauge = GetComponent<CS_PlayerSpecialGauge>();
+        _specialAttack = GetComponent<CS_PlayerSpecialAttack>();
 
         if (HasValidSteps()) return;
 
@@ -60,8 +76,8 @@ public class CS_PlayerAttack : NetworkBehaviour
 
     private void Update()
     {
-        // 自分が操作していないプレイヤーは何もしない
-        if (!_player.isControlled) return;
+        // 自分が操作していないプレイヤー、必殺技中は何もしない
+        if (!_player.canAct || _specialAttack.isPerformingSpecial) return;
 
         if (_player.attackAction.WasPressedThisFrame())
         {
@@ -199,34 +215,14 @@ public class CS_PlayerAttack : NetworkBehaviour
         CSO_AttackData step = _attackSteps[stepIndex];
         AttackContext context = new AttackContext(transform, stepIndex);
 
-        CollectTargets(step);
+        CS_AttackHitDetector.FindTargets(transform, step, _targetLayers, _hitBuffer, _hitTargets);
 
         foreach (IDamageable target in _hitTargets)
         {
-            target.TakeDamage(step.CalculateDamage(context, target));
+            float damage = step.CalculateDamage(context, target) * _stats.attackPower;
+            target.TakeDamage(damage);
             step.OnHit(context, target);
-        }
-    }
-
-    // 正面の判定範囲にいるIDamageableを集める(同じ相手は1回だけ)
-    private void CollectTargets(CSO_AttackData step)
-    {
-        _hitTargets.Clear();
-
-        Vector3 center = transform.position + transform.forward * step.hitRange;
-        int count = Physics.OverlapSphereNonAlloc(
-            center, step.hitRadius, _hitBuffer, _targetLayers, QueryTriggerInteraction.Ignore);
-
-        for (int i = 0; i < count; i++)
-        {
-            // 自分自身は対象外
-            if (_hitBuffer[i].transform.IsChildOf(transform)) continue;
-
-            IDamageable target = _hitBuffer[i].GetComponentInParent<IDamageable>();
-            if (target != null)
-            {
-                _hitTargets.Add(target);
-            }
+            _gauge.Fill(step.gaugeGain);
         }
     }
 

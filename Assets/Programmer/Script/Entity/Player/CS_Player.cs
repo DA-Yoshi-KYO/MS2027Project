@@ -12,8 +12,9 @@ using UnityEngine.InputSystem;
 // ========================================
 /*
  * メモ
- * ・入力は InputActionAsset(PlayerControls) を使う
- *   複数のプレイヤーで状態を共有しないよう、Instantiateで複製して使っている
+ * ・入力は CS_CustomInputActionManager(シングルトン)が保持する
+ *   PlayerControls.inputactions由来のCustomInputActionを使う
+ *   1台のPCで操作するプレイヤーは常に1体なので、複製はせず共有のまま参照する
  * ・入力、移動、カメラ操作は「自分が操作するプレイヤー」だけが行う(_isControlled)
  *   オンライン: 自分がOwnerのプレイヤー
  *   オフライン: NetworkManagerが動いていないテストシーンのプレイヤー
@@ -24,16 +25,30 @@ using UnityEngine.InputSystem;
  *   3. LateUpdate   : カメラをプレイヤーの周りに配置する
  * ・カメラはプレイヤーの子だが、回転がプレイヤーに引っ張られないよう
  *   LateUpdateでワールド座標を直接指定している
+ * ・死亡中(CS_PlayerHealth.isDead)は移動・攻撃を行わない(canActで判定)
+ *   視点操作(カメラ)は死亡中も継続する
+ * ・移動速度はCS_PlayerStats.moveSpeedを使う(実際の変更はCS_PlayerStats側で行う)
+ * ・ジャンプ
+ *   接地中にジャンプボタンを押すと、CS_PlayerStats.jumpPowerを初速として真上に飛ぶ
+ *   入力はUpdateで拾って予約し、実際に飛ぶ処理はFixedUpdate側のMove()の後に行う
+ *   (Move()は毎回、現在のY速度を保ったまま水平方向だけを書き換えるため、
+ *    ジャンプの初速はMove()より後に適用しないと上書きされてしまう)
  */
 // ========================================
 
 [RequireComponent(typeof(Rigidbody))]
+[RequireComponent(typeof(CapsuleCollider))]
+[RequireComponent(typeof(CS_PlayerHealth))]
+[RequireComponent(typeof(CS_PlayerStats))]
 public class CS_Player : NetworkBehaviour
 {
     [Header("移動")]
-    [SerializeField] private float _moveSpeed = 5f;
     [SerializeField] private float _rotationSpeed = 720f;   // カメラの向きへ回る速さ(度/秒)
     [SerializeField] private float _moveStartAngle = 30f;   // この角度以内まで向いたら移動を始める
+
+    [Header("ジャンプ")]
+    [SerializeField] private LayerMask _groundLayers = ~0;      // 地面と判定するレイヤー
+    [SerializeField] private float _groundCheckDistance = 0.15f;  // 接地判定用の余白
 
     [Header("カメラ")]
     [SerializeField] private Transform _cameraTransform;    // プレイヤーの子のカメラ
@@ -46,34 +61,37 @@ public class CS_Player : NetworkBehaviour
     [SerializeField] private float _mouseSensitivity = 0.1f;    // マウス移動量(ピクセル)に対する回転量
     [SerializeField] private float _stickSensitivity = 180f;    // スティック全開時の回転速度(度/秒)
 
-    [Header("入力")]
-    [SerializeField] private InputActionAsset _inputActions;    // PlayerControls を割り当てる
-
-    private const string _actionMapName = "Player";
-    private const string _moveActionName = "Move";
-    private const string _mouseLookActionName = "Look";
-    private const string _stickLookActionName = "LookStick";
-    private const string _attackActionName = "Attack";
-
     private Rigidbody _rigidbody;
+    private CapsuleCollider _collider;
+    private CS_PlayerHealth _health;
+    private CS_PlayerStats _stats;
 
-    private InputActionAsset _runtimeActions;   // プレイヤーごとに複製した入力アセット
     private InputAction _moveAction;
     private InputAction _mouseLookAction;
     private InputAction _stickLookAction;
     private InputAction _attackAction;
+    private InputAction _jumpAction;
+    private InputAction _specialAction;
+    private InputAction _dashAction;    // ダッシュ本体は未実装。入力の受け口だけ用意している
 
     private bool _isControlled;     // このプレイヤーを自分が操作するか
     private Vector2 _moveInput;
+    private bool _jumpRequested;    // Updateで押下を検知し、FixedUpdateで消費する
     private float _yaw;
     private float _pitch = 11f;
 
     public bool isControlled => _isControlled;          // このプレイヤーを自分が操作しているか
+    public bool canAct => _isControlled && !_health.isDead;   // 移動・攻撃してよいか(CS_PlayerAttackも参照)
     public InputAction attackAction => _attackAction;   // 攻撃ボタン(CS_PlayerAttackが使う)
+    public InputAction specialAction => _specialAction; // 必殺技ボタン(CS_PlayerSpecialAttackが使う)
+    public InputAction dashAction => _dashAction;       // ダッシュボタン(挙動は未実装)
 
     private void Awake()
     {
         _rigidbody = GetComponent<Rigidbody>();
+        _collider = GetComponent<CapsuleCollider>();
+        _health = GetComponent<CS_PlayerHealth>();
+        _stats = GetComponent<CS_PlayerStats>();
     }
 
     // オフライン(NetworkManagerが動いていない)のテストシーン用
@@ -113,14 +131,21 @@ public class CS_Player : NetworkBehaviour
         if (!_isControlled) return;
 
         ReadInput();
+
+        // ジャンプは死亡中に予約されても復帰後に飛ばないよう、ここでもcanActを見る
+        if (canAct && _jumpAction.WasPressedThisFrame())
+        {
+            _jumpRequested = true;
+        }
     }
 
     private void FixedUpdate()
     {
-        if (!_isControlled) return;
+        if (!canAct) return;
 
         RotateToCamera();
         Move();
+        ApplyJump();
     }
 
     private void LateUpdate()
@@ -130,17 +155,11 @@ public class CS_Player : NetworkBehaviour
         UpdateCameraTransform();
     }
 
-    // 自分のプレイヤーの初期化(入力の有効化、カーソル固定)
+    // 自分のプレイヤーの初期化(入力の取得、カーソル固定)
     private void SetupAsLocalPlayer()
     {
-        if (_inputActions == null)
-        {
-            Debug.LogError("CS_Player: Input Actions が未設定です(PlayerControls を割り当ててください)", this);
-            return;
-        }
-
         _isControlled = true;
-        CreateInputActions();
+        BindInputActions();
 
         // カメラ追従のガタつきを防ぐ
         _rigidbody.interpolation = RigidbodyInterpolation.Interpolate;
@@ -152,14 +171,16 @@ public class CS_Player : NetworkBehaviour
         Cursor.visible = false;
     }
 
-    // 自分のプレイヤーの後片付け(入力の破棄、カーソル解除)
+    // 自分のプレイヤーの後片付け(入力参照の解放、カーソル解除)
+    // ※ CS_CustomInputActionManagerは共有のシングルトンなので、Disable/Disposeはしない
     private void ReleaseLocalPlayer()
     {
         if (!_isControlled) return;
 
         _isControlled = false;
         _moveInput = Vector2.zero;
-        DisposeInputActions();
+        _jumpRequested = false;
+        UnbindInputActions();
 
         Cursor.lockState = CursorLockMode.None;
         Cursor.visible = true;
@@ -178,33 +199,30 @@ public class CS_Player : NetworkBehaviour
         }
     }
 
-    // 入力アセットを複製し、各アクションを取得して有効化する
-    private void CreateInputActions()
+    // CS_CustomInputActionManagerが持つ各アクションの参照を取得する
+    private void BindInputActions()
     {
-        _runtimeActions = Instantiate(_inputActions);
-        InputActionMap actionMap = _runtimeActions.FindActionMap(_actionMapName, true);
+        CustomInputAction.PlayerActions player = CS_CustomInputActionManager.instance.customInputAction.Player;
 
-        _moveAction = actionMap.FindAction(_moveActionName, true);
-        _mouseLookAction = actionMap.FindAction(_mouseLookActionName, true);
-        _stickLookAction = actionMap.FindAction(_stickLookActionName, true);
-        _attackAction = actionMap.FindAction(_attackActionName, true);
-
-        actionMap.Enable();
+        _moveAction = player.Move;
+        _mouseLookAction = player.Look;
+        _stickLookAction = player.LookStick;
+        _attackAction = player.Attack;
+        _jumpAction = player.Jump;
+        _specialAction = player.Special;
+        _dashAction = player.Dash;
     }
 
-    // 複製した入力アセットを破棄する
-    private void DisposeInputActions()
+    // アクションへの参照を外す(アクション自体は共有のシングルトンが持ち続ける)
+    private void UnbindInputActions()
     {
-        if (_runtimeActions == null) return;
-
-        _runtimeActions.Disable();
-        Destroy(_runtimeActions);
-
-        _runtimeActions = null;
         _moveAction = null;
         _mouseLookAction = null;
         _stickLookAction = null;
         _attackAction = null;
+        _jumpAction = null;
+        _specialAction = null;
+        _dashAction = null;
     }
 
     // 入力を読み取り、移動入力と視点(yaw/pitch)を更新する
@@ -249,7 +267,7 @@ public class CS_Player : NetworkBehaviour
         Vector3 direction = cameraYaw * new Vector3(_moveInput.x, 0f, _moveInput.y);
         direction = Vector3.ClampMagnitude(direction, 1f);
 
-        Vector3 horizontal = direction * _moveSpeed;
+        Vector3 horizontal = direction * _stats.moveSpeed;
         _rigidbody.linearVelocity = new Vector3(horizontal.x, velocity.y, horizontal.z);
     }
 
@@ -258,6 +276,26 @@ public class CS_Player : NetworkBehaviour
     {
         float angle = Mathf.DeltaAngle(_rigidbody.rotation.eulerAngles.y, _yaw);
         return Mathf.Abs(angle) <= _moveStartAngle;
+    }
+
+    // ジャンプ予約を消費し、接地していれば真上に飛ばす
+    private void ApplyJump()
+    {
+        if (!_jumpRequested) return;
+
+        _jumpRequested = false;
+        if (!IsGrounded()) return;
+
+        Vector3 velocity = _rigidbody.linearVelocity;
+        _rigidbody.linearVelocity = new Vector3(velocity.x, _stats.jumpPower, velocity.z);
+    }
+
+    // カプセルの底から下方向にレイを飛ばして接地しているか調べる
+    private bool IsGrounded()
+    {
+        Vector3 origin = _collider.bounds.center;
+        float rayLength = _collider.bounds.extents.y + _groundCheckDistance;
+        return Physics.Raycast(origin, Vector3.down, rayLength, _groundLayers, QueryTriggerInteraction.Ignore);
     }
 
     // カメラをプレイヤーの周りに配置する(プレイヤーの回転の影響を受けない)

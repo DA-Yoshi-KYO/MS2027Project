@@ -197,6 +197,8 @@ MonoBehaviour:
     serializedVersion: 2
     m_Bits: 4294967295
   _groundCheckDistance: 0.15
+  _dashDuration: 0.2
+  _dashCooldown: 0.8
   _cameraTransform: {fileID: 7583572087850885837}
   _cameraDistance: 3.5
   _cameraPivotHeight: 1.3
@@ -264,7 +266,6 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::CS_PlayerSpecialGauge
   ShowTopMostFoldoutHeaderGroup: 1
-  _maxGauge: 100
 --- !u!114 &5266182951715314146
 MonoBehaviour:
   m_ObjectHideFlags: 0

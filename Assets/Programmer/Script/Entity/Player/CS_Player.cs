@@ -33,6 +33,11 @@ using UnityEngine.InputSystem;
  *   入力はUpdateで拾って予約し、実際に飛ぶ処理はFixedUpdate側のMove()の後に行う
  *   (Move()は毎回、現在のY速度を保ったまま水平方向だけを書き換えるため、
  *    ジャンプの初速はMove()より後に適用しないと上書きされてしまう)
+ * ・ダッシュ
+ *   クールタイム中でなければダッシュボタンで発動。移動入力があればその方向、
+ *   無ければ現在向いている方向へ、CS_PlayerStats.dashSpeedで一定時間だけ直進する
+ *   （「慣性は少なめできびきび動く」という要望に合わせ、通常のMove()は行わず
+ *    速度を直接指定している）。攻撃・必殺技とは排他制御しておらず、いつでも出せる
  */
 // ========================================
 
@@ -49,6 +54,10 @@ public class CS_Player : NetworkBehaviour
     [Header("ジャンプ")]
     [SerializeField] private LayerMask _groundLayers = ~0;      // 地面と判定するレイヤー
     [SerializeField] private float _groundCheckDistance = 0.15f;  // 接地判定用の余白
+
+    [Header("ダッシュ")]
+    [SerializeField] private float _dashDuration = 0.2f;    // ダッシュが続く時間(秒)
+    [SerializeField] private float _dashCooldown = 0.8f;    // 次に出せるようになるまでの時間(秒)
 
     [Header("カメラ")]
     [SerializeField] private Transform _cameraTransform;    // プレイヤーの子のカメラ
@@ -79,6 +88,11 @@ public class CS_Player : NetworkBehaviour
     private bool _jumpRequested;    // Updateで押下を検知し、FixedUpdateで消費する
     private float _yaw;
     private float _pitch = 11f;
+
+    private bool _isDashing;
+    private float _dashElapsed;
+    private float _dashCooldownRemaining;
+    private Vector3 _dashDirection;
 
     public bool isControlled => _isControlled;          // このプレイヤーを自分が操作しているか
     public bool canAct => _isControlled && !_health.isDead;   // 移動・攻撃してよいか(CS_PlayerAttackも参照)
@@ -132,10 +146,15 @@ public class CS_Player : NetworkBehaviour
 
         ReadInput();
 
-        // ジャンプは死亡中に予約されても復帰後に飛ばないよう、ここでもcanActを見る
+        // ジャンプ・ダッシュは死亡中に予約されても復帰後に発動しないよう、ここでもcanActを見る
         if (canAct && _jumpAction.WasPressedThisFrame())
         {
             _jumpRequested = true;
+        }
+
+        if (canAct && !_isDashing && _dashCooldownRemaining <= 0f && _dashAction.WasPressedThisFrame())
+        {
+            StartDash();
         }
     }
 
@@ -143,9 +162,21 @@ public class CS_Player : NetworkBehaviour
     {
         if (!canAct) return;
 
-        RotateToCamera();
-        Move();
-        ApplyJump();
+        if (_dashCooldownRemaining > 0f)
+        {
+            _dashCooldownRemaining -= Time.fixedDeltaTime;
+        }
+
+        if (_isDashing)
+        {
+            UpdateDash();
+        }
+        else
+        {
+            RotateToCamera();
+            Move();
+            ApplyJump();
+        }
     }
 
     private void LateUpdate()
@@ -180,6 +211,8 @@ public class CS_Player : NetworkBehaviour
         _isControlled = false;
         _moveInput = Vector2.zero;
         _jumpRequested = false;
+        _isDashing = false;
+        _dashCooldownRemaining = 0f;
         UnbindInputActions();
 
         Cursor.lockState = CursorLockMode.None;
@@ -288,6 +321,42 @@ public class CS_Player : NetworkBehaviour
 
         Vector3 velocity = _rigidbody.linearVelocity;
         _rigidbody.linearVelocity = new Vector3(velocity.x, _stats.jumpPower, velocity.z);
+    }
+
+    // ダッシュを開始する(方向をこの時点で決めて固定する)
+    private void StartDash()
+    {
+        _isDashing = true;
+        _dashElapsed = 0f;
+        _dashCooldownRemaining = _dashCooldown;
+        _dashDirection = CalculateDashDirection();
+    }
+
+    // 移動入力があればその方向、無ければ現在向いている方向をダッシュ方向にする
+    private Vector3 CalculateDashDirection()
+    {
+        if (_moveInput != Vector2.zero)
+        {
+            Quaternion cameraYaw = Quaternion.Euler(0f, _yaw, 0f);
+            return (cameraYaw * new Vector3(_moveInput.x, 0f, _moveInput.y)).normalized;
+        }
+
+        return _rigidbody.rotation * Vector3.forward;
+    }
+
+    // ダッシュ方向へ一定時間だけ直進する(垂直速度はそのまま)
+    private void UpdateDash()
+    {
+        _dashElapsed += Time.fixedDeltaTime;
+
+        Vector3 velocity = _rigidbody.linearVelocity;
+        Vector3 horizontal = _dashDirection * _stats.dashSpeed;
+        _rigidbody.linearVelocity = new Vector3(horizontal.x, velocity.y, horizontal.z);
+
+        if (_dashElapsed >= _dashDuration)
+        {
+            _isDashing = false;
+        }
     }
 
     // カプセルの底から下方向にレイを飛ばして接地しているか調べる

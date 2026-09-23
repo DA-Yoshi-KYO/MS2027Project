@@ -20,6 +20,7 @@ using UnityEngine;
  *   発動直後にゲージが変化していた場合は不発(ダメージなし)になる
  * ・判定・ダメージの仕組みはCS_PlayerAttackと同じ(CS_AttackHitDetector、IDamageable、サーバー確定)
  * ・必殺技自体はゲージを増やさない想定(Special Attack DataのGauge Gainは0を推奨)
+ * ・ダメージ倍率はCS_PlayerStats.specialAttackPowerを使う(通常攻撃のattackPowerとは別枠)
  */
 // ========================================
 
@@ -133,7 +134,7 @@ public class CS_PlayerSpecialAttack : NetworkBehaviour
 
         foreach (IDamageable target in _hitTargets)
         {
-            float damage = _specialAttackData.CalculateDamage(context, target) * _stats.attackPower;
+            float damage = _specialAttackData.CalculateDamage(context, target) * _stats.specialAttackPower;
             target.TakeDamage(damage);
             _specialAttackData.OnHit(context, target);
         }

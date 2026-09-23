@@ -1,7 +1,10 @@
 ﻿/* ================================================
+ * 命名規則付きの作成メニューと、名前・ヘッダー・コード本文の生成を提供する。
+ * ================================================
  * 制作者：吉本竜
  * ------------------------------------------------
  * 2026-09-20 | 初回作成
+ * 2026-09-23 | 処理説明と日本語コメントを追加
  * ================================================ */
 using System;
 using System.IO;
@@ -17,32 +20,66 @@ using UnityEngine.SceneManagement;
 
 namespace MS2027.EditorTools
 {
+    /// <summary>
+    /// 命名規則付きの作成メニューと、名前・ヘッダー・コード本文の生成を提供する。
+    /// </summary>
     internal static class CSED_TemplateCreator
     {
         private const string Menu = "Assets/Create/template/";
 
+        /// <summary>
+        /// MonoBehaviourを継承するCS_スクリプトの名前入力を開始する。
+        /// </summary>
         [MenuItem(Menu + "Scripts/CS_MonoBehaviour", false, -1000)]
         private static void Mono() => Begin("Mono", "CS_", ".cs");
+        /// <summary>
+        /// 通常のC#クラスを作るCS_スクリプトの名前入力を開始する。
+        /// </summary>
         [MenuItem(Menu + "Scripts/CS_Class", false, -999)]
         private static void Plain() => Begin("Plain", "CS_", ".cs");
+        /// <summary>
+        /// ScriptableObjectを継承するCSO_スクリプトの名前入力を開始する。
+        /// </summary>
         [MenuItem(Menu + "Scripts/CSO_ScriptableObject", false, -998)]
         private static void SO() => Begin("SO", "CSO_", ".cs");
+        /// <summary>
+        /// VolumeComponentを継承するCSV_スクリプトの名前入力を開始する。
+        /// </summary>
         [MenuItem(Menu + "Scripts/CSV_VolumeComponent", false, -997)]
         private static void Volume() => Begin("Volume", "CSV_", ".cs");
+        /// <summary>
+        /// EditorWindowを継承するCSED_スクリプトの名前入力を開始する。
+        /// </summary>
         [MenuItem(Menu + "Scripts/CSED_EditorWindow", false, -996)]
         private static void EditorScript() => Begin("Editor", "CSED_", ".cs");
+        /// <summary>
+        /// 列挙型を定義するCSE_スクリプトの名前入力を開始する。
+        /// </summary>
         [MenuItem(Menu + "Scripts/CSE_Enum", false, -995)]
         private static void EnumScript() => Begin("Enum", "CSE_", ".cs");
+        /// <summary>
+        /// HDRP/Litを使うMT_Materialの名前入力を開始する。
+        /// </summary>
         [MenuItem(Menu + "Materials/MT_Material", false, -980)]
         private static void Material() => Begin("Material", "MT_", ".mat");
+        /// <summary>
+        /// 選択中のMaterialを親にするMTV_Material Variantの名前入力を開始する。
+        /// </summary>
         [MenuItem(Menu + "Materials/MTV_MaterialVariant (From Selected Material)", false, -979)]
         private static void Variant() => Begin("Variant", "MTV_", ".mat", Selection.activeObject as Material);
+        /// <summary>
+        /// Material選択時だけVariant作成メニューを有効にする。
+        /// </summary>
         [MenuItem(Menu + "Materials/MTV_MaterialVariant (From Selected Material)", true)]
         private static bool CanVariant() => Selection.activeObject is Material;
+        /// <summary>
+        /// 作成可能なScriptableObject型を一覧表示し、選ばれた型のDB_アセット作成を開始する。
+        /// </summary>
         [MenuItem(Menu + "Data/DB_ScriptableObject (Select Type)", false, -978)]
         private static void Database()
         {
             var menu = new GenericMenu();
+            // インスタンス化できるデータ型に絞り、Editor用の作業型を候補から外す。
             var types = TypeCache.GetTypesDerivedFrom<ScriptableObject>()
                 .Where(t => !t.IsAbstract && !t.ContainsGenericParameters && !typeof(EditorWindow).IsAssignableFrom(t)
                     && !typeof(UnityEditor.Editor).IsAssignableFrom(t) && !typeof(EndNameEditAction).IsAssignableFrom(t)
@@ -57,20 +94,44 @@ namespace MS2027.EditorTools
             if (types.Length == 0) menu.AddDisabledItem(new GUIContent("Create and compile a CSO_ script first"));
             menu.ShowAsContext();
         }
+        /// <summary>
+        /// 頂点シェーダー用のVS_HLSLファイル作成を開始する。
+        /// </summary>
         [MenuItem(Menu + "Shaders/HLSL/VS_Vertex", false, -970)]
         private static void Vertex() => Begin("Hlsl", "VS_", ".hlsl");
+        /// <summary>
+        /// ピクセルシェーダー用のPS_HLSLファイル作成を開始する。
+        /// </summary>
         [MenuItem(Menu + "Shaders/HLSL/PS_Pixel", false, -969)]
         private static void Pixel() => Begin("Hlsl", "PS_", ".hlsl");
+        /// <summary>
+        /// ジオメトリシェーダー用のGS_HLSLファイル作成を開始する。
+        /// </summary>
         [MenuItem(Menu + "Shaders/HLSL/GS_Geometry", false, -968)]
         private static void Geometry() => Begin("Hlsl", "GS_", ".hlsl");
+        /// <summary>
+        /// ハルシェーダー用のHS_HLSLファイル作成を開始する。
+        /// </summary>
         [MenuItem(Menu + "Shaders/HLSL/HS_Hull", false, -967)]
         private static void Hull() => Begin("Hlsl", "HS_", ".hlsl");
+        /// <summary>
+        /// ドメインシェーダー用のDS_HLSLファイル作成を開始する。
+        /// </summary>
         [MenuItem(Menu + "Shaders/HLSL/DS_Domain", false, -966)]
         private static void Domain() => Begin("Hlsl", "DS_", ".hlsl");
+        /// <summary>
+        /// コンピュート処理用のCS_HLSLファイル作成を開始する。
+        /// </summary>
         [MenuItem(Menu + "Shaders/HLSL/CS_Compute", false, -965)]
         private static void Compute() => Begin("Hlsl", "CS_", ".hlsl");
+        /// <summary>
+        /// HDRP向けの最小構成を持つSH_Shaderの作成を開始する。
+        /// </summary>
         [MenuItem(Menu + "Shaders/SH_Shader", false, -960)]
         private static void ShaderFile() => Begin("Shader", "SH_", ".shader");
+        /// <summary>
+        /// Shader Graphパッケージの作成機能を呼び出す。対応する内部APIがなければ案内を表示する。
+        /// </summary>
         [MenuItem(Menu + "Shaders/SHG_ShaderGraph", false, -959)]
         private static void Graph()
         {
@@ -86,11 +147,20 @@ namespace MS2027.EditorTools
             }
             method.Invoke(null, new object[] { null, null, "SHG_" });
         }
+        /// <summary>
+        /// 選択GameObjectを元にPrefabを作る。未選択なら空のGameObjectから作成する。
+        /// </summary>
         [MenuItem(Menu + "Objects/Prefab", false, -950)]
         private static void Prefab() => Begin("Prefab", "", ".prefab", Selection.activeGameObject);
+        /// <summary>
+        /// 空のSceneアセットの名前入力を開始する。
+        /// </summary>
         [MenuItem(Menu + "Objects/Scene", false, -949)]
         private static void Scene() => Begin("Scene", "", ".unity");
 
+        /// <summary>
+        /// 作成条件を名前確定コールバックへ渡し、Projectウィンドウで名前入力を始める。
+        /// </summary>
         internal static void Begin(string kind, string prefix, string extension, UnityEngine.Object source = null, string type = null)
         {
             var action = ScriptableObject.CreateInstance<CSED_TemplateNameAction>();
@@ -103,6 +173,9 @@ namespace MS2027.EditorTools
                 prefix.Length > 0 ? prefix + extension : "New" + kind + extension, null, null);
         }
 
+        /// <summary>
+        /// 既存の接頭辞を外して名前を整形し、接頭辞を付け直す。空名と数字始まりには代替文字を補う。
+        /// </summary>
         internal static string NormalizeName(string name, string prefix)
         {
             if (prefix.Length > 0 && name.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)) name = name.Substring(prefix.Length);
@@ -113,6 +186,9 @@ namespace MS2027.EditorTools
             return prefix + name;
         }
 
+        /// <summary>
+        /// ブランチ名の最初のスラッシュより前を制作者とし、当日の日付を含むヘッダーを生成する。取得できない場合は未設定とする。
+        /// </summary>
         internal static string Header()
         {
             string author = "未設定";
@@ -145,12 +221,16 @@ namespace MS2027.EditorTools
                 }
             }
             catch (Exception e) { Debug.LogWarning("template: Git制作者を取得できませんでした。" + e.Message); }
+            // ブランチ由来の文字でコメントが閉じたり、余分な行が挿入されたりしないようにする。
             author = author.Replace("*/", "").Replace("\r", "").Replace("\n", "");
             return "/* ================================================\n * \n * ================================================\n * 制作者：" + author
                 + "\n * ------------------------------------------------\n * " + DateTime.Now.ToString("yyyy-MM-dd")
                 + " | 初回作成\n * ================================================ */\n\n";
         }
 
+        /// <summary>
+        /// 種別に応じたコード本文へ、複数行のsummary記入欄を追加する。
+        /// </summary>
         internal static string Body(string kind, string name)
         {
             string body = BodyContent(kind, name);
@@ -162,6 +242,9 @@ namespace MS2027.EditorTools
 
         internal const string Summary = "/// <summary>\n/// \n/// </summary>\n";
 
+        /// <summary>
+        /// ヘッダーと説明欄を追加する対象が、シェーダー系ソースの拡張子か判定する。
+        /// </summary>
         internal static bool IsShaderSource(string extension)
         {
             switch (extension.ToLowerInvariant())
@@ -175,6 +258,9 @@ namespace MS2027.EditorTools
             }
         }
 
+        /// <summary>
+        /// 指定された種別のコード本文を生成する。未対応の種別は例外にする。
+        /// </summary>
         private static string BodyContent(string kind, string name)
         {
             switch (kind)

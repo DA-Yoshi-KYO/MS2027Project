@@ -81,7 +81,8 @@ public class CS_Player : NetworkBehaviour
     private InputAction _attackAction;
     private InputAction _jumpAction;
     private InputAction _specialAction;
-    private InputAction _dashAction;    // ダッシュ本体は未実装。入力の受け口だけ用意している
+    private InputAction _dashAction;    // ダッシュボタン
+    private InputAction _useItemAction; // アイテム使用ボタン(CS_PlayerItemSlotが使う)
 
     private bool _isControlled;     // このプレイヤーを自分が操作するか
     private Vector2 _moveInput;
@@ -98,7 +99,8 @@ public class CS_Player : NetworkBehaviour
     public bool canAct => _isControlled && !_health.isDead;   // 移動・攻撃してよいか(CS_PlayerAttackも参照)
     public InputAction attackAction => _attackAction;   // 攻撃ボタン(CS_PlayerAttackが使う)
     public InputAction specialAction => _specialAction; // 必殺技ボタン(CS_PlayerSpecialAttackが使う)
-    public InputAction dashAction => _dashAction;       // ダッシュボタン(挙動は未実装)
+    public InputAction dashAction => _dashAction;       // ダッシュボタン
+    public InputAction useItemAction => _useItemAction; // アイテム使用ボタン(CS_PlayerItemSlotが使う)
 
     private void Awake()
     {
@@ -244,6 +246,7 @@ public class CS_Player : NetworkBehaviour
         _jumpAction = player.Jump;
         _specialAction = player.Special;
         _dashAction = player.Dash;
+        _useItemAction = player.UseItem;
     }
 
     // アクションへの参照を外す(アクション自体は共有のシングルトンが持ち続ける)
@@ -256,6 +259,7 @@ public class CS_Player : NetworkBehaviour
         _jumpAction = null;
         _specialAction = null;
         _dashAction = null;
+        _useItemAction = null;
     }
 
     // 入力を読み取り、移動入力と視点(yaw/pitch)を更新する

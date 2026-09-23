@@ -1,13 +1,13 @@
-﻿/*
-+=====================================
- ファイル名 : CSE_ScriptSearch_HierarchySearch.cs
- 概要     : ScriptSearchツールのHierarchy検索（検索ロジック担当）
- 作者     : ヨシモト リョウ
- 履歴     : 2026/02/15 新規作成
-           2026/09/06 GUI構成整理・検索結果表示調整
-           2026/09/07 コメント・履歴・UI微調整
-=====================================+
-*/
+﻿/* ================================================
+ * ScriptSearchツールのHierarchy検索（検索ロジック担当）
+ * ================================================
+ * 制作者：吉本竜
+ * ------------------------------------------------
+ * 2026-02-15 | 初回作成
+ * 2026-09-06 | GUI構成整理・検索結果表示調整
+ * 2026-09-07 | コメント・履歴・UI微調整
+ * 2026-09-23 | CSED_へ改名・コメント形式を統一
+ * ================================================ */
 
 #if UNITY_EDITOR
 
@@ -18,7 +18,10 @@ using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
-public partial class CSE_ScriptSearch
+/// <summary>
+/// ScriptSearchツールのHierarchy検索（検索ロジック担当）。
+/// </summary>
+public partial class CSED_ScriptSearch
 {
     /// <summary>
     /// Scene内でScriptが見つかった結果
@@ -36,6 +39,9 @@ public partial class CSE_ScriptSearch
     private string _hierarchyResultMessage = "まだ検索していません。";
 
 
+    /// <summary>
+    /// 検索結果メッセージを更新して再描画する。nullや空文字は空の表示へ置き換える。
+    /// </summary>
     private void SetHierarchyResultMessage(string message)
     {
         _hierarchyResultMessage = string.IsNullOrEmpty(message)
@@ -286,6 +292,9 @@ public partial class CSE_ScriptSearch
     }
 
 
+    /// <summary>
+    /// 親をたどり、ルートから対象までの名前をスラッシュで連結したパスを返す。
+    /// </summary>
     private static string BuildHierarchyPath(
         GameObject go
     )

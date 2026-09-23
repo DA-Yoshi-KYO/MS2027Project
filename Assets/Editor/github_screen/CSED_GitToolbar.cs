@@ -172,6 +172,7 @@ namespace MS2027.EditorTools
             if (overlay == null) return;
             var root = overlay.rootVisualElement;
             StyleLabel(root, "Git: " + Escape(current.Branch));
+            CSED_ProtectedBranchWarning.UpdateConsent(root);
             var statusArguments = new object[] { StatusPath, null };
             if ((bool)method.Invoke(null, statusArguments) && statusArguments[1] is UnityEditor.Overlays.Overlay statusOverlay)
                 StyleLabel(statusOverlay.rootVisualElement, StatusText());

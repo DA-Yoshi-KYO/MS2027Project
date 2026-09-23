@@ -1,3 +1,10 @@
+﻿/* ================================================
+ * Projectウィンドウの新規作成を監視し、名前入力に種別ごとの接頭辞を設定する。
+ * ================================================
+ * 制作者：吉本竜
+ * ------------------------------------------------
+ * 2026-09-23 | 処理説明と日本語コメントを追加
+ * ================================================ */
 using System;
 using System.IO;
 using System.Reflection;
@@ -8,26 +15,39 @@ using UnityEngine;
 namespace MS2027.EditorTools
 {
     // 作成前の名前入力だけを扱う。標準メニューや既存ファイルには変更を加えない。
+    /// <summary>
+    /// Projectウィンドウの新規作成を監視し、名前入力に種別ごとの接頭辞を設定する。
+    /// </summary>
     [InitializeOnLoad]
     internal static class CSED_AssetNaming
     {
+        // 名前入力を開始する公開APIだけでは既定名を差し替えられないため、内部状態を参照する。
         private const BindingFlags Members = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance;
         private static readonly Type Browser = typeof(ProjectWindowUtil).Assembly.GetType("UnityEditor.ProjectBrowser");
         private static readonly FieldInfo LastBrowser = Browser?.GetField("s_LastInteractedProjectBrowser", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static);
         private static bool checkedProjectGUI;
 
+        /// <summary>
+        /// 更新時とProject描画時の監視を登録し、新規作成の初期表示に命名規則を反映する。
+        /// </summary>
         static CSED_AssetNaming()
         {
             EditorApplication.update += Update;
             EditorApplication.projectWindowItemOnGUI += BeforeNameField;
         }
 
+        /// <summary>
+        /// 描画確認フラグをリセットし、進行中の新規作成を確認する。
+        /// </summary>
         private static void Update()
         {
             checkedProjectGUI = false;
             PrepareActiveCreation();
         }
 
+        /// <summary>
+        /// 同じ更新内での重複確認を避けながら、名前入力欄の描画前に作成処理を準備する。
+        /// </summary>
         private static void BeforeNameField(string guid, Rect rect)
         {
             // 名前欄を描画する前に一度だけ準備する。表示アイテムごとの監視は行わない。
@@ -36,6 +56,9 @@ namespace MS2027.EditorTools
             PrepareActiveCreation();
         }
 
+        /// <summary>
+        /// 最後に操作したProjectウィンドウの各表示状態を確認する。内部APIの操作に失敗したら監視を停止する。
+        /// </summary>
         private static void PrepareActiveCreation()
         {
             // editingTextFieldがtrueになるのを待つと、名前欄の初期表示に間に合わない。
@@ -56,10 +79,14 @@ namespace MS2027.EditorTools
             }
         }
 
+        /// <summary>
+        /// 新規作成のコールバックを命名対応版へ差し替え、入力欄とUnityの編集バッファを同じ初期名に揃える。
+        /// </summary>
         private static void Prepare(EditorWindow browser, object state)
         {
             object utility = Read(state, "m_CreateAssetUtility") ?? Read(state, "createAssetUtility");
             var action = Read(utility, "endAction") as EndNameEditAction;
+            // 通常のリネームと、すでに自作コールバックを設定した処理は対象外。
             if (action == null || action is CSED_AssetNameAction || action is CSED_TemplateNameAction) return;
             string extension = Read(utility, "extension") as string;
             object overlay = Read(state, "m_RenameOverlay") ?? Read(state, "renameOverlay");
@@ -91,6 +118,9 @@ namespace MS2027.EditorTools
             browser.Repaint();
         }
 
+        /// <summary>
+        /// 拡張子・アセット型・作成処理から接頭辞を決める。Material VariantとHLSLのステージ名も区別する。
+        /// </summary>
         internal static string Prefix(string extension, string name, UnityEngine.Object asset, string actionName)
         {
             switch ((extension ?? "").ToLowerInvariant())
@@ -109,12 +139,18 @@ namespace MS2027.EditorTools
             }
         }
 
+        /// <summary>
+        /// 内部状態のフィールドまたはプロパティを読み取る。対象やメンバーがなければnullを返す。
+        /// </summary>
         private static object Read(object value, string name)
         {
             if (value == null) return null;
             return Field(value.GetType(), name)?.GetValue(value) ?? value.GetType().GetProperty(name, Members)?.GetValue(value);
         }
 
+        /// <summary>
+        /// 継承元を順番にたどり、非公開メンバーも含めて指定名のフィールドを探す。
+        /// </summary>
         private static FieldInfo Field(Type type, string name)
         {
             for (; type != null; type = type.BaseType)

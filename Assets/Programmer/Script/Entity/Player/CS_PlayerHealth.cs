@@ -4,7 +4,8 @@ using UnityEngine;
 
 /*
  * プレイヤーのHPを管理するクラス
- * CS_PlayerAttackなどからのダメージをIDamageable経由で受け取る
+ * CS_PlayerAttackなどからのダメージをIDamageable経由で、
+ * アイテムなどからの回復をIHealable経由で受け取る
  *
  * 制作者：　秋野翔太
  */
@@ -22,7 +23,7 @@ using UnityEngine;
 // ========================================
 
 [RequireComponent(typeof(CS_PlayerStats))]
-public class CS_PlayerHealth : NetworkBehaviour, IDamageable
+public class CS_PlayerHealth : NetworkBehaviour, IDamageable, IHealable
 {
     private CS_PlayerStats _stats;
 
@@ -84,6 +85,17 @@ public class CS_PlayerHealth : NetworkBehaviour, IDamageable
         {
             _isDead.Value = true;
         }
+    }
+
+    // IHealable実装。回復アイテムなどから呼ばれる(サーバー、またはオフラインで実行される想定)
+    // 死亡中は回復しない(復帰させたい場合はRevive()を使う)
+    public void Heal(float amount)
+    {
+        if (IsSpawned && !IsServer) return;
+        if (_isDead.Value) return;
+        if (amount <= 0f) return;
+
+        _currentHp.Value = Mathf.Min(maxHp, _currentHp.Value + amount);
     }
 
     // HPを満タンにして復帰させる(サーバーのみ。今後のリスポーン処理からの呼び出しを想定)

@@ -1,0 +1,72 @@
+#!/bin/sh
+# Designer アセット(Artist/ と Assets/Designer/ の .mb/.fbx/.abc)の疑似排他ロック。
+#  - ロックが無いファイル → コミット者のロックを自動取得(=作成者確定)
+#  - 他人がロック中のファイル → コミットを拒否
+# 対象・運用の詳細: ClaudeUsers/アセットロック運用ガイド.md
+# Setup (once per clone): git config core.hooksPath .githooks
+# ※ GitHub Desktop 同梱の Git には bash が無いため POSIX sh で書くこと
+
+TARGET_REGEX='^(Artist|Assets/Designer)/.*\.(mb|fbx|abc)$'
+
+# マージの完了コミットは他人の変更を取り込むだけなのでチェックしない
+if git rev-parse -q --verify MERGE_HEAD >/dev/null; then
+    exit 0
+fi
+
+# 追加・変更・削除された対象ファイル(リネームは削除+追加として扱う)
+changed=$(git -c core.quotepath=false diff --cached --name-only --no-renames --diff-filter=ACMD | grep -iE "$TARGET_REGEX")
+added_or_modified=$(git -c core.quotepath=false diff --cached --name-only --no-renames --diff-filter=ACM | grep -iE "$TARGET_REGEX")
+
+if [ -z "$changed" ]; then
+    exit 0
+fi
+
+if ! locks_json=$(git lfs locks --verify --json 2>&1); then
+    echo "エラー: Git LFS のロック情報を取得できませんでした。ネットワーク接続を確認してください。" >&2
+    echo "$locks_json" >&2
+    exit 1
+fi
+
+# {"ours":[...],"theirs":[{"id":"1","path":"...","owner":{"name":"..."},...}]}
+ours_json=${locks_json#*\"ours\":}
+ours_json=${ours_json%%\"theirs\":*}
+theirs_json=${locks_json#*\"theirs\":}
+
+is_locked_by_me() {
+    printf '%s' "$ours_json" | grep -qF "\"path\":\"$1\","
+}
+
+locked_by_other() {
+    printf '%s' "$theirs_json" | sed 's/},{"id"/}\
+{"id"/g' | grep -F "\"path\":\"$1\"," \
+        | sed -n 's/.*"owner":{"name":"\([^"]*\)".*/\1/p' | head -n 1
+}
+
+messages=$(printf '%s\n' "$changed" | while IFS= read -r f; do
+    owner=$(locked_by_other "$f")
+    [ -n "$owner" ] && echo "  $f は $owner によってロックされています"
+done)
+
+if [ -n "$messages" ]; then
+    echo "エラー: ロック中のファイルが含まれています。" >&2
+    echo "" >&2
+    echo "$messages" >&2
+    echo "" >&2
+    echo "このファイルは作成者以外編集できません。担当を変更する場合は管理者に連絡してください。" >&2
+    exit 1
+fi
+
+# ロックが無い追加・変更ファイルは自分名義でロックを取得する
+[ -z "$added_or_modified" ] && exit 0
+printf '%s\n' "$added_or_modified" | {
+    while IFS= read -r f; do
+        is_locked_by_me "$f" && continue
+        echo "🔒 $f をロック取得します"
+        if ! out=$(git lfs lock "$f" 2>&1); then
+            echo "エラー: $f のロック取得に失敗しました。" >&2
+            echo "$out" >&2
+            exit 1
+        fi
+    done
+    exit 0
+}

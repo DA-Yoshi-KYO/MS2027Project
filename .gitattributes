@@ -27,6 +27,10 @@
 *.sln                   text eol=lf
 *.editorconfig          text eol=lf
 
+# Git hooks (bash) must stay LF, batch files CRLF
+.githooks/*            text eol=lf
+*.bat                   text eol=crlf
+
 # Unity JSON files
 *.asmdef                unity-json
 *.asmref                unity-json
@@ -82,6 +86,7 @@ Packages/packages-lock.json linguist-generated
 # 3D models
 *.3dm                   lfs
 *.3ds                   lfs
+*.abc                   lfs
 *.blend                 lfs
 *.blend1                lfs
 *.c4d                   lfs
@@ -174,3 +179,15 @@ Packages/packages-lock.json linguist-generated
 
 # Exceptions for .asset files such as lightning pre-baking
 LightingData.asset     binary
+
+# Designer asset lock (作成者以外の編集を禁止する疑似排他制御)
+# ロック未所有のファイルはチェックアウト時に read-only になる。
+# 自動ロック取得/チェックは .githooks/pre-commit で行う。
+Assets/Designer/**/*.mb     lockable
+Artist/**/*.mb     lockable
+Assets/Designer/**/*.fbx    lockable
+Artist/**/*.fbx    lockable
+Assets/Designer/**/*.FBX    lockable
+Artist/**/*.FBX    lockable
+Assets/Designer/**/*.abc    lockable
+Artist/**/*.abc    lockable

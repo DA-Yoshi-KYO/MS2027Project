@@ -1,11 +1,10 @@
-using System;
 using System.Collections;
 using Unity.Netcode;
 using UnityEngine;
 
 /*
- * 悪人の犯罪の進行と完遂を管理するクラス
- * スポーンと同時に犯罪を始め、一定時間放置されると犯罪を完遂し、フェードアウトして逃げる
+ * 悪人1人分の、犯罪への参加状態と犯罪完遂後の逃走を管理するクラス
+ * 犯罪の進行・完遂の判定はグループ単位でCS_VillainGroupが行う
  *
  * 制作者：　中出峻輔
  */
@@ -13,16 +12,15 @@ using UnityEngine;
 // ========================================
 /*
  * メモ
- * ・犯罪が進むのは、スポーン位置で犯罪中(CS_VillainCombat.isCommittingCrime)の間だけ
- *   臨戦態勢中・スポーン位置へ戻っている間は手を止める(それまでの進行度は保持する)
- * ・進行時間がCS_VillainStats.crimeCompleteTimeに達したら完遂
- *   1. onCrimeCompleted / onAnyCrimeCompleted を呼ぶ(サーバーのみ)
- *      → 最終スコアのマイナス・犯罪完遂数の加算は、スコア側がonAnyCrimeCompletedを購読して行う
- *   2. 反撃・当たり判定を止め、fadeDuration秒かけてフェードアウトする(全クライアントで表示)
- *   3. フェードが終わったらDespawn(オフライン時はDestroy)する
+ * ・isCommittingCrime : スポーン位置で犯罪を進めているか(CS_VillainGroupが参照)
+ *   臨戦態勢中・スポーン位置へ戻っている間・逃走中はfalse
+ * ・crimeCompleteTime : CS_VillainStats.crimeCompleteTime(CS_VillainGroupが完遂時間の計算に使う)
+ * ・Escape() : グループが犯罪を完遂した時にCS_VillainGroupから呼ばれる(サーバー、またはオフライン)
+ *   1. 反撃・当たり判定を止め、fadeDuration秒かけてフェードアウトする(全クライアントで表示)
+ *   2. フェードが終わったらDespawn(オフライン時はDestroy)する
  * ・フェードはマテリアルの_BaseColorのアルファ値を下げる
  *   → マテリアルのSurface TypeがTransparentでないと見た目は変わらない(最後に消えるだけになる)
- * ・犯罪完遂数は悪人1人ごとに数える(臨戦態勢の判定が悪人ごとのため)
+ * ・スポナーを通さずシーンに直接置いた悪人はグループに属さないため、犯罪は進まない
  */
 // ========================================
 
@@ -39,19 +37,13 @@ public class CS_VillainCrime : NetworkBehaviour
     private CS_VillainStats _stats;
     private CS_VillainCombat _combat;
     private Renderer[] _renderers;
-    private float _crimeElapsed;   // 犯罪を進めた時間(サーバーのみ)
 
     // 書き込みはサーバーのみ(NetworkVariableのデフォルト)。クライアントはこれを見てフェードを始める
     private readonly NetworkVariable<bool> _isEscaping = new NetworkVariable<bool>();
 
     public bool isEscaping => _isEscaping.Value;
-    public float crimeProgress => _stats.crimeCompleteTime <= 0f ? 1f : Mathf.Clamp01(_crimeElapsed / _stats.crimeCompleteTime);   // 0～1(サーバーのみ正しい値)
-
-    public event Action onCrimeCompleted;                        // この悪人が犯罪を完遂した時(サーバーのみ)
-    public static event Action<CS_VillainCrime> onAnyCrimeCompleted;   // どの悪人が完遂しても呼ばれる(サーバーのみ)。スコア側の購読用
-
-    // このマシンが犯罪を進める権威を持つか(オフライン、またはサーバー)
-    private bool hasAuthority => !IsSpawned || IsServer;
+    public bool isCommittingCrime => !_isEscaping.Value && _combat.isCommittingCrime;
+    public float crimeCompleteTime => _stats.crimeCompleteTime;
 
     private void Awake()
     {
@@ -70,26 +62,13 @@ public class CS_VillainCrime : NetworkBehaviour
         _isEscaping.OnValueChanged -= HandleEscapingChanged;
     }
 
-    private void Update()
+    // 犯罪を完遂したので逃走する(サーバー、またはオフライン)
+    public void Escape()
     {
-        if (!hasAuthority) return;
+        if (IsSpawned && !IsServer) return;
         if (_isEscaping.Value) return;
-        if (!_combat.isCommittingCrime) return;
 
-        _crimeElapsed += Time.deltaTime;
-        if (_crimeElapsed >= _stats.crimeCompleteTime)
-        {
-            CompleteCrime();
-        }
-    }
-
-    // 犯罪を完遂する。通知してから逃走(フェードアウト)を始める(サーバー、またはオフライン)
-    private void CompleteCrime()
-    {
         _isEscaping.Value = true;
-
-        onCrimeCompleted?.Invoke();
-        onAnyCrimeCompleted?.Invoke(this);
 
         // オフラインではOnValueChangedが呼ばれないので、ここで直接始める
         if (!IsSpawned) StartEscape();

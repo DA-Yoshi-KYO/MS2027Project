@@ -21,30 +21,13 @@ using UnityEngine;
  * ・1グループの人数は minMembers ～ maxMembers 人(両端を含む)からランダム
  *   各メンバーの種類は villainPrefabs からランダムに選ぶ
  * ・グループのメンバーが全員いなくなったら(撃退・逃走でDestroyされたら)、そのスポーン位置は空く
- * ・生成する悪人のプレハブはNetworkPrefabsList(DefaultNetworkPrefabs)に登録しておくこと
+ * ・グループ単位の犯罪の進行は、生成したCS_VillainGroupのTickを毎フレーム呼んで進める
+ * ・生成する悪人のプレハブはNetworkPrefabsList(DefaultNetworkPrefabs)に登録し、CS_VillainCrimeを付けておくこと
  */
 // ========================================
 
 public class CS_VillainSpawner : MonoBehaviour
 {
-    // 生成済みグループ1つ分の情報
-    private class VillainGroup
-    {
-        private readonly CS_VillainSpawnPoint _spawnPoint;
-        private readonly List<NetworkObject> _members = new List<NetworkObject>();
-
-        public CS_VillainSpawnPoint spawnPoint => _spawnPoint;
-        public List<NetworkObject> members => _members;
-
-        // Destroyされたメンバーはnull扱いになるので、1人でも残っていれば生存
-        public bool isAlive => _members.Exists(member => member != null);
-
-        public VillainGroup(CS_VillainSpawnPoint spawnPoint)
-        {
-            _spawnPoint = spawnPoint;
-        }
-    }
-
     private const float _checkInterval = 0.5f;   // グループ数を確認する間隔(秒)
 
     [Header("生成する悪人")]
@@ -80,7 +63,7 @@ public class CS_VillainSpawner : MonoBehaviour
     private int _offlinePlayerCount = 1;
 
     private CS_VillainSpawnPoint[] _spawnPoints;
-    private readonly List<VillainGroup> _groups = new List<VillainGroup>();
+    private readonly List<CS_VillainGroup> _groups = new List<CS_VillainGroup>();
     private float _checkTimer;
     private float _spawnTimer;
     private bool _isRunning;
@@ -100,11 +83,7 @@ public class CS_VillainSpawner : MonoBehaviour
         // クライアントはサーバーが生成したものが同期されてくるのを待つだけでよい
         if (!hasAuthority) return;
 
-        if (_villainPrefabs == null || _villainPrefabs.Length == 0)
-        {
-            Debug.LogError("CS_VillainSpawner: Villain Prefabs が未設定です", this);
-            return;
-        }
+        if (!HasValidPrefabs()) return;
 
         _spawnPoints = FindObjectsByType<CS_VillainSpawnPoint>(FindObjectsSortMode.None);
         if (_spawnPoints.Length == 0)
@@ -120,6 +99,12 @@ public class CS_VillainSpawner : MonoBehaviour
     private void Update()
     {
         if (!_isRunning) return;
+
+        // 犯罪の進行は毎フレーム行う
+        foreach (CS_VillainGroup group in _groups)
+        {
+            group.Tick(Time.deltaTime);
+        }
 
         _spawnTimer += Time.deltaTime;
         _checkTimer += Time.deltaTime;
@@ -188,15 +173,16 @@ public class CS_VillainSpawner : MonoBehaviour
         return true;
     }
 
-    private VillainGroup SpawnGroup(CS_VillainSpawnPoint point)
+    private CS_VillainGroup SpawnGroup(CS_VillainSpawnPoint point)
     {
-        VillainGroup group = new VillainGroup(point);
+        CS_VillainGroup group = new CS_VillainGroup(point);
         int memberCount = Random.Range(_minMembers, _maxMembers + 1);
 
         for (int i = 0; i < memberCount; i++)
         {
             Vector3 position = point.GetMemberPosition(i, memberCount);
-            group.members.Add(SpawnVillain(position, point.transform.position));
+            NetworkObject villain = SpawnVillain(position, point.transform.position);
+            group.AddMember(villain.GetComponent<CS_VillainCrime>());
         }
 
         point.isOccupied = true;
@@ -230,6 +216,26 @@ public class CS_VillainSpawner : MonoBehaviour
 
         if (freePoints.Count == 0) return null;
         return freePoints[Random.Range(0, freePoints.Count)];
+    }
+
+    // プレハブが設定されていて、全てにCS_VillainCrimeが付いているか
+    // (付いていないとグループの生存判定ができず、生成し続けてしまうため)
+    private bool HasValidPrefabs()
+    {
+        if (_villainPrefabs == null || _villainPrefabs.Length == 0)
+        {
+            Debug.LogError("CS_VillainSpawner: Villain Prefabs が未設定です", this);
+            return false;
+        }
+
+        foreach (NetworkObject prefab in _villainPrefabs)
+        {
+            if (prefab != null && prefab.GetComponent<CS_VillainCrime>() != null) continue;
+
+            Debug.LogError("CS_VillainSpawner: Villain Prefabs に空の要素、またはCS_VillainCrimeが付いていないプレハブがあります", this);
+            return false;
+        }
+        return true;
     }
 
     private int GetPlayerCount()

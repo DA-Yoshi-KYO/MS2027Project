@@ -20,6 +20,8 @@ using UnityEngine;
  *   オンライン: サーバー/ホスト以外は何もしない(サーバーが生成したNetworkObjectが同期されてくるのを待つだけでよい)
  *   オフライン(NetworkManagerが動いていないテストシーン): その場で生成する
  * ・生成するアイテムのプレハブはNetworkPrefabsList(DefaultNetworkPrefabs)に登録しておくこと
+ * ・初期生成はStartで行う(NetworkSceneManagerでのシーン読み込み中のAwakeでSpawnすると、
+ *   シーン配置オブジェクトとして二重に処理されエラーになるため)
  */
 // ========================================
 public class CS_ItemGenerator : MonoBehaviour
@@ -32,7 +34,7 @@ public class CS_ItemGenerator : MonoBehaviour
     private static bool HasAuthority =>
         NetworkManager.Singleton == null || !NetworkManager.Singleton.IsListening || NetworkManager.Singleton.IsServer;
 
-    void Awake()
+    void Start()
     {
         // クライアントはサーバーが生成したものが同期されてくるのを待つだけでよい
         if (!HasAuthority) return;

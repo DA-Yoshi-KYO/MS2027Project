@@ -23,6 +23,7 @@ using UnityEngine;
 // ========================================
 
 [RequireComponent(typeof(CS_PlayerStats))]
+[DefaultExecutionOrder(1)] // オフライン時、CS_PlayerStats.Startの後にStartを呼ぶため
 public class CS_PlayerHealth : NetworkBehaviour, IDamageable, IHealable
 {
     private CS_PlayerStats _stats;

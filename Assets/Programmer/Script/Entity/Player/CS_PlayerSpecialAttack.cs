@@ -50,6 +50,7 @@ public class CS_PlayerSpecialAttack : NetworkBehaviour
     private bool _hasHit;
 
     public bool isPerformingSpecial => _isPerforming;   // 必殺技中か(CS_PlayerAttackが参照)
+    public CSO_AttackData specialAttackData => _specialAttackData;
 
     private void Awake()
     {

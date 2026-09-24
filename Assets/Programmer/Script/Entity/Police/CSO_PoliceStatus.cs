@@ -39,7 +39,7 @@ public class CSO_PoliceStatus : ScriptableObject
     public float viewDistance => _viewDistance;
 
     [Header("＝＝＝ 攻撃力 ＝＝＝")]
-    [SerializeField, Min(10000f)/**/]
+    [SerializeField, Min(10000f)]
     [Tooltip("攻撃力(プレイヤーを一撃で倒すため、プレイヤーの最大体力より大きい値にする)")]
     private float _attackPower;
     public float attackPower => _attackPower;

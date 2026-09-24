@@ -1,0 +1,160 @@
+name: Generate Designer Meta Files
+
+# designer_output 上で Unity を batchmode 起動し、Assets/Designer 以下の不足 .meta を生成して commit する。
+# 既存ファイルの .meta(GUID) は変更しないため、参照は壊れない。
+# 完了後、designer_output の更新を「作業完了」として Discord のデザイナー進捗チャンネルへ通知する。
+# 必要な Secrets: UNITY_LICENSE / UNITY_EMAIL / UNITY_PASSWORD / DISCORD_WEBHOOK_DESIGNER
+# 詳細: ClaudeUsers/meta自動生成フローガイド.md
+
+on:
+  # GITHUB_TOKEN による push は他のワークフローを起動しないため、同期ワークフローの完了を契機にする
+  workflow_run:
+    workflows: [Sync Designer Assets to Output]
+    types: [completed]
+  # 管理者が designer_output へ直接 push した場合
+  push:
+    branches: [designer_output]
+    paths:
+      - 'Assets/Designer/**'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: read  # 同期ワークフローの artifact(コミット一覧)取得用
+
+concurrency:
+  group: designer-output
+  cancel-in-progress: false
+
+jobs:
+  generate-meta:
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout designer_output (LFS は後で必要な場合のみ取得)
+        uses: actions/checkout@v4
+        with:
+          ref: designer_output
+        env:
+          GIT_LFS_SKIP_SMUDGE: 1
+
+      - name: Check for files without .meta
+        id: check
+        run: |
+          # Unity がインポート対象外にする隠しファイル・~終わり・.tmp は除外
+          missing=$(find Assets/Designer \
+            \( -name '.*' -o -name '*~' -o -name '*.tmp' \) -prune -o \
+            ! -name '*.meta' -print | while IFS= read -r f; do
+              [ -e "$f.meta" ] || echo "$f"
+            done)
+          if [ -z "$missing" ]; then
+            echo "すべてのファイルに .meta があります。Unity の起動をスキップします。"
+            echo "needed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "::group::.meta が無いファイル"
+            echo "$missing"
+            echo "::endgroup::"
+            echo "needed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Pull LFS objects
+        if: steps.check.outputs.needed == 'true'
+        run: git lfs pull
+
+      - name: Free disk space
+        if: steps.check.outputs.needed == 'true'
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL
+          df -h /
+
+      - name: Cache Library
+        if: steps.check.outputs.needed == 'true'
+        uses: actions/cache@v4
+        with:
+          path: Library
+          key: Library-DesignerMeta-${{ github.sha }}
+          restore-keys: Library-DesignerMeta-
+
+      - name: Generate .meta via Unity batchmode
+        if: steps.check.outputs.needed == 'true'
+        uses: game-ci/unity-builder@v4
+        env:
+          UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+          UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
+          UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
+        with:
+          targetPlatform: StandaloneLinux64
+          buildMethod: DesignerMetaGenerator.Run
+          versioning: None
+          allowDirtyBuild: true
+
+      - name: Commit generated .meta files
+        if: steps.check.outputs.needed == 'true'
+        run: |
+          # Docker 内で root 所有になったファイルを戻す
+          sudo chown -R "$(id -u):$(id -g)" .
+          git config user.name "unity-meta-bot"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          # .meta 以外(Unity が再シリアライズしたアセット等)はコミットしない
+          git add -A -- Assets/Designer.meta ':(glob)Assets/Designer/**/*.meta'
+          if ! git diff --cached --quiet; then
+            git diff --cached --name-status
+            git commit -m "chore: auto-generate .meta files for Assets/Designer"
+            git push origin HEAD:designer_output
+          else
+            echo "No new .meta files to commit"
+          fi
+
+      # ---- 「作業完了」通知 ----
+      - name: Download designer_develop commits
+        if: github.event_name == 'workflow_run'
+        continue-on-error: true
+        uses: actions/download-artifact@v4
+        with:
+          name: designer-commits
+          run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Notify Discord (作業完了)
+        env:
+          DISCORD_WEBHOOK_DESIGNER: ${{ secrets.DISCORD_WEBHOOK_DESIGNER }}
+          MENTION_USER_ID: '550266248705998848'
+          REPO_URL: ${{ github.event.repository.html_url }}
+        run: |
+          if [ -z "$DISCORD_WEBHOOK_DESIGNER" ]; then
+            echo "DISCORD_WEBHOOK_DESIGNER が未設定のためスキップします" >&2
+            exit 0
+          fi
+
+          # 同期経由なら designer_develop のコミット、直接 push なら push されたコミットを使う
+          if [ -f designer-commits.json ]; then
+            commits_json=$(cat designer-commits.json)
+          elif [ "$GITHUB_EVENT_NAME" = "push" ]; then
+            commits_json=$(jq -c '[.commits[] | {message: (.message | split("\n")[0]), url: .url, author: .author.name}]' "$GITHUB_EVENT_PATH")
+          else
+            commits_json='[]'
+          fi
+
+          if [ "$(echo "$commits_json" | jq 'length')" = "0" ]; then
+            echo "通知対象のコミットが無いためスキップします" >&2
+            exit 0
+          fi
+
+          description=$(echo "$commits_json" | jq -r '.[] | "- [\(.message)](\(.url)) (\(.author))"')
+
+          payload=$(jq -n \
+            --arg desc "$description" \
+            --arg url "$REPO_URL/tree/designer_output" \
+            --arg uid "$MENTION_USER_ID" \
+            '{
+              content: "<@\($uid)>",
+              allowed_mentions: { users: [$uid] },
+              embeds: [{
+                title: "✅ 作業完了 (designer_output)",
+                description: $desc,
+                url: $url,
+                color: 5763719
+              }]
+            }')
+
+          curl -sf -X POST -H "Content-Type: application/json" -d "$payload" "$DISCORD_WEBHOOK_DESIGNER"

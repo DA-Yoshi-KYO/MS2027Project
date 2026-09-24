@@ -1,0 +1,122 @@
+# GitHub Wiki と Confluence の「Wiki」フォルダ配下のページを双方向に同期する。
+# 仕組み・判定ルール・制約の詳細は .github/scripts/sync-wiki-confluence.js の冒頭コメントを参照。
+#
+# トリガー:
+#   - gollum (Wikiのページ作成・更新)
+#   - repository_dispatch (type: confluence-page-updated)
+#       sync-spec-pages.yml と同じ Confluence Automation のルールを共用する(追加設定不要)
+#   - schedule (1時間ごと。Confluence側の編集をAutomation無しでも取り込むための保険。
+#       変更がなければ何もせず終了する。ずらした分(17分)は毎正時の混雑を避けるため)
+#   - workflow_dispatch (手動実行。dry_run / force_direction を指定可能)
+#
+# 事前準備 (Settings > Secrets and variables > Actions):
+#   Secrets:   CONFLUENCE_EMAIL, CONFLUENCE_API_TOKEN (sync-spec-pages.ymlと共用)
+#              DISCORD_WEBHOOK_PLANNER (衝突・エラー通知。未設定なら通知なし)
+#   Variables: CONFLUENCE_BASE_URL, CONFLUENCE_SPACE_KEY (sync-spec-pages.ymlと共用)
+#              CONFLUENCE_EXTRA_FOLDER_IDS (任意) Wiki以外に、Confluence起点の新規ページをWikiへ取り込むフォルダのID(カンマ区切り)
+#              WIKI_SYNC_ENABLED  "true" にするまで gollum / repository_dispatch / schedule 起動では何もしない
+#
+# 導入手順:
+#   1. 手動実行(dry_run=true)で、作成・更新される内容をログで確認する
+#   2. 手動実行(dry_run=false)で初回同期を行う(Confluenceに「Wiki」フォルダとページが作られる)
+#   3. Confluence側でフォルダ分けなど整理する(ページIDで対応づけているため同期は壊れない)
+#   4. WIKI_SYNC_ENABLED を "true" にして自動同期を有効化する
+#
+# 衝突(両方が最後の同期後に変更された)時は、どちらも上書きせずDiscordに通知する。
+# 解決するには、正とする側を決めて手動実行し force_direction を指定する。
+#
+# 同期結果(状態ファイル・Confluence→Wikiの反映)は Wiki リポジトリへ push する。
+# GITHUB_TOKEN による push は gollum を再発火しないため、自己ループしない。
+
+name: Sync Wiki and Confluence
+
+on:
+  gollum:
+  repository_dispatch:
+    types: [confluence-page-updated]
+  schedule:
+    - cron: "17 * * * *"
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "true: 読み取りと判定のみ(何も書き込まない)"
+        type: boolean
+        default: true
+      force_direction:
+        description: "衝突しているページをどちらの内容で上書きするか"
+        type: choice
+        options: [none, wiki-to-confluence, confluence-to-wiki]
+        default: none
+
+permissions:
+  contents: write
+
+concurrency:
+  group: sync-wiki-confluence
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    if: ${{ github.event_name == 'workflow_dispatch' || vars.WIKI_SYNC_ENABLED == 'true' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout (scripts)
+        uses: actions/checkout@v4
+
+      - name: Checkout (wiki)
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ github.repository }}.wiki
+          path: wiki
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: .github/scripts/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci --prefix .github/scripts
+
+      - name: Sync Wiki and Confluence
+        env:
+          CONFLUENCE_BASE_URL: ${{ vars.CONFLUENCE_BASE_URL }}
+          CONFLUENCE_EMAIL: ${{ secrets.CONFLUENCE_EMAIL }}
+          CONFLUENCE_API_TOKEN: ${{ secrets.CONFLUENCE_API_TOKEN }}
+          CONFLUENCE_SPACE_KEY: ${{ vars.CONFLUENCE_SPACE_KEY }}
+          CONFLUENCE_EXTRA_FOLDER_IDS: ${{ vars.CONFLUENCE_EXTRA_FOLDER_IDS }}
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_PLANNER }}
+          WIKI_DIR: wiki
+          DRY_RUN: ${{ inputs.dry_run }}
+          FORCE_DIRECTION: ${{ inputs.force_direction }}
+        run: node .github/scripts/sync-wiki-confluence.js
+
+      # スクリプトが一部のページでエラーになっても、成功したページの結果(状態ファイル含む)は保存する
+      - name: Commit and push wiki (with rebase retry)
+        if: ${{ !cancelled() && inputs.dry_run != true }}
+        working-directory: wiki
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add -A
+
+          if git diff --cached --quiet; then
+            echo "変更なし"
+            exit 0
+          fi
+
+          git commit -m "Sync from Confluence (bot)"
+
+          for i in 1 2 3; do
+            if git push; then
+              echo "push成功"
+              exit 0
+            fi
+            echo "push失敗。リベースしてリトライします (${i}回目)"
+            git pull --rebase
+          done
+
+          echo "3回リトライしてもpushできませんでした" >&2
+          exit 1

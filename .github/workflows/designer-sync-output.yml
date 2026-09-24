@@ -1,0 +1,82 @@
+name: Sync Designer Assets to Output
+
+# designer_develop の Assets/Designer 以下の実体ファイルだけを designer_output へミラーする。
+# .meta は designer_output 側で一元管理する(Generate Designer Meta Files が生成)ため同期しない。
+# 詳細: ClaudeUsers/meta自動生成フローガイド.md
+
+on:
+  push:
+    branches: [designer_develop]
+    paths:
+      - 'Assets/Designer/**'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+# designer_output へ push するワークフロー同士を直列化する
+concurrency:
+  group: designer-output
+  cancel-in-progress: false
+
+env:
+  # LFS 実体はダウンロードせずポインタのまま同期する(実体はデザイナーの push で既にサーバーにある)
+  GIT_LFS_SKIP_SMUDGE: 1
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout designer_output
+        uses: actions/checkout@v4
+        with:
+          ref: designer_output
+
+      - name: Checkout designer_develop
+        uses: actions/checkout@v4
+        with:
+          ref: designer_develop
+          path: .dev-src
+
+      - name: Mirror Assets/Designer (実体ファイルのみ、.metaは触らない)
+        run: |
+          mkdir -p Assets/Designer
+          rsync -a --delete --exclude '*.meta' \
+            .dev-src/Assets/Designer/ Assets/Designer/
+          rm -rf .dev-src
+
+      - name: Remove orphaned .meta（実体が削除された場合の掃除）
+        run: |
+          find Assets/Designer -name '*.meta' -print0 | while IFS= read -r -d '' meta; do
+            src="${meta%.meta}"
+            [ -e "$src" ] || rm -- "$meta"
+          done
+
+      - name: Commit & push if changed
+        id: push
+        run: |
+          git config user.name "sync-bot"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A Assets/Designer
+          if ! git diff --cached --quiet; then
+            git commit -m "chore: sync Assets/Designer from designer_develop"
+            git push origin HEAD:designer_output
+            echo "pushed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "No changes"
+          fi
+
+      # 「作業完了」通知(Generate Designer Meta Files)で designer_develop のコミット一覧を使うため受け渡す
+      - name: Save designer_develop commits
+        if: steps.push.outputs.pushed == 'true'
+        run: |
+          jq -c '[.commits[]? | select([.added[]?, .modified[]?, .removed[]?] | any(startswith("Assets/Designer/"))) | {message: (.message | split("\n")[0]), url: .url, author: .author.name}]' \
+            "$GITHUB_EVENT_PATH" > designer-commits.json
+
+      - name: Upload designer_develop commits
+        if: steps.push.outputs.pushed == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: designer-commits
+          path: designer-commits.json
+          retention-days: 1

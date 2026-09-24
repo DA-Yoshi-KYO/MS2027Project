@@ -60,6 +60,9 @@ public class CS_PlayerAttack : NetworkBehaviour
     private bool _isInputBuffered;          // 攻撃モーション中に次の入力があったか(先行入力)
 
     public bool isAttacking => _currentStep != _noStep;   // コンボ中か(CS_PlayerSpecialAttackが参照)
+
+    // 操作しているクライアントでだけ発生する(引数は何段目か、0始まり)。見た目などが購読する
+    public event System.Action<int> onStepStarted;
     public int currentStep => _currentStep;               // 現在の段(0始まり、攻撃していなければ-1)
     public IReadOnlyList<CSO_AttackData> attackSteps => _attackSteps;
 
@@ -145,6 +148,7 @@ public class CS_PlayerAttack : NetworkBehaviour
         _elapsed = 0f;
         _hasHit = false;
         _isInputBuffered = false;
+        onStepStarted?.Invoke(stepIndex);
     }
 
     // 次の段があれば派生する(派生できたらtrue)

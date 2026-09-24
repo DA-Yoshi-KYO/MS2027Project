@@ -82,9 +82,24 @@ public class CS_PlayerHealth : NetworkBehaviour, IDamageable, IHealable
 
         _currentHp.Value = Mathf.Max(0f, _currentHp.Value - damage);
 
-        if (_currentHp.Value <= 0f)
+        bool justDied = _currentHp.Value <= 0f;
+        if (justDied)
         {
             _isDead.Value = true;
+        }
+
+        NotifyOffline(justDied);
+    }
+
+    // オフライン時はNetworkVariableの変更通知が届かないため、ここで直接イベントを発生させる
+    private void NotifyOffline(bool justDied)
+    {
+        if (IsSpawned) return;
+
+        onHpChanged?.Invoke(_currentHp.Value, maxHp);
+        if (justDied)
+        {
+            onDeath?.Invoke();
         }
     }
 
@@ -97,6 +112,7 @@ public class CS_PlayerHealth : NetworkBehaviour, IDamageable, IHealable
         if (amount <= 0f) return;
 
         _currentHp.Value = Mathf.Min(maxHp, _currentHp.Value + amount);
+        NotifyOffline(false);
     }
 
     // HPを満タンにして復帰させる(サーバーのみ。今後のリスポーン処理からの呼び出しを想定)
@@ -106,6 +122,7 @@ public class CS_PlayerHealth : NetworkBehaviour, IDamageable, IHealable
 
         _currentHp.Value = maxHp;
         _isDead.Value = false;
+        NotifyOffline(false);
     }
 
     private void HandleHpChanged(float previous, float current)

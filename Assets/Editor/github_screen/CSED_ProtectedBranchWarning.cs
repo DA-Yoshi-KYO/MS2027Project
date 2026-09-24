@@ -9,6 +9,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Reflection;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.UIElements;
@@ -25,8 +26,11 @@ namespace MS2027.EditorTools
         private const string BlockerName = "ms2027-branch-input-blocker";
         private static readonly string ProjectRoot = Path.GetFullPath(Path.Combine(Application.dataPath, ".."));
         private static readonly HashSet<VisualElement> Roots = new HashSet<VisualElement>();
+        private static readonly HashSet<VisualElement> ContentRoots = new HashSet<VisualElement>();
         private static readonly Dictionary<VisualElement, VisualElement> Blockers = new Dictionary<VisualElement, VisualElement>();
         private static readonly HashSet<VisualElement> PlayInspectionPanels = new HashSet<VisualElement>();
+        private static readonly Dictionary<VisualElement, EditorWindow> ConsolePanels = new Dictionary<VisualElement, EditorWindow>();
+        private static readonly HashSet<VisualElement> ConsoleInputRoots = new HashSet<VisualElement>();
         private static readonly HashSet<string> ProtectedBranches = new HashSet<string>(StringComparer.Ordinal);
         private static string configContents;
         private static double nextPoll;
@@ -76,36 +80,54 @@ namespace MS2027.EditorTools
             ObserveBranch();
             bool locked = IsLocked;
             PlayInspectionPanels.Clear();
-            var workPanels = new HashSet<VisualElement>();
+            ConsolePanels.Clear();
+            var workPanels = new Dictionary<VisualElement, VisualElement>();
             foreach (var window in Resources.FindObjectsOfTypeAll<EditorWindow>())
             {
                 var root = window.rootVisualElement;
                 if (Roots.Add(root)) RegisterInput(root, true);
-                // Project/HierarchyのIMGUIはrootの兄弟に配置されるため、パネル全体を覆う。
+                // IMGUIも覆うためパネルに配置するが、タブを除いたコンテンツ領域だけを制限する。
                 var panelRoot = root.panel?.visualTree;
                 if (panelRoot == null) continue;
+                if (window.GetType().FullName == "UnityEditor.ConsoleWindow")
+                {
+                    ConsolePanels[panelRoot] = window;
+                    // ConsoleのIMGUIへ届く前に、ログ項目のクリックだけを監視する。
+                    if (ConsoleInputRoots.Add(panelRoot)) RegisterConsoleInput(panelRoot, true);
+                }
                 if (CanInspectDuringPlay(window.GetType())) PlayInspectionPanels.Add(panelRoot);
-                if (window.GetType().Name != "MainToolbarWindow") workPanels.Add(panelRoot);
+                if (window.GetType().Name == "MainToolbarWindow") continue;
+                var contentRoot = root;
+                while (contentRoot.parent != null && contentRoot.parent != panelRoot)
+                    contentRoot = contentRoot.parent;
+                if (ContentRoots.Add(contentRoot))
+                    contentRoot.RegisterCallback<GeometryChangedEvent>(OnContentGeometryChanged);
+                workPanels[panelRoot] = contentRoot;
             }
             foreach (var panel in workPanels)
-                UpdateBlocker(panel, locked && !(EditorApplication.isPlaying && PlayInspectionPanels.Contains(panel)));
+                UpdateBlocker(panel.Key, panel.Value,
+                    locked && !ConsolePanels.ContainsKey(panel.Key) &&
+                    !(EditorApplication.isPlaying && PlayInspectionPanels.Contains(panel.Key)));
         }
 
         /// <summary>
-        /// 再生中の操作を許可する標準HierarchyとInspectorを判定する。
+        /// 再生中の操作を許可する標準Hierarchy・Inspector・Game・Sceneを判定する。
         /// </summary>
         private static bool CanInspectDuringPlay(Type type)
         {
             for (; type != null; type = type.BaseType)
-                if (type.FullName == "UnityEditor.SceneHierarchyWindow" || type.FullName == "UnityEditor.InspectorWindow")
+                if (type.FullName == "UnityEditor.SceneHierarchyWindow" ||
+                    type.FullName == "UnityEditor.InspectorWindow" ||
+                    type.FullName == "UnityEditor.GameView" ||
+                    type.FullName == "UnityEditor.SceneView")
                     return true;
             return false;
         }
 
         /// <summary>
-        /// IMGUIを含むウィンドウの最前面でクリックを受け取り、背後への操作を遮断する。
+        /// タブを除くウィンドウの最前面でクリックを受け取り、IMGUIを含む背後への操作を遮断する。
         /// </summary>
-        private static void UpdateBlocker(VisualElement panelRoot, bool locked)
+        private static void UpdateBlocker(VisualElement panelRoot, VisualElement contentRoot, bool locked)
         {
             // 許可チェックを含むパネルは覆わず、従来の入力監視でチェック以外を制限する。
             if (panelRoot.Q<Toggle>(ConsentName) != null) locked = false;
@@ -119,6 +141,7 @@ namespace MS2027.EditorTools
                 panelRoot.Add(blocker);
                 Blockers.Add(panelRoot, blocker);
             }
+            UpdateBlockerTop(blocker, contentRoot);
             blocker.style.display = locked ? DisplayStyle.Flex : DisplayStyle.None;
             if (locked)
             {
@@ -127,6 +150,28 @@ namespace MS2027.EditorTools
                 var focused = panelRoot.panel?.focusController?.focusedElement as VisualElement;
                 if (focused != null && focused != blocker && panelRoot.Contains(focused)) blocker.Focus();
             }
+        }
+
+        /// <summary>
+        /// Unityがコンテンツに設定した上余白を使い、タブ列を入力遮断の範囲から外す。
+        /// </summary>
+        private static void UpdateBlockerTop(VisualElement blocker, VisualElement contentRoot)
+        {
+            // 固定ピクセル数にせず、フローティング・最大化時のタブ高さにも追従する。
+            float top = contentRoot.resolvedStyle.top;
+            blocker.style.top = float.IsNaN(top) ? 0f : Mathf.Max(0f, top);
+        }
+
+        /// <summary>
+        /// タブの移動やレイアウト変更に合わせ、入力を遮断する領域を更新する。
+        /// </summary>
+        private static void OnContentGeometryChanged(GeometryChangedEvent evt)
+        {
+            var contentRoot = evt.target as VisualElement;
+            var panelRoot = contentRoot?.panel?.visualTree;
+            if (panelRoot != null && Blockers.TryGetValue(panelRoot, out var blocker))
+                UpdateBlockerTop(blocker, contentRoot);
+            nextPoll = 0;
         }
 
         /// <summary>
@@ -227,13 +272,18 @@ namespace MS2027.EditorTools
         }
 
         /// <summary>
-        /// 許可チェックと再生ボタン類、再生中のHierarchy・Inspector以外は未許可時に入力を止める。
+        /// 許可チェックと再生ボタン類、再生中のHierarchy・Inspector・Game・Scene以外は未許可時に入力を止める。
         /// </summary>
         private static void BlockInput(EventBase evt)
         {
             if (!IsLocked) return;
             var eventTarget = evt.target as VisualElement;
-            if (EditorApplication.isPlaying && eventTarget?.panel != null &&
+            var panelRoot = eventTarget?.panel?.visualTree;
+            if (panelRoot != null && ConsolePanels.TryGetValue(panelRoot, out var console))
+            {
+                if (!IsConsoleLogInput(evt, console)) return;
+            }
+            else if (EditorApplication.isPlaying && eventTarget?.panel != null &&
                 PlayInspectionPanels.Contains(eventTarget.panel.visualTree)) return;
             for (var target = evt.target as VisualElement; target != null; target = target.parent)
                 // Unity 6.3標準の再生・停止・一時停止・ステップを含むオーバーレイ。
@@ -244,6 +294,74 @@ namespace MS2027.EditorTools
 #pragma warning restore CS0618
             // 押下時だけ案内する。移動・キー入力・ボタンを離す操作では表示しない。
             if (evt is PointerDownEvent || evt is MouseDownEvent) QueueWarning();
+        }
+
+        /// <summary>
+        /// Consoleの検索・絞り込み・スクロールを許可し、ログ行へのクリックだけを制限する。
+        /// </summary>
+        private static bool IsConsoleLogInput(EventBase evt, EditorWindow console)
+        {
+            // 検索欄への文字入力は許可するが、選択済みログをEnterで開く操作は止める。
+            if (evt is KeyDownEvent key)
+                return key.keyCode == KeyCode.Return || key.keyCode == KeyCode.KeypadEnter;
+            Vector2 position;
+            if (evt is PointerDownEvent pointerDown) position = pointerDown.position;
+            else if (evt is PointerUpEvent pointerUp) position = pointerUp.position;
+            else if (evt is MouseDownEvent mouseDown) position = mouseDown.mousePosition;
+            else if (evt is MouseUpEvent mouseUp) position = mouseUp.mousePosition;
+            else return false;
+
+            // Unity標準Consoleの一覧状態を参照し、空白やスクロールバーをログ行と誤判定しない。
+            const BindingFlags flags = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
+            var type = console.GetType();
+            var list = type.GetField("m_ListView", flags)?.GetValue(console);
+            if (list == null) return false;
+            var listType = list.GetType();
+            int rows = (int)(listType.GetField("totalRows", flags)?.GetValue(list) ?? 0);
+            int rowHeight = (int)(listType.GetField("rowHeight", flags)?.GetValue(list) ?? 0);
+            var scroll = (Vector2)(listType.GetField("scrollPos", flags)?.GetValue(list) ?? Vector2.zero);
+            int listHeight = (int)(type.GetField("ms_LVHeight", flags)?.GetValue(console) ?? 0);
+            var root = console.rootVisualElement;
+            Vector2 local = root.WorldToLocal(position);
+            float toolbarHeight = EditorStyles.toolbar.fixedHeight;
+            float y = local.y - toolbarHeight;
+            float scrollbarWidth = EditorGUIUtility.GetBuiltinSkin(EditorSkin.Inspector).verticalScrollbar.fixedWidth;
+            if (scrollbarWidth <= 0f) scrollbarWidth = 16f;
+            float width = root.resolvedStyle.width - (rows * rowHeight > listHeight ? scrollbarWidth : 0f);
+            return local.x >= 0f && local.x < width && y >= 0f && y < listHeight &&
+                rowHeight > 0 && y + scroll.y < rows * rowHeight;
+        }
+
+        /// <summary>
+        /// Consoleと同じ位置に別のタブが表示されても、タブ切り替え自体は制限しない。
+        /// </summary>
+        private static void OnConsoleInput<T>(T evt) where T : EventBase<T>, new()
+        {
+            var root = (evt.currentTarget as VisualElement)?.panel?.visualTree;
+            if (root != null && ConsolePanels.ContainsKey(root)) BlockInput(evt);
+        }
+
+        /// <summary>
+        /// Console用のクリック・キー監視を登録または解除する。
+        /// </summary>
+        private static void RegisterConsoleInput(VisualElement root, bool add)
+        {
+            if (add)
+            {
+                root.RegisterCallback<PointerDownEvent>(OnConsoleInput, TrickleDown.TrickleDown);
+                root.RegisterCallback<PointerUpEvent>(OnConsoleInput, TrickleDown.TrickleDown);
+                root.RegisterCallback<MouseDownEvent>(OnConsoleInput, TrickleDown.TrickleDown);
+                root.RegisterCallback<MouseUpEvent>(OnConsoleInput, TrickleDown.TrickleDown);
+                root.RegisterCallback<KeyDownEvent>(OnConsoleInput, TrickleDown.TrickleDown);
+            }
+            else
+            {
+                root.UnregisterCallback<PointerDownEvent>(OnConsoleInput, TrickleDown.TrickleDown);
+                root.UnregisterCallback<PointerUpEvent>(OnConsoleInput, TrickleDown.TrickleDown);
+                root.UnregisterCallback<MouseDownEvent>(OnConsoleInput, TrickleDown.TrickleDown);
+                root.UnregisterCallback<MouseUpEvent>(OnConsoleInput, TrickleDown.TrickleDown);
+                root.UnregisterCallback<KeyDownEvent>(OnConsoleInput, TrickleDown.TrickleDown);
+            }
         }
 
         /// <summary>
@@ -308,7 +426,7 @@ namespace MS2027.EditorTools
         private static void OnInput<T>(T evt) where T : EventBase<T>, new() => BlockInput(evt);
 
         /// <summary>
-        /// 再生・停止の切り替え直後に、HierarchyとInspectorの操作制限を更新する。
+        /// 再生・停止の切り替え直後に、Hierarchy・Inspector・Game・Sceneの操作制限を更新する。
         /// </summary>
         private static void OnPlayModeChanged(PlayModeStateChange state)
         {
@@ -359,6 +477,12 @@ namespace MS2027.EditorTools
             }
             Blockers.Clear();
             PlayInspectionPanels.Clear();
+            foreach (var root in ConsoleInputRoots) RegisterConsoleInput(root, false);
+            ConsoleInputRoots.Clear();
+            ConsolePanels.Clear();
+            foreach (var root in ContentRoots)
+                root.UnregisterCallback<GeometryChangedEvent>(OnContentGeometryChanged);
+            ContentRoots.Clear();
             foreach (var root in Roots) RegisterInput(root, false);
             Roots.Clear();
         }

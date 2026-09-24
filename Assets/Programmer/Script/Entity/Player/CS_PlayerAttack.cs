@@ -60,6 +60,8 @@ public class CS_PlayerAttack : NetworkBehaviour
     private bool _isInputBuffered;          // 攻撃モーション中に次の入力があったか(先行入力)
 
     public bool isAttacking => _currentStep != _noStep;   // コンボ中か(CS_PlayerSpecialAttackが参照)
+    public int currentStep => _currentStep;               // 現在の段(0始まり、攻撃していなければ-1)
+    public IReadOnlyList<CSO_AttackData> attackSteps => _attackSteps;
 
     private void Awake()
     {

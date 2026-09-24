@@ -32,6 +32,9 @@ public class CS_PoliceAttack : MonoBehaviour
     [Tooltip("次の攻撃までの間隔(秒)")]
     private float _attackInterval = 1.0f;
 
+    // 攻撃が届く距離
+    public float attackRange => _attackRange;
+
     /// <summary>
     /// 警察の攻撃に関する初期化メソッド
     /// </summary>

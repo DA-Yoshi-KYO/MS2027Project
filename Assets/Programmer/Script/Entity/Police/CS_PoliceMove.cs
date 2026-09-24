@@ -12,7 +12,8 @@ using UnityEngine.AI;
 
 /// <summary>
 /// 警察の移動を管理するクラス
-/// 経路探索・移動・回転はNavMeshAgentに任せ、このクラスは目的地と速度の管理を行う
+/// どこへ向かうかの判断はCS_PoliceBrainが行い、このクラスは指示された目的地へ移動するだけ
+/// 経路探索・移動・回転はNavMeshAgentに任せる
 /// </summary>
 [RequireComponent(typeof(NavMeshAgent))]
 public class CS_PoliceMove : MonoBehaviour
@@ -29,22 +30,43 @@ public class CS_PoliceMove : MonoBehaviour
     // 初期化処理を行わずに警察が移動するのを防ぐためのフラグ
     private bool _isInitialized = false;
 
-    // 警察が追跡する対象のTransform
-    private Transform _targetTransform = null;
+    // 目的地が一度でも指示されたか
+    private bool _hasDestination = false;
 
-    // 目的地の更新が必要かどうか(追跡対象が変わった時に立てる)
-    private bool _isDestinationDirty = false;
+    // 最後に指示された目的地(同じ目的地で経路を再計算しないために使う)
+    private Vector3 _requestedDestination = Vector3.zero;
 
-    // 追跡中に次に目的地を更新するまでの残り時間
-    private float _repathTimer = 0.0f;
+    // 目的地を指示したフレーム(そのフレームはまだ経路が古いので到達判定をしない)
+    private int _destinationSetFrame = -1;
 
-    [Header("巡回ポイントに到達したとみなす距離"), Min(0f)]
-    [SerializeField]
-    private float _patrolPointCompleteDistance = 0.1f;
+    // 移動できない状態が続いている時間
+    private float _stuckTimer = 0.0f;
 
-    [Header("追跡中に目的地を更新する間隔(秒)"), Min(0.01f)]
-    [SerializeField]
-    private float _repathInterval = 0.2f;
+    [Header("＝＝＝ 到達判定 ＝＝＝")]
+    [SerializeField, Min(0f)]
+    [Tooltip("目的地に到達したとみなす距離")]
+    private float _arriveDistance = 0.3f;
+
+    [Header("＝＝＝ 詰まり判定 ＝＝＝")]
+    [SerializeField, Min(0f)]
+    [Tooltip("この速さ未満なら止まっているとみなす")]
+    private float _stuckSpeed = 0.1f;
+
+    [SerializeField, Min(0.1f)]
+    [Tooltip("目的地に着いていないのに止まったまま、この秒数が経つと詰まりと判定する")]
+    private float _stuckTime = 3.0f;
+
+    // 最後に指示された目的地に到達したか
+    public bool hasArrived => IsNearDestination(Mathf.Max(_arriveDistance, _agent.stoppingDistance));
+
+    // 詰まって移動できない状態が一定時間続いているか
+    public bool isStuck => _stuckTimer >= _stuckTime;
+
+    // 目的地までの経路が途中までしか作れない(たどり着けない)か
+    // 目的地を指示した直後・経路の計算中は、前の経路の結果が残っている可能性があるので判定しない
+    public bool isPathUnreachable => _hasDestination && _agent.isOnNavMesh
+        && _destinationSetFrame != Time.frameCount && !_agent.pathPending
+        && _agent.pathStatus != NavMeshPathStatus.PathComplete;
 
     private void Awake()
     {
@@ -74,62 +96,64 @@ public class CS_PoliceMove : MonoBehaviour
 
     private void Update()
     {
-        // 初期化が完了していない、または追跡対象が設定されていない場合は何もしない
-        if (!_isInitialized || _targetTransform == null) return;
+        if (!_isInitialized) return;
 
-        // 追跡中は対象が動き続けるため、一定間隔で目的地を更新する
-        // (SetDestinationは呼ぶたびに経路を再計算するので毎フレームは呼ばない)
-        if (_currentMoveState == CSE_PoliceMoveState.Chase)
-        {
-            _repathTimer -= Time.deltaTime;
-            if (_repathTimer <= 0.0f) _isDestinationDirty = true;
-        }
-
-        if (!_isDestinationDirty) return;
-
-        // 目的地を設定すると、NavMeshAgentが経路探索・移動・回転を行う
-        _agent.SetDestination(_targetTransform.position);
-        _isDestinationDirty = false;
-        _repathTimer = _repathInterval;
+        // 移動できない状態が続いた時間を数える(途切れたらリセット)
+        _stuckTimer = IsBlocked() ? _stuckTimer + Time.deltaTime : 0.0f;
     }
 
     /// <summary>
-    /// 警察の追跡対象を設定するメソッド
+    /// 指定した目的地へ、指定した移動状態の速度で移動するメソッド
     /// </summary>
-    /// <param name="target">追跡対象のTransform</param>
-    public void SetTarget(Transform target)
+    /// <param name="position">目的地</param>
+    /// <param name="moveState">移動状態(速度の切り替えに使う)</param>
+    public void SetDestination(Vector3 position, CSE_PoliceMoveState moveState)
     {
-        // targetがPlayerの場合、追跡状態に変更
-        if (target.GetComponent<CS_Player>() != null)
-        {
-            _targetTransform = target;
-            ChangeMoveState(CSE_PoliceMoveState.Chase);
-        }
-        // targetが巡回ポイントの場合
-        else
-        {
-            // 巡回中に、今の巡回ポイントへ到達していない場合は追跡対象を変更しない
-            if (_currentMoveState == CSE_PoliceMoveState.Patrol && _targetTransform != null && !HasArrived()) return;
+        if (!_isInitialized) return;
 
-            _targetTransform = target;
-            ChangeMoveState(CSE_PoliceMoveState.Patrol);
-        }
+        ChangeMoveState(moveState);
 
-        // 次のUpdateで新しい目的地を設定する
-        _isDestinationDirty = true;
+        // NavMeshの外にいる時にSetDestinationを呼ぶとエラーになる(この状態は詰まりとして扱う)
+        if (!_agent.isOnNavMesh) return;
+
+        // 同じ目的地を何度も指示された場合は、経路の再計算をしない
+        if (_hasDestination && (_requestedDestination - position).sqrMagnitude < 0.01f) return;
+
+        _agent.SetDestination(position);
+        _requestedDestination = position;
+        _destinationSetFrame = Time.frameCount;
+        _hasDestination = true;
     }
 
     /// <summary>
-    /// 現在の目的地に到達したかを判定するメソッド
+    /// 最後に指示された目的地まで、指定した距離以内に近づいたかを判定するメソッド
     /// </summary>
-    /// <returns>到達していればtrue</returns>
-    private bool HasArrived()
+    /// <param name="distance">近づいたとみなす距離</param>
+    /// <returns>近づいていればtrue</returns>
+    public bool IsNearDestination(float distance)
     {
-        // 目的地の設定待ち・経路の計算中はまだ到達していない
-        if (_isDestinationDirty || _agent.pathPending) return false;
+        if (!_hasDestination || !_agent.isOnNavMesh) return false;
+
+        // 目的地を指示した直後・経路の計算中は、まだ近づいていない
+        if (_destinationSetFrame == Time.frameCount || _agent.pathPending) return false;
 
         // 直線距離ではなく、経路に沿った残りの距離で判定する(高低差・障害物を考慮するため)
-        return _agent.remainingDistance <= Mathf.Max(_patrolPointCompleteDistance, _agent.stoppingDistance);
+        return _agent.remainingDistance <= distance;
+    }
+
+    /// <summary>
+    /// 移動したいのに移動できていない状態かを判定するメソッド
+    /// </summary>
+    /// <returns>移動できていなければtrue</returns>
+    private bool IsBlocked()
+    {
+        // NavMeshの外に出てしまった場合は移動できない
+        if (!_agent.isOnNavMesh) return true;
+
+        // 目的地がない・経路の計算中・到達済みの場合は、止まっていて当然なので詰まりではない
+        if (!_hasDestination || _agent.pathPending || hasArrived) return false;
+
+        return _agent.velocity.sqrMagnitude < _stuckSpeed * _stuckSpeed;
     }
 
     /// <summary>

@@ -20,5 +20,15 @@ public enum CSE_PoliceMoveState
     /// <summary>
     /// 追跡状態
     /// </summary>
-    Chase
+    Chase,
+
+    /// <summary>
+    /// 駆け付け状態(警備エリア内で起きた事件の現場へ向かう)
+    /// </summary>
+    Rush,
+
+    /// <summary>
+    /// 探索状態(標的を見失った場所・駆け付けた現場を探す)
+    /// </summary>
+    Search
 }

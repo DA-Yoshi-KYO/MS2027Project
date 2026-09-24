@@ -41,6 +41,7 @@ public class CS_VillainHealth : NetworkBehaviour, IDamageable
     public bool isDefeated => _isDefeated;
 
     public event Action<float, float> onHpChanged;   // (current, max)
+    public event Action onDamaged;                    // ダメージを受けた時(サーバーのみ)。反撃の開始に使う
     public event Action onDefeated;                   // この悪人が撃退された時(サーバーのみ)
 
     // どの悪人が撃退されても呼ばれる(サーバーのみ)。スコア加算など、悪人全体を見る側の購読用
@@ -90,7 +91,10 @@ public class CS_VillainHealth : NetworkBehaviour, IDamageable
         if (_currentHp.Value <= 0f)
         {
             Defeat();
+            return;
         }
+
+        onDamaged?.Invoke();
     }
 
     // 撃退処理。通知してから消す

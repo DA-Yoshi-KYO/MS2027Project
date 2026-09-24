@@ -92,6 +92,7 @@ public class CS_VillainCombat : NetworkBehaviour
     private bool _hasHit;                 // 今回の攻撃で判定を行ったか
 
     public bool isEngaged => _state == State.Chase || _state == State.Attack;   // 臨戦態勢中か
+    public bool isCommittingCrime => enabled && _state == State.Idle;             // スポーン位置で犯罪を進めているか
 
     // このマシンが悪人を動かす権威を持つか(オフライン、またはサーバー)
     private bool hasAuthority => !IsSpawned || IsServer;

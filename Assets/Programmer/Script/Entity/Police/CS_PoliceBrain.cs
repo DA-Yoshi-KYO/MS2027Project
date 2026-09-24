@@ -61,6 +61,9 @@ public class CS_PoliceBrain : MonoBehaviour
     [Tooltip("見失った場所・駆け付けた現場を探す時間(秒)")]
     private float _searchDuration = 3.0f;
 
+    // 現在の行動状態
+    public CSE_PoliceMoveState state => _state;
+
     private void Awake()
     {
         _move = GetComponent<CS_PoliceMove>();

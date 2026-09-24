@@ -49,6 +49,15 @@ public class CS_PoliceVision : MonoBehaviour
     [Tooltip("視線を遮るレイヤー")]
     private LayerMask _obstacleLayers = ~0;
 
+    // 視野角度(視野全体の幅)
+    public float viewAngle => _viewAngle;
+
+    // 視野距離
+    public float viewDistance => _viewDistance;
+
+    // 視野角に関係なく気付く距離
+    public float noticeDistance => _noticeDistance;
+
     /// <summary>
     /// 警察の視界に関する初期化メソッド
     /// </summary>

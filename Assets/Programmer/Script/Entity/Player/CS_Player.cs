@@ -1,4 +1,5 @@
-﻿using Unity.Netcode;
+﻿using System;
+using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
@@ -101,6 +102,11 @@ public class CS_Player : NetworkBehaviour
     public InputAction specialAction => _specialAction; // 必殺技ボタン(CS_PlayerSpecialAttackが使う)
     public InputAction dashAction => _dashAction;       // ダッシュボタン
     public InputAction useItemAction => _useItemAction; // アイテム使用ボタン(CS_PlayerItemSlotが使う)
+    public bool isGrounded => IsGrounded();             // 接地しているか(全クライアントで判定できる。見た目用にも使う)
+
+    // 操作しているクライアントでだけ発生する。見た目(CS_PlayerVisual)など、ゲームロジックの外から購読する
+    public event Action onJumped;
+    public event Action onDashStarted;
 
     private void Awake()
     {
@@ -325,6 +331,7 @@ public class CS_Player : NetworkBehaviour
 
         Vector3 velocity = _rigidbody.linearVelocity;
         _rigidbody.linearVelocity = new Vector3(velocity.x, _stats.jumpPower, velocity.z);
+        onJumped?.Invoke();
     }
 
     // ダッシュを開始する(方向をこの時点で決めて固定する)
@@ -334,6 +341,7 @@ public class CS_Player : NetworkBehaviour
         _dashElapsed = 0f;
         _dashCooldownRemaining = _dashCooldown;
         _dashDirection = CalculateDashDirection();
+        onDashStarted?.Invoke();
     }
 
     // 移動入力があればその方向、無ければ現在向いている方向をダッシュ方向にする

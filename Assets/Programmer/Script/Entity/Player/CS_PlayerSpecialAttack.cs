@@ -50,6 +50,9 @@ public class CS_PlayerSpecialAttack : NetworkBehaviour
     private bool _hasHit;
 
     public bool isPerformingSpecial => _isPerforming;   // 必殺技中か(CS_PlayerAttackが参照)
+
+    // 操作しているクライアントでだけ発生する。見た目などが購読する
+    public event System.Action onSpecialStarted;
     public CSO_AttackData specialAttackData => _specialAttackData;
 
     private void Awake()
@@ -84,6 +87,7 @@ public class CS_PlayerSpecialAttack : NetworkBehaviour
         _isPerforming = true;
         _elapsed = 0f;
         _hasHit = false;
+        onSpecialStarted?.Invoke();
     }
 
     // 経過時間を進め、判定の発生とモーション終了を管理する

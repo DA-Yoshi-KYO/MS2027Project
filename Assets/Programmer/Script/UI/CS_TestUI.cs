@@ -25,16 +25,13 @@ public class CS_TestUI : MonoBehaviour
     [SerializeField] private int _maxPlayerHP = 300;
 
     // ---------------- 敵HP設定（複数敵対応） ----------------
-    [SerializeField] private GameObject _enemyHpPrefab;
+    [SerializeField] private GameObject _villainHpPrefab;
 
-    private GameObject _enemyHpUIInstance; // 生成したUIの実体を保持
+    private GameObject _villainHpUIInstance; // 生成したUIの実体を保持
 
-    [Header("表示する敵HPバーの番号")]
-    [SerializeField] private int _enemyNumber = 0;
-
-    [Header("EnemyHP設定")]
-    [SerializeField] private int _initEnemyHP = 300;
-    [SerializeField] private int _maxEnemyHP = 300;
+    [Header("VillainHP設定")]
+    [SerializeField] private int _initVillainHP = 300;
+    [SerializeField] private int _maxVillainHP = 300;
 
     // ---------------- タイマー設定 ----------------
     [Header("Timer設定")]
@@ -46,7 +43,7 @@ public class CS_TestUI : MonoBehaviour
     // ---------------- Modelの保持（UI使用者が持つのはModelだけ） ----------------
     private CS_UIPlayerHpModel _hpModel;
     private CS_UITimerModel _uiTimerModel;
-    private CS_UIEnemyHpModel _uiEnemyHpModel;
+    private CS_UIVillainHpModel _uiVillainHpModel;
 
     void Start()
     {
@@ -80,24 +77,24 @@ public class CS_TestUI : MonoBehaviour
         // ★ Pキーで敵HP UIを生成
         if (Input.GetKeyDown(KeyCode.P))
         {
-            // UI を生成（WorldSpace Canvas の子にする）
-            _enemyHpUIInstance = Instantiate(_enemyHpPrefab);
+            // UI を生成（このオブジェクトをVillain役として、その直下に置く）
+            _villainHpUIInstance = Instantiate(_villainHpPrefab, transform);
 
-            // Model生成 & Bind
-            _uiEnemyHpModel = new CS_UIEnemyHpModel(_maxEnemyHP, _initEnemyHP);
-            _uiEnemyHpModel.Bind(_enemyNumber);
+            // Model生成 & Bind（親のTransformで公開 → 子のHPバーが拾う）
+            _uiVillainHpModel = new CS_UIVillainHpModel(_maxVillainHP, _initVillainHP);
+            _uiVillainHpModel.Bind(transform);
         }
 
         // 敵HPのテスト（スペースキーでダメージ）
         if (Input.GetKeyDown(KeyCode.Space))
-            _uiEnemyHpModel.SetHp(_uiEnemyHpModel.currentHp.CurrentValue - 20);
+            _uiVillainHpModel.SetHp(_uiVillainHpModel.currentHp.CurrentValue - 20);
 
         // ★ HPが0以下になったらUIを消す
-        if (_uiEnemyHpModel != null && _uiEnemyHpModel.currentHp.CurrentValue <= 0)
+        if (_uiVillainHpModel != null && _uiVillainHpModel.currentHp.CurrentValue <= 0)
         {
-            _uiEnemyHpModel.Dispose(); // Bind解除
-            Destroy(_enemyHpUIInstance); // ← 生成したUIを破壊する
-            _uiEnemyHpModel = null; // 二重処理防止
+            _uiVillainHpModel.Dispose(); // Bind解除
+            Destroy(_villainHpUIInstance); // ← 生成したUIを破壊する
+            _uiVillainHpModel = null; // 二重処理防止
         }
 
         if(Input.GetKeyDown(KeyCode.O))
@@ -109,7 +106,7 @@ public class CS_TestUI : MonoBehaviour
         // Disposeで公開も自動で外れる
         _hpModel?.Dispose();
         _uiTimerModel?.Dispose();
-        _uiEnemyHpModel?.Dispose();
+        _uiVillainHpModel?.Dispose();
     }
 }
 

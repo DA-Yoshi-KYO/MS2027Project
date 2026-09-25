@@ -20,7 +20,7 @@ GameObject:
   - component: {fileID: 8794695675187380318}
   - component: {fileID: 5250238292555835564}
   - component: {fileID: 4257008625129335440}
-  m_Layer: 0
+  m_Layer: 31
   m_Name: Villain
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -198,6 +198,8 @@ MonoBehaviour:
     m_Bits: 4294967295
   _counterSearchRange: 15
   _leashRange: 15
+  _alleyAreaName: Alley
+  _leaveAlleyGiveUpTime: 2
 --- !u!114 &8445318759942867935
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -306,7 +308,7 @@ GameObject:
   - component: {fileID: 3800577664016944758}
   - component: {fileID: 7384309954807942134}
   - component: {fileID: 8152834304235139062}
-  m_Layer: 0
+  m_Layer: 31
   m_Name: Cube
   m_TagString: Untagged
   m_Icon: {fileID: 0}

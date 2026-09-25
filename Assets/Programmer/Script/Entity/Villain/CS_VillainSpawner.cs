@@ -21,7 +21,7 @@ using UnityEngine;
  * ・1グループの人数は minMembers ～ maxMembers 人(両端を含む)からランダム
  *   各メンバーの種類は villainPrefabs からランダムに選ぶ
  * ・グループのメンバーが全員いなくなったら(撃退・逃走でDestroyされたら)、そのスポーン位置は空く
- * ・グループが全滅した(犯罪完遂の逃走ではなく、全員撃退された)位置には、respawnCooldown 秒間リスポーンしない
+ * ・グループがいなくなった(全員撃退された、または犯罪を完遂して逃走した)位置には、respawnCooldown 秒間リスポーンしない
  *   ただし「プレイヤーの数 + 追加グループ数」を保てない場合は、待ち中の位置にも生成する
  *   (待ち中の位置からは、待ちが早く終わる位置を選ぶ)
  *   時間経過による追加では、待ち中の位置には生成しない
@@ -53,7 +53,7 @@ public class CS_VillainSpawner : MonoBehaviour
     private int _extraGroupCount = 1;
 
     [SerializeField, Min(0f)]
-    [Tooltip("グループが全滅した位置に、次のグループを生成しない時間(秒)。最低グループ数を保てない場合は例外")]
+    [Tooltip("グループがいなくなった(全滅・犯罪完遂)位置に、次のグループを生成しない時間(秒)。最低グループ数を保てない場合は例外")]
     private float _respawnCooldown = 20f;
 
     [Header("時間経過による追加")]
@@ -130,7 +130,7 @@ public class CS_VillainSpawner : MonoBehaviour
     }
 
     // 全員いなくなったグループを外し、スポーン位置を空ける
-    // 全滅した(犯罪完遂の逃走ではない)位置は、しばらくリスポーンを待たせる
+    // いなくなった(全滅・犯罪完遂の逃走)グループの位置は、しばらくリスポーンを待たせる
     private void RemoveDeadGroups()
     {
         for (int i = _groups.Count - 1; i >= 0; i--)
@@ -139,7 +139,7 @@ public class CS_VillainSpawner : MonoBehaviour
             if (group.isAlive) continue;
 
             group.spawnPoint.isOccupied = false;
-            if (!group.isCrimeCompleted) group.spawnPoint.StartCooldown(_respawnCooldown);
+            group.spawnPoint.StartCooldown(_respawnCooldown);
             _groups.RemoveAt(i);
         }
     }

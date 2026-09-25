@@ -17,7 +17,8 @@ GameObject:
   - component: {fileID: 7184240200317807011}
   - component: {fileID: 7209839225254977017}
   - component: {fileID: 769974262908060740}
-  m_Layer: 0
+  - component: {fileID: 5263718849201735512}
+  m_Layer: 31
   m_Name: Police
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -170,12 +171,6 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::CS_PoliceVision
   _eyeHeight: 0.6
   _noticeDistance: 1.5
-  _targetLayers:
-    serializedVersion: 2
-    m_Bits: 4294967295
-  _obstacleLayers:
-    serializedVersion: 2
-    m_Bits: 4294967295
 --- !u!114 &7209839225254977017
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -190,6 +185,10 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::CS_PoliceAttack
   _attackRange: 1.5
   _attackInterval: 1
+  _attackChargeTime: 2
+  _hitboxForwardOffset: 1
+  _hitboxRadius: 1
+  _hitboxLifetime: 1
 --- !u!114 &769974262908060740
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -204,3 +203,15 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::CS_PoliceBrain
   _thinkInterval: 0.2
   _searchDuration: 3
+--- !u!114 &5263718849201735512
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 681291065592780614}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 49352843e53084a4f96cee5a61e9e2b3, type: 3}
+  m_Name:
+  m_EditorClassIdentifier: Assembly-CSharp::CS_PoliceChargeDebugVisual

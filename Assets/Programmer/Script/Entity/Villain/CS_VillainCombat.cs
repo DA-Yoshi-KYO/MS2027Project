@@ -27,7 +27,14 @@ using UnityEngine.AI;
  *   ・ジャンプ中などで足元にNavMeshが見つからない時は、直前の判定結果を使う
  *   ・出入口で行ったり来たりされても追跡と帰還が切り替わり続けないよう、外に出てから一定時間待つ
  * ・isEngagedがtrueの間は犯罪の手を止める(犯罪の進行側から参照する想定)
- * ・攻撃のタイミング・範囲はCSO_AttackData(Attack Data)で決める
+ * ・攻撃の流れ
+ *   ターゲットまで attackStartDistance 以内に近づくと攻撃を始める
+ *   → 攻撃を始めた時にターゲットがいた位置へ向き、chargeTime 秒溜める(この間は当たらない)
+ *   → hitActiveTime 秒間、正面に攻撃判定を出す(その間に入ったプレイヤーに1回ずつ当たる)
+ *   → attackInterval 秒待ってから、次の攻撃ができる
+ * ・攻撃の段階(attackPhase)はNetworkVariableで全クライアントに同期し、CS_VillainAttackVisualが見た目に使う
+ * ・攻撃範囲とダメージはCSO_AttackData(Attack Data)で決める(Attack DataのhitDelay・durationは使わない)
+ *   判定 = 正面 hitRange 先、半径 hitRadius の球
  *   実際のダメージ = CSO_AttackData.CalculateDamage() × CS_VillainStats.attackPower
  *   → Attack DataのDamageを1にすると、攻撃力がそのままダメージになる
  * ・ダメージを与えるのはプレイヤー(CS_PlayerHealth)のみ。悪人同士では当たらない
@@ -47,7 +54,7 @@ public class CS_VillainCombat : NetworkBehaviour
     {
         Idle,       // 犯罪中(臨戦態勢ではない)
         Chase,      // ターゲットを追いかけている
-        Attack,     // 攻撃モーション中
+        Attack,     // 攻撃中(溜め・攻撃判定)
         Return,     // スポーン位置へ戻っている
     }
 
@@ -65,8 +72,20 @@ public class CS_VillainCombat : NetworkBehaviour
 
     [Header("攻撃")]
     [SerializeField]
-    [Tooltip("攻撃1回分のデータ。Damageを1にすると攻撃力がそのままダメージになる")]
+    [Tooltip("攻撃範囲とダメージのデータ。Damageを1にすると攻撃力がそのままダメージになる")]
     private CSO_AttackData _attackData;
+
+    [SerializeField, Min(0f)]
+    [Tooltip("ターゲットにこの距離(m)まで近づいたら攻撃を始める")]
+    private float _attackStartDistance = 1f;
+
+    [SerializeField, Min(0f)]
+    [Tooltip("攻撃を始めてから攻撃判定が出るまでの溜め時間(秒)")]
+    private float _chargeTime = 1f;
+
+    [SerializeField, Min(0f)]
+    [Tooltip("攻撃判定が出ている時間(秒)")]
+    private float _hitActiveTime = 1f;
 
     [SerializeField, Min(0f)]
     [Tooltip("攻撃が終わってから次の攻撃までの間隔(秒)")]
@@ -99,6 +118,10 @@ public class CS_VillainCombat : NetworkBehaviour
     private CS_VillainHealth _health;
     private readonly Collider[] _hitBuffer = new Collider[_hitBufferSize];
     private readonly HashSet<IDamageable> _hitTargets = new HashSet<IDamageable>();
+    private readonly HashSet<IDamageable> _damagedTargets = new HashSet<IDamageable>();   // 今回の攻撃で既にダメージを与えた相手
+
+    // 攻撃の段階。書き込みはサーバーのみ(NetworkVariableのデフォルト)。見た目の切り替えに全クライアントで使う
+    private readonly NetworkVariable<CSE_VillainAttackPhase> _attackPhase = new NetworkVariable<CSE_VillainAttackPhase>();
 
     private State _state = State.Idle;
     private CS_PlayerHealth _target;
@@ -107,14 +130,17 @@ public class CS_VillainCombat : NetworkBehaviour
     private float _scanTimer;
     private float _attackElapsed;         // 攻撃開始からの経過時間
     private float _attackCooldown;        // 次の攻撃までの残り時間
-    private bool _hasHit;                 // 今回の攻撃で判定を行ったか
+    private Vector3 _attackAimPosition;   // 攻撃を始めた時にターゲットがいた位置(溜め中はここへ向く)
     private int _alleyAreaMask;           // 路地裏AreaのNavMeshエリアマスク。0なら路地裏判定を行わない
     private bool _isTargetInAlley;        // 直前のターゲットの路地裏判定(足元のNavMeshが見つからない時に使う)
     private float _outsideAlleyTime;      // ターゲットが路地裏の外に出てからの時間
 
     public bool isEngaged => _state == State.Chase || _state == State.Attack;   // 臨戦態勢中か
     public bool isCommittingCrime => enabled && _state == State.Idle;             // スポーン位置で犯罪を進めているか
-    public bool isAttacking => _state == State.Attack;                           // 攻撃モーション中か
+    public bool isAttacking => _state == State.Attack;                           // 攻撃中か(溜め・攻撃判定)
+    public CSE_VillainAttackPhase attackPhase => _attackPhase.Value;              // 攻撃の段階(全クライアントで参照可)
+    public float chargeTime => _chargeTime;
+    public Vector3 hitCenter => transform.position + transform.forward * _attackData.hitRange;   // 攻撃判定(球)の中心
     public CSO_AttackData attackData => _attackData;
     public float counterSearchRange => _counterSearchRange;
     public float leashRange => _leashRange;
@@ -124,7 +150,6 @@ public class CS_VillainCombat : NetworkBehaviour
     private bool hasAuthority => !IsSpawned || IsServer;
 
     private float moveSpeed => _playerBaseStats.moveSpeed * _stats.moveSpeedMultiplier;
-    private float attackReach => _attackData.hitRange + _attackData.hitRadius;   // この距離まで近づいたら攻撃する
 
     private void Awake()
     {
@@ -197,7 +222,7 @@ public class CS_VillainCombat : NetworkBehaviour
         }
 
         Vector3 toTarget = GetFlatDirection(_target.transform.position);
-        if (toTarget.magnitude > attackReach)
+        if (toTarget.magnitude > _attackStartDistance)
         {
             _move.MoveTo(_target.transform.position, moveSpeed);
             return;
@@ -208,25 +233,29 @@ public class CS_VillainCombat : NetworkBehaviour
         if (_attackCooldown <= 0f) StartAttack();
     }
 
-    // 攻撃モーション中。hitDelayで判定を出し、durationで追跡に戻る
+    // 攻撃中。chargeTime秒溜めてから、hitActiveTime秒間攻撃判定を出し、追跡に戻る
     private void UpdateAttack()
     {
         _move.Stop();
         _attackElapsed += Time.fixedDeltaTime;
 
-        if (IsValidTarget(_target))
+        // 溜め中も、攻撃を始めた時にターゲットがいた位置を向き続ける(ターゲットは追いかけない)
+        _move.FaceTowards(GetFlatDirection(_attackAimPosition));
+
+        if (_attackElapsed < _chargeTime) return;
+
+        if (_attackPhase.Value == CSE_VillainAttackPhase.Charge)
         {
-            _move.FaceTowards(GetFlatDirection(_target.transform.position));
+            _attackPhase.Value = CSE_VillainAttackPhase.Hit;
         }
 
-        if (!_hasHit && _attackElapsed >= _attackData.hitDelay)
+        if (_attackElapsed < _chargeTime + _hitActiveTime)
         {
-            _hasHit = true;
             HitPlayers();
+            return;
         }
 
-        if (_attackElapsed < _attackData.duration) return;
-
+        _attackPhase.Value = CSE_VillainAttackPhase.None;
         _attackCooldown = _attackInterval;
         _state = State.Chase;
     }
@@ -249,10 +278,12 @@ public class CS_VillainCombat : NetworkBehaviour
     {
         _state = State.Attack;
         _attackElapsed = 0f;
-        _hasHit = false;
+        _attackAimPosition = _target.transform.position;
+        _damagedTargets.Clear();
+        _attackPhase.Value = CSE_VillainAttackPhase.Charge;
     }
 
-    // 正面の攻撃範囲にいるプレイヤーにダメージを与える
+    // 正面の攻撃範囲(hitCenter)にいるプレイヤーのうち、今回の攻撃でまだ当たっていない相手にダメージを与える
     private void HitPlayers()
     {
         CS_AttackHitDetector.FindTargets(transform, _attackData, _targetLayers, _hitBuffer, _hitTargets);
@@ -261,6 +292,7 @@ public class CS_VillainCombat : NetworkBehaviour
         foreach (IDamageable target in _hitTargets)
         {
             if (!(target is CS_PlayerHealth)) continue;   // 悪人同士では当たらない
+            if (!_damagedTargets.Add(target)) continue;   // 判定が出ている間も、同じ相手には1回だけ当てる
 
             float damage = _attackData.CalculateDamage(context, target) * _stats.attackPower;
             target.TakeDamage(damage);

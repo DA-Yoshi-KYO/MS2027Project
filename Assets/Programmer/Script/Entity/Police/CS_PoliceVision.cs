@@ -19,6 +19,9 @@ public class CS_PoliceVision : MonoBehaviour
     public const int villainPriority = 1;
     public const int playerPriority = 2;
 
+    // 変身中のプレイヤーに付くタグ(CS_PlayerTransformationが変身状態に合わせて切り替える)
+    private const string _transformedPlayerTag = "PlayerTransformation";
+
     // 周囲のコライダーを集める際に使い回すバッファ(判定のたびに配列を確保しないため)
     private readonly Collider[] _overlapBuffer = new Collider[32];
 
@@ -125,15 +128,25 @@ public class CS_PoliceVision : MonoBehaviour
     }
 
     /// <summary>
-    /// プレイヤーが攻撃対象になるかを判定するメソッド
+    /// プレイヤーが変身中かを判定するメソッド
+    /// タグで判定する(変身状態の確定はサーバーで行われ、サーバーを含む全員のタグが切り替わる)
+    /// </summary>
+    /// <param name="player">判定するプレイヤー</param>
+    /// <returns>変身中ならtrue</returns>
+    public static bool IsTransformed(CS_PlayerHealth player)
+    {
+        return player.CompareTag(_transformedPlayerTag);
+    }
+
+    /// <summary>
+    /// プレイヤーが警察の攻撃対象になるかを判定するメソッド(生きていて、変身中のプレイヤーだけが対象)
+    /// 視界(標的を探す)と攻撃判定(ダメージを与える)の両方で使う
     /// </summary>
     /// <param name="player">判定するプレイヤー</param>
     /// <returns>攻撃対象ならtrue</returns>
-    private bool IsPlayerTargetable(CS_PlayerHealth player)
+    public static bool IsPlayerTargetable(CS_PlayerHealth player)
     {
-        // 要件では「変身したプレイヤー」のみが対象だが、プレイヤー側にまだ変身状態が無いため、
-        // 現在は生きているプレイヤー全員を対象にしている(変身状態ができたらここに条件を追加する)
-        return !player.isDead;
+        return !player.isDead && IsTransformed(player);
     }
 
     /// <summary>

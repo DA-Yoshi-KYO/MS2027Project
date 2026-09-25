@@ -20,7 +20,8 @@ using UnityEngine.AI;
  *     ・ターゲットが倒れた・いなくなった
  *     ・ターゲットが路地裏の外に出てから leaveAlleyGiveUpTime 秒たった
  *     ・スポーン位置から leashRange 以上離れた(路地裏判定の取りこぼし対策)
- *   帰還中でも、プレイヤーが臨戦態勢範囲に入れば再び追跡する
+ *   帰還中は、プレイヤーが臨戦態勢範囲に入っても追跡しない(スポーン位置に着いて犯罪中に戻ってから反応する)
+ *   ただし帰還中に攻撃された場合は、反撃のため再び追跡する
  * ・路地裏かどうかは、ターゲットの足元のNavMeshのAreaが alleyAreaName(既定: Alley)かで判定する
  *   ・プレイヤー側には何も必要ない。NavMeshのベイクと、Navigationの Areas に同名のAreaを追加しておくこと
  *   ・Areaが無い場合は警告を出し、路地裏判定を行わない(距離の判定だけになる)
@@ -261,10 +262,9 @@ public class CS_VillainCombat : NetworkBehaviour
     }
 
     // スポーン位置へ戻る。着いたら犯罪を再開する
+    // 戻っている間は、プレイヤーが臨戦態勢範囲に入っても追跡しない(攻撃された時の反撃はHandleDamagedで行う)
     private void UpdateReturn()
     {
-        if (ScanEngageRange()) return;
-
         // 経路に沿った残りの距離で到着を判定する(曲がり角や障害物を考慮するため)
         _move.MoveTo(_homePosition, moveSpeed);
         if (!_move.IsNearDestination(_arriveDistance)) return;

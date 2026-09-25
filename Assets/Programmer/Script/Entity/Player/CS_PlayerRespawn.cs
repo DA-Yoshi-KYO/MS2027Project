@@ -16,6 +16,9 @@ using UnityEngine;
  *   (死亡中の移動の扱いはCS_Player側で行っている)
  * ・復活の処理はサーバーで行う(Revive()がサーバー専用のため)
  * ・復活予定時刻はNetworkVariableで持ち、HUD用に復活までの残り秒数(respawnRemaining)を全クライアントへ公開する
+ * ・復活してから_invincibleDuration秒(既定3秒)は無敵(CS_PlayerHealth.SetInvincible)
+ *   無敵の終了時刻もNetworkVariableで持ち、全クライアントで無敵中か(isRespawnInvincible)を判定できる
+ *   (見た目の点滅はCS_PlayerVisualがこれを見て行う)
  * ・オフライン(NetworkManagerが動いていない)のテストシーンでも単体で動く
  */
 // ========================================
@@ -25,15 +28,18 @@ public class CS_PlayerRespawn : NetworkBehaviour
 {
     [Header("復活")]
     [SerializeField] private float _respawnDelay = 10f;  // 死亡してから復活するまでの時間(秒)
+    [SerializeField] private float _invincibleDuration = 3f;    // 復活してから無敵が続く時間(秒)
 
     private CS_PlayerHealth _health;
     private Coroutine _respawnCoroutine;
 
     // 書き込みはサーバーのみ(NetworkVariableのデフォルト)。読み取りは全員可
     private readonly NetworkVariable<double> _respawnTime = new NetworkVariable<double>();  // 復活予定時刻
+    private readonly NetworkVariable<double> _invincibleEndTime = new NetworkVariable<double>();    // 復活後の無敵が終わる時刻
 
     public float respawnDelay => _respawnDelay;
     public float respawnRemaining => _health.isDead ? Mathf.Max(0f, (float)(_respawnTime.Value - GetCurrentTime())) : 0f;  // HUD用
+    public bool isRespawnInvincible => !_health.isDead && GetCurrentTime() < _invincibleEndTime.Value;   // 復活直後の無敵中か(見た目用)
 
     private void Awake()
     {
@@ -61,21 +67,40 @@ public class CS_PlayerRespawn : NetworkBehaviour
             StopCoroutine(_respawnCoroutine);
         }
 
+        // 復活後の無敵中に死亡した場合(無敵を無視するダメージなど)に備えて、無敵を確実に終わらせる
+        EndInvincible();
+
         _respawnTime.Value = GetCurrentTime() + _respawnDelay;
         _respawnCoroutine = StartCoroutine(RespawnAfterDelay());
     }
 
-    // _respawnDelay秒待ってから、その場で復活させる
+    // _respawnDelay秒待ってから、その場で復活させ、_invincibleDuration秒だけ無敵にする
     private IEnumerator RespawnAfterDelay()
     {
         yield return new WaitForSeconds(_respawnDelay);
 
-        _respawnCoroutine = null;
-
         // 待っている間に他の処理で復活済みなら、HPを満タンにし直さない
-        if (!_health.isDead) yield break;
+        if (!_health.isDead)
+        {
+            _respawnCoroutine = null;
+            yield break;
+        }
 
         _health.Revive();
+
+        _health.SetInvincible(this, true);
+        _invincibleEndTime.Value = GetCurrentTime() + _invincibleDuration;
+        yield return new WaitForSeconds(_invincibleDuration);
+
+        _respawnCoroutine = null;
+        EndInvincible();
+    }
+
+    // 復活後の無敵を終わらせる(サーバー、またはオフラインのみ)
+    private void EndInvincible()
+    {
+        _health.SetInvincible(this, false);
+        _invincibleEndTime.Value = 0;
     }
 
     // 復活の基準時刻(オンラインはサーバー時刻で揃える)

@@ -231,37 +231,6 @@ Transform:
   m_Children: []
   m_Father: {fileID: 1845737198}
   m_LocalEulerAnglesHint: {x: 0, y: -84.879, z: 0}
---- !u!1 &106099874
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 106099875}
-  m_Layer: 0
-  m_Name: VillainSpawnPoint
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!4 &106099875
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 106099874}
-  serializedVersion: 2
-  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 1090066215}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &229774050
 GameObject:
   m_ObjectHideFlags: 0
@@ -652,7 +621,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 5961151079834445413, guid: a3d33539c8b81ef4f9ca1dc5f3ba2719, type: 3}
       propertyPath: GlobalObjectIdHash
-      value: 3442757840
+      value: 1762472501
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
@@ -1381,7 +1350,6 @@ Transform:
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 1468331205}
-  - {fileID: 106099875}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1183340083
@@ -3178,6 +3146,7 @@ MonoBehaviour:
   _minMembers: 5
   _maxMembers: 6
   _extraGroupCount: 1
+  _respawnCooldown: 20
   _spawnInterval: 60
   _maxGroupCount: 8
   _offlinePlayerCount: 1

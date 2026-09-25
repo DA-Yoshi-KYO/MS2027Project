@@ -17,20 +17,20 @@ using UnityEngine;
 /// Bind(番号) で「何番のプレイヤーのHPか」を公開し、UI側がそれを拾って表示する
 /// ※ ModelはUIのクラスを一切参照しない(UI → Model の一方向)
 /// </summary>
-public class CS_UIHpModel : CS_BaseModel
+public class CS_UIPlayerHpModel : CS_BaseModel
 {
     // ---------------- 番号付きで公開されたModelの一覧 ----------------
 
-    private static readonly Dictionary<int, CS_UIHpModel> _boundModels = new Dictionary<int, CS_UIHpModel>();
+    private static readonly Dictionary<int, CS_UIPlayerHpModel> _boundModels = new Dictionary<int, CS_UIPlayerHpModel>();
 
     //Bindされた時の通知(番号, Model)
-    public static event Action<int, CS_UIHpModel> OnBound;
+    public static event Action<int, CS_UIPlayerHpModel> OnBound;
 
     //Bindが外れた時の通知(番号)
     public static event Action<int> OnUnbound;
 
     //指定番号のModelを取得する(UI側が後から生成された場合に使う)
-    public static bool TryGet(int playerNumber, out CS_UIHpModel model)
+    public static bool TryGet(int playerNumber, out CS_UIPlayerHpModel model)
     {
         return _boundModels.TryGetValue(playerNumber, out model);
     }
@@ -55,9 +55,9 @@ public class CS_UIHpModel : CS_BaseModel
     public ReadOnlyReactiveProperty<int> maxHp => _maxHp;
 
     //満タンで始める
-    public CS_UIHpModel(int maxHp) : this(maxHp, maxHp) { }
+    public CS_UIPlayerHpModel(int maxHp) : this(maxHp, maxHp) { }
 
-    public CS_UIHpModel(int maxHp, int currentHp)
+    public CS_UIPlayerHpModel(int maxHp, int currentHp)
     {
         _maxHp = new ReactiveProperty<int>(Mathf.Max(1, maxHp));
         _currentHp = new ReactiveProperty<int>(Mathf.Clamp(currentHp, 0, _maxHp.Value));

@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using Unity.Netcode;
 using UnityEngine;
 
@@ -18,6 +19,9 @@ using UnityEngine;
  *   → ダメージ処理は必ずサーバーで実行される(CS_PlayerAttack側の設計による)
  * ・フレンドリーファイアは常に有効。誰の攻撃でも当たる(このクラスでは区別しない)
  * ・onHpChanged / onDeath は、HPバーなどのUIやリスポーン処理から購読して使う
+ * ・無敵中はダメージを受けない。無敵は要因(呼び出し元)ごとにSetInvincible(要因, true/false)で管理し、
+ *   1つでも無敵の要因が残っていれば無敵(変身途中: CS_PlayerTransformation / 復活直後: CS_PlayerRespawn)
+ *   ダメージ処理はサーバーだけで行うため、無敵の状態もサーバー(またはオフライン)だけが持つ
  * ・オフライン(NetworkManagerが動いていない)のテストシーンでも単体で動く
  */
 // ========================================
@@ -32,9 +36,12 @@ public class CS_PlayerHealth : NetworkBehaviour, IDamageable, IHealable
     private readonly NetworkVariable<float> _currentHp = new NetworkVariable<float>();
     private readonly NetworkVariable<bool> _isDead = new NetworkVariable<bool>();
 
+    private readonly HashSet<object> _invincibleSources = new HashSet<object>();   // 無敵にしている要因(サーバー、またはオフラインでのみ意味を持つ)
+
     public float maxHp => _stats.maxHp;
     public float currentHp => _currentHp.Value;
     public bool isDead => _isDead.Value;
+    public bool isInvincible => _invincibleSources.Count > 0;
 
     public event Action<float, float> onHpChanged;   // (current, max)
     public event Action onDeath;
@@ -78,6 +85,7 @@ public class CS_PlayerHealth : NetworkBehaviour, IDamageable, IHealable
         // ネットワーク時はサーバーのみが処理する(オフラインはそのまま通す)
         if (IsSpawned && !IsServer) return;
         if (_isDead.Value) return;
+        if (isInvincible) return;
         if (damage <= 0f) return;
 
         _currentHp.Value = Mathf.Max(0f, _currentHp.Value - damage);
@@ -113,6 +121,21 @@ public class CS_PlayerHealth : NetworkBehaviour, IDamageable, IHealable
 
         _currentHp.Value = Mathf.Min(maxHp, _currentHp.Value + amount);
         NotifyOffline(false);
+    }
+
+    // 要因(source)ごとに無敵を切り替える(サーバー、またはオフラインのみ)
+    // 他の要因の無敵は解除しないので、呼び出し元はthisを渡す
+    public void SetInvincible(object source, bool invincible)
+    {
+        if (IsSpawned && !IsServer) return;
+
+        if (invincible)
+        {
+            _invincibleSources.Add(source);
+            return;
+        }
+
+        _invincibleSources.Remove(source);
     }
 
     // HPを満タンにして復帰させる(サーバーのみ。今後のリスポーン処理からの呼び出しを想定)

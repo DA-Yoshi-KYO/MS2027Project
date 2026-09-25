@@ -16,52 +16,64 @@ using UnityEngine;
 /// Model・HPバーのどちらが先に生成されても紐づく
 /// Modelの破棄は持ち主(使用者)が行うので、ここでは購読解除だけ行う
 /// </summary>
-public class CS_UIHpPresenter : CS_BasePresenter
+public class CS_UIPlayerHpPresenter : CS_BasePresenter
 {
     [Header("何番目のプレイヤーのHPを表示するか(0〜3)")][SerializeField] private int _playerNumber;
-    private CS_UIHpView _view;
+    private CS_UIPlayerHpView _view;
 
     //今紐づいているModelの購読(新しいModelを入れると前の購読は自動で解除される)
     private readonly SerialDisposable _modelSubscription = new SerialDisposable();
 
     void Awake()
     {
-        _view = GetComponent<CS_UIHpView>();
+        _view = GetComponent<CS_UIPlayerHpView>();
         _modelSubscription.AddTo(_disposables);
         _view.SetPresenter(this);
     }
 
     void OnEnable()
     {
-        CS_UIHpModel.OnBound += HandleBound;
-        CS_UIHpModel.OnUnbound += HandleUnbound;
+        CS_UIPlayerHpModel.OnBound += HandleBound;
+        CS_UIPlayerHpModel.OnUnbound += HandleUnbound;
 
-        //HPバーより先にModelがBindされていた場合
-        if (CS_UIHpModel.TryGet(_playerNumber, out var model))
+        // Model が存在しない番号なら UI を非表示
+        if (!CS_UIPlayerHpModel.TryGet(_playerNumber, out var model))
         {
-            BindModel(model);
+            gameObject.SetActive(false);
+            return;
         }
+
+        // Model が存在するなら通常通り Bind
+        BindModel(model);
     }
 
     void OnDisable()
     {
-        CS_UIHpModel.OnBound -= HandleBound;
-        CS_UIHpModel.OnUnbound -= HandleUnbound;
+        CS_UIPlayerHpModel.OnBound -= HandleBound;
+        CS_UIPlayerHpModel.OnUnbound -= HandleUnbound;
         UnbindModel();
     }
 
-    private void HandleBound(int playerNumber, CS_UIHpModel model)
+    private void HandleBound(int playerNumber, CS_UIPlayerHpModel model)
     {
-        if (playerNumber == _playerNumber) BindModel(model);
+        if (playerNumber == _playerNumber)
+        {
+            gameObject.SetActive(true); // ← 再表示
+            BindModel(model);
+        }
     }
 
     private void HandleUnbound(int playerNumber)
     {
-        if (playerNumber == _playerNumber) UnbindModel();
+        if (playerNumber == _playerNumber)
+        {
+            UnbindModel();
+            gameObject.SetActive(false);
+        }
     }
 
     //Modelを購読してViewに反映する
-    private void BindModel(CS_UIHpModel model)
+    private void BindModel(CS_UIPlayerHpModel model)
     {
         //現在Hp・最大Hpのどちらが変わってもViewを更新する
         //(購読した瞬間に現在値が流れるので、初期表示もここで行われる)

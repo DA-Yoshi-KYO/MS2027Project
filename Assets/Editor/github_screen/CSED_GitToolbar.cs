@@ -159,7 +159,7 @@ namespace MS2027.EditorTools
         }
 
         /// <summary>
-        /// 文字の省略を解除し、左右の文字幅に左右されず再生ボタン類を中央に置く。
+        /// 通常は再生ボタン類を中央に置き、左側のGit表示と重なるときだけ右へ退避する。
         /// </summary>
         private static void ApplyToolbarLayout()
         {
@@ -171,13 +171,15 @@ namespace MS2027.EditorTools
             var overlay = arguments[1] as UnityEditor.Overlays.Overlay;
             if (overlay == null) return;
             var root = overlay.rootVisualElement;
+            root.UnregisterCallback<GeometryChangedEvent>(OnBranchGeometryChanged);
+            root.RegisterCallback<GeometryChangedEvent>(OnBranchGeometryChanged);
             StyleLabel(root, "Git: " + Escape(current.Branch));
             CSED_ProtectedBranchWarning.UpdateConsent(root);
             var statusArguments = new object[] { StatusPath, null };
             if ((bool)method.Invoke(null, statusArguments) && statusArguments[1] is UnityEditor.Overlays.Overlay statusOverlay)
                 StyleLabel(statusOverlay.rootVisualElement, StatusText());
 
-            // 左右の文字量が変わっても、再生ボタン類の位置を画面中央に保つ。
+            // 基準位置は画面中央。長いブランチ名と許可チェックに必要な幅だけを追加で確保する。
             for (var container = root.parent; container != null; container = container.parent)
             {
                 var type = container.GetType();
@@ -215,6 +217,12 @@ namespace MS2027.EditorTools
                 if (foundControls && middle.panel != null)
                 {
                     Vector2 desired = new Vector2(middle.panel.visualTree.worldBound.center.x, container.worldBound.center.y);
+                    // 再生モード選択など、ボタンの左隣にある中央グループの項目も含めて重なりを避ける。
+                    float groupLeft = Mathf.Min(controls.xMin, middle.contentContainer.worldBound.xMin);
+                    float centerToLeft = controls.center.x - groupLeft;
+                    const float itemSpacing = 8f;
+                    if (root.resolvedStyle.display != DisplayStyle.None && root.worldBound.width > 0)
+                        desired.x = Mathf.Max(desired.x, root.worldBound.xMax + itemSpacing + centerToLeft);
                     Vector2 target = middle.parent.WorldToLocal(desired);
                     Vector2 offset = middle.WorldToLocal(controls.center);
                     middle.style.translate = new Translate(0, 0);
@@ -223,6 +231,14 @@ namespace MS2027.EditorTools
                 }
                 return;
             }
+        }
+
+        /// <summary>
+        /// ブランチ名や許可チェックの幅が確定した直後に位置を再計算する。
+        /// </summary>
+        private static void OnBranchGeometryChanged(GeometryChangedEvent evt)
+        {
+            nextLayoutCheck = 0;
         }
 
         /// <summary>

@@ -1,4 +1,5 @@
-﻿using Unity.Netcode;
+﻿using System;
+using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
@@ -63,12 +64,20 @@ public class CS_Player : NetworkBehaviour
     [SerializeField] private Transform _cameraTransform;    // プレイヤーの子のカメラ
     [SerializeField] private float _cameraDistance = 3.5f;
     [SerializeField] private float _cameraPivotHeight = 1.3f;
+    [SerializeField] private float _cameraFollowTime = 0.15f;         // 水平方向の追従の遅れ(秒)。0で完全追従
+    [SerializeField] private float _cameraVerticalFollowTime = 0.3f;  // 上下方向の追従の遅れ(秒)。ジャンプで揺れすぎないよう長めにする
     [SerializeField] private float _minPitch = -30f;
     [SerializeField] private float _maxPitch = 60f;
 
     [Header("視点感度")]
     [SerializeField] private float _mouseSensitivity = 0.1f;    // マウス移動量(ピクセル)に対する回転量
     [SerializeField] private float _stickSensitivity = 180f;    // スティック全開時の回転速度(度/秒)
+
+    private const float _cameraSnapDistance = 10f;  // これ以上離れたらテレポートとみなして遅らせない
+
+    private Vector3 _cameraPivot;             // 遅れて追従しているカメラの注視点
+    private Vector3 _cameraPivotVelocity;     // SmoothDamp用
+    private bool _hasCameraPivot;
 
     private Rigidbody _rigidbody;
     private CapsuleCollider _collider;
@@ -101,6 +110,11 @@ public class CS_Player : NetworkBehaviour
     public InputAction specialAction => _specialAction; // 必殺技ボタン(CS_PlayerSpecialAttackが使う)
     public InputAction dashAction => _dashAction;       // ダッシュボタン
     public InputAction useItemAction => _useItemAction; // アイテム使用ボタン(CS_PlayerItemSlotが使う)
+    public bool isGrounded => IsGrounded();             // 接地しているか(全クライアントで判定できる。見た目用にも使う)
+
+    // 操作しているクライアントでだけ発生する。見た目(CS_PlayerVisual)など、ゲームロジックの外から購読する
+    public event Action onJumped;
+    public event Action onDashStarted;
 
     private void Awake()
     {
@@ -325,6 +339,7 @@ public class CS_Player : NetworkBehaviour
 
         Vector3 velocity = _rigidbody.linearVelocity;
         _rigidbody.linearVelocity = new Vector3(velocity.x, _stats.jumpPower, velocity.z);
+        onJumped?.Invoke();
     }
 
     // ダッシュを開始する(方向をこの時点で決めて固定する)
@@ -334,6 +349,7 @@ public class CS_Player : NetworkBehaviour
         _dashElapsed = 0f;
         _dashCooldownRemaining = _dashCooldown;
         _dashDirection = CalculateDashDirection();
+        onDashStarted?.Invoke();
     }
 
     // 移動入力があればその方向、無ければ現在向いている方向をダッシュ方向にする
@@ -372,14 +388,34 @@ public class CS_Player : NetworkBehaviour
     }
 
     // カメラをプレイヤーの周りに配置する(プレイヤーの回転の影響を受けない)
+    // 注視点は少し遅れて追従する。回転(視点操作)は遅らせず、操作に即座に反応する
     private void UpdateCameraTransform()
     {
         if (_cameraTransform == null) return;
 
         Quaternion rotation = Quaternion.Euler(_pitch, _yaw, 0f);
-        Vector3 pivot = transform.position + Vector3.up * _cameraPivotHeight;
+        Vector3 pivot = FollowPivot(transform.position + Vector3.up * _cameraPivotHeight);
         Vector3 position = pivot - rotation * Vector3.forward * _cameraDistance;
 
         _cameraTransform.SetPositionAndRotation(position, rotation);
+    }
+
+    // 注視点を目標へ向けてなめらかに近づける(水平と上下で遅れの長さを変える)
+    private Vector3 FollowPivot(Vector3 target)
+    {
+        // 初回とテレポート(リスポーンなど)は遅らせず、その場に合わせる
+        if (!_hasCameraPivot || (target - _cameraPivot).sqrMagnitude > _cameraSnapDistance * _cameraSnapDistance)
+        {
+            _cameraPivot = target;
+            _cameraPivotVelocity = Vector3.zero;
+            _hasCameraPivot = true;
+            return _cameraPivot;
+        }
+
+        float deltaTime = Time.deltaTime;
+        _cameraPivot.x = Mathf.SmoothDamp(_cameraPivot.x, target.x, ref _cameraPivotVelocity.x, _cameraFollowTime, Mathf.Infinity, deltaTime);
+        _cameraPivot.z = Mathf.SmoothDamp(_cameraPivot.z, target.z, ref _cameraPivotVelocity.z, _cameraFollowTime, Mathf.Infinity, deltaTime);
+        _cameraPivot.y = Mathf.SmoothDamp(_cameraPivot.y, target.y, ref _cameraPivotVelocity.y, _cameraVerticalFollowTime, Mathf.Infinity, deltaTime);
+        return _cameraPivot;
     }
 }

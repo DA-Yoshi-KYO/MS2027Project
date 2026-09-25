@@ -21,6 +21,8 @@ GameObject:
   - component: {fileID: 227248534871208912}
   - component: {fileID: 2030269057143122786}
   - component: {fileID: 3346322341716874633}
+  - component: {fileID: 6914253087416032519}
+  - component: {fileID: 4417805521937715263}
   m_Layer: 31
   m_Name: Player
   m_TagString: PlayerNoTransformation
@@ -768,3 +770,31 @@ Animator:
   m_AllowConstantClipSamplingOptimization: 1
   m_KeepAnimatorStateOnDisable: 0
   m_WriteDefaultValuesOnDisable: 0
+--- !u!114 &6914253087416032519
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1825699444668748530}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2535b9a125fa00148823f8c75913fd2e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CS_PlayerTransformation
+  ShowTopMostFoldoutHeaderGroup: 1
+  _cooldown: 5
+--- !u!114 &4417805521937715263
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1825699444668748530}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8cf1620cadcd7eb8c35f345ed30a1d56, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CS_PlayerRespawn
+  ShowTopMostFoldoutHeaderGroup: 1
+  _respawnDelay: 10

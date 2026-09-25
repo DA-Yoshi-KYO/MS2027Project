@@ -20,6 +20,7 @@ GameObject:
   - component: {fileID: 8794695675187380318}
   - component: {fileID: 5250238292555835564}
   - component: {fileID: 4257008625129335440}
+  - component: {fileID: 1135304791542583852}
   m_Layer: 31
   m_Name: Villain
   m_TagString: Untagged
@@ -192,6 +193,9 @@ MonoBehaviour:
   ShowTopMostFoldoutHeaderGroup: 1
   _playerBaseStats: {fileID: 11400000, guid: 817504dae6f859c46802b52e2c8274fb, type: 2}
   _attackData: {fileID: 11400000, guid: 1f9371c6037126d45bef0bd08c2472de, type: 2}
+  _attackStartDistance: 1
+  _chargeTime: 1
+  _hitActiveTime: 1
   _attackInterval: 1
   _targetLayers:
     serializedVersion: 2
@@ -296,6 +300,21 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::CS_VillainMove
   _rotationSpeed: 720
   _repathDistance: 0.5
+--- !u!114 &1135304791542583852
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 942901870687269662}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e7d97246124b85046b9aa845113a1499, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CS_VillainAttackVisual
+  _chargeColor: {r: 1, g: 0.5, b: 0, a: 1}
+  _showHitArea: 1
+  _hitAreaMaterial: {fileID: 2100000, guid: 3d9867fd319368a40a143a64644529cb, type: 2}
 --- !u!1 &3136862546548924743
 GameObject:
   m_ObjectHideFlags: 0

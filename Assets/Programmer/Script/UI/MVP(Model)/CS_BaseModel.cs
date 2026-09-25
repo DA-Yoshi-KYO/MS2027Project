@@ -4,15 +4,16 @@
  * 制作者：元浪梨緒
  * ------------------------------------------------
  * 2026-09-24 | 初回作成
+ * 2026-09-25 | newで生成できるよう純粋なC#クラスに変更
  * ================================================ */
-
-using UnityEngine;
 
 /// <summary>
 /// UI設計(MVPのModelの基底クラス)
-/// データ状態だけを保持し、ロジックは持たない
-/// 共通処理が必要になったら追加
+/// データ状態だけを保持し、UI(Presenter/View)のことは知らない
+/// MonoBehaviourではないので、使用者側で new して生成する
+/// 使い終わったら使用者が Dispose する
 /// </summary>
-public abstract class CS_BaseModel : MonoBehaviour
+public abstract class CS_BaseModel : System.IDisposable
 {
+    public abstract void Dispose();
 }

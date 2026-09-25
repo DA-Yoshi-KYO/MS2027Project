@@ -4,36 +4,75 @@
  * 制作者：元浪梨緒
  * ------------------------------------------------
  * 2026-09-24 | 初回作成
+ * 2026-09-25 | HPバーにアタッチし、指定番号のModelがBindされたら紐づける形に変更
  * ================================================ */
 
 using R3;
+using UnityEngine;
 
 /// <summary>
-/// Hpの変化をViewに通知する
+/// Hpの変化をViewに通知する(Model → View の一方向)
+/// HPバーにアタッチし、指定番号のHpModelがBindされたら購読を始める
+/// Model・HPバーのどちらが先に生成されても紐づく
+/// Modelの破棄は持ち主(使用者)が行うので、ここでは購読解除だけ行う
 /// </summary>
 public class CS_UIHpPresenter : CS_BasePresenter
 {
-    private CS_UIHpModel _model;
+    [Header("何番目のプレイヤーのHPを表示するか(0〜3)")][SerializeField] private int _playerNumber;
     private CS_UIHpView _view;
 
-    public CS_UIHpPresenter(CS_UIHpModel model, CS_UIHpView view)
-    {
-        this._model = model;
-        this._view = view;
+    //今紐づいているModelの購読(新しいModelを入れると前の購読は自動で解除される)
+    private readonly SerialDisposable _modelSubscription = new SerialDisposable();
 
-        //Hpが変わったら通知する
-        model._currentHp.Subscribe(hp =>_view.UpdateHp(hp, model._maxHp.Value)).AddTo(_disposables);
+    void Awake()
+    {
+        _view = GetComponent<CS_UIHpView>();
+        _modelSubscription.AddTo(_disposables);
+        _view.SetPresenter(this);
     }
 
-    //ダメージ処理
-    public void Damage(int damage)
+    void OnEnable()
     {
-        _model.SetHp(_model._currentHp.Value - damage);
+        CS_UIHpModel.OnBound += HandleBound;
+        CS_UIHpModel.OnUnbound += HandleUnbound;
+
+        //HPバーより先にModelがBindされていた場合
+        if (CS_UIHpModel.TryGet(_playerNumber, out var model))
+        {
+            BindModel(model);
+        }
     }
 
-    //回復処理
-    public void Heal(int damage)
+    void OnDisable()
     {
-        _model.SetHp(_model._currentHp.Value + damage);
+        CS_UIHpModel.OnBound -= HandleBound;
+        CS_UIHpModel.OnUnbound -= HandleUnbound;
+        UnbindModel();
+    }
+
+    private void HandleBound(int playerNumber, CS_UIHpModel model)
+    {
+        if (playerNumber == _playerNumber) BindModel(model);
+    }
+
+    private void HandleUnbound(int playerNumber)
+    {
+        if (playerNumber == _playerNumber) UnbindModel();
+    }
+
+    //Modelを購読してViewに反映する
+    private void BindModel(CS_UIHpModel model)
+    {
+        //現在Hp・最大Hpのどちらが変わってもViewを更新する
+        //(購読した瞬間に現在値が流れるので、初期表示もここで行われる)
+        _modelSubscription.Disposable = model.currentHp
+            .CombineLatest(model.maxHp, (hp, max) => (hp, max))
+            .Subscribe(x => _view.UpdateHp(x.hp, x.max));
+    }
+
+    //Modelの購読をやめる
+    private void UnbindModel()
+    {
+        _modelSubscription.Disposable = null;
     }
 }

@@ -40,6 +40,12 @@ public class CS_PoliceSquad : MonoBehaviour
     // メンバーが見つけた標的の共有情報(共有時間は設定値を使うためStartで作る)
     private CS_PoliceSharedTarget _sharedTarget = null;
 
+    // 警備エリア内でのプレイヤーの変身の検知
+    private readonly CS_PoliceTransformationWatcher _transformationWatcher = new CS_PoliceTransformationWatcher();
+
+    // 変身したばかりのプレイヤーの位置を受け取る際に使い回すリスト
+    private readonly List<Vector3> _transformedPositions = new List<Vector3>();
+
     // グループ全員で合わせる巡回速度(メンバーの中で一番遅い巡回速度。隊列がばらけないように揃える)
     private float _groupPatrolSpeed = 0.0f;
 
@@ -115,8 +121,9 @@ public class CS_PoliceSquad : MonoBehaviour
     }
 
     /// <summary>
-    /// 事件(プレイヤーの変身など)が起きたことを全グループに知らせるメソッド
+    /// 事件が起きたことを全グループに知らせるメソッド
     /// 警備エリア内で起きた場合のみ、そのグループが現場へ駆け付ける(サーバーで呼ぶこと)
+    /// ※プレイヤーの変身は各グループが自動で検知するので、それ以外の事件を知らせたい時に使う
     /// </summary>
     /// <param name="position">事件の現場</param>
     public static void NotifyIncident(Vector3 position)
@@ -158,6 +165,14 @@ public class CS_PoliceSquad : MonoBehaviour
 
         // 一番後ろの警察がたどる距離の分だけ、先頭の道筋を記録しておく
         _formation.RecordLeaderPosition(_members[0].transform.position, _formationSpacing * (_members.Count - 1));
+
+        // 警備エリア内でプレイヤーが変身したら、その場所へ駆け付ける
+        if (_guardArea == null) return;
+        _transformationWatcher.Update(Time.deltaTime, _guardArea, _transformedPositions);
+        foreach (Vector3 position in _transformedPositions)
+        {
+            ReceiveIncident(position);
+        }
     }
 
     private void OnDestroy()
@@ -248,8 +263,7 @@ public class CS_PoliceSquad : MonoBehaviour
     /// <param name="position">事件の現場</param>
     private void ReceiveIncident(Vector3 position)
     {
-        // ClosestPointは、位置がコライダーの内側ならその位置をそのまま返す
-        if (_guardArea == null || _guardArea.ClosestPoint(position) != position) return;
+        if (_guardArea == null || !CS_PoliceTransformationWatcher.IsInsideArea(_guardArea, position)) return;
 
         foreach (CS_PoliceBrain member in _members)
         {

@@ -12,8 +12,8 @@ using UnityEngine.AI;
 
 /// <summary>
 /// 警察の移動を管理するクラス
-/// どこへ向かうかの判断はCS_PoliceBrainが行い、このクラスは指示された目的地へ移動するだけ
-/// 経路探索・移動・回転はNavMeshAgentに任せる
+/// どこへ向かうか・いつ止めるかの判断はCS_PoliceBrainが行い、このクラスは指示どおりに移動・停止・向きの変更を行う
+/// 経路探索・移動・移動中の回転はNavMeshAgentに任せ、止めている間の向きの変更だけTurnTowardsで行う
 /// </summary>
 [RequireComponent(typeof(NavMeshAgent))]
 public class CS_PoliceMove : MonoBehaviour
@@ -41,6 +41,9 @@ public class CS_PoliceMove : MonoBehaviour
 
     // 移動できない状態が続いている時間
     private float _stuckTimer = 0.0f;
+
+    // 意図的にその場で止めているか(攻撃のチャージ中など)。止めている間は詰まりと判定しない
+    private bool _isStopped = false;
 
     [Header("＝＝＝ 到達判定 ＝＝＝")]
     [SerializeField, Min(0f)]
@@ -126,6 +129,43 @@ public class CS_PoliceMove : MonoBehaviour
     }
 
     /// <summary>
+    /// その場で止める・止めるのをやめるメソッド
+    /// 止めている間も目的地の指示は受け付け、止めるのをやめるとその目的地へ移動を再開する
+    /// </summary>
+    /// <param name="isStopped">止める場合はtrue</param>
+    public void SetStopped(bool isStopped)
+    {
+        // NavMeshの外にいる時にisStoppedを変更するとエラーになる
+        if (_isStopped == isStopped || !_agent.isOnNavMesh) return;
+
+        _isStopped = isStopped;
+        _agent.isStopped = isStopped;
+
+        // 止めている間はNavMeshAgentの自動回転を切り、TurnTowardsで向きを変えられるようにする
+        _agent.updateRotation = !isStopped;
+
+        // 止める時は、残っている速度も消してその場ですぐ止まるようにする
+        if (isStopped) _agent.velocity = Vector3.zero;
+    }
+
+    /// <summary>
+    /// 指定した位置の方へ、水平方向に少しずつ向きを変えるメソッド(毎フレーム呼ぶ)
+    /// 回転の速さはNavMeshAgentのAngular Speedを使う
+    /// </summary>
+    /// <param name="position">向く位置</param>
+    public void TurnTowards(Vector3 position)
+    {
+        Vector3 direction = position - transform.position;
+        direction.y = 0.0f;
+
+        // 真上・真下など、水平方向の向きが無い場合は回転しない
+        if (direction.sqrMagnitude < 0.0001f) return;
+
+        Quaternion lookRotation = Quaternion.LookRotation(direction);
+        transform.rotation = Quaternion.RotateTowards(transform.rotation, lookRotation, _agent.angularSpeed * Time.deltaTime);
+    }
+
+    /// <summary>
     /// 最後に指示された目的地まで、指定した距離以内に近づいたかを判定するメソッド
     /// </summary>
     /// <param name="distance">近づいたとみなす距離</param>
@@ -150,8 +190,8 @@ public class CS_PoliceMove : MonoBehaviour
         // NavMeshの外に出てしまった場合は移動できない
         if (!_agent.isOnNavMesh) return true;
 
-        // 目的地がない・経路の計算中・到達済みの場合は、止まっていて当然なので詰まりではない
-        if (!_hasDestination || _agent.pathPending || hasArrived) return false;
+        // 意図的に止めている・目的地がない・経路の計算中・到達済みの場合は、止まっていて当然なので詰まりではない
+        if (_isStopped || !_hasDestination || _agent.pathPending || hasArrived) return false;
 
         return _agent.velocity.sqrMagnitude < _stuckSpeed * _stuckSpeed;
     }

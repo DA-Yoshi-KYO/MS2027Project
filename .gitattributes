@@ -93,14 +93,10 @@ Packages/packages-lock.json linguist-generated
 *.collada               lfs
 *.dae                   lfs
 *.dxf                   lfs
-*.FBX                   lfs
-*.fbx                   lfs
 *.jas                   lfs
 *.lws                   lfs
 *.lxo                   lfs
-*.ma                    lfs
 *.max                   lfs
-*.mb                    lfs
 *.obj                   lfs
 *.ply                   lfs
 *.skp                   lfs
@@ -139,7 +135,6 @@ Packages/packages-lock.json linguist-generated
 *.jpg                   lfs
 *.pict                  lfs
 *.png                   lfs
-*.psd                   lfs
 *.tga                   lfs
 *.tif                   lfs
 *.tiff                  lfs
@@ -179,6 +174,17 @@ Packages/packages-lock.json linguist-generated
 
 # Exceptions for .asset files such as lightning pre-baking
 LightingData.asset     binary
+
+# Artist フォルダ内の DCC ソースファイル (LFS)
+Artist/**/*.mb          lfs
+Artist/**/*.ma          lfs
+Artist/**/*.atom        lfs
+Artist/**/*.psd         lfs
+Artist/**/*.spp         lfs
+Artist/**/*.sbs         lfs
+Artist/**/*.hdanc       lfs
+Artist/**/*.hipnc       lfs
+Artist/**/*.fbx         lfs
 
 # Designer asset lock (作成者以外の編集を禁止する疑似排他制御)
 # ロック未所有のファイルはチェックアウト時に read-only になる。

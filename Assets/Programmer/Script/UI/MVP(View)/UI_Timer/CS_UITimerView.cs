@@ -20,10 +20,16 @@ public class CS_UITimerView : CS_BaseView<CS_UITimerPresenter>
 
     public void UpdateTimer(float remain, float max)
     {
-        float fill = remain / max;
-        _timerGauge.fillAmount = fill;
+        // ゲージ更新
+        _timerGauge.fillAmount = remain / max;
 
-        int sec = Mathf.CeilToInt(remain);
-        _timerText.text = sec.ToString();
+        // 分と秒に変換
+        int totalSec = Mathf.CeilToInt(remain);
+        int minutes = totalSec / 60;
+        int seconds = totalSec % 60;
+
+        // 00:00 形式で表示
+        _timerText.text = $"{minutes:D2}:{seconds:D2}";
     }
+
 }

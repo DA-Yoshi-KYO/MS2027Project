@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using Unity.Netcode;
 using UnityEngine;
+using UnityEngine.AI;
 
 /*
  * 悪人のプレイヤーへの反撃を行うクラス
@@ -15,8 +16,16 @@ using UnityEngine;
  * メモ
  * ・状態の流れ
  *   犯罪中(Idle) → [プレイヤーが臨戦態勢範囲に入る / 攻撃される] → 追跡(Chase) ⇔ 攻撃(Attack)
- *   追跡中に「ターゲットが倒れた・いなくなった」「スポーン位置から離れすぎた」 → 帰還(Return) → 犯罪中
+ *   追跡中に以下のどれかになったら → 帰還(Return) → 犯罪中
+ *     ・ターゲットが倒れた・いなくなった
+ *     ・ターゲットが路地裏の外に出てから leaveAlleyGiveUpTime 秒たった
+ *     ・スポーン位置から leashRange 以上離れた(路地裏判定の取りこぼし対策)
  *   帰還中でも、プレイヤーが臨戦態勢範囲に入れば再び追跡する
+ * ・路地裏かどうかは、ターゲットの足元のNavMeshのAreaが alleyAreaName(既定: Alley)かで判定する
+ *   ・プレイヤー側には何も必要ない。NavMeshのベイクと、Navigationの Areas に同名のAreaを追加しておくこと
+ *   ・Areaが無い場合は警告を出し、路地裏判定を行わない(距離の判定だけになる)
+ *   ・ジャンプ中などで足元にNavMeshが見つからない時は、直前の判定結果を使う
+ *   ・出入口で行ったり来たりされても追跡と帰還が切り替わり続けないよう、外に出てから一定時間待つ
  * ・isEngagedがtrueの間は犯罪の手を止める(犯罪の進行側から参照する想定)
  * ・攻撃のタイミング・範囲はCSO_AttackData(Attack Data)で決める
  *   実際のダメージ = CSO_AttackData.CalculateDamage() × CS_VillainStats.attackPower
@@ -44,6 +53,9 @@ public class CS_VillainCombat : NetworkBehaviour
     private const float _scanInterval = 0.2f;     // 臨戦態勢範囲を確認する間隔(秒)
     private const float _arriveDistance = 0.3f;   // スポーン位置に着いたとみなす距離
     private const int _hitBufferSize = 16;        // 一度に判定できるコライダーの上限
+    private const float _areaSampleRadius = 1f;   // ターゲットの足元のNavMeshを探す半径(m)
+
+    private static bool _hasWarnedNoAlleyArea;    // 路地裏Areaが無い警告を出したか(全悪人で共有)
 
     [Header("参照")]
     [SerializeField]
@@ -72,6 +84,16 @@ public class CS_VillainCombat : NetworkBehaviour
     [Tooltip("スポーン位置からこれ以上離れたら追跡をやめて戻る距離(m)")]
     private float _leashRange = 15f;
 
+    [Header("路地裏")]
+    [SerializeField]
+    [Tooltip("路地裏として扱うNavMeshのArea名")]
+    private string _alleyAreaName = "Alley";
+
+    [SerializeField, Min(0f)]
+    [Tooltip("ターゲットが路地裏の外に出てから、追跡をやめるまでの時間(秒)")]
+    private float _leaveAlleyGiveUpTime = 2f;
+
+    [Header("移動")]
     [SerializeField, Min(0f)]
     [Tooltip("向きを変える速さ(度/秒)")]
     private float _rotationSpeed = 720f;
@@ -90,6 +112,9 @@ public class CS_VillainCombat : NetworkBehaviour
     private float _attackElapsed;         // 攻撃開始からの経過時間
     private float _attackCooldown;        // 次の攻撃までの残り時間
     private bool _hasHit;                 // 今回の攻撃で判定を行ったか
+    private int _alleyAreaMask;           // 路地裏AreaのNavMeshエリアマスク。0なら路地裏判定を行わない
+    private bool _isTargetInAlley;        // 直前のターゲットの路地裏判定(足元のNavMeshが見つからない時に使う)
+    private float _outsideAlleyTime;      // ターゲットが路地裏の外に出てからの時間
 
     public bool isEngaged => _state == State.Chase || _state == State.Attack;   // 臨戦態勢中か
     public bool isCommittingCrime => enabled && _state == State.Idle;             // スポーン位置で犯罪を進めているか
@@ -114,6 +139,8 @@ public class CS_VillainCombat : NetworkBehaviour
         // スポナーはInstantiate時に位置を決めるので、Awakeの時点でスポーン位置になっている
         _homePosition = transform.position;
         _homeRotation = transform.rotation;
+
+        SetUpAlleyAreaMask();
 
         if (_playerBaseStats != null && _attackData != null) return;
 
@@ -155,7 +182,7 @@ public class CS_VillainCombat : NetworkBehaviour
 
     private void UpdateChase()
     {
-        if (!IsValidTarget(_target) || IsTooFarFromHome())
+        if (!IsValidTarget(_target) || HasTargetLeftAlley() || IsTooFarFromHome())
         {
             _target = null;
             _state = State.Return;
@@ -263,6 +290,10 @@ public class CS_VillainCombat : NetworkBehaviour
 
         _target = nearest;
         _state = State.Chase;
+
+        // 追跡を始めた時点では路地裏にいるものとして数え直す
+        _isTargetInAlley = true;
+        _outsideAlleyTime = 0f;
         return true;
     }
 
@@ -290,6 +321,53 @@ public class CS_VillainCombat : NetworkBehaviour
     private bool IsValidTarget(CS_PlayerHealth player)
     {
         return player != null && !player.isDead;
+    }
+
+    // 路地裏のArea名からエリアマスクを求める(起動時に1回だけ)
+    private void SetUpAlleyAreaMask()
+    {
+        int areaIndex = NavMesh.GetAreaFromName(_alleyAreaName);
+        if (areaIndex < 0)
+        {
+            // 悪人は大量に生成されるので、警告は1回だけ出す
+            if (!_hasWarnedNoAlleyArea)
+            {
+                Debug.LogWarning($"CS_VillainCombat: NavMeshのArea「{_alleyAreaName}」が無いため、路地裏の判定を行いません", this);
+                _hasWarnedNoAlleyArea = true;
+            }
+            _alleyAreaMask = 0;
+            return;
+        }
+
+        _alleyAreaMask = 1 << areaIndex;
+    }
+
+    // ターゲットが路地裏の外に出てから、あきらめる時間がたったか
+    private bool HasTargetLeftAlley()
+    {
+        if (_alleyAreaMask == 0) return false;
+
+        if (IsTargetInAlley())
+        {
+            _outsideAlleyTime = 0f;
+            return false;
+        }
+
+        _outsideAlleyTime += Time.fixedDeltaTime;
+        return _outsideAlleyTime >= _leaveAlleyGiveUpTime;
+    }
+
+    // ターゲットの足元のNavMeshが路地裏Areaか
+    private bool IsTargetInAlley()
+    {
+        // ジャンプ中などで足元にNavMeshが見つからない時は、直前の判定結果を使う
+        if (!NavMesh.SamplePosition(_target.transform.position, out NavMeshHit hit, _areaSampleRadius, NavMesh.AllAreas))
+        {
+            return _isTargetInAlley;
+        }
+
+        _isTargetInAlley = (hit.mask & _alleyAreaMask) != 0;
+        return _isTargetInAlley;
     }
 
     private bool IsTooFarFromHome()

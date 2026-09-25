@@ -23,12 +23,13 @@ using UnityEngine;
  *   → Attack DataのDamageを1にすると、攻撃力がそのままダメージになる
  * ・ダメージを与えるのはプレイヤー(CS_PlayerHealth)のみ。悪人同士では当たらない
  * ・移動速度 = プレイヤーの通常移動速度(Player Base Stats) × CS_VillainStats.moveSpeedMultiplier
+ * ・移動(経路探索)はCS_VillainMove(NavMeshAgent)に任せる。このクラスは目的地を決めるだけ
  * ・どのプレイヤーに攻撃されたかは分からないため、攻撃されたら近くのプレイヤーを狙う
  * ・処理はサーバー(オフライン時はその場)でのみ行う。位置はNetworkTransformで同期する
  */
 // ========================================
 
-[RequireComponent(typeof(Rigidbody))]
+[RequireComponent(typeof(CS_VillainMove))]
 [RequireComponent(typeof(CS_VillainStats))]
 [RequireComponent(typeof(CS_VillainHealth))]
 public class CS_VillainCombat : NetworkBehaviour
@@ -72,11 +73,7 @@ public class CS_VillainCombat : NetworkBehaviour
     [Tooltip("スポーン位置からこれ以上離れたら追跡をやめて戻る距離(m)")]
     private float _leashRange = 15f;
 
-    [SerializeField, Min(0f)]
-    [Tooltip("向きを変える速さ(度/秒)")]
-    private float _rotationSpeed = 720f;
-
-    private Rigidbody _rigidbody;
+    private CS_VillainMove _move;
     private CS_VillainStats _stats;
     private CS_VillainHealth _health;
     private readonly Collider[] _hitBuffer = new Collider[_hitBufferSize];
@@ -107,13 +104,21 @@ public class CS_VillainCombat : NetworkBehaviour
 
     private void Awake()
     {
-        _rigidbody = GetComponent<Rigidbody>();
+        _move = GetComponent<CS_VillainMove>();
         _stats = GetComponent<CS_VillainStats>();
         _health = GetComponent<CS_VillainHealth>();
 
         // スポナーはInstantiate時に位置を決めるので、Awakeの時点でスポーン位置になっている
         _homePosition = transform.position;
         _homeRotation = transform.rotation;
+
+        // RequireComponentは後から付けたプレハブには効かないので、CS_VillainMoveの有無もここで確認する
+        if (_move == null)
+        {
+            Debug.LogError("CS_VillainCombat: CS_VillainMove が付いていません", this);
+            enabled = false;
+            return;
+        }
 
         if (_playerBaseStats != null && _attackData != null) return;
 
@@ -129,6 +134,9 @@ public class CS_VillainCombat : NetworkBehaviour
     private void OnDisable()
     {
         _health.onDamaged -= HandleDamaged;
+
+        // 逃走などで無効になった時、最後の目的地へ歩き続けないようにする(破棄中は既に消えていることがある)
+        if (_move != null) _move.Stop();
     }
 
     private void FixedUpdate()
@@ -149,7 +157,7 @@ public class CS_VillainCombat : NetworkBehaviour
     // 犯罪中。臨戦態勢範囲にプレイヤーが入ったら追跡を始める
     private void UpdateIdle()
     {
-        StopMoving();
+        _move.Stop();
         ScanEngageRange();
     }
 
@@ -165,24 +173,24 @@ public class CS_VillainCombat : NetworkBehaviour
         Vector3 toTarget = GetFlatDirection(_target.transform.position);
         if (toTarget.magnitude > attackReach)
         {
-            MoveTowards(toTarget);
+            _move.MoveTo(_target.transform.position, moveSpeed);
             return;
         }
 
-        StopMoving();
-        RotateTowards(toTarget);
+        _move.Stop();
+        _move.FaceTowards(toTarget);
         if (_attackCooldown <= 0f) StartAttack();
     }
 
     // 攻撃モーション中。hitDelayで判定を出し、durationで追跡に戻る
     private void UpdateAttack()
     {
-        StopMoving();
+        _move.Stop();
         _attackElapsed += Time.fixedDeltaTime;
 
         if (IsValidTarget(_target))
         {
-            RotateTowards(GetFlatDirection(_target.transform.position));
+            _move.FaceTowards(GetFlatDirection(_target.transform.position));
         }
 
         if (!_hasHit && _attackElapsed >= _attackData.hitDelay)
@@ -202,15 +210,12 @@ public class CS_VillainCombat : NetworkBehaviour
     {
         if (ScanEngageRange()) return;
 
-        Vector3 toHome = GetFlatDirection(_homePosition);
-        if (toHome.magnitude > _arriveDistance)
-        {
-            MoveTowards(toHome);
-            return;
-        }
+        // 経路に沿った残りの距離で到着を判定する(曲がり角や障害物を考慮するため)
+        _move.MoveTo(_homePosition, moveSpeed);
+        if (!_move.IsNearDestination(_arriveDistance)) return;
 
-        StopMoving();
-        _rigidbody.MoveRotation(_homeRotation);
+        _move.Stop();
+        transform.rotation = _homeRotation;
         _state = State.Idle;
     }
 
@@ -303,26 +308,5 @@ public class CS_VillainCombat : NetworkBehaviour
         Vector3 direction = destination - transform.position;
         direction.y = 0f;
         return direction;
-    }
-
-    private void MoveTowards(Vector3 direction)
-    {
-        RotateTowards(direction);
-
-        Vector3 horizontal = direction.normalized * moveSpeed;
-        _rigidbody.linearVelocity = new Vector3(horizontal.x, _rigidbody.linearVelocity.y, horizontal.z);
-    }
-
-    private void StopMoving()
-    {
-        _rigidbody.linearVelocity = new Vector3(0f, _rigidbody.linearVelocity.y, 0f);
-    }
-
-    private void RotateTowards(Vector3 direction)
-    {
-        if (direction.sqrMagnitude <= 0f) return;
-
-        Quaternion look = Quaternion.LookRotation(direction);
-        _rigidbody.MoveRotation(Quaternion.RotateTowards(_rigidbody.rotation, look, _rotationSpeed * Time.fixedDeltaTime));
     }
 }

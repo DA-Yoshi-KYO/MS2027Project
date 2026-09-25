@@ -12,13 +12,14 @@ GameObject:
   - component: {fileID: 1941268603742208129}
   - component: {fileID: 9103943703938264848}
   - component: {fileID: 8945532368201782534}
-  - component: {fileID: 3664447050287380552}
   - component: {fileID: 7937220719263797659}
   - component: {fileID: 5043869564677819244}
   - component: {fileID: 704323336047587586}
   - component: {fileID: 7961272900956241877}
   - component: {fileID: 8445318759942867935}
   - component: {fileID: 8794695675187380318}
+  - component: {fileID: 5250238292555835564}
+  - component: {fileID: 4257008625129335440}
   m_Layer: 0
   m_Name: Villain
   m_TagString: Untagged
@@ -122,33 +123,6 @@ CapsuleCollider:
   m_Height: 2
   m_Direction: 1
   m_Center: {x: 0, y: 0, z: 0}
---- !u!54 &3664447050287380552
-Rigidbody:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 942901870687269662}
-  serializedVersion: 5
-  m_Mass: 1
-  m_LinearDamping: 0
-  m_AngularDamping: 0.05
-  m_CenterOfMass: {x: 0, y: 0, z: 0}
-  m_InertiaTensor: {x: 1, y: 1, z: 1}
-  m_InertiaRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_IncludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_ExcludeLayers:
-    serializedVersion: 2
-    m_Bits: 0
-  m_ImplicitCom: 1
-  m_ImplicitTensor: 1
-  m_UseGravity: 1
-  m_IsKinematic: 0
-  m_Interpolate: 0
-  m_Constraints: 80
-  m_CollisionDetection: 0
 --- !u!114 &7937220719263797659
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -224,7 +198,6 @@ MonoBehaviour:
     m_Bits: 4294967295
   _counterSearchRange: 15
   _leashRange: 15
-  _rotationSpeed: 720
 --- !u!114 &8445318759942867935
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -285,6 +258,42 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::CS_VillainCrime
   ShowTopMostFoldoutHeaderGroup: 1
   _fadeDuration: 1
+--- !u!195 &5250238292555835564
+NavMeshAgent:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 942901870687269662}
+  m_Enabled: 1
+  m_AgentTypeID: 0
+  m_Radius: 0.5
+  m_Speed: 3.5
+  m_Acceleration: 8
+  avoidancePriority: 50
+  m_AngularSpeed: 120
+  m_StoppingDistance: 0
+  m_AutoTraverseOffMeshLink: 1
+  m_AutoBraking: 1
+  m_AutoRepath: 1
+  m_Height: 2
+  m_BaseOffset: 1
+  m_WalkableMask: 4294967295
+  m_ObstacleAvoidanceType: 4
+--- !u!114 &4257008625129335440
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 942901870687269662}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b6984f4d95234e0f999c8bb6da383fd5, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CS_VillainMove
+  _rotationSpeed: 720
+  _repathDistance: 0.5
 --- !u!1 &3136862546548924743
 GameObject:
   m_ObjectHideFlags: 0

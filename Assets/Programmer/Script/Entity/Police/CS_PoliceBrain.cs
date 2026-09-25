@@ -109,6 +109,11 @@ public class CS_PoliceBrain : MonoBehaviour
     {
         if (!_isInitialized) return;
 
+        // 攻撃のチャージ中はその場で止まり、チャージを始めた時に標的がいた位置の方を向く
+        // (判断は続け、チャージが終わったらその時の目的地へ移動を再開する)
+        _move.SetStopped(_attack.isCharging);
+        if (_attack.isCharging) _move.TurnTowards(_attack.chargeTargetPosition);
+
         // 毎フレームではなく一定間隔で判断する(視界判定や経路計算の負荷を抑えるため)
         _thinkTimer -= Time.deltaTime;
         if (_thinkTimer > 0.0f) return;
@@ -173,7 +178,7 @@ public class CS_PoliceBrain : MonoBehaviour
     }
 
     /// <summary>
-    /// 標的を追跡し、攻撃範囲内なら攻撃するメソッド
+    /// 標的を追跡し、攻撃範囲内なら攻撃のチャージを始めるメソッド
     /// </summary>
     /// <param name="target">追跡する標的</param>
     private void Chase(Transform target)
@@ -186,7 +191,7 @@ public class CS_PoliceBrain : MonoBehaviour
         _hasRushRequest = false;
 
         _move.SetDestination(target.position, CSE_PoliceMoveState.Chase);
-        _attack.TryAttack(target);
+        _attack.TryStartCharge(target);
     }
 
     /// <summary>

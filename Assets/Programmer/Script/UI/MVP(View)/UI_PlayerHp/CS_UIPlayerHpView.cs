@@ -13,7 +13,7 @@ using UnityEngine.UI;
 /// <summary>
 ///  Hpの描画の処理
 /// </summary>
-public class CS_UIHpView : CS_BaseView<CS_UIHpPresenter>
+public class CS_UIPlayerHpView : CS_BaseView<CS_UIPlayerHpPresenter>
 {
     [Header("Hpゲージの画像")][SerializeField] private Image _hpGauge;
     [Header("Hpの数値")][SerializeField] private TextMeshProUGUI _hpText;

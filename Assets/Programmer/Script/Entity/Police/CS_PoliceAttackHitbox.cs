@@ -86,6 +86,9 @@ public class CS_PoliceAttackHitbox : MonoBehaviour
             IDamageable target = hitCollider.GetComponentInParent<IDamageable>();
             if (target == null || _hitTargets.Contains(target)) continue;
 
+            // 変身していないプレイヤーは警察の攻撃対象ではないので当てない(ここでは当てずに、判定が残っている間に変身したら当たる)
+            if (target is CS_PlayerHealth player && !CS_PoliceVision.IsPlayerTargetable(player)) continue;
+
             // 攻撃を出した位置から壁越しになる相手には当てない
             // (ここでは当てずに、壁の陰から判定の中へ回り込んできたら当たるようにする)
             Transform targetRoot = ((Component)target).transform;

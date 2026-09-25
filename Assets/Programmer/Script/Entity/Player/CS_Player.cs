@@ -92,6 +92,7 @@ public class CS_Player : NetworkBehaviour
     private InputAction _specialAction;
     private InputAction _dashAction;    // ダッシュボタン
     private InputAction _useItemAction; // アイテム使用ボタン(CS_PlayerItemSlotが使う)
+    private InputAction _transformationAction;  // 変身ボタン(CS_PlayerTransformationが使う)
 
     private bool _isControlled;     // このプレイヤーを自分が操作するか
     private Vector2 _moveInput;
@@ -110,6 +111,7 @@ public class CS_Player : NetworkBehaviour
     public InputAction specialAction => _specialAction; // 必殺技ボタン(CS_PlayerSpecialAttackが使う)
     public InputAction dashAction => _dashAction;       // ダッシュボタン
     public InputAction useItemAction => _useItemAction; // アイテム使用ボタン(CS_PlayerItemSlotが使う)
+    public InputAction transformationAction => _transformationAction;  // 変身ボタン(CS_PlayerTransformationが使う)
     public bool isGrounded => IsGrounded();             // 接地しているか(全クライアントで判定できる。見た目用にも使う)
 
     // 操作しているクライアントでだけ発生する。見た目(CS_PlayerVisual)など、ゲームロジックの外から購読する
@@ -261,6 +263,7 @@ public class CS_Player : NetworkBehaviour
         _specialAction = player.Special;
         _dashAction = player.Dash;
         _useItemAction = player.UseItem;
+        _transformationAction = player.Transformation;
     }
 
     // アクションへの参照を外す(アクション自体は共有のシングルトンが持ち続ける)
@@ -274,6 +277,7 @@ public class CS_Player : NetworkBehaviour
         _specialAction = null;
         _dashAction = null;
         _useItemAction = null;
+        _transformationAction = null;
     }
 
     // 入力を読み取り、移動入力と視点(yaw/pitch)を更新する

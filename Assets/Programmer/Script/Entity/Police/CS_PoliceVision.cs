@@ -40,15 +40,6 @@ public class CS_PoliceVision : MonoBehaviour
     [Tooltip("この距離以内なら、視野角に関係なく(背後でも)気付く")]
     private float _noticeDistance = 1.5f;
 
-    [Header("＝＝＝ レイヤー ＝＝＝")]
-    [SerializeField]
-    [Tooltip("標的(プレイヤー・悪人)が属するレイヤー")]
-    private LayerMask _targetLayers = ~0;
-
-    [SerializeField]
-    [Tooltip("視線を遮るレイヤー")]
-    private LayerMask _obstacleLayers = ~0;
-
     // 視野角度(視野全体の幅)
     public float viewAngle => _viewAngle;
 
@@ -85,7 +76,8 @@ public class CS_PoliceVision : MonoBehaviour
 
         if (!_isInitialized) return null;
 
-        int count = Physics.OverlapSphereNonAlloc(transform.position, _viewDistance, _overlapBuffer, _targetLayers, QueryTriggerInteraction.Ignore);
+        // 標的はEntityレイヤーのキャラクターの中から探す(警察自身もEntityだが、HPを持たないので標的にはならない)
+        int count = Physics.OverlapSphereNonAlloc(transform.position, _viewDistance, _overlapBuffer, CS_PoliceLayers.entityLayers, QueryTriggerInteraction.Ignore);
         for (int i = 0; i < count; i++)
         {
             Collider targetCollider = _overlapBuffer[i];
@@ -167,9 +159,7 @@ public class CS_PoliceVision : MonoBehaviour
         bool isNear = sqrDistance <= _noticeDistance * _noticeDistance;
         if (!isNear && Vector3.Angle(flatForward, flatToTarget) > _viewAngle * 0.5f) return false;
 
-        // 目から標的までの間に遮るものが無ければ見えている(最初に当たったのが標的自身なら見えている)
-        // hit.transformはRigidbodyの付いたオブジェクトを返すことがあるので、当たったコライダー自体で判定する
-        if (!Physics.Linecast(eyePosition, targetPosition, out RaycastHit hit, _obstacleLayers, QueryTriggerInteraction.Ignore)) return true;
-        return hit.collider.transform.IsChildOf(targetRoot);
+        // 目から標的までの間に遮るものが無ければ見えている
+        return CS_PoliceLineOfSight.IsClear(eyePosition, targetPosition, targetRoot);
     }
 }

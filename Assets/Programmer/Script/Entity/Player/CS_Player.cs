@@ -28,7 +28,10 @@ using UnityEngine.InputSystem;
  *   LateUpdateでワールド座標を直接指定している
  * ・死亡中(CS_PlayerHealth.isDead)は移動・攻撃を行わない(canActで判定)
  *   視点操作(カメラ)は死亡中も継続する
+ *   死亡中は水平方向の速度を毎回0にし、死亡時の勢いで滑り続けないようにしている(落下はする)
  * ・移動速度はCS_PlayerStats.moveSpeedを使う(実際の変更はCS_PlayerStats側で行う)
+ * ・Colliderには摩擦0の物理マテリアル(PlayerFrictionless)を設定している
+ *   (摩擦があると、空中で壁に向かって移動し続けた時に壁に張り付いて落ちなくなるため)
  * ・ジャンプ
  *   接地中にジャンプボタンを押すと、CS_PlayerStats.jumpPowerを初速として真上に飛ぶ
  *   入力はUpdateで拾って予約し、実際に飛ぶ処理はFixedUpdate側のMove()の後に行う
@@ -124,6 +127,10 @@ public class CS_Player : NetworkBehaviour
         _collider = GetComponent<CapsuleCollider>();
         _health = GetComponent<CS_PlayerHealth>();
         _stats = GetComponent<CS_PlayerStats>();
+
+        // 壁などとの衝突で回転しないよう、物理による回転はすべて止める
+        // (向きはRotateToCameraのMoveRotationでのみ変える)
+        _rigidbody.freezeRotation = true;
     }
 
     // オフライン(NetworkManagerが動いていない)のテストシーン用
@@ -178,7 +185,16 @@ public class CS_Player : NetworkBehaviour
 
     private void FixedUpdate()
     {
-        if (!canAct) return;
+        if (!_isControlled) return;
+
+        // 死亡中は操作を受け付けず、死亡時の勢いで滑り続けないよう水平方向を止める(落下は残す)
+        if (_health.isDead)
+        {
+            _isDashing = false;
+            _jumpRequested = false;
+            StopHorizontalVelocity();
+            return;
+        }
 
         if (_dashCooldownRemaining > 0f)
         {
@@ -309,12 +325,10 @@ public class CS_Player : NetworkBehaviour
     // カメラの向き基準で移動する(向き終わるまでは移動しない)
     private void Move()
     {
-        Vector3 velocity = _rigidbody.linearVelocity;
-
         // 入力なし、または向き切っていないときは水平方向を止める(落下は残す)
         if (_moveInput == Vector2.zero || !IsFacingCamera())
         {
-            _rigidbody.linearVelocity = new Vector3(0f, velocity.y, 0f);
+            StopHorizontalVelocity();
             return;
         }
 
@@ -323,7 +337,13 @@ public class CS_Player : NetworkBehaviour
         direction = Vector3.ClampMagnitude(direction, 1f);
 
         Vector3 horizontal = direction * _stats.moveSpeed;
-        _rigidbody.linearVelocity = new Vector3(horizontal.x, velocity.y, horizontal.z);
+        _rigidbody.linearVelocity = new Vector3(horizontal.x, _rigidbody.linearVelocity.y, horizontal.z);
+    }
+
+    // 水平方向の速度だけを0にする(Y速度はそのまま残す)
+    private void StopHorizontalVelocity()
+    {
+        _rigidbody.linearVelocity = new Vector3(0f, _rigidbody.linearVelocity.y, 0f);
     }
 
     // プレイヤーがカメラの向きに十分向いているか

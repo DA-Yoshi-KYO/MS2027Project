@@ -18,6 +18,13 @@ public class CS_UIPlayerHpView : CS_BaseView<CS_UIPlayerHpPresenter>
     [Header("Hpゲージの画像")][SerializeField] private Image _hpGauge;
     [Header("Hpの数値")][SerializeField] private TextMeshProUGUI _hpText;
 
+    private CanvasGroup _canvasGroup;
+
+    private void Awake()
+    {
+        _canvasGroup = GetComponent<CanvasGroup>();
+    }
+
     //PresenterからHp変化の通知を受けて描画を更新する
     public void UpdateHp(int hp, int max)
     {
@@ -27,5 +34,12 @@ public class CS_UIPlayerHpView : CS_BaseView<CS_UIPlayerHpPresenter>
 
         //数値の変更
         _hpText.text = hp.ToString();
+    }
+
+    public void SetVisible(bool visible)
+    {
+        _canvasGroup.alpha = visible ? 1f : 0f;
+        _canvasGroup.interactable = visible;
+        _canvasGroup.blocksRaycasts = visible;
     }
 }

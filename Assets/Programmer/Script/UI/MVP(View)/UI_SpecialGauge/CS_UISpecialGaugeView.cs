@@ -1,23 +1,21 @@
 /* ================================================
- * Hpの描画の処理
+ * 
  * ================================================
  * 制作者：元浪梨緒
  * ------------------------------------------------
- * 2026-09-24 | 初回作成
+ * 2026-09-26 | 初回作成
  * ================================================ */
 
-using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
 /// <summary>
-///  Hpの描画の処理
+/// 必殺技ゲージ（Special Gauge）のUI表示
+/// Presenterから渡された値を描画するだけ
 /// </summary>
-public class CS_UIPlayerHpView : CS_BaseView<CS_UIPlayerHpPresenter>
+public class CS_UISpecialGaugeView : CS_BaseView<CS_UISpecialGaugePresenter>
 {
-    [Header("Hpゲージの画像")][SerializeField] private Image _hpGauge;
-    [Header("Hpの数値")][SerializeField] private TextMeshProUGUI _hpText;
-
+    [SerializeField] private Image _gauge;
     private CanvasGroup _canvasGroup;
 
     private void Awake()
@@ -25,15 +23,12 @@ public class CS_UIPlayerHpView : CS_BaseView<CS_UIPlayerHpPresenter>
         _canvasGroup = GetComponent<CanvasGroup>();
     }
 
-    //PresenterからHp変化の通知を受けて描画を更新する
-    public void UpdateHp(int hp, int max)
+    /// <summary>
+    /// ゲージの表示更新（0〜1）
+    /// </summary>
+    public void UpdateGauge(float current, float max)
     {
-        //画像の更新
-        float fill = (float)hp / max;
-        _hpGauge.fillAmount = fill;
-
-        //数値の変更
-        _hpText.text = hp.ToString();
+        _gauge.fillAmount = current / max;
     }
 
     public void SetVisible(bool visible)

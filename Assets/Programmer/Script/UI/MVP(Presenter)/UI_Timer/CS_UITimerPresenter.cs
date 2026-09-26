@@ -35,10 +35,6 @@ public class CS_UITimerPresenter : CS_BasePresenter
         _view = GetComponent<CS_UITimerView>();
         _modelSubscription.AddTo(_disposables);
         _view.SetPresenter(this);
-
-        // ★ TimerModelを生成（インスペクターの値を使用）
-        // ModelはMonoBehaviourではないので new で生成する
-        _model = new CS_UITimerModel(_maxSeconds);
     }
 
     void OnEnable()

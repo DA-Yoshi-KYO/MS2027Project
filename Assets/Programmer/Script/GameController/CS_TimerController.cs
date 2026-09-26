@@ -20,9 +20,6 @@ public class CS_TimerController : MonoBehaviour
     [Header("タイマーの最大時間（秒）")]
     [SerializeField] private float _maxTime = 300f;   // 5分
 
-    [Header("時間が0になったら移動するシーン名")]
-    [SerializeField] private string _nextSceneName = "ResultScene";
-
     // タイマーのModel（UIはPresenterが自動で拾う）
     private CS_UITimerModel _timerModel;
 
@@ -55,7 +52,7 @@ public class CS_TimerController : MonoBehaviour
         //0以下になったらシーン移動を依頼
         if (_timerModel.currentTime.CurrentValue <= 0.0f)
         {
-            _sceneTransitioner.StartTransition(_nextSceneName);
+            _sceneTransitioner.StartTransition();
         }
     }
 

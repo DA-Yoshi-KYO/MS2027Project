@@ -16,13 +16,16 @@ using UnityEngine.SceneManagement;
 /// </summary>
 public class CS_SceneTransitioner : MonoBehaviour
 {
+    [Header("遷移するシーン名")]
+    [SerializeField] private string _nextSceneName;
+
     /// <summary>
     /// シーン遷移を開始する
     /// 今は即移動だが、後でフェード演出を追加できる
     /// </summary>
-    public void StartTransition(string sceneName)
+    public void StartTransition()
     {
         //今は即シーン移動
-        SceneManager.LoadScene(sceneName);
+        SceneManager.LoadScene(_nextSceneName);
     }
 }

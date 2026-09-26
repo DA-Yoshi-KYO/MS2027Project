@@ -53,7 +53,7 @@ public class CS_TestUI : MonoBehaviour
 
         // ★ タイマー Model生成（Bind不要：Instance方式）
         _uiTimerModel = new CS_UITimerModel(_maxTime);
-        _uiTimerModel.SetRemaining(_initTimer);
+        _uiTimerModel.SetTime(_initTimer);
 
         for (int i = 0; i < 4; i++)
         {
@@ -72,7 +72,7 @@ public class CS_TestUI : MonoBehaviour
             _hpModel.SetHp(_hpModel.currentHp.CurrentValue - 10);
 
         // タイマーの減少（毎フレーム）
-        _uiTimerModel.SetRemaining(_uiTimerModel.currentTime.CurrentValue - Time.deltaTime);
+        _uiTimerModel.SetTime(_uiTimerModel.currentTime.CurrentValue - Time.deltaTime);
 
         // ★ Pキーで敵HP UIを生成
         if (Input.GetKeyDown(KeyCode.P))

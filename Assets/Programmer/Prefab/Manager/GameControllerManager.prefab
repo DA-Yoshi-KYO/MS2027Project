@@ -46,7 +46,6 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::CS_TimerController
   _maxTime: 300
-  _nextSceneName: ResultScene
 --- !u!114 &8389588009085528967
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -59,3 +58,4 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 163948b5386fd8a4a95f080089c0c058, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::CS_SceneTransitioner
+  _nextSceneName: ResultScene

@@ -45,6 +45,17 @@ public class CS_PoliceMove : MonoBehaviour
     // 意図的にその場で止めているか(攻撃のチャージ中など)。止めている間は詰まりと判定しない
     private bool _isStopped = false;
 
+    // NavMeshAgentに元々設定されている、通れるAreaのマスク
+    private int _baseAreaMask = NavMesh.AllAreas;
+
+    // 路地裏のAreaのマスク(Areaが無い場合は0)
+    private int _alleyAreaMask = 0;
+
+    [Header("＝＝＝ 路地裏 ＝＝＝")]
+    [SerializeField]
+    [Tooltip("路地裏のNavMesh Area名。巡回中はこのAreaを通らない")]
+    private string _alleyAreaName = "Alley";
+
     [Header("＝＝＝ 到達判定 ＝＝＝")]
     [SerializeField, Min(0f)]
     [Tooltip("目的地に到達したとみなす距離")]
@@ -74,6 +85,17 @@ public class CS_PoliceMove : MonoBehaviour
     private void Awake()
     {
         _agent = GetComponent<NavMeshAgent>();
+        _baseAreaMask = _agent.areaMask;
+
+        int alleyAreaIndex = NavMesh.GetAreaFromName(_alleyAreaName);
+        if (alleyAreaIndex < 0)
+        {
+            Debug.LogWarning($"CS_PoliceMove: NavMeshのArea「{_alleyAreaName}」が無いため、巡回中も路地裏を通ります", this);
+        }
+        else
+        {
+            _alleyAreaMask = 1 << alleyAreaIndex;
+        }
     }
 
     /// <summary>
@@ -101,6 +123,9 @@ public class CS_PoliceMove : MonoBehaviour
     {
         if (!_isInitialized) return;
 
+        // 巡回中に路地裏から出たら、路地裏を通らない経路に切り替える
+        UpdateAreaMask();
+
         // 移動できない状態が続いた時間を数える(途切れたらリセット)
         _stuckTimer = IsBlocked() ? _stuckTimer + Time.deltaTime : 0.0f;
     }
@@ -118,6 +143,9 @@ public class CS_PoliceMove : MonoBehaviour
 
         // NavMeshの外にいる時にSetDestinationを呼ぶとエラーになる(この状態は詰まりとして扱う)
         if (!_agent.isOnNavMesh) return;
+
+        // 移動状態に応じて路地裏を通れるかを切り替える(切り替わった場合は元の目的地で経路を再計算する)
+        UpdateAreaMask();
 
         // 同じ目的地を何度も指示された場合は、経路の再計算をしない
         if (_hasDestination && (_requestedDestination - position).sqrMagnitude < 0.01f) return;
@@ -194,6 +222,39 @@ public class CS_PoliceMove : MonoBehaviour
         if (_isStopped || !_hasDestination || _agent.pathPending || hasArrived) return false;
 
         return _agent.velocity.sqrMagnitude < _stuckSpeed * _stuckSpeed;
+    }
+
+    /// <summary>
+    /// 移動状態に応じて、NavMeshAgentが通れるAreaを切り替えるメソッド
+    /// 巡回中は路地裏を通らない。ただし路地裏の中にいる間は、出られなくならないよう路地裏を通れるままにする
+    /// </summary>
+    private void UpdateAreaMask()
+    {
+        if (_alleyAreaMask == 0 || !_agent.isOnNavMesh) return;
+
+        bool avoidAlley = _currentMoveState == CSE_PoliceMoveState.Patrol && !IsOnAlley();
+        int areaMask = avoidAlley ? _baseAreaMask & ~_alleyAreaMask : _baseAreaMask;
+        if (_agent.areaMask == areaMask) return;
+
+        _agent.areaMask = areaMask;
+
+        // 通れるAreaが変わったので、今の経路を作り直す
+        if (_hasDestination)
+        {
+            _agent.SetDestination(_requestedDestination);
+            _destinationSetFrame = Time.frameCount;
+        }
+    }
+
+    /// <summary>
+    /// 足元のNavMeshが路地裏かを判定するメソッド
+    /// </summary>
+    /// <returns>路地裏にいればtrue</returns>
+    private bool IsOnAlley()
+    {
+        if (!NavMesh.SamplePosition(transform.position, out NavMeshHit hit, 1.0f, NavMesh.AllAreas)) return false;
+
+        return (hit.mask & _alleyAreaMask) != 0;
     }
 
     /// <summary>

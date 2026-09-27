@@ -3,6 +3,7 @@ using System.IO;
 using UnityEditor;
 using UnityEditor.Animations;
 using UnityEngine;
+using UnityEngine.Rendering.HighDefinition;
 
 /*
  * 仮アセット(Mannequin)をPlayerの見た目として組み込むエディタ拡張
@@ -14,12 +15,19 @@ using UnityEngine;
 // ========================================
 /*
  * メモ
+ * ・通常の見た目(Mannequin_Medium)と、変身後の見た目(Mannequin_Large)の2体を組み込む
+ *   ボーン構成(Rig_Medium / Rig_Large)が違い、アニメーションを共有できないため、見た目ごとに
+ *   アニメーションとAnimator Controllerを分けている(RigSetupで見た目ごとの違いをまとめている)
  * ・やること
  *   1. 使うアニメーションのループ設定(FBXのImport設定)
- *   2. Animator Controller(PlayerTempAnimator.controller)の生成
- *      パラメータ名はCS_PlayerAnimatorParamsの定数を使う
- *   3. マテリアル(MT_PlayerMannequin.mat)の生成
- *   4. Player.prefabへModelを追加し、CS_PlayerVisualを付ける(カプセルの描画は外す)
+ *   2. Animator Controller(PlayerTempAnimator.controller / PlayerTempAnimator_Transformed.controller)の生成
+ *      パラメータ名はCS_PlayerAnimatorParamsの定数を使う(2つとも同じパラメータ・同じ状態の構成)
+ *   3. マテリアル(MT_PlayerMannequin.mat)の生成(2体で共用)
+ *   4. Player.prefabへModel / TransformedModelを追加し、CS_PlayerVisualに2つのAnimatorを設定する
+ *      (カプセルの描画は外す。TransformedModelは非表示で置き、変身中だけCS_PlayerVisualが表示する)
+ *   5. 変身途中のパーティクル(TransformingEffect)と、そのマテリアル(MT_PlayerTransformingParticle.mat)を作り、
+ *      CS_PlayerVisualに設定する(足元から光の粒が立ち上る仮の演出)
+ * ・Large用のアニメーションには後退・横移動・ジャンプが無いため、近いモーションで代用している
  * ・本番アセットに差し替えるときは、このツールは不要になる(ClaudeUsers/プレイヤー見た目の差し替えガイド.md)
  * ・攻撃モーションの再生速度は、CSO_AttackDataのDurationに収まるよう自動で決める
  */
@@ -27,44 +35,102 @@ using UnityEngine;
 
 public static class CSED_PlayerTempVisualBuilder
 {
+    // 見た目ごとに違う設定(モデル、アニメーション、使うモーション名)
+    private class RigSetup
+    {
+        public string modelPath;
+        public string modelName;            // Player.prefab内での子オブジェクト名
+        public bool active;                 // Prefab上で表示しておくか
+        public string controllerPath;
+        public string animFolder;
+        public string[] clipFiles;
+        public string[] loopClips;
+
+        public string idle;
+        public string forward;
+        public string backward;
+        public string strafeLeft;
+        public string strafeRight;
+        public string jumpStart;
+        public string jumpAir;
+        public string jumpLand;
+        public string dash;
+        public string hit;
+        public string death;
+        public string[] attacks;            // 通常攻撃の各段(足りない段は最後を使い回す)
+        public string special;
+    }
+
     private const string _tempRoot = "Assets/Programmer/TempAssets/Player";
-    private const string _modelPath = _tempRoot + "/Mannequin Character/characters/Mannequin_Medium.fbx";
     private const string _texturePath = _tempRoot + "/Mannequin Character/Textures/mannequin_texture.png";
-    private const string _animFolder = _tempRoot + "/Animations/fbx/Rig_Medium/";
     private const string _outputFolder = "Assets/Programmer/TempAssets/Generated";
-    private const string _controllerPath = _outputFolder + "/PlayerTempAnimator.controller";
     private const string _materialPath = _outputFolder + "/MT_PlayerMannequin.mat";
+    private const string _particleMaterialPath = _outputFolder + "/MT_PlayerTransformingParticle.mat";
+    private const string _transformingEffectName = "TransformingEffect";
+    private static readonly Color _transformingColor = new Color(0.3f, 0.8f, 1f);
     private const string _prefabPath = "Assets/Programmer/Prefab/Entity/Player/Player.prefab";
-    private const string _modelName = "Model";
     private const float _transitionTime = 0.1f;
 
-    private static readonly string[] _loopClips =
+    // 通常の見た目
+    private static readonly RigSetup _normalRig = new RigSetup
     {
-        "Idle_A", "Running_A", "Walking_Backwards", "Running_Strafe_Left", "Running_Strafe_Right", "Jump_Idle",
+        modelPath = _tempRoot + "/Mannequin Character/characters/Mannequin_Medium.fbx",
+        modelName = "Model",
+        active = true,
+        controllerPath = _outputFolder + "/PlayerTempAnimator.controller",
+        animFolder = _tempRoot + "/Animations/fbx/Rig_Medium/",
+        clipFiles = new[] { "Rig_Medium_General", "Rig_Medium_MovementBasic", "Rig_Medium_MovementAdvanced", "Rig_Medium_CombatMelee" },
+        loopClips = new[] { "Idle_A", "Running_A", "Walking_Backwards", "Running_Strafe_Left", "Running_Strafe_Right", "Jump_Idle" },
+        idle = "Idle_A",
+        forward = "Running_A",
+        backward = "Walking_Backwards",
+        strafeLeft = "Running_Strafe_Left",
+        strafeRight = "Running_Strafe_Right",
+        jumpStart = "Jump_Start",
+        jumpAir = "Jump_Idle",
+        jumpLand = "Jump_Land",
+        dash = "Dodge_Forward",
+        hit = "Hit_A",
+        death = "Death_A",
+        attacks = new[] { "Melee_Unarmed_Attack_Punch_A", "Melee_Unarmed_Attack_Kick", "Melee_1H_Attack_Jump_Chop" },
+        special = "Melee_2H_Attack_Spinning",
     };
 
-    private static readonly string[] _clipFiles =
+    // 変身後の見た目(後退・横移動・ジャンプのモーションが無いので代用する)
+    private static readonly RigSetup _transformedRig = new RigSetup
     {
-        "Rig_Medium_General", "Rig_Medium_MovementBasic", "Rig_Medium_MovementAdvanced", "Rig_Medium_CombatMelee",
+        modelPath = _tempRoot + "/Mannequin Character/characters/Mannequin_Large.fbx",
+        modelName = "TransformedModel",
+        active = false,
+        controllerPath = _outputFolder + "/PlayerTempAnimator_Transformed.controller",
+        animFolder = _tempRoot + "/Animations/fbx/Rig_Large/",
+        clipFiles = new[] { "Rig_Large_General", "Rig_Large_MovementBasic", "Rig_Large_MovementAdvanced", "Rig_Large_CombatMelee" },
+        loopClips = new[] { "Idle_A", "Running_A", "Walking_A" },
+        idle = "Idle_A",
+        forward = "Running_A",
+        backward = "Walking_A",
+        strafeLeft = "Walking_A",
+        strafeRight = "Walking_A",
+        jumpStart = "Idle_A",
+        jumpAir = "Idle_A",
+        jumpLand = "Idle_A",
+        dash = "Dodge_Forward",
+        hit = "Hit_A",
+        death = "Death_A",
+        attacks = new[] { "Melee_Unarmed_Punch", "Melee_Unarmed_Kick", "Melee_Unarmed_Smash" },
+        special = "Melee_2H_Attack",
     };
-
-    // 通常攻撃の各段に割り当てるモーション(足りない段は最後を使い回す)
-    private static readonly string[] _attackClips =
-    {
-        "Melee_Unarmed_Attack_Punch_A", "Melee_Unarmed_Attack_Kick", "Melee_1H_Attack_Jump_Chop",
-    };
-
-    private const string _specialClip = "Melee_2H_Attack_Spinning";
 
     [MenuItem("Tools/Player/仮の見た目を組み込む")]
     public static void Build()
     {
         EnsureFolder(_outputFolder);
-        SetLoopSettings();
+        SetLoopSettings(_normalRig);
+        SetLoopSettings(_transformedRig);
 
-        Dictionary<string, AnimationClip> clips = LoadClips();
         Material material = CreateMaterial();
-        ApplyToPrefab(clips, material);
+        Material particleMaterial = CreateParticleMaterial();
+        ApplyToPrefab(material, particleMaterial);
 
         AssetDatabase.SaveAssets();
         Debug.Log("CSED_PlayerTempVisualBuilder: 仮の見た目を組み込みました");
@@ -78,11 +144,11 @@ public static class CSED_PlayerTempVisualBuilder
     }
 
     // 移動系のアニメーションだけループ再生にする
-    private static void SetLoopSettings()
+    private static void SetLoopSettings(RigSetup rig)
     {
-        foreach (string file in _clipFiles)
+        foreach (string file in rig.clipFiles)
         {
-            string path = _animFolder + file + ".fbx";
+            string path = rig.animFolder + file + ".fbx";
             ModelImporter importer = AssetImporter.GetAtPath(path) as ModelImporter;
             if (importer == null) continue;
 
@@ -92,7 +158,7 @@ public static class CSED_PlayerTempVisualBuilder
             bool changed = false;
             foreach (ModelImporterClipAnimation animation in animations)
             {
-                bool loop = System.Array.IndexOf(_loopClips, animation.name) >= 0;
+                bool loop = System.Array.IndexOf(rig.loopClips, animation.name) >= 0;
                 if (animation.loopTime == loop) continue;
 
                 animation.loopTime = loop;
@@ -106,13 +172,13 @@ public static class CSED_PlayerTempVisualBuilder
         }
     }
 
-    private static Dictionary<string, AnimationClip> LoadClips()
+    private static Dictionary<string, AnimationClip> LoadClips(RigSetup rig)
     {
         Dictionary<string, AnimationClip> clips = new Dictionary<string, AnimationClip>();
 
-        foreach (string file in _clipFiles)
+        foreach (string file in rig.clipFiles)
         {
-            foreach (Object asset in AssetDatabase.LoadAllAssetsAtPath(_animFolder + file + ".fbx"))
+            foreach (Object asset in AssetDatabase.LoadAllAssetsAtPath(rig.animFolder + file + ".fbx"))
             {
                 AnimationClip clip = asset as AnimationClip;
                 if (clip == null || clip.name.StartsWith("__preview__")) continue;
@@ -149,25 +215,49 @@ public static class CSED_PlayerTempVisualBuilder
         return material;
     }
 
+    // 変身途中のパーティクル用。加算合成で光って見えるよう、露出の影響を受けない発光色を使う
+    private static Material CreateParticleMaterial()
+    {
+        Material material = AssetDatabase.LoadAssetAtPath<Material>(_particleMaterialPath);
+        if (material == null)
+        {
+            material = new Material(Shader.Find("HDRP/Unlit"));
+            AssetDatabase.CreateAsset(material, _particleMaterialPath);
+        }
+
+        Texture2D texture = AssetDatabase.GetBuiltinExtraResource<Texture2D>("Default-Particle.psd");
+        material.SetTexture("_UnlitColorMap", texture);
+        material.SetColor("_UnlitColor", _transformingColor);
+        material.SetFloat("_BlendMode", 1f);      // 加算合成
+        material.SetFloat("_EmissiveExposureWeight", 0f);
+        HDMaterial.SetSurfaceType(material, true);
+        HDMaterial.SetEmissiveColor(material, _transformingColor * 2f);
+        HDMaterial.ValidateMaterial(material);
+        EditorUtility.SetDirty(material);
+        return material;
+    }
+
     // ---- Animator Controller ----
 
     private static AnimatorController CreateController(
-        Dictionary<string, AnimationClip> clips, IReadOnlyList<CSO_AttackData> steps, CSO_AttackData special)
+        RigSetup rig, IReadOnlyList<CSO_AttackData> steps, CSO_AttackData special)
     {
-        AssetDatabase.DeleteAsset(_controllerPath);
-        AnimatorController controller = AnimatorController.CreateAnimatorControllerAtPath(_controllerPath);
+        Dictionary<string, AnimationClip> clips = LoadClips(rig);
+
+        AssetDatabase.DeleteAsset(rig.controllerPath);
+        AnimatorController controller = AnimatorController.CreateAnimatorControllerAtPath(rig.controllerPath);
         AddParameters(controller);
 
         AnimatorStateMachine machine = controller.layers[0].stateMachine;
-        AnimatorState locomotion = AddLocomotion(controller, machine, clips);
+        AnimatorState locomotion = AddLocomotion(controller, machine, clips, rig);
         machine.defaultState = locomotion;
 
-        AddAir(machine, locomotion, clips);
-        AddSimpleAction(machine, locomotion, clips, "Dodge_Forward", CS_PlayerAnimatorParams.dash, 0.5f);
-        AddAttacks(machine, locomotion, clips, steps);
-        AddSpecial(machine, locomotion, clips, special);
-        AddSimpleAction(machine, locomotion, clips, "Hit_A", CS_PlayerAnimatorParams.hit, 0.9f);
-        AddDeath(machine, locomotion, clips);
+        AddAir(machine, locomotion, clips, rig);
+        AddSimpleAction(machine, locomotion, Clip(clips, rig.dash), CS_PlayerAnimatorParams.dash, 0.5f);
+        AddAttacks(machine, locomotion, clips, rig, steps);
+        AddSpecial(machine, locomotion, Clip(clips, rig.special), special);
+        AddSimpleAction(machine, locomotion, Clip(clips, rig.hit), CS_PlayerAnimatorParams.hit, 0.9f);
+        AddDeath(machine, locomotion, Clip(clips, rig.death));
 
         EditorUtility.SetDirty(controller);
         return controller;
@@ -189,7 +279,7 @@ public static class CSED_PlayerTempVisualBuilder
     }
 
     private static AnimatorState AddLocomotion(
-        AnimatorController controller, AnimatorStateMachine machine, Dictionary<string, AnimationClip> clips)
+        AnimatorController controller, AnimatorStateMachine machine, Dictionary<string, AnimationClip> clips, RigSetup rig)
     {
         BlendTree tree = new BlendTree
         {
@@ -201,11 +291,11 @@ public static class CSED_PlayerTempVisualBuilder
         };
         AssetDatabase.AddObjectToAsset(tree, controller);
 
-        tree.AddChild(Clip(clips, "Idle_A"), new Vector2(0f, 0f));
-        tree.AddChild(Clip(clips, "Running_A"), new Vector2(0f, 1f));
-        tree.AddChild(Clip(clips, "Walking_Backwards"), new Vector2(0f, -1f));
-        tree.AddChild(Clip(clips, "Running_Strafe_Left"), new Vector2(-1f, 0f));
-        tree.AddChild(Clip(clips, "Running_Strafe_Right"), new Vector2(1f, 0f));
+        tree.AddChild(Clip(clips, rig.idle), new Vector2(0f, 0f));
+        tree.AddChild(Clip(clips, rig.forward), new Vector2(0f, 1f));
+        tree.AddChild(Clip(clips, rig.backward), new Vector2(0f, -1f));
+        tree.AddChild(Clip(clips, rig.strafeLeft), new Vector2(-1f, 0f));
+        tree.AddChild(Clip(clips, rig.strafeRight), new Vector2(1f, 0f));
 
         AnimatorState state = machine.AddState("Locomotion");
         state.motion = tree;
@@ -213,11 +303,12 @@ public static class CSED_PlayerTempVisualBuilder
     }
 
     // ジャンプ開始 → 空中 → 着地。ジャンプ以外の落下でも空中になる
-    private static void AddAir(AnimatorStateMachine machine, AnimatorState locomotion, Dictionary<string, AnimationClip> clips)
+    private static void AddAir(
+        AnimatorStateMachine machine, AnimatorState locomotion, Dictionary<string, AnimationClip> clips, RigSetup rig)
     {
-        AnimatorState start = AddClipState(machine, "JumpStart", Clip(clips, "Jump_Start"));
-        AnimatorState air = AddClipState(machine, "Air", Clip(clips, "Jump_Idle"));
-        AnimatorState land = AddClipState(machine, "JumpLand", Clip(clips, "Jump_Land"));
+        AnimatorState start = AddClipState(machine, "JumpStart", Clip(clips, rig.jumpStart));
+        AnimatorState air = AddClipState(machine, "Air", Clip(clips, rig.jumpAir));
+        AnimatorState land = AddClipState(machine, "JumpLand", Clip(clips, rig.jumpLand));
 
         AddActionTransitions(machine, start, CS_PlayerAnimatorParams.jump, null);
 
@@ -237,23 +328,22 @@ public static class CSED_PlayerTempVisualBuilder
     }
 
     private static void AddSimpleAction(
-        AnimatorStateMachine machine, AnimatorState locomotion, Dictionary<string, AnimationClip> clips,
-        string clipName, string trigger, float exitTime)
+        AnimatorStateMachine machine, AnimatorState locomotion, AnimationClip clip, string trigger, float exitTime)
     {
-        AnimatorState state = AddClipState(machine, trigger, Clip(clips, clipName));
+        AnimatorState state = AddClipState(machine, trigger, clip);
         AddActionTransitions(machine, state, trigger, null);
         AddExitTransition(state, locomotion, exitTime);
     }
 
     private static void AddAttacks(
         AnimatorStateMachine machine, AnimatorState locomotion, Dictionary<string, AnimationClip> clips,
-        IReadOnlyList<CSO_AttackData> steps)
+        RigSetup rig, IReadOnlyList<CSO_AttackData> steps)
     {
-        int count = steps != null ? steps.Count : _attackClips.Length;
+        int count = steps != null ? steps.Count : rig.attacks.Length;
 
         for (int i = 0; i < count; i++)
         {
-            AnimationClip clip = Clip(clips, _attackClips[Mathf.Min(i, _attackClips.Length - 1)]);
+            AnimationClip clip = Clip(clips, rig.attacks[Mathf.Min(i, rig.attacks.Length - 1)]);
             AnimatorState state = AddClipState(machine, "Attack" + (i + 1), clip);
             FitSpeed(state, clip, steps != null ? steps[i] : null);
             AddActionTransitions(machine, state, CS_PlayerAnimatorParams.attack, i);
@@ -262,18 +352,17 @@ public static class CSED_PlayerTempVisualBuilder
     }
 
     private static void AddSpecial(
-        AnimatorStateMachine machine, AnimatorState locomotion, Dictionary<string, AnimationClip> clips, CSO_AttackData special)
+        AnimatorStateMachine machine, AnimatorState locomotion, AnimationClip clip, CSO_AttackData special)
     {
-        AnimationClip clip = Clip(clips, _specialClip);
         AnimatorState state = AddClipState(machine, "Special", clip);
         FitSpeed(state, clip, special);
         AddActionTransitions(machine, state, CS_PlayerAnimatorParams.special, null);
         AddExitTransition(state, locomotion, 0.95f);
     }
 
-    private static void AddDeath(AnimatorStateMachine machine, AnimatorState locomotion, Dictionary<string, AnimationClip> clips)
+    private static void AddDeath(AnimatorStateMachine machine, AnimatorState locomotion, AnimationClip clip)
     {
-        AnimatorState death = AddClipState(machine, "Death", Clip(clips, "Death_A"));
+        AnimatorState death = AddClipState(machine, "Death", clip);
 
         AnimatorStateTransition die = machine.AddAnyStateTransition(death);
         SetupTransition(die, false, 0f);
@@ -332,7 +421,7 @@ public static class CSED_PlayerTempVisualBuilder
 
     // ---- Prefab ----
 
-    private static void ApplyToPrefab(Dictionary<string, AnimationClip> clips, Material material)
+    private static void ApplyToPrefab(Material material, Material particleMaterial)
     {
         GameObject root = PrefabUtility.LoadPrefabContents(_prefabPath);
 
@@ -340,12 +429,14 @@ public static class CSED_PlayerTempVisualBuilder
         {
             CS_PlayerAttack attack = root.GetComponent<CS_PlayerAttack>();
             CS_PlayerSpecialAttack special = root.GetComponent<CS_PlayerSpecialAttack>();
-            AnimatorController controller = CreateController(
-                clips, attack != null ? attack.attackSteps : null, special != null ? special.specialAttackData : null);
+            IReadOnlyList<CSO_AttackData> steps = attack != null ? attack.attackSteps : null;
+            CSO_AttackData specialData = special != null ? special.specialAttackData : null;
 
             RemoveCapsuleRenderer(root);
-            Animator animator = AttachModel(root, controller, material);
-            AttachVisual(root, animator);
+            Animator normal = AttachModel(root, _normalRig, CreateController(_normalRig, steps, specialData), material);
+            Animator transformed = AttachModel(root, _transformedRig, CreateController(_transformedRig, steps, specialData), material);
+            ParticleSystem effect = AttachTransformingEffect(root, particleMaterial);
+            AttachVisual(root, normal, transformed, effect);
 
             PrefabUtility.SaveAsPrefabAsset(root, _prefabPath);
         }
@@ -363,18 +454,19 @@ public static class CSED_PlayerTempVisualBuilder
         if (filter != null) Object.DestroyImmediate(filter);
     }
 
-    private static Animator AttachModel(GameObject root, AnimatorController controller, Material material)
+    private static Animator AttachModel(GameObject root, RigSetup rig, AnimatorController controller, Material material)
     {
-        Transform old = root.transform.Find(_modelName);
+        Transform old = root.transform.Find(rig.modelName);
         if (old != null) Object.DestroyImmediate(old.gameObject);
 
-        GameObject modelAsset = AssetDatabase.LoadAssetAtPath<GameObject>(_modelPath);
+        GameObject modelAsset = AssetDatabase.LoadAssetAtPath<GameObject>(rig.modelPath);
         GameObject model = (GameObject)PrefabUtility.InstantiatePrefab(modelAsset, root.transform);
-        model.name = _modelName;
+        model.name = rig.modelName;
         model.transform.localPosition = new Vector3(0f, -1f, 0f);   // カプセル(高さ2)の足元に合わせる
         model.transform.localRotation = Quaternion.identity;
+        model.SetActive(rig.active);
 
-        foreach (Renderer renderer in model.GetComponentsInChildren<Renderer>())
+        foreach (Renderer renderer in model.GetComponentsInChildren<Renderer>(true))
         {
             renderer.sharedMaterial = material;
         }
@@ -387,13 +479,57 @@ public static class CSED_PlayerTempVisualBuilder
         return animator;
     }
 
-    private static void AttachVisual(GameObject root, Animator animator)
+    // 足元から光の粒が立ち上る、変身途中の仮エフェクト
+    private static ParticleSystem AttachTransformingEffect(GameObject root, Material material)
+    {
+        Transform old = root.transform.Find(_transformingEffectName);
+        if (old != null) Object.DestroyImmediate(old.gameObject);
+
+        GameObject effectObject = new GameObject(_transformingEffectName);
+        effectObject.transform.SetParent(root.transform, false);
+        effectObject.transform.localPosition = new Vector3(0f, -1f, 0f);        // カプセルの足元
+        effectObject.transform.localRotation = Quaternion.Euler(-90f, 0f, 0f);  // 上向きに放出する
+
+        ParticleSystem particle = effectObject.AddComponent<ParticleSystem>();
+        particle.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
+
+        ParticleSystem.MainModule main = particle.main;
+        main.playOnAwake = false;
+        main.loop = true;
+        main.duration = 1f;
+        main.startLifetime = 1.2f;
+        main.startSpeed = new ParticleSystem.MinMaxCurve(1.5f, 3f);
+        main.startSize = new ParticleSystem.MinMaxCurve(0.1f, 0.25f);
+        main.startColor = _transformingColor;
+        main.simulationSpace = ParticleSystemSimulationSpace.World;
+        main.maxParticles = 300;
+
+        ParticleSystem.EmissionModule emission = particle.emission;
+        emission.rateOverTime = 60f;
+
+        ParticleSystem.ShapeModule shape = particle.shape;
+        shape.shapeType = ParticleSystemShapeType.Cone;
+        shape.angle = 5f;
+        shape.radius = 0.7f;
+
+        ParticleSystem.SizeOverLifetimeModule size = particle.sizeOverLifetime;
+        size.enabled = true;
+        size.size = new ParticleSystem.MinMaxCurve(1f, AnimationCurve.Linear(0f, 1f, 1f, 0f));
+
+        ParticleSystemRenderer renderer = effectObject.GetComponent<ParticleSystemRenderer>();
+        renderer.sharedMaterial = material;
+        return particle;
+    }
+
+    private static void AttachVisual(GameObject root, Animator normal, Animator transformed, ParticleSystem transformingEffect)
     {
         CS_PlayerVisual visual = root.GetComponent<CS_PlayerVisual>();
         if (visual == null) visual = root.AddComponent<CS_PlayerVisual>();
 
         SerializedObject serialized = new SerializedObject(visual);
-        serialized.FindProperty("_animator").objectReferenceValue = animator;
+        serialized.FindProperty("_animator").objectReferenceValue = normal;
+        serialized.FindProperty("_transformedAnimator").objectReferenceValue = transformed;
+        serialized.FindProperty("_transformingEffect").objectReferenceValue = transformingEffect;
         serialized.ApplyModifiedPropertiesWithoutUndo();
     }
 }

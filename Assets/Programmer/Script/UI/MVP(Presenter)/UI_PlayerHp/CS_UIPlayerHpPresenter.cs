@@ -36,15 +36,11 @@ public class CS_UIPlayerHpPresenter : CS_BasePresenter
         CS_UIPlayerHpModel.OnBound += HandleBound;
         CS_UIPlayerHpModel.OnUnbound += HandleUnbound;
 
-        // Model が存在しない番号なら UI を非表示
-        if (!CS_UIPlayerHpModel.TryGet(_playerNumber, out var model))
-        {
-            gameObject.SetActive(false);
-            return;
-        }
-
         // Model が存在するなら通常通り Bind
-        BindModel(model);
+        if (CS_UIPlayerHpModel.TryGet(_playerNumber, out var model))
+        {
+            BindModel(model);
+        }
     }
 
     void OnDisable()
@@ -58,7 +54,7 @@ public class CS_UIPlayerHpPresenter : CS_BasePresenter
     {
         if (playerNumber == _playerNumber)
         {
-            gameObject.SetActive(true); // ← 再表示
+            _view.SetVisible(true);   // ← 見た目だけ表示
             BindModel(model);
         }
     }
@@ -68,7 +64,7 @@ public class CS_UIPlayerHpPresenter : CS_BasePresenter
         if (playerNumber == _playerNumber)
         {
             UnbindModel();
-            gameObject.SetActive(false);
+            _view.SetVisible(false);
         }
     }
 

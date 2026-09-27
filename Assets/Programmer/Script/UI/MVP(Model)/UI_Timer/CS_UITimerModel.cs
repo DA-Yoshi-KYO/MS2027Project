@@ -84,7 +84,7 @@ public class CS_UITimerModel : CS_BaseModel
     /// 残り時間を設定する
     /// 0〜最大時間の範囲にClampされる
     /// </summary>
-    public void SetRemaining(float sec)
+    public void SetTime(float sec)
     {
         _currentTime.Value = Mathf.Clamp(sec, 0f, _maxTime.Value);
     }
@@ -93,10 +93,10 @@ public class CS_UITimerModel : CS_BaseModel
     /// 最大時間を設定する
     /// 現在時間が最大時間を超えていた場合は切り詰める
     /// </summary>
-    public void SetMax(float sec)
+    public void SetMaxTime(float sec)
     {
         _maxTime.Value = Mathf.Max(1f, sec);
-        SetRemaining(_currentTime.Value);
+        SetTime(_currentTime.Value);
     }
 
     // ---------------- 破棄 ----------------

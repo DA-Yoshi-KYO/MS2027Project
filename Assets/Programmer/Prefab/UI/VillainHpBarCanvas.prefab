@@ -227,7 +227,7 @@ GameObject:
   - component: {fileID: 9131294932972309512}
   - component: {fileID: 3080006410917519738}
   m_Layer: 5
-  m_Name: EnemyHpBarCanvas
+  m_Name: VillainHpBarCanvas
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -328,8 +328,7 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: ecc89c56adfb23c4f808d923d0b53dec, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::CS_UIEnemyHpPresenter
-  _enemyNumber: 0
+  m_EditorClassIdentifier: Assembly-CSharp::CS_UIVillainHpPresenter
 --- !u!114 &3080006410917519738
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -341,6 +340,6 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: d3cb81ff61080aa4a9c5377ec9c20c8c, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::CS_UIEnemyHpView
+  m_EditorClassIdentifier: Assembly-CSharp::CS_UIVillainHpView
   _hpGauge: {fileID: 6953151834196946722}
   _hpText: {fileID: 6757181790475196967}

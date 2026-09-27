@@ -35,10 +35,6 @@ public class CS_UITimerPresenter : CS_BasePresenter
         _view = GetComponent<CS_UITimerView>();
         _modelSubscription.AddTo(_disposables);
         _view.SetPresenter(this);
-
-        // ★ TimerModelを生成（インスペクターの値を使用）
-        // ModelはMonoBehaviourではないので new で生成する
-        _model = new CS_UITimerModel(_maxSeconds);
     }
 
     void OnEnable()
@@ -112,7 +108,7 @@ public class CS_UITimerPresenter : CS_BasePresenter
         if (!_isRunning || _model == null) return;
 
         float newTime = _model.currentTime.CurrentValue - Time.deltaTime;
-        _model.SetRemaining(newTime);
+        _model.SetTime(newTime);
 
         // 0秒以下になったら停止
         if (newTime <= 0f)
@@ -135,6 +131,6 @@ public class CS_UITimerPresenter : CS_BasePresenter
     public void ResetTimer()
     {
         if (_model == null) return;
-        _model.SetRemaining(_model.maxTime.CurrentValue);
+        _model.SetTime(_model.maxTime.CurrentValue);
     }
 }

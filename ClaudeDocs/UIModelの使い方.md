@@ -238,26 +238,23 @@ public class CS_Villain : MonoBehaviour
 
 ## 4. アイテムスロット（`CS_UIItemSlotModel`）
 
-スロットは画面に1つだけの前提で、番号はありません。**「アイテムを持った = Bind」「手放した = Unbind」** です。
+スロットは画面に1つだけの前提で、番号はありません。
+**Bind は最初に1回だけ**。あとは `SetIcon` するだけで表示が変わり、`null`（`ClearIcon()`）で非表示になります。
+
+アイコン画像はアイテムデータ（`CSO_ItemData.icon`）に入っているので、それを渡します。
 
 ```csharp
-[SerializeField] private Sprite _bombIcon;
 private CS_UIItemSlotModel _itemModel;
 
 void Awake()
 {
-    _itemModel = new CS_UIItemSlotModel();   // 最初は何も持っていないので Bind しない
+    _itemModel = new CS_UIItemSlotModel();   // 最初はアイコン無し = 非表示
+    _itemModel.Bind();
 }
 
-void PickUpItem()
+void OnItemChanged(CSO_ItemDataCarriable item)   // 拾った / 使った
 {
-    _itemModel.SetIcon(_bombIcon);           // ① 先にアイコンをセット
-    _itemModel.Bind();                       // ② Bind でスロットに表示
-}
-
-void UseItem()
-{
-    _itemModel.Unbind();                     // スロットを非表示
+    _itemModel.SetIcon(item != null ? item.icon : null);   // null ならスロットは非表示
 }
 
 void OnDestroy() => _itemModel?.Dispose();
@@ -265,16 +262,18 @@ void OnDestroy() => _itemModel?.Dispose();
 
 | メソッド / プロパティ | 説明 |
 |---|---|
-| `new CS_UIItemSlotModel()` | 生成（引数なし） |
-| `SetIcon(sprite)` | 表示するアイコンを設定 |
-| `Bind()` | スロットに表示（その時点のアイコンで表示される） |
-| `Unbind()` | スロットを非表示 |
-| `iconSprite` | 現在のアイコンを読む |
-| `Dispose()` | 現状は何もしない（Unbind もしない） |
+| `new CS_UIItemSlotModel()` / `(initialIcon)` | 生成（初期アイコン省略時は null = 非表示） |
+| `Bind()` | このModelをスロットの表示元として公開する |
+| `Unbind()` | 公開をやめる（スロットは非表示） |
+| `SetIcon(sprite)` | アイコンを設定。**Bind 後でもすぐ表示に反映される**。null で非表示 |
+| `ClearIcon()` | スロットを空にする（`SetIcon(null)` と同じ） |
+| `icon.CurrentValue` | 現在のアイコンを読む |
+| `Dispose()` | 後片付け（Unbind も行う） |
 
-- ⚠ **`SetIcon` は Bind の前に呼ぶ**。値の変更を監視していないので、Bind 後に `SetIcon` しても表示は変わりません。
-  アイコンを変えたい時は `SetIcon(新しいアイコン)` → もう一度 `Bind()` してください
-- `Dispose` では Unbind されないので、スロットを消したい場合は明示的に `Unbind()` を呼んでください
+- `SetIcon` と `Bind` の順番はどちらが先でも OK
+- ⚠ 自分のプレイヤーの分だけ表示してください（オンライン時は `IsOwner` のプレイヤーだけで Bind する）
+- ⚠ `CS_PlayerItemSlot` の所持アイテムはまだネット同期されていないため、`onItemChanged` はサーバー（ホスト）とオフラインでしか呼ばれません。
+  リモートのクライアントで表示するには、所持アイテムの同期が別途必要です
 
 ---
 

@@ -60,6 +60,15 @@
                     "initialStateCheck": false
                 },
                 {
+                    "name": "SpecialModifier",
+                    "type": "Button",
+                    "id": "8e92b987-0569-4ddb-9a17-1e8231333598",
+                    "expectedControlType": "Button",
+                    "processors": "",
+                    "interactions": "",
+                    "initialStateCheck": false
+                },
+                {
                     "name": "Dash",
                     "type": "Button",
                     "id": "9f1b3d5e-7a2c-4f6d-8e1a-3c5b7d9f1a20",
@@ -190,7 +199,7 @@
                 {
                     "name": "",
                     "id": "2338b3bf-1d54-4466-bdd1-3d9c550185bd",
-                    "path": "<Gamepad>/buttonWest",
+                    "path": "<Gamepad>/rightTrigger",
                     "interactions": "",
                     "processors": "",
                     "groups": "",
@@ -232,13 +241,46 @@
                     "isPartOfComposite": false
                 },
                 {
-                    "name": "",
-                    "id": "c8e0a2b4-6d1f-4a3c-8e5b-7d9f1a3c5e60",
-                    "path": "<Gamepad>/buttonNorth",
+                    "name": "RT+LT",
+                    "id": "7bea6821-6e9f-49cb-8a68-5e621b3898c2",
+                    "path": "OneModifier",
                     "interactions": "",
                     "processors": "",
                     "groups": "",
                     "action": "Special",
+                    "isComposite": true,
+                    "isPartOfComposite": false
+                },
+                {
+                    "name": "modifier",
+                    "id": "153f9d5e-3727-41de-ab3d-41b1bf81f7ae",
+                    "path": "<Gamepad>/leftTrigger",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": "",
+                    "action": "Special",
+                    "isComposite": false,
+                    "isPartOfComposite": true
+                },
+                {
+                    "name": "binding",
+                    "id": "15bdf4d9-2ef8-4871-9362-429bc3e0b788",
+                    "path": "<Gamepad>/rightTrigger",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": "",
+                    "action": "Special",
+                    "isComposite": false,
+                    "isPartOfComposite": true
+                },
+                {
+                    "name": "",
+                    "id": "349c9ff1-d673-4a0d-9815-eca5a2c3ea5a",
+                    "path": "<Gamepad>/leftTrigger",
+                    "interactions": "",
+                    "processors": "",
+                    "groups": "",
+                    "action": "SpecialModifier",
                     "isComposite": false,
                     "isPartOfComposite": false
                 },
@@ -267,7 +309,7 @@
                 {
                     "name": "",
                     "id": "6b8d0f21-4e6a-4c8e-9f1b-3d5f7a9c1e42",
-                    "path": "<Keyboard>/f",
+                    "path": "<Keyboard>/e",
                     "interactions": "",
                     "processors": "",
                     "groups": "",

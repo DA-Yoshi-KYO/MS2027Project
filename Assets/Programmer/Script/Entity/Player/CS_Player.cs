@@ -22,7 +22,7 @@ using UnityEngine.InputSystem;
  * ・他人のプレイヤーの位置は NetworkTransform(Authority Mode: Owner) が同期する
  * ・移動の流れ
  *   1. Update       : 入力を読み取り、視点(yaw/pitch)を更新する
- *   2. FixedUpdate  : カメラの向きへ回転し、向き終わったら移動する
+ *   2. FixedUpdate  : カメラの向きへ回転し(移動入力が無くても回転する)、向き終わったら移動する
  *   3. LateUpdate   : カメラをプレイヤーの周りに配置する
  * ・カメラはプレイヤーの子だが、回転がプレイヤーに引っ張られないよう
  *   LateUpdateでワールド座標を直接指定している
@@ -89,6 +89,7 @@ public class CS_Player : NetworkBehaviour
     private InputAction _attackAction;
     private InputAction _jumpAction;
     private InputAction _specialAction;
+    private InputAction _specialModifierAction;  // 必殺技のゲームパッド用コード(RT+LT)のLT側。攻撃(RT)との同時押しを判別するために使う
     private InputAction _dashAction;    // ダッシュボタン
     private InputAction _useItemAction; // アイテム使用ボタン(CS_PlayerItemSlotが使う)
     private InputAction _transformationAction;  // 変身ボタン(CS_PlayerTransformationが使う)
@@ -109,6 +110,8 @@ public class CS_Player : NetworkBehaviour
     public bool canAct => _isControlled && !_health.isDead;   // 移動・攻撃してよいか(CS_PlayerAttackも参照)
     public InputAction attackAction => _attackAction;   // 攻撃ボタン(CS_PlayerAttackが使う)
     public InputAction specialAction => _specialAction; // 必殺技ボタン(CS_PlayerSpecialAttackが使う)
+    // 必殺技コード(RT+LT)のLT側が押されているか(CS_PlayerAttackが、RT+LT同時押し時に攻撃を誤発動させないため参照する)
+    public bool isSpecialModifierHeld => _specialModifierAction != null && _specialModifierAction.IsPressed();
     public InputAction dashAction => _dashAction;       // ダッシュボタン
     public float dashDuration => _dashDuration;         // ダッシュが続く時間(秒、見た目のモーション速度合わせに使う)
     public InputAction useItemAction => _useItemAction; // アイテム使用ボタン(CS_PlayerItemSlotが使う)
@@ -284,6 +287,7 @@ public class CS_Player : NetworkBehaviour
         _attackAction = player.Attack;
         _jumpAction = player.Jump;
         _specialAction = player.Special;
+        _specialModifierAction = player.SpecialModifier;
         _dashAction = player.Dash;
         _useItemAction = player.UseItem;
         _transformationAction = player.Transformation;
@@ -298,6 +302,7 @@ public class CS_Player : NetworkBehaviour
         _attackAction = null;
         _jumpAction = null;
         _specialAction = null;
+        _specialModifierAction = null;
         _dashAction = null;
         _useItemAction = null;
         _transformationAction = null;
@@ -318,11 +323,9 @@ public class CS_Player : NetworkBehaviour
         _pitch = Mathf.Clamp(_pitch - look.y, _minPitch, _maxPitch);
     }
 
-    // 移動入力があるとき、カメラの向き(yaw)へ徐々に回転する
+    // カメラの向き(yaw)へ徐々に回転する。移動入力の有無に関わらず、カメラを振れば体も追従する
     private void RotateToCamera()
     {
-        if (_moveInput == Vector2.zero) return;
-
         Quaternion target = Quaternion.Euler(0f, _yaw, 0f);
         Quaternion next = Quaternion.RotateTowards(
             _rigidbody.rotation, target, _rotationSpeed * Time.fixedDeltaTime);

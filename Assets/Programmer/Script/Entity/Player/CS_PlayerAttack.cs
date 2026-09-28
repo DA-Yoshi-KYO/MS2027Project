@@ -90,7 +90,9 @@ public class CS_PlayerAttack : NetworkBehaviour
         // 自分が操作していないプレイヤー、必殺技中、変身していない間は何もしない
         if (!_player.canAct || _specialAttack.isPerformingSpecial || !_transformation.isTransformed) return;
 
-        if (_player.attackAction.WasPressedThisFrame())
+        // ゲームパッドは攻撃(RT)と必殺技(RT+LT)が同じRTを共有するため、
+        // LTを押しながらの場合は必殺技の合図とみなし、攻撃としては発動させない
+        if (_player.attackAction.WasPressedThisFrame() && !_player.isSpecialModifierHeld)
         {
             OnAttackPressed();
         }

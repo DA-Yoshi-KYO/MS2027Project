@@ -153,6 +153,16 @@ public partial class @CustomInputAction: IInputActionCollection2, IDisposable
                     ""priority"": 0
                 },
                 {
+                    ""name"": ""SpecialModifier"",
+                    ""type"": ""Button"",
+                    ""id"": ""8e92b987-0569-4ddb-9a17-1e8231333598"",
+                    ""expectedControlType"": ""Button"",
+                    ""processors"": """",
+                    ""interactions"": """",
+                    ""initialStateCheck"": false,
+                    ""priority"": 0
+                },
+                {
                     ""name"": ""Dash"",
                     ""type"": ""Button"",
                     ""id"": ""9f1b3d5e-7a2c-4f6d-8e1a-3c5b7d9f1a20"",
@@ -286,7 +296,7 @@ public partial class @CustomInputAction: IInputActionCollection2, IDisposable
                 {
                     ""name"": """",
                     ""id"": ""2338b3bf-1d54-4466-bdd1-3d9c550185bd"",
-                    ""path"": ""<Gamepad>/buttonWest"",
+                    ""path"": ""<Gamepad>/rightTrigger"",
                     ""interactions"": """",
                     ""processors"": """",
                     ""groups"": """",
@@ -328,13 +338,46 @@ public partial class @CustomInputAction: IInputActionCollection2, IDisposable
                     ""isPartOfComposite"": false
                 },
                 {
-                    ""name"": """",
-                    ""id"": ""c8e0a2b4-6d1f-4a3c-8e5b-7d9f1a3c5e60"",
-                    ""path"": ""<Gamepad>/buttonNorth"",
+                    ""name"": ""RT+LT"",
+                    ""id"": ""7bea6821-6e9f-49cb-8a68-5e621b3898c2"",
+                    ""path"": ""OneModifier"",
                     ""interactions"": """",
                     ""processors"": """",
                     ""groups"": """",
                     ""action"": ""Special"",
+                    ""isComposite"": true,
+                    ""isPartOfComposite"": false
+                },
+                {
+                    ""name"": ""modifier"",
+                    ""id"": ""153f9d5e-3727-41de-ab3d-41b1bf81f7ae"",
+                    ""path"": ""<Gamepad>/leftTrigger"",
+                    ""interactions"": """",
+                    ""processors"": """",
+                    ""groups"": """",
+                    ""action"": ""Special"",
+                    ""isComposite"": false,
+                    ""isPartOfComposite"": true
+                },
+                {
+                    ""name"": ""binding"",
+                    ""id"": ""15bdf4d9-2ef8-4871-9362-429bc3e0b788"",
+                    ""path"": ""<Gamepad>/rightTrigger"",
+                    ""interactions"": """",
+                    ""processors"": """",
+                    ""groups"": """",
+                    ""action"": ""Special"",
+                    ""isComposite"": false,
+                    ""isPartOfComposite"": true
+                },
+                {
+                    ""name"": """",
+                    ""id"": ""349c9ff1-d673-4a0d-9815-eca5a2c3ea5a"",
+                    ""path"": ""<Gamepad>/leftTrigger"",
+                    ""interactions"": """",
+                    ""processors"": """",
+                    ""groups"": """",
+                    ""action"": ""SpecialModifier"",
                     ""isComposite"": false,
                     ""isPartOfComposite"": false
                 },
@@ -363,7 +406,7 @@ public partial class @CustomInputAction: IInputActionCollection2, IDisposable
                 {
                     ""name"": """",
                     ""id"": ""6b8d0f21-4e6a-4c8e-9f1b-3d5f7a9c1e42"",
-                    ""path"": ""<Keyboard>/f"",
+                    ""path"": ""<Keyboard>/e"",
                     ""interactions"": """",
                     ""processors"": """",
                     ""groups"": """",
@@ -417,6 +460,7 @@ public partial class @CustomInputAction: IInputActionCollection2, IDisposable
         m_Player_Attack = m_Player.FindAction("Attack", throwIfNotFound: true);
         m_Player_Jump = m_Player.FindAction("Jump", throwIfNotFound: true);
         m_Player_Special = m_Player.FindAction("Special", throwIfNotFound: true);
+        m_Player_SpecialModifier = m_Player.FindAction("SpecialModifier", throwIfNotFound: true);
         m_Player_Dash = m_Player.FindAction("Dash", throwIfNotFound: true);
         m_Player_UseItem = m_Player.FindAction("UseItem", throwIfNotFound: true);
         m_Player_Transformation = m_Player.FindAction("Transformation", throwIfNotFound: true);
@@ -506,6 +550,7 @@ public partial class @CustomInputAction: IInputActionCollection2, IDisposable
     private readonly InputAction m_Player_Attack;
     private readonly InputAction m_Player_Jump;
     private readonly InputAction m_Player_Special;
+    private readonly InputAction m_Player_SpecialModifier;
     private readonly InputAction m_Player_Dash;
     private readonly InputAction m_Player_UseItem;
     private readonly InputAction m_Player_Transformation;
@@ -544,6 +589,10 @@ public partial class @CustomInputAction: IInputActionCollection2, IDisposable
         /// Provides access to the underlying input action "Player/Special".
         /// </summary>
         public InputAction @Special => m_Wrapper.m_Player_Special;
+        /// <summary>
+        /// Provides access to the underlying input action "Player/SpecialModifier".
+        /// </summary>
+        public InputAction @SpecialModifier => m_Wrapper.m_Player_SpecialModifier;
         /// <summary>
         /// Provides access to the underlying input action "Player/Dash".
         /// </summary>
@@ -600,6 +649,9 @@ public partial class @CustomInputAction: IInputActionCollection2, IDisposable
             @Special.started += instance.OnSpecial;
             @Special.performed += instance.OnSpecial;
             @Special.canceled += instance.OnSpecial;
+            @SpecialModifier.started += instance.OnSpecialModifier;
+            @SpecialModifier.performed += instance.OnSpecialModifier;
+            @SpecialModifier.canceled += instance.OnSpecialModifier;
             @Dash.started += instance.OnDash;
             @Dash.performed += instance.OnDash;
             @Dash.canceled += instance.OnDash;
@@ -638,6 +690,9 @@ public partial class @CustomInputAction: IInputActionCollection2, IDisposable
             @Special.started -= instance.OnSpecial;
             @Special.performed -= instance.OnSpecial;
             @Special.canceled -= instance.OnSpecial;
+            @SpecialModifier.started -= instance.OnSpecialModifier;
+            @SpecialModifier.performed -= instance.OnSpecialModifier;
+            @SpecialModifier.canceled -= instance.OnSpecialModifier;
             @Dash.started -= instance.OnDash;
             @Dash.performed -= instance.OnDash;
             @Dash.canceled -= instance.OnDash;
@@ -729,6 +784,13 @@ public partial class @CustomInputAction: IInputActionCollection2, IDisposable
         /// <seealso cref="UnityEngine.InputSystem.InputAction.performed" />
         /// <seealso cref="UnityEngine.InputSystem.InputAction.canceled" />
         void OnSpecial(InputAction.CallbackContext context);
+        /// <summary>
+        /// Method invoked when associated input action "SpecialModifier" is either <see cref="UnityEngine.InputSystem.InputAction.started" />, <see cref="UnityEngine.InputSystem.InputAction.performed" /> or <see cref="UnityEngine.InputSystem.InputAction.canceled" />.
+        /// </summary>
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.started" />
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.performed" />
+        /// <seealso cref="UnityEngine.InputSystem.InputAction.canceled" />
+        void OnSpecialModifier(InputAction.CallbackContext context);
         /// <summary>
         /// Method invoked when associated input action "Dash" is either <see cref="UnityEngine.InputSystem.InputAction.started" />, <see cref="UnityEngine.InputSystem.InputAction.performed" /> or <see cref="UnityEngine.InputSystem.InputAction.canceled" />.
         /// </summary>

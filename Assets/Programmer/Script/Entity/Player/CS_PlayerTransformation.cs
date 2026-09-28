@@ -27,7 +27,8 @@ using UnityEngine;
  *   流れ: Ownerがボタンを押す → サーバーへ依頼(RPC) → サーバーが条件を確認して確定 → 全員のタグが切り替わる
  *   変身の完了と警察への通知も、サーバーが時間を見て行う
  * ・死亡すると自動で解除される(解除扱いなのでクールタイムも始まる)
- * ・必殺技を行っている間は解除できない(判定の途中で解除されて不発になるのを防ぐため)
+ * ・通常攻撃・必殺技を行っている間は解除できない(判定の途中で解除されて不発になるのを防ぐため)
+ *   通常攻撃(CS_PlayerAttack)は変身完了中しか発動できないため、実質「攻撃できるのは変身中だけ」になる
  * ・オフライン(NetworkManagerが動いていない)のテストシーンでも単体で動く
  */
 // ========================================
@@ -48,6 +49,7 @@ public class CS_PlayerTransformation : NetworkBehaviour
 
     private CS_Player _player;
     private CS_PlayerHealth _health;
+    private CS_PlayerAttack _attack;
     private CS_PlayerSpecialAttack _specialAttack;
 
     private double _nextPoliceNotifyTime;   // 次に警察へ知らせる時刻(サーバー、またはオフラインのみ使う)
@@ -71,6 +73,7 @@ public class CS_PlayerTransformation : NetworkBehaviour
     {
         _player = GetComponent<CS_Player>();
         _health = GetComponent<CS_PlayerHealth>();
+        _attack = GetComponent<CS_PlayerAttack>();
         _specialAttack = GetComponent<CS_PlayerSpecialAttack>();
 
         _health.onDeath += HandleDeath;
@@ -174,7 +177,7 @@ public class CS_PlayerTransformation : NetworkBehaviour
             case CSE_PlayerTransformState.Normal:
                 return canTransform;
             case CSE_PlayerTransformState.Transformed:
-                return !IsPerformingSpecial();
+                return !IsAttacking() && !IsPerformingSpecial();
             default:
                 return false;   // 変身途中は解除できない
         }
@@ -247,6 +250,11 @@ public class CS_PlayerTransformation : NetworkBehaviour
         if (_state.Value == CSE_PlayerTransformState.Normal) return;
 
         Untransform();
+    }
+
+    private bool IsAttacking()
+    {
+        return _attack != null && _attack.isAttacking;
     }
 
     private bool IsPerformingSpecial()

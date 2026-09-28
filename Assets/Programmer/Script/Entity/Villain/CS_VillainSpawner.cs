@@ -20,6 +20,7 @@ using UnityEngine;
  *   使用中(グループが残っている)のスポーン位置には生成しない
  * ・1グループの人数は minMembers ～ maxMembers 人(両端を含む)からランダム
  *   各メンバーの種類は villainPrefabs からランダムに選ぶ
+ * ・グループのうち同時に攻撃してくるのは maxAttackersPerGroup 人まで(残りは様子見。CS_VillainGroup参照)
  * ・グループのメンバーが全員いなくなったら(撃退・逃走でDestroyされたら)、そのスポーン位置は空く
  * ・グループがいなくなった(全員撃退された、または犯罪を完遂して逃走した)位置には、respawnCooldown 秒間リスポーンしない
  *   ただし「プレイヤーの数 + 追加グループ数」を保てない場合は、待ち中の位置にも生成する
@@ -47,6 +48,10 @@ public class CS_VillainSpawner : MonoBehaviour
     [SerializeField, Min(1)]
     [Tooltip("1グループの最多人数")]
     private int _maxMembers = 6;
+
+    [SerializeField, Min(1)]
+    [Tooltip("グループのうち、同時に攻撃してくる人数。残りのメンバーは距離を取って様子を見る")]
+    private int _maxAttackersPerGroup = 2;
 
     [SerializeField, Min(0)]
     [Tooltip("プレイヤーの数に加えて、常に存在させるグループ数")]
@@ -188,7 +193,7 @@ public class CS_VillainSpawner : MonoBehaviour
 
     private CS_VillainGroup SpawnGroup(CS_VillainSpawnPoint point)
     {
-        CS_VillainGroup group = new CS_VillainGroup(point);
+        CS_VillainGroup group = new CS_VillainGroup(point, _maxAttackersPerGroup);
         int memberCount = Random.Range(_minMembers, _maxMembers + 1);
 
         for (int i = 0; i < memberCount; i++)

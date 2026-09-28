@@ -20,7 +20,8 @@ using UnityEngine;
 /*
  * メモ
  * ・コライダーはIs Triggerをオンにしておく(Rigidbodyはプレイヤー側が持っている)
- * ・拾える対象はPickup Layersで絞る(現状プレイヤー側にタグ等の目印がないため)
+ * ・拾えるのはプレイヤー(CS_Playerを持つ相手)のみ。死亡中のプレイヤーは拾わない
+ *   (悪人・警察もプレイヤーと同じEntityレイヤーのため、レイヤーでは絞らない)
  * ・拾得の確定はサーバーのみが行う(クライアントの判定は無視する)
  *   オンライン: サーバー/ホストのみ処理する(IsServer)
  *   オフライン(NetworkManagerが動いていないテストシーン): その場で処理する
@@ -33,19 +34,21 @@ using UnityEngine;
 public class CS_ItemBase : NetworkBehaviour
 {
     [SerializeField][Tooltip("このアイテムのデータ")] private CSO_ItemData _itemData;
-    [SerializeField][Tooltip("拾える対象のレイヤー")] private LayerMask _pickupLayers;
 
     public CSO_ItemData itemData => _itemData;
 
     private void OnTriggerEnter(Collider other)
     {
         if (_itemData == null) return;
-        if ((_pickupLayers.value & (1 << other.gameObject.layer)) == 0) return;
 
         // オンライン時は、サーバー/ホスト以外の判定を無視する(拾得はサーバーだけが確定させる)
         if (IsSpawned && !IsServer) return;
 
-        if (_itemData.OnPickup(other.gameObject))
+        CS_Player player = other.GetComponentInParent<CS_Player>();
+        if (player == null) return;
+        if (player.GetComponent<CS_PlayerHealth>().isDead) return;
+
+        if (_itemData.OnPickup(player.gameObject))
         {
             Consume();
         }

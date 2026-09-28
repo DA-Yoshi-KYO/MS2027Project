@@ -21,6 +21,8 @@ using UnityEngine;
  *               (CS_ConnectionGateでCreatePlayerObjectをfalseにしているため、ここで生成する)
  *   オフライン(NetworkManagerが動いていないテストシーン): 自分用のプレイヤーを1体だけ生成する
  * ・生成位置は子オブジェクトのTransformを順番に使う(人数が子の数を超えたら先頭から使い回す)
+ * ・プレイヤー番号(0〜3。HP UIなどが表示先を決めるのに使う)も生成順に割り当てる(_playerNumberCapで折り返す)
+ *   NetworkObjectをSpawnする前にCS_Player.AssignPlayerNumber()で設定する(スポーン時に全員へ同期される)
  * ・切断したクライアントのプレイヤーはNetcodeが自動で破棄する
  * ・プレイヤーのプレハブはNetworkPrefabsList(DefaultNetworkPrefabs)に登録しておくこと
  */
@@ -29,8 +31,10 @@ public class CS_PlayerSpawner : MonoBehaviour
 {
     [SerializeField][Tooltip("生成するプレイヤーのプレハブ")] private NetworkObject _playerPrefab;
 
+    private const int _playerNumberCap = 4;   // プレイヤー番号(0〜3)の折り返し(最大人数)
+
     private Transform[] _spawnPoints;
-    private int _spawnCount;    // 生成した人数(生成位置の選択に使う)
+    private int _spawnCount;    // 生成した人数(生成位置・プレイヤー番号の選択に使う)
     private NetworkManager _networkManager;
 
     // このマシンが生成の権威を持つか(オフライン、またはサーバー/ホスト)
@@ -98,6 +102,9 @@ public class CS_PlayerSpawner : MonoBehaviour
 
         Transform point = GetNextSpawnPoint();
         NetworkObject player = Instantiate(_playerPrefab, point.position, point.rotation);
+
+        // NetworkVariableなので、Spawnする前に設定しておく(Spawn時に全員へ同期される)
+        player.GetComponent<CS_Player>()?.AssignPlayerNumber(_spawnCount % _playerNumberCap);
         _spawnCount++;
 
         if (clientId.HasValue)

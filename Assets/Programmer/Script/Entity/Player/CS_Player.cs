@@ -46,6 +46,9 @@ using UnityEngine.InputSystem;
  *   ダッシュ(ブリンク)が終わった後、ダッシュボタンを押し続けている間はCS_PlayerStats.sprintSpeedで移動する
  *   (moveSpeedより速く、dashSpeedより遅い想定)。クールタイムとは無関係で、ボタンを離すと通常速度に戻る
  *   移動そのものの仕組みはMove()を共用し、参照する速度だけが変わる
+ * ・playerNumber(0〜3)
+ *   CS_PlayerSpawnerが、スポーンする直前にAssignPlayerNumber()で割り当てる(NetworkVariableなのでスポーン時に全員へ同期される)
+ *   HP UI(CS_PlayerHpUI)など、「何番目のプレイヤーか」で表示先を決める仕組みが使う
  */
 // ========================================
 
@@ -77,6 +80,9 @@ public class CS_Player : NetworkBehaviour
     [Header("視点感度")]
     [SerializeField] private float _mouseSensitivity = 0.1f;    // マウス移動量(ピクセル)に対する回転量
     [SerializeField] private float _stickSensitivity = 180f;    // スティック全開時の回転速度(度/秒)
+
+    // 書き込みはサーバーのみ(NetworkVariableのデフォルト)。CS_PlayerSpawnerがスポーン前に割り当てる
+    private readonly NetworkVariable<int> _playerNumber = new NetworkVariable<int>();
 
     private Rigidbody _rigidbody;
     private CapsuleCollider _collider;
@@ -118,6 +124,15 @@ public class CS_Player : NetworkBehaviour
     public InputAction transformationAction => _transformationAction;  // 変身ボタン(CS_PlayerTransformationが使う)
     public bool isGrounded => IsGrounded();             // 接地しているか(全クライアントで判定できる。見た目用にも使う)
     public bool isSprinting => _isSprinting;            // ダッシュ後、ボタンを押し続けて速くなっているか(見た目用)
+    public int playerNumber => _playerNumber.Value;     // 何番目のプレイヤーか(0〜3。HP UIなど画面上の表示先を決めるのに使う)
+
+    // 何番目のプレイヤーかを割り当てる(CS_PlayerSpawnerが、スポーンする前に呼ぶ)
+    public void AssignPlayerNumber(int number)
+    {
+        if (IsSpawned && !IsServer) return;
+
+        _playerNumber.Value = number;
+    }
 
     // 操作しているクライアントでだけ発生する。見た目(CS_PlayerVisual)など、ゲームロジックの外から購読する
     public event Action onJumped;

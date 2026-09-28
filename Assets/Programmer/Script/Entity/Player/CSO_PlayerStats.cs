@@ -14,6 +14,7 @@
  * ・attackPower は CSO_AttackData.damage に掛ける倍率として使う(既定 1 = 等倍)
  * ・jumpPower は値の保持のみ。ジャンプ処理自体は未実装
  * ・dashSpeed はダッシュ中の速度。継続時間・クールタイムはCS_Player側の固定値で調整する
+ * ・sprintSpeed はダッシュ後、ダッシュボタンを押し続けている間の速度(moveSpeedより速くdashSpeedより遅い想定)
  * ・maxGauge は必殺ゲージの上限。現在値はCS_PlayerSpecialGaugeが持つが、
  *   上限だけはこの基準値からCS_PlayerStatsが持つ(maxHpと同じ考え方)
  * ・specialAttackPower は必殺技のダメージに掛ける倍率(通常攻撃のattackPowerとは別枠)
@@ -29,6 +30,7 @@ public class CSO_PlayerStats : ScriptableObject
     [SerializeField] private float _moveSpeed = 5f;
     [SerializeField] private float _jumpPower = 5f;      // 未実装のジャンプ機能で使用予定
     [SerializeField] private float _dashSpeed = 12f;
+    [SerializeField] private float _sprintSpeed = 8f;
 
     [Header("必殺技")]
     [SerializeField] private float _maxGauge = 100f;
@@ -39,6 +41,7 @@ public class CSO_PlayerStats : ScriptableObject
     public float moveSpeed => _moveSpeed;
     public float jumpPower => _jumpPower;
     public float dashSpeed => _dashSpeed;
+    public float sprintSpeed => _sprintSpeed;
     public float maxGauge => _maxGauge;
     public float specialAttackPower => _specialAttackPower;
 
@@ -49,6 +52,7 @@ public class CSO_PlayerStats : ScriptableObject
         _moveSpeed = Mathf.Max(0f, _moveSpeed);
         _jumpPower = Mathf.Max(0f, _jumpPower);
         _dashSpeed = Mathf.Max(0f, _dashSpeed);
+        _sprintSpeed = Mathf.Max(0f, _sprintSpeed);
         _maxGauge = Mathf.Max(1f, _maxGauge);
         _specialAttackPower = Mathf.Max(0f, _specialAttackPower);
     }

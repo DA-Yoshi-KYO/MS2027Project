@@ -37,11 +37,15 @@ using UnityEngine.InputSystem;
  *   入力はUpdateで拾って予約し、実際に飛ぶ処理はFixedUpdate側のMove()の後に行う
  *   (Move()は毎回、現在のY速度を保ったまま水平方向だけを書き換えるため、
  *    ジャンプの初速はMove()より後に適用しないと上書きされてしまう)
- * ・ダッシュ
+ * ・ダッシュ(ブリンク)
  *   クールタイム中でなければダッシュボタンで発動。移動入力があればその方向、
  *   無ければ現在向いている方向へ、CS_PlayerStats.dashSpeedで一定時間だけ直進する
  *   （「慣性は少なめできびきび動く」という要望に合わせ、通常のMove()は行わず
  *    速度を直接指定している）。攻撃・必殺技とは排他制御しておらず、いつでも出せる
+ * ・スプリント(ZZZのような「ブリンク後、ボタンを押し続けている間だけ速くなる」挙動)
+ *   ダッシュ(ブリンク)が終わった後、ダッシュボタンを押し続けている間はCS_PlayerStats.sprintSpeedで移動する
+ *   (moveSpeedより速く、dashSpeedより遅い想定)。クールタイムとは無関係で、ボタンを離すと通常速度に戻る
+ *   移動そのものの仕組みはMove()を共用し、参照する速度だけが変わる
  */
 // ========================================
 
@@ -67,20 +71,12 @@ public class CS_Player : NetworkBehaviour
     [SerializeField] private Transform _cameraTransform;    // プレイヤーの子のカメラ
     [SerializeField] private float _cameraDistance = 3.5f;
     [SerializeField] private float _cameraPivotHeight = 1.3f;
-    [SerializeField] private float _cameraFollowTime = 0.15f;         // 水平方向の追従の遅れ(秒)。0で完全追従
-    [SerializeField] private float _cameraVerticalFollowTime = 0.3f;  // 上下方向の追従の遅れ(秒)。ジャンプで揺れすぎないよう長めにする
     [SerializeField] private float _minPitch = -30f;
     [SerializeField] private float _maxPitch = 60f;
 
     [Header("視点感度")]
     [SerializeField] private float _mouseSensitivity = 0.1f;    // マウス移動量(ピクセル)に対する回転量
     [SerializeField] private float _stickSensitivity = 180f;    // スティック全開時の回転速度(度/秒)
-
-    private const float _cameraSnapDistance = 10f;  // これ以上離れたらテレポートとみなして遅らせない
-
-    private Vector3 _cameraPivot;             // 遅れて追従しているカメラの注視点
-    private Vector3 _cameraPivotVelocity;     // SmoothDamp用
-    private bool _hasCameraPivot;
 
     private Rigidbody _rigidbody;
     private CapsuleCollider _collider;
@@ -107,15 +103,18 @@ public class CS_Player : NetworkBehaviour
     private float _dashElapsed;
     private float _dashCooldownRemaining;
     private Vector3 _dashDirection;
+    private bool _isSprinting;      // ダッシュ後、ダッシュボタンを押し続けている間か
 
     public bool isControlled => _isControlled;          // このプレイヤーを自分が操作しているか
     public bool canAct => _isControlled && !_health.isDead;   // 移動・攻撃してよいか(CS_PlayerAttackも参照)
     public InputAction attackAction => _attackAction;   // 攻撃ボタン(CS_PlayerAttackが使う)
     public InputAction specialAction => _specialAction; // 必殺技ボタン(CS_PlayerSpecialAttackが使う)
     public InputAction dashAction => _dashAction;       // ダッシュボタン
+    public float dashDuration => _dashDuration;         // ダッシュが続く時間(秒、見た目のモーション速度合わせに使う)
     public InputAction useItemAction => _useItemAction; // アイテム使用ボタン(CS_PlayerItemSlotが使う)
     public InputAction transformationAction => _transformationAction;  // 変身ボタン(CS_PlayerTransformationが使う)
     public bool isGrounded => IsGrounded();             // 接地しているか(全クライアントで判定できる。見た目用にも使う)
+    public bool isSprinting => _isSprinting;            // ダッシュ後、ボタンを押し続けて速くなっているか(見た目用)
 
     // 操作しているクライアントでだけ発生する。見た目(CS_PlayerVisual)など、ゲームロジックの外から購読する
     public event Action onJumped;
@@ -181,6 +180,9 @@ public class CS_Player : NetworkBehaviour
         {
             StartDash();
         }
+
+        // ダッシュ中でない間にダッシュボタンを押し続けていればスプリント(ZZZのような挙動。クールタイムとは無関係)
+        _isSprinting = canAct && !_isDashing && _dashAction.IsPressed();
     }
 
     private void FixedUpdate()
@@ -201,13 +203,17 @@ public class CS_Player : NetworkBehaviour
             _dashCooldownRemaining -= Time.fixedDeltaTime;
         }
 
+        // ダッシュ中も向きだけは更新する(移動方向自体はダッシュ開始時に固定した_dashDirectionを使うため影響しない)
+        // これをしないと、ダッシュ中にカメラを動かした分だけ体の向きとカメラの向きがずれ、
+        // ダッシュ終了直後にIsFacingCamera()がfalseになって、そのフレームだけ移動できず止まって見える
+        RotateToCamera();
+
         if (_isDashing)
         {
             UpdateDash();
         }
         else
         {
-            RotateToCamera();
             Move();
             ApplyJump();
         }
@@ -247,6 +253,7 @@ public class CS_Player : NetworkBehaviour
         _jumpRequested = false;
         _isDashing = false;
         _dashCooldownRemaining = 0f;
+        _isSprinting = false;
         UnbindInputActions();
 
         Cursor.lockState = CursorLockMode.None;
@@ -336,7 +343,8 @@ public class CS_Player : NetworkBehaviour
         Vector3 direction = cameraYaw * new Vector3(_moveInput.x, 0f, _moveInput.y);
         direction = Vector3.ClampMagnitude(direction, 1f);
 
-        Vector3 horizontal = direction * _stats.moveSpeed;
+        float speed = _isSprinting ? _stats.sprintSpeed : _stats.moveSpeed;
+        Vector3 horizontal = direction * speed;
         _rigidbody.linearVelocity = new Vector3(horizontal.x, _rigidbody.linearVelocity.y, horizontal.z);
     }
 
@@ -412,34 +420,14 @@ public class CS_Player : NetworkBehaviour
     }
 
     // カメラをプレイヤーの周りに配置する(プレイヤーの回転の影響を受けない)
-    // 注視点は少し遅れて追従する。回転(視点操作)は遅らせず、操作に即座に反応する
     private void UpdateCameraTransform()
     {
         if (_cameraTransform == null) return;
 
         Quaternion rotation = Quaternion.Euler(_pitch, _yaw, 0f);
-        Vector3 pivot = FollowPivot(transform.position + Vector3.up * _cameraPivotHeight);
+        Vector3 pivot = transform.position + Vector3.up * _cameraPivotHeight;
         Vector3 position = pivot - rotation * Vector3.forward * _cameraDistance;
 
         _cameraTransform.SetPositionAndRotation(position, rotation);
-    }
-
-    // 注視点を目標へ向けてなめらかに近づける(水平と上下で遅れの長さを変える)
-    private Vector3 FollowPivot(Vector3 target)
-    {
-        // 初回とテレポート(リスポーンなど)は遅らせず、その場に合わせる
-        if (!_hasCameraPivot || (target - _cameraPivot).sqrMagnitude > _cameraSnapDistance * _cameraSnapDistance)
-        {
-            _cameraPivot = target;
-            _cameraPivotVelocity = Vector3.zero;
-            _hasCameraPivot = true;
-            return _cameraPivot;
-        }
-
-        float deltaTime = Time.deltaTime;
-        _cameraPivot.x = Mathf.SmoothDamp(_cameraPivot.x, target.x, ref _cameraPivotVelocity.x, _cameraFollowTime, Mathf.Infinity, deltaTime);
-        _cameraPivot.z = Mathf.SmoothDamp(_cameraPivot.z, target.z, ref _cameraPivotVelocity.z, _cameraFollowTime, Mathf.Infinity, deltaTime);
-        _cameraPivot.y = Mathf.SmoothDamp(_cameraPivot.y, target.y, ref _cameraPivotVelocity.y, _cameraVerticalFollowTime, Mathf.Infinity, deltaTime);
-        return _cameraPivot;
     }
 }

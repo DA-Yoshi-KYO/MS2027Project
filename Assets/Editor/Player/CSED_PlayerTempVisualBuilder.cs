@@ -240,7 +240,7 @@ public static class CSED_PlayerTempVisualBuilder
     // ---- Animator Controller ----
 
     private static AnimatorController CreateController(
-        RigSetup rig, IReadOnlyList<CSO_AttackData> steps, CSO_AttackData special)
+        RigSetup rig, IReadOnlyList<CSO_AttackData> steps, CSO_AttackData special, float dashDuration)
     {
         Dictionary<string, AnimationClip> clips = LoadClips(rig);
 
@@ -253,7 +253,7 @@ public static class CSED_PlayerTempVisualBuilder
         machine.defaultState = locomotion;
 
         AddAir(machine, locomotion, clips, rig);
-        AddSimpleAction(machine, locomotion, Clip(clips, rig.dash), CS_PlayerAnimatorParams.dash, 0.5f);
+        AddDash(machine, locomotion, Clip(clips, rig.dash), dashDuration);
         AddAttacks(machine, locomotion, clips, rig, steps);
         AddSpecial(machine, locomotion, Clip(clips, rig.special), special);
         AddSimpleAction(machine, locomotion, Clip(clips, rig.hit), CS_PlayerAnimatorParams.hit, 0.9f);
@@ -335,6 +335,16 @@ public static class CSED_PlayerTempVisualBuilder
         AddExitTransition(state, locomotion, exitTime);
     }
 
+    // ダッシュはCS_Playerの_dashDuration(実際に移動し続ける時間)にモーションの長さを合わせる
+    // (合わせないと、物理的なダッシュが終わる前にモーションだけ先に戻ってしまう/逆に長く残ってしまう)
+    private static void AddDash(AnimatorStateMachine machine, AnimatorState locomotion, AnimationClip clip, float dashDuration)
+    {
+        AnimatorState state = AddClipState(machine, CS_PlayerAnimatorParams.dash, clip);
+        FitSpeed(state, clip, dashDuration);
+        AddActionTransitions(machine, state, CS_PlayerAnimatorParams.dash, null);
+        AddExitTransition(state, locomotion, 0.95f);
+    }
+
     private static void AddAttacks(
         AnimatorStateMachine machine, AnimatorState locomotion, Dictionary<string, AnimationClip> clips,
         RigSetup rig, IReadOnlyList<CSO_AttackData> steps)
@@ -414,9 +424,17 @@ public static class CSED_PlayerTempVisualBuilder
     // モーションがCSO_AttackDataのDurationに収まるように再生速度を決める
     private static void FitSpeed(AnimatorState state, AnimationClip clip, CSO_AttackData data)
     {
-        if (clip == null || data == null || data.duration <= 0f) return;
+        if (data == null) return;
 
-        state.speed = clip.length / data.duration;
+        FitSpeed(state, clip, data.duration);
+    }
+
+    // モーションの長さ(クリップ長 × 速度)が指定した秒数ちょうどになるよう再生速度を決める
+    private static void FitSpeed(AnimatorState state, AnimationClip clip, float duration)
+    {
+        if (clip == null || duration <= 0f) return;
+
+        state.speed = clip.length / duration;
     }
 
     // ---- Prefab ----
@@ -427,14 +445,16 @@ public static class CSED_PlayerTempVisualBuilder
 
         try
         {
+            CS_Player player = root.GetComponent<CS_Player>();
             CS_PlayerAttack attack = root.GetComponent<CS_PlayerAttack>();
             CS_PlayerSpecialAttack special = root.GetComponent<CS_PlayerSpecialAttack>();
             IReadOnlyList<CSO_AttackData> steps = attack != null ? attack.attackSteps : null;
             CSO_AttackData specialData = special != null ? special.specialAttackData : null;
+            float dashDuration = player != null ? player.dashDuration : 0f;
 
             RemoveCapsuleRenderer(root);
-            Animator normal = AttachModel(root, _normalRig, CreateController(_normalRig, steps, specialData), material);
-            Animator transformed = AttachModel(root, _transformedRig, CreateController(_transformedRig, steps, specialData), material);
+            Animator normal = AttachModel(root, _normalRig, CreateController(_normalRig, steps, specialData, dashDuration), material);
+            Animator transformed = AttachModel(root, _transformedRig, CreateController(_transformedRig, steps, specialData, dashDuration), material);
             ParticleSystem effect = AttachTransformingEffect(root, particleMaterial);
             AttachVisual(root, normal, transformed, effect);
 

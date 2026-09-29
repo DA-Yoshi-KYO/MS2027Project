@@ -24,53 +24,37 @@ Material:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_Name: N00_000_00_EyeWhite_00_EYE (Instance)
-  m_Shader: {fileID: 4800000, guid: f93ad5f8dc483a8418e1489d96e4e503, type: 3}
+  m_Shader: {fileID: -6465566751694194690, guid: 578b449536e30984a9b6967bb91311ac, type: 3}
   m_Parent: {fileID: 0}
   m_ModifiedSerializedProperties: 0
-  m_ValidKeywords: []
-  m_InvalidKeywords:
-  - _AUTOMATICNIGHT_ON
-  - _ENABLECOLORHUE_ON
-  - _ENABLEEMISSIONHUE_ON
-  - _ENABLEOUTLINEHUE_ON
-  - _ENABLERIMHUE_ON
-  - _ENABLESELFSHADOW_ON
-  - _ENABLESHADOW_ON
-  - _FILTERLIGHT_ON
-  - _IFAUTOPLAYBACK_ON
-  - _IFINTERFRAMEINTERP_ON
-  - _METALMATERIAL_ON
-  - _MULTILIGHT_ON
-  - _OUTLINEENABLED_ON
-  - _STOCKINGSWHITE_ON
-  - _USELIGHTMAPCOLORAO_ON
-  - _USEMATERIAL2_ON
-  - _USEMATERIAL3_ON
-  - _USEMATERIAL4_ON
-  - _USEMATERIAL5_ON
-  - _USEPATTERN_ON
-  - _USERIMLIGHT_ON
-  - _USESHADOWRAMP_ON
-  - _USEVERTEXCOLORAO_ON
+  m_ValidKeywords:
+  - _ALPHATEST_ON
+  - _DISABLE_SSR_TRANSPARENT
+  m_InvalidKeywords: []
   m_LightmapFlags: 4
   m_EnableInstancingVariants: 0
   m_DoubleSidedGI: 0
   m_CustomRenderQueue: 2475
   stringTagMap:
     AllLockedGUIDS: f6cce4769b52e1545958a2fee34c4c5c,699b7f6b40d16854daaf602bfa81f63e,2f042ac2ffce1be489f2ccbbf387a882,5281ec54239524d4cb12039e45bff294,34f6a8963511f6940bc4cb312f133935,1133cce4707624f4da38909ca4b3e07b,af3c77fe2e089b747abf3ef9f9d6b1ac,00e365070c797e84e9196e730a75db61,486e7f0096c796846be1a35a51af17af,4c5e8e092b488a44fa04fc02e55d512b,626afbcbe65ce7a47ae040d2b3fcc8f1,e25b0fa772529334e927288cce851934,e90bc487a26f3f34ab953c8edafa5b9f,60a61da6e9d013644bceb43a1c2b0c7c,5925bfe44096afd4d91f4746ac3a8272,7f384d1c9ccc72044a26a1ef93ea01d2
+    MotionVector: User
     OriginalShader: HoyoToon/Genshin/Character
     OriginalShaderGUID: f93ad5f8dc483a8418e1489d96e4e503
+    RenderType: TransparentCutout
   disabledShaderPasses:
   - TransparentDepthPrepass
   - TransparentDepthPostpass
   - TransparentBackface
   - RayTracingPrepass
-  - MOTIONVECTORS
   m_LockedProperties: 
   m_SavedProperties:
     serializedVersion: 3
     m_TexEnvs:
     - _BaseColorMap:
+        m_Texture: {fileID: 2800000, guid: 8347c639501b7c442881c1c1f30f230d, type: 3}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _BaseMap:
         m_Texture: {fileID: 2800000, guid: 8347c639501b7c442881c1c1f30f230d, type: 3}
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
@@ -290,6 +274,18 @@ Material:
         m_Texture: {fileID: 0}
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
+    - unity_Lightmaps:
+        m_Texture: {fileID: 0}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - unity_LightmapsInd:
+        m_Texture: {fileID: 0}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - unity_ShadowMasks:
+        m_Texture: {fileID: 0}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
     m_Ints: []
     m_Floats:
     - CharacterLeft: 0
@@ -369,6 +365,7 @@ Material:
     - _ColorHue4: 0
     - _ColorHue5: 0
     - _ColorPalletteSpeed: -0.1
+    - _ConservativeDepthOffsetEnable: 0
     - _ConstellationBrightness: 5
     - _ConstellationHeight: 1.2
     - _Cull: 0
@@ -488,6 +485,7 @@ Material:
     - _EnableTonemapping: 0
     - _EnergyConservingSpecularColor: 1
     - _EviroAffectOutline: 0
+    - _ExcludeFromTUAndAA: 0
     - _EyeGlowStrength: 0.5
     - _EyePulse: 0
     - _EyeScale: 0.8
@@ -644,6 +642,7 @@ Material:
     - _MatcapSize: 1
     - _MaterialID: 1
     - _MaterialType: 0
+    - _MaterialTypeMask: 2
     - _MaxOutlineZOffset: 1
     - _MetalMatCapBack: 1
     - _MetalMatCapInt: 1
@@ -740,6 +739,8 @@ Material:
     - _ReceivesSSR: 1
     - _ReceivesSSRTransparent: 0
     - _RefractionModel: 0
+    - _RenderQueueType: 1
+    - _RequireSplitLighting: 0
     - _RimHardness: 1
     - _RimHue: 0
     - _RimHue2: 0
@@ -864,6 +865,7 @@ Material:
     - _StencilRefA: 0
     - _StencilRefB: 0
     - _StencilRefDepth: 8
+    - _StencilRefDistortionVec: 4
     - _StencilRefGBuffer: 10
     - _StencilRefMV: 40
     - _StencilRefNyx: 0
@@ -871,6 +873,7 @@ Material:
     - _StencilType: 3
     - _StencilWriteMask: 6
     - _StencilWriteMaskDepth: 9
+    - _StencilWriteMaskDistortionVec: 4
     - _StencilWriteMaskGBuffer: 15
     - _StencilWriteMaskMV: 41
     - _StockingCenterX: 0.5

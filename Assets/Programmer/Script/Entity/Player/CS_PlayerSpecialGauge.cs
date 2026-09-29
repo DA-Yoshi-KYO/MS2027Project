@@ -13,7 +13,12 @@ using UnityEngine;
 /*
  * メモ
  * ・上限(maxGauge)はCS_PlayerStatsが持つ(maxHpと同じ考え方)。ここでは現在値だけを持つ
- * ・ゲージは通常攻撃(CS_PlayerAttack)がヒットする度に、各段のGauge Gain分だけ溜まる
+ * ・ゲージが溜まる要因(数値はすべてInspectorで調整可能)
+ *   1. 時間経過   : 毎秒 _gaugePerSecond ずつ自動で溜まる(既定1)
+ *   2. 通常攻撃   : ヒットする度に、各段のGauge Gain分だけ溜まる
+ *   3. 悪人の撃退 : 誰が倒したかに関わらず、悪人が1体倒されるたびに全プレイヤーが
+ *      _villainDefeatGaugeGain分だけ溜まる(既定10。CS_VillainHealth.onAnyVillainDefeatedを購読)
+ *      ※ 攻撃側に「誰が倒したか」を記録する仕組みが無いため、討伐者だけに加算する形にはしていない
  * ・値はNetworkVariableで持つ(書き込みはサーバーのみ、読み取りは全員可)
  * ・TryConsumeFull()は満タンの時だけ消費してtrueを返す。満タンでなければ何もせずfalseを返す
  *   (必殺技側は、発動判定と実際の消費を分けて、判定が通る瞬間に改めてこれを呼んでいる)
@@ -24,6 +29,10 @@ using UnityEngine;
 [RequireComponent(typeof(CS_PlayerStats))]
 public class CS_PlayerSpecialGauge : NetworkBehaviour
 {
+    [Header("自動回復・撃退報酬")]
+    [SerializeField] private float _gaugePerSecond = 1f;            // 時間経過で毎秒溜まる量
+    [SerializeField] private float _villainDefeatGaugeGain = 10f;   // 悪人が1体倒されるたびに溜まる量(全プレイヤー共通)
+
     private CS_PlayerStats _stats;
 
     // 書き込みはサーバーのみ(NetworkVariableのデフォルト)。読み取りは全員可
@@ -38,6 +47,13 @@ public class CS_PlayerSpecialGauge : NetworkBehaviour
     private void Awake()
     {
         _stats = GetComponent<CS_PlayerStats>();
+        CS_VillainHealth.onAnyVillainDefeated += HandleVillainDefeated;
+    }
+
+    public override void OnDestroy()
+    {
+        CS_VillainHealth.onAnyVillainDefeated -= HandleVillainDefeated;
+        base.OnDestroy();
     }
 
     public override void OnNetworkSpawn()
@@ -50,6 +66,18 @@ public class CS_PlayerSpecialGauge : NetworkBehaviour
     {
         _currentGauge.OnValueChanged -= HandleGaugeChanged;
         _stats.onMaxGaugeChanged -= HandleMaxGaugeChanged;
+    }
+
+    // 時間経過による自動回復(サーバー・オフライン以外ではFill内部で無視される)
+    private void Update()
+    {
+        Fill(_gaugePerSecond * Time.deltaTime);
+    }
+
+    // 悪人が撃退される度に呼ばれる(誰が倒したかは問わず、全プレイヤーに加算する)
+    private void HandleVillainDefeated(CS_VillainHealth villain)
+    {
+        Fill(_villainDefeatGaugeGain);
     }
 
     // ゲージを増やす(サーバーのみ)

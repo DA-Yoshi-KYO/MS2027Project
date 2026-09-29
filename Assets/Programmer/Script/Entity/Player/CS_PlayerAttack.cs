@@ -29,6 +29,9 @@ using UnityEngine;
  * ・実際のダメージ = CSO_AttackData.CalculateDamage() × CS_PlayerStats.attackPower(倍率)
  * ・ヒットする度に、各段のGauge Gain分だけCS_PlayerSpecialGaugeが溜まる
  * ・必殺技(CS_PlayerSpecialAttack)を行っている間は、通常攻撃を行わない(isAttacking/isPerformingSpecialで排他制御)
+ * ・変身中(CS_PlayerTransformation.isTransformed)でないと発動できない
+ *   変身完了中はCS_PlayerTransformation側で解除できないよう制御しているため、
+ *   コンボ開始後に変身が解けることは基本的に無い(死亡時の強制解除を除く)
  */
 // ========================================
 
@@ -36,6 +39,7 @@ using UnityEngine;
 [RequireComponent(typeof(CS_PlayerStats))]
 [RequireComponent(typeof(CS_PlayerSpecialGauge))]
 [RequireComponent(typeof(CS_PlayerSpecialAttack))]
+[RequireComponent(typeof(CS_PlayerTransformation))]
 public class CS_PlayerAttack : NetworkBehaviour
 {
     [Header("コンボ")]
@@ -51,6 +55,7 @@ public class CS_PlayerAttack : NetworkBehaviour
     private CS_PlayerStats _stats;
     private CS_PlayerSpecialGauge _gauge;
     private CS_PlayerSpecialAttack _specialAttack;
+    private CS_PlayerTransformation _transformation;
     private readonly Collider[] _hitBuffer = new Collider[_hitBufferSize];
     private readonly HashSet<IDamageable> _hitTargets = new HashSet<IDamageable>();
 
@@ -72,6 +77,7 @@ public class CS_PlayerAttack : NetworkBehaviour
         _stats = GetComponent<CS_PlayerStats>();
         _gauge = GetComponent<CS_PlayerSpecialGauge>();
         _specialAttack = GetComponent<CS_PlayerSpecialAttack>();
+        _transformation = GetComponent<CS_PlayerTransformation>();
 
         if (HasValidSteps()) return;
 
@@ -81,10 +87,12 @@ public class CS_PlayerAttack : NetworkBehaviour
 
     private void Update()
     {
-        // 自分が操作していないプレイヤー、必殺技中は何もしない
-        if (!_player.canAct || _specialAttack.isPerformingSpecial) return;
+        // 自分が操作していないプレイヤー、必殺技中、変身していない間は何もしない
+        if (!_player.canAct || _specialAttack.isPerformingSpecial || !_transformation.isTransformed) return;
 
-        if (_player.attackAction.WasPressedThisFrame())
+        // ゲームパッドは攻撃(RT)と必殺技(RT+LT)が同じRTを共有するため、
+        // LTを押しながらの場合は必殺技の合図とみなし、攻撃としては発動させない
+        if (_player.attackAction.WasPressedThisFrame() && !_player.isSpecialModifierHeld)
         {
             OnAttackPressed();
         }
@@ -217,6 +225,9 @@ public class CS_PlayerAttack : NetworkBehaviour
     {
         // 不正な段番号は無視する(クライアントからの値は信用しない)
         if (stepIndex < 0 || stepIndex >= _attackSteps.Length) return;
+
+        // 判定タイミングまでの間に変身が解けていた場合は不発にする(死亡時の強制解除など)
+        if (!_transformation.isTransformed) return;
 
         CSO_AttackData step = _attackSteps[stepIndex];
         AttackContext context = new AttackContext(transform, stepIndex);

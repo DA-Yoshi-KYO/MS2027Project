@@ -21,6 +21,7 @@ GameObject:
   - component: {fileID: 5250238292555835564}
   - component: {fileID: 4257008625129335440}
   - component: {fileID: 1135304791542583852}
+  - component: {fileID: 5853495017623006576}
   m_Layer: 31
   m_Name: Villain
   m_TagString: Untagged
@@ -42,6 +43,7 @@ Transform:
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 8199438690303444977}
+  - {fileID: 6003035532415045048}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!33 &1941268603742208129
@@ -315,6 +317,19 @@ MonoBehaviour:
   _chargeColor: {r: 1, g: 0.5, b: 0, a: 1}
   _showHitArea: 1
   _hitAreaMaterial: {fileID: 2100000, guid: 3d9867fd319368a40a143a64644529cb, type: 2}
+--- !u!114 &5853495017623006576
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 942901870687269662}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: cb7abafcfb584061935a5698fc35702d, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CS_VillainHpUI
+  _hpBar: {fileID: 6003035532415045048}
 --- !u!1 &3136862546548924743
 GameObject:
   m_ObjectHideFlags: 0
@@ -427,3 +442,33 @@ BoxCollider:
   serializedVersion: 3
   m_Size: {x: 1, y: 1, z: 1}
   m_Center: {x: 0, y: 0, z: 0}
+--- !u!1001 &8843079239888452314
+PrefabInstance:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Modification:
+    serializedVersion: 3
+    m_TransformParent: {fileID: 7751489382584213811}
+    m_Modifications:
+    - target: {fileID: 3708235467687533375, guid: 19e0c61570e93e84095382a8a7d69d69, type: 3}
+      propertyPath: m_Name
+      value: VillainHpBarCanvas
+      objectReference: {fileID: 0}
+    - target: {fileID: 3024163532033439586, guid: 19e0c61570e93e84095382a8a7d69d69, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: 1.5
+      objectReference: {fileID: 0}
+    - target: {fileID: 3024163532033439586, guid: 19e0c61570e93e84095382a8a7d69d69, type: 3}
+      propertyPath: m_AnchoredPosition.y
+      value: 1.5
+      objectReference: {fileID: 0}
+    m_RemovedComponents: []
+    m_RemovedGameObjects: []
+    m_AddedGameObjects: []
+    m_AddedComponents: []
+  m_SourcePrefab: {fileID: 100100000, guid: 19e0c61570e93e84095382a8a7d69d69, type: 3}
+--- !u!224 &6003035532415045048 stripped
+RectTransform:
+  m_CorrespondingSourceObject: {fileID: 3024163532033439586, guid: 19e0c61570e93e84095382a8a7d69d69, type: 3}
+  m_PrefabInstance: {fileID: 8843079239888452314}
+  m_PrefabAsset: {fileID: 0}

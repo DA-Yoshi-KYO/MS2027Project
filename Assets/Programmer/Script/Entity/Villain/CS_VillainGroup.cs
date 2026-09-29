@@ -19,6 +19,9 @@ using System.Collections.Generic;
  *      → 最終スコアのマイナス・犯罪完遂数の加算は、スコア側がこれを購読してグループ単位で行う
  *   2. 残っているメンバー全員が逃走(フェードアウト → Despawn)する
  * ・メンバーが撃退・逃走でDestroyされるとnull扱いになる。全員いなくなったらisAliveがfalseになる
+ * ・同時に攻撃できるのは、グループのうち maxAttackers 人まで(攻撃枠)
+ *   臨戦態勢になったメンバーは攻撃枠を取れたら攻撃し、取れなければつかず離れずで様子を見る
+ *   攻撃枠は臨戦態勢が終わる(帰還する)・撃退される・逃走する時に空き、様子見のメンバーが代わりに取る
  * ・サーバー(オフライン時はその場)でのみ使う
  */
 // ========================================
@@ -27,6 +30,8 @@ public class CS_VillainGroup
 {
     private readonly CS_VillainSpawnPoint _spawnPoint;
     private readonly List<CS_VillainCrime> _members = new List<CS_VillainCrime>();
+    private readonly HashSet<CS_VillainCombat> _attackers = new HashSet<CS_VillainCombat>();   // 攻撃枠を持っているメンバー
+    private readonly int _maxAttackers;
     private float _crimeElapsed;
     private bool _isCrimeCompleted;
 
@@ -49,14 +54,32 @@ public class CS_VillainGroup
     // どのグループが犯罪を完遂しても呼ばれる(サーバーのみ)。スコア側の購読用
     public static event Action<CS_VillainGroup> onAnyCrimeCompleted;
 
-    public CS_VillainGroup(CS_VillainSpawnPoint spawnPoint)
+    public CS_VillainGroup(CS_VillainSpawnPoint spawnPoint, int maxAttackers)
     {
         _spawnPoint = spawnPoint;
+        _maxAttackers = maxAttackers;
     }
 
     public void AddMember(CS_VillainCrime member)
     {
         _members.Add(member);
+        member.GetComponent<CS_VillainCombat>().SetGroup(this);
+    }
+
+    // 攻撃枠を取る。既に持っている、または空きがあればtrue
+    public bool TryAcquireAttackSlot(CS_VillainCombat attacker)
+    {
+        if (_attackers.Contains(attacker)) return true;
+        if (_attackers.Count >= _maxAttackers) return false;
+
+        _attackers.Add(attacker);
+        return true;
+    }
+
+    // 攻撃枠を空ける(持っていなければ何もしない)
+    public void ReleaseAttackSlot(CS_VillainCombat attacker)
+    {
+        _attackers.Remove(attacker);
     }
 
     // 犯罪を進める。完遂時間に達したら完遂する

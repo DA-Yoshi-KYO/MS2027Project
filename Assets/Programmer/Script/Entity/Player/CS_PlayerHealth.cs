@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using Unity.Netcode;
 using UnityEngine;
@@ -20,8 +21,11 @@ using UnityEngine;
  * ・フレンドリーファイアは常に有効。誰の攻撃でも当たる(このクラスでは区別しない)
  * ・onHpChanged / onDeath は、HPバーなどのUIやリスポーン処理から購読して使う
  * ・無敵中はダメージを受けない。無敵は要因(呼び出し元)ごとにSetInvincible(要因, true/false)で管理し、
- *   1つでも無敵の要因が残っていれば無敵(変身途中: CS_PlayerTransformation / 復活直後: CS_PlayerRespawn)
+ *   1つでも無敵の要因が残っていれば無敵(変身途中: CS_PlayerTransformation / 復活直後: CS_PlayerRespawn /
+ *   被弾直後: このクラス自身)
  *   ダメージ処理はサーバーだけで行うため、無敵の状態もサーバー(またはオフライン)だけが持つ
+ * ・被弾すると(致死でなければ)、_postDamageInvincibleDuration秒(既定3秒、Inspectorで調整可能)だけ無敵になる
+ *   (無敵中は上記の通りダメージを受けないため、この無敵は連続ヒットでは再スタートしない)
  * ・オフライン(NetworkManagerが動いていない)のテストシーンでも単体で動く
  */
 // ========================================
@@ -30,6 +34,9 @@ using UnityEngine;
 [DefaultExecutionOrder(1)] // オフライン時、CS_PlayerStats.Startの後にStartを呼ぶため
 public class CS_PlayerHealth : NetworkBehaviour, IDamageable, IHealable
 {
+    [Header("被弾後の無敵")]
+    [SerializeField] private float _postDamageInvincibleDuration = 3f;   // 被弾後、無敵になる秒数(0以下で無効)
+
     private CS_PlayerStats _stats;
 
     // 書き込みはサーバーのみ(NetworkVariableのデフォルト)。読み取りは全員可
@@ -37,6 +44,8 @@ public class CS_PlayerHealth : NetworkBehaviour, IDamageable, IHealable
     private readonly NetworkVariable<bool> _isDead = new NetworkVariable<bool>();
 
     private readonly HashSet<object> _invincibleSources = new HashSet<object>();   // 無敵にしている要因(サーバー、またはオフラインでのみ意味を持つ)
+    private readonly object _postDamageInvincibleSource = new object();          // 被弾後無敵の要因キー(このクラス専用)
+    private Coroutine _postDamageInvincibleCoroutine;
 
     public float maxHp => _stats.maxHp;
     public float currentHp => _currentHp.Value;
@@ -94,9 +103,42 @@ public class CS_PlayerHealth : NetworkBehaviour, IDamageable, IHealable
         if (justDied)
         {
             _isDead.Value = true;
+            EndPostDamageInvincible();     // 死亡時は無敵の意味が無いので、念のため確実に終わらせる
+        }
+        else
+        {
+            StartPostDamageInvincible();
         }
 
         NotifyOffline(justDied);
+    }
+
+    // 被弾後無敵を開始する(サーバー、またはオフラインで実行される)
+    private void StartPostDamageInvincible()
+    {
+        if (_postDamageInvincibleDuration <= 0f) return;
+
+        SetInvincible(_postDamageInvincibleSource, true);
+        _postDamageInvincibleCoroutine = StartCoroutine(EndPostDamageInvincibleAfterDelay());
+    }
+
+    private IEnumerator EndPostDamageInvincibleAfterDelay()
+    {
+        yield return new WaitForSeconds(_postDamageInvincibleDuration);
+
+        _postDamageInvincibleCoroutine = null;
+        SetInvincible(_postDamageInvincibleSource, false);
+    }
+
+    private void EndPostDamageInvincible()
+    {
+        if (_postDamageInvincibleCoroutine != null)
+        {
+            StopCoroutine(_postDamageInvincibleCoroutine);
+            _postDamageInvincibleCoroutine = null;
+        }
+
+        SetInvincible(_postDamageInvincibleSource, false);
     }
 
     // オフライン時はNetworkVariableの変更通知が届かないため、ここで直接イベントを発生させる

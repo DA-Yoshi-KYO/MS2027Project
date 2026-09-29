@@ -10,10 +10,10 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 237e3b95e619e4b41b9e5499f0001490, type: 3}
-  m_Name: DB_ItemDataInstant_Bomb
-  m_EditorClassIdentifier:
-  _itemName: 爆弾
-  _icon: {fileID: 0}
-  _description: 周囲のプレイヤーにダメージを与える
+  m_Name: DB_ItemDataInstant_Heal
+  m_EditorClassIdentifier: 
+  _itemName: "HP\u30DD\u30FC\u30B7\u30E7\u30F3"
+  _icon: {fileID: -1162017668502996798, guid: e7ff31966c924e642868e8d125818226, type: 3}
+  _description: "HP\u3092\u56DE\u5FA9\u3059\u308B"
   _effects:
-  - {fileID: 11400000, guid: f28bad98b307c640804ee42b725aa3f0, type: 3}
+  - {fileID: 11400000, guid: 5929d7ffe2714277b44f49509044e70d, type: 2}

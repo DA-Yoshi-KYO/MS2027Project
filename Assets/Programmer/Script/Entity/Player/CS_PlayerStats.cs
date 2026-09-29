@@ -16,7 +16,7 @@ using UnityEngine;
  * ・起動時は Base Stats(CSO_PlayerStats)の値で初期化する
  * ・値はNetworkVariableで持つ(書き込みはサーバーのみ、読み取りは全員可)
  * ・変更方法
- *   固定値にする   : SetMaxHp / SetAttackPower / SetMoveSpeed / SetJumpPower / SetDashSpeed
+ *   固定値にする   : SetMaxHp / SetAttackPower / SetMoveSpeed / SetJumpPower / SetDashSpeed / SetSprintSpeed
  *                   / SetMaxGauge / SetSpecialAttackPower
  *   増減させる場合 : 例) SetAttackPower(attackPower + 5) のように現在値+差分を渡す
  *   基準値に戻す   : ResetToBase()(リスポーン時などに使う想定)
@@ -24,6 +24,7 @@ using UnityEngine;
  * ・attackPowerはCSO_AttackData.damageに掛ける倍率としてCS_PlayerAttackが使う
  * ・specialAttackPowerは必殺技のダメージに掛ける倍率としてCS_PlayerSpecialAttackが使う(attackPowerとは別枠)
  * ・moveSpeedはCS_Playerの移動速度として使う
+ * ・sprintSpeedはCS_Playerの「ダッシュ後、ダッシュボタンを押し続けている間」の移動速度として使う
  * ・maxHpが変化した際、現在HPの上限クランプはCS_PlayerHealth側が行う
  * ・maxGaugeが変化した際、現在ゲージの上限クランプはCS_PlayerSpecialGauge側が行う
  * ・currentGaugeは実体をCS_PlayerSpecialGaugeが持っており、ここでは読み取りを中継しているだけ
@@ -45,6 +46,7 @@ public class CS_PlayerStats : NetworkBehaviour
     private readonly NetworkVariable<float> _moveSpeed = new NetworkVariable<float>();
     private readonly NetworkVariable<float> _jumpPower = new NetworkVariable<float>();
     private readonly NetworkVariable<float> _dashSpeed = new NetworkVariable<float>();
+    private readonly NetworkVariable<float> _sprintSpeed = new NetworkVariable<float>();
     private readonly NetworkVariable<float> _maxGauge = new NetworkVariable<float>();
     private readonly NetworkVariable<float> _specialAttackPower = new NetworkVariable<float>();
 
@@ -53,6 +55,7 @@ public class CS_PlayerStats : NetworkBehaviour
     public float moveSpeed => _moveSpeed.Value;
     public float jumpPower => _jumpPower.Value;
     public float dashSpeed => _dashSpeed.Value;
+    public float sprintSpeed => _sprintSpeed.Value;
     public float maxGauge => _maxGauge.Value;
     public float specialAttackPower => _specialAttackPower.Value;
     public float currentGauge => _gauge.currentGauge;   // 実体はCS_PlayerSpecialGaugeにある値の中継
@@ -62,6 +65,7 @@ public class CS_PlayerStats : NetworkBehaviour
     public event Action<float> onMoveSpeedChanged;
     public event Action<float> onJumpPowerChanged;
     public event Action<float> onDashSpeedChanged;
+    public event Action<float> onSprintSpeedChanged;
     public event Action<float> onMaxGaugeChanged;
     public event Action<float> onSpecialAttackPowerChanged;
 
@@ -91,6 +95,7 @@ public class CS_PlayerStats : NetworkBehaviour
         _moveSpeed.OnValueChanged += HandleMoveSpeedChanged;
         _jumpPower.OnValueChanged += HandleJumpPowerChanged;
         _dashSpeed.OnValueChanged += HandleDashSpeedChanged;
+        _sprintSpeed.OnValueChanged += HandleSprintSpeedChanged;
         _maxGauge.OnValueChanged += HandleMaxGaugeChanged;
         _specialAttackPower.OnValueChanged += HandleSpecialAttackPowerChanged;
 
@@ -107,6 +112,7 @@ public class CS_PlayerStats : NetworkBehaviour
         _moveSpeed.OnValueChanged -= HandleMoveSpeedChanged;
         _jumpPower.OnValueChanged -= HandleJumpPowerChanged;
         _dashSpeed.OnValueChanged -= HandleDashSpeedChanged;
+        _sprintSpeed.OnValueChanged -= HandleSprintSpeedChanged;
         _maxGauge.OnValueChanged -= HandleMaxGaugeChanged;
         _specialAttackPower.OnValueChanged -= HandleSpecialAttackPowerChanged;
     }
@@ -151,6 +157,14 @@ public class CS_PlayerStats : NetworkBehaviour
         _dashSpeed.Value = Mathf.Max(0f, value);
     }
 
+    // ダッシュ後、ダッシュボタンを押し続けている間の速度を変更する(サーバーのみ)
+    public void SetSprintSpeed(float value)
+    {
+        if (IsSpawned && !IsServer) return;
+
+        _sprintSpeed.Value = Mathf.Max(0f, value);
+    }
+
     // 必殺ゲージの上限を変更する(サーバーのみ)
     public void SetMaxGauge(float value)
     {
@@ -184,6 +198,7 @@ public class CS_PlayerStats : NetworkBehaviour
         _moveSpeed.Value = _baseStats.moveSpeed;
         _jumpPower.Value = _baseStats.jumpPower;
         _dashSpeed.Value = _baseStats.dashSpeed;
+        _sprintSpeed.Value = _baseStats.sprintSpeed;
         _maxGauge.Value = _baseStats.maxGauge;
         _specialAttackPower.Value = _baseStats.specialAttackPower;
     }
@@ -193,6 +208,7 @@ public class CS_PlayerStats : NetworkBehaviour
     private void HandleMoveSpeedChanged(float previous, float current) => onMoveSpeedChanged?.Invoke(current);
     private void HandleJumpPowerChanged(float previous, float current) => onJumpPowerChanged?.Invoke(current);
     private void HandleDashSpeedChanged(float previous, float current) => onDashSpeedChanged?.Invoke(current);
+    private void HandleSprintSpeedChanged(float previous, float current) => onSprintSpeedChanged?.Invoke(current);
     private void HandleMaxGaugeChanged(float previous, float current) => onMaxGaugeChanged?.Invoke(current);
     private void HandleSpecialAttackPowerChanged(float previous, float current) => onSpecialAttackPowerChanged?.Invoke(current);
 }

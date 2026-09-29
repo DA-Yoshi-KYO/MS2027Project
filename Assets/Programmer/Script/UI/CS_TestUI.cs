@@ -85,8 +85,9 @@ public class CS_TestUI : MonoBehaviour
         _uiTimerModel = new CS_UITimerModel(_maxTime);
         _uiTimerModel.SetTime(_initTimer);
 
-        // ★ アイテムスロット Model生成（最初はアイテム無しなので Bindしない）
+        // ★ アイテムスロット Model生成 & Bind（最初はアイコン無し = 非表示）
         _itemSlotModel = new CS_UIItemSlotModel();
+        _itemSlotModel.Bind();
     }
 
     void Update()
@@ -141,18 +142,13 @@ public class CS_TestUI : MonoBehaviour
 
         // ---------------- アイテムスロットテスト ----------------
         {
-            // アイテムをセット（Bind）
+            // アイテムをセット（アイコンをセットするだけでUI表示）
             if (Input.GetKeyDown(KeyCode.I))
-            {
-                _itemSlotModel.SetIcon(_testItemIcon);  // アイコンをセット
-                _itemSlotModel.Bind();                  // BindしてUI表示
-            }
+                _itemSlotModel.SetIcon(_testItemIcon);
 
-            // アイテムを外す（Unbind）
+            // アイテムを外す（アイコンを空にするとUI非表示）
             if (Input.GetKeyDown(KeyCode.O))
-            {
-                _itemSlotModel.Unbind();                // UnbindしてUI非表示
-            }
+                _itemSlotModel.ClearIcon();
         }
     }
 

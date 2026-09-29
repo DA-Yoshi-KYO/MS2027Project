@@ -22,6 +22,11 @@ using UnityEngine.AI;
  *     ・スポーン位置から leashRange 以上離れた(路地裏判定の取りこぼし対策)
  *   帰還中は、プレイヤーが臨戦態勢範囲に入っても追跡しない(スポーン位置に着いて犯罪中に戻ってから反応する)
  *   ただし帰還中に攻撃された場合は、反撃のため再び追跡する
+ * ・グループの攻撃枠(CS_VillainGroup)
+ *   追跡中は毎回攻撃枠を取りに行き、取れたら攻撃する
+ *   取れなかったら、ターゲットから watchDistance 離れた位置を保って様子を見る(攻撃はしない)
+ *   攻撃枠は帰還する時・無効になる時(撃退・逃走)に空ける
+ *   スポナーを通さずシーンに直接置いた悪人はグループに属さないため、常に攻撃する
  * ・路地裏かどうかは、ターゲットの足元のNavMeshのAreaが alleyAreaName(既定: Alley)かで判定する
  *   ・プレイヤー側には何も必要ない。NavMeshのベイクと、Navigationの Areas に同名のAreaを追加しておくこと
  *   ・Areaが無い場合は警告を出し、路地裏判定を行わない(距離の判定だけになる)
@@ -63,6 +68,7 @@ public class CS_VillainCombat : NetworkBehaviour
     private const float _arriveDistance = 0.3f;   // スポーン位置に着いたとみなす距離
     private const int _hitBufferSize = 16;        // 一度に判定できるコライダーの上限
     private const float _areaSampleRadius = 1f;   // ターゲットの足元のNavMeshを探す半径(m)
+    private const float _watchTolerance = 0.5f;   // 様子見中、watchDistanceからこれ以上ずれたら位置を直す(m)
 
     private static bool _hasWarnedNoAlleyArea;    // 路地裏Areaが無い警告を出したか(全悪人で共有)
 
@@ -92,6 +98,10 @@ public class CS_VillainCombat : NetworkBehaviour
     [Tooltip("攻撃が終わってから次の攻撃までの間隔(秒)")]
     private float _attackInterval = 1f;
 
+    [SerializeField, Min(0f)]
+    [Tooltip("攻撃枠が空いていない時に、ターゲットとの間に保つ距離(m)")]
+    private float _watchDistance = 3f;
+
     [SerializeField]
     [Tooltip("プレイヤーを探す・攻撃するレイヤー")]
     private LayerMask _targetLayers = ~0;
@@ -117,6 +127,7 @@ public class CS_VillainCombat : NetworkBehaviour
     private CS_VillainMove _move;
     private CS_VillainStats _stats;
     private CS_VillainHealth _health;
+    private CS_VillainGroup _group;       // 所属するグループ。スポナーを通さず置いた悪人はnull
     private readonly Collider[] _hitBuffer = new Collider[_hitBufferSize];
     private readonly HashSet<IDamageable> _hitTargets = new HashSet<IDamageable>();
     private readonly HashSet<IDamageable> _damagedTargets = new HashSet<IDamageable>();   // 今回の攻撃で既にダメージを与えた相手
@@ -186,9 +197,16 @@ public class CS_VillainCombat : NetworkBehaviour
     private void OnDisable()
     {
         _health.onDamaged -= HandleDamaged;
+        ReleaseAttackSlot();
 
         // 逃走などで無効になった時、最後の目的地へ歩き続けないようにする(破棄中は既に消えていることがある)
         if (_move != null) _move.Stop();
+    }
+
+    // 所属するグループを設定する(CS_VillainGroup.AddMemberから呼ばれる)
+    public void SetGroup(CS_VillainGroup group)
+    {
+        _group = group;
     }
 
     private void FixedUpdate()
@@ -219,10 +237,17 @@ public class CS_VillainCombat : NetworkBehaviour
         {
             _target = null;
             _state = State.Return;
+            ReleaseAttackSlot();
             return;
         }
 
         Vector3 toTarget = GetFlatDirection(_target.transform.position);
+        if (!TryAcquireAttackSlot())
+        {
+            KeepWatchDistance(toTarget);
+            return;
+        }
+
         if (toTarget.magnitude > _attackStartDistance)
         {
             _move.MoveTo(_target.transform.position, moveSpeed);
@@ -272,6 +297,33 @@ public class CS_VillainCombat : NetworkBehaviour
         _move.Stop();
         transform.rotation = _homeRotation;
         _state = State.Idle;
+    }
+
+    // 攻撃枠が無い間、ターゲットから watchDistance 離れた位置を保ち、ターゲットの方を向く
+    private void KeepWatchDistance(Vector3 toTarget)
+    {
+        float distance = toTarget.magnitude;
+        if (Mathf.Abs(distance - _watchDistance) <= _watchTolerance)
+        {
+            _move.Stop();
+            _move.FaceTowards(toTarget);
+            return;
+        }
+
+        // ターゲットから見て今いる方向に、watchDistance 離れた位置へ移動する(近すぎれば下がり、遠すぎれば近づく)
+        Vector3 fromTarget = distance > 0f ? -toTarget / distance : -transform.forward;
+        _move.MoveTo(_target.transform.position + fromTarget * _watchDistance, moveSpeed);
+    }
+
+    // グループに属していなければ、常に攻撃できる
+    private bool TryAcquireAttackSlot()
+    {
+        return _group == null || _group.TryAcquireAttackSlot(this);
+    }
+
+    private void ReleaseAttackSlot()
+    {
+        _group?.ReleaseAttackSlot(this);
     }
 
     private void StartAttack()

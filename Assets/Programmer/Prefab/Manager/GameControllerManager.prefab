@@ -11,6 +11,7 @@ GameObject:
   - component: {fileID: 6506779480347543485}
   - component: {fileID: 5762222973496154845}
   - component: {fileID: 8389588009085528967}
+  - component: {fileID: 8511819665858936338}
   m_Layer: 0
   m_Name: GameControllerManager
   m_TagString: Untagged
@@ -59,3 +60,19 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::CS_SceneTransitioner
   _nextSceneName: ResultScene
+--- !u!114 &8511819665858936338
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1579610649312813586}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 51cc7bf8c4c646a4b8a1162cdd3e7a5e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CS_MiniMapController
+  _localPlayerTransform: {fileID: 0}
+  _miniMapView: {fileID: 0}
+  _mapRadius: 50
+  _rotateWithPlayer: 1

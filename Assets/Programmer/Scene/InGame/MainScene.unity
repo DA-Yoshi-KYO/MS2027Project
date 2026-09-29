@@ -6006,6 +6006,7 @@ MonoBehaviour:
   - {fileID: 7937220719263797659, guid: 156f42c7a862f454782e20589af74ea2, type: 3}
   _minMembers: 5
   _maxMembers: 6
+  _maxAttackersPerGroup: 2
   _extraGroupCount: 1
   _respawnCooldown: 20
   _spawnInterval: 60
@@ -6300,6 +6301,17 @@ MeshFilter:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1742561615}
   m_Mesh: {fileID: 10202, guid: 0000000000000000e000000000000000, type: 0}
+--- !u!114 &1752797576 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 647710595524759295, guid: 29368471a063cc5408cd40d308b7515e, type: 3}
+  m_PrefabInstance: {fileID: 593828811}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c88c9220936c57644b16572a2eacc8e9, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CS_UIMiniMapView
 --- !u!1 &1797028384
 GameObject:
   m_ObjectHideFlags: 0
@@ -7434,6 +7446,10 @@ PrefabInstance:
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: 8511819665858936338, guid: c31aec72227231d4d9902b790fdef737, type: 3}
+      propertyPath: _miniMapView
+      value: 
+      objectReference: {fileID: 1752797576}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []

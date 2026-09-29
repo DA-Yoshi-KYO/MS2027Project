@@ -172,6 +172,9 @@ public class CS_PoliceVision : MonoBehaviour
         bool isNear = sqrDistance <= _noticeDistance * _noticeDistance;
         if (!isNear && Vector3.Angle(flatForward, flatToTarget) > _viewAngle * 0.5f) return false;
 
+        // 煙幕の中にいる標的・煙幕越しの標的は見えない(近くにいても気付かない)
+        if (CS_SmokeScreen.IsLineBlocked(eyePosition, targetPosition)) return false;
+
         // 目から標的までの間に遮るものが無ければ見えている
         return CS_PoliceLineOfSight.IsClear(eyePosition, targetPosition, targetRoot);
     }

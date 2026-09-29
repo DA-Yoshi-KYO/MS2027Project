@@ -93,8 +93,6 @@ public class CS_MiniMapController : MonoBehaviour
 
         // Model の変更イベントを購読
         _model.OnDataChanged += OnModelDataChanged;
-
-        Debug.Log("[CS_MiniMapController] 初期化完了！");
     }
 
     // =========================================================

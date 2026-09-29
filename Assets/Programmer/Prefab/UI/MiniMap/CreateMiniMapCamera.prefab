@@ -10,7 +10,6 @@ GameObject:
   m_Component:
   - component: {fileID: 2630390127500891666}
   - component: {fileID: 6231286894107667048}
-  - component: {fileID: 8383198390223355931}
   - component: {fileID: 815365421894184815}
   m_Layer: 0
   m_Name: CreateMiniMapCamera
@@ -85,14 +84,6 @@ Camera:
   m_OcclusionCulling: 1
   m_StereoConvergence: 10
   m_StereoSeparation: 0.022
---- !u!81 &8383198390223355931
-AudioListener:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2310511439823454373}
-  m_Enabled: 1
 --- !u!114 &815365421894184815
 MonoBehaviour:
   m_ObjectHideFlags: 0

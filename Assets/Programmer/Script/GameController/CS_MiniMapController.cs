@@ -16,15 +16,6 @@ using UnityEngine;
 /// ・CS_UIMiniMapPresenter は UICanvas/MiniMap（View と同じ GameObject）から取得する
 /// ・静止画PNG + uvRect スクロール方式のため MiniMapCamera は不要
 /// ・Player(Clone) は動的生成のため RegisterLocalPlayer() で後からセットする
-///
-/// [アタッチ先]
-///   GameControllerManager
-///     └─ CS_MiniMapController   ← このスクリプトのみ
-///
-///   UICanvas
-///     └─ MiniMap
-///          ├─ CS_UIMiniMapView       ← _miniMapView にドラッグ＆ドロップ
-///          └─ CS_UIMiniMapPresenter  ← View と同じ GameObject
 /// </summary>
 public class CS_MiniMapController : MonoBehaviour
 {
@@ -159,7 +150,6 @@ public class CS_MiniMapController : MonoBehaviour
             return;
         }
         _localPlayerTransform = playerTransform;
-        Debug.Log($"[CS_MiniMapController] LocalPlayer 登録完了 : {playerTransform.name}");
     }
 
     /// <summary>敵をミニマップに登録する（スポーン時に呼ぶ）</summary>

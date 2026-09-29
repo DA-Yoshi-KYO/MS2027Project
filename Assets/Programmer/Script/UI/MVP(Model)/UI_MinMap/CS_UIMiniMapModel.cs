@@ -25,19 +25,19 @@ public enum CSE_MiniMapEntityType
 /// </summary>
 public class MiniMapEntityData
 {
-    public string Id { get; private set; }
-    public CSE_MiniMapEntityType Type { get; private set; }
-    public Vector3 WorldPosition { get; set; }
-    public float Rotation { get; set; } // Y軸回転（度）
-    public bool IsActive { get; set; }
+    public string entityId { get; private set; }
+    public CSE_MiniMapEntityType entityType { get; private set; }
+    public Vector3 entityWorldPosition { get; set; }
+    public float entityRotation { get; set; } // Y軸回転（度）
+    public bool entityIsActive { get; set; }
 
     public MiniMapEntityData(string id, CSE_MiniMapEntityType type, Vector3 worldPosition, float rotation = 0f)
     {
-        Id = id;
-        Type = type;
-        WorldPosition = worldPosition;
-        Rotation = rotation;
-        IsActive = true;
+        entityId = id;
+        entityType = type;
+        entityWorldPosition = worldPosition;
+        entityRotation = rotation;
+        entityIsActive = true;
     }
 }
 
@@ -54,9 +54,9 @@ public class CS_UIMiniMapModel : CS_BaseModel
     private readonly Dictionary<string, MiniMapEntityData> _multiplayerAllies = new();
 
     // ---- ミニマップ設定 ----
-    public float MapRadius { get; private set; } // アイコン表示範囲（ワールド単位）
-    public float MapWorldSize { get; private set; } // PNG が表現するワールドの広さ（地形スケールに合わせる）
-    public bool RotateWithPlayer { get; private set; } // プレイヤー向きに追従するか
+    public float miniMapRadius { get; private set; } // アイコン表示範囲（ワールド単位）
+    public float miniMapWorldSize { get; private set; } // PNG が表現するワールドの広さ（地形スケールに合わせる）
+    public bool rotatePlayer { get; private set; } // プレイヤー向きに追従するか
 
     // ---- イベント ----
     public event Action OnDataChanged;
@@ -67,9 +67,9 @@ public class CS_UIMiniMapModel : CS_BaseModel
 
     public CS_UIMiniMapModel(float mapRadius = 50f, float mapWorldSize = 240f, bool rotateWithPlayer = true)
     {
-        MapRadius = mapRadius;
-        MapWorldSize = mapWorldSize;
-        RotateWithPlayer = rotateWithPlayer;
+        miniMapRadius = mapRadius;
+        miniMapWorldSize = mapWorldSize;
+        rotatePlayer = rotateWithPlayer;
     }
 
     // =========================================================
@@ -82,8 +82,8 @@ public class CS_UIMiniMapModel : CS_BaseModel
             _localPlayer = new MiniMapEntityData("LocalPlayer", CSE_MiniMapEntityType.Player, worldPosition, rotation);
         else
         {
-            _localPlayer.WorldPosition = worldPosition;
-            _localPlayer.Rotation = rotation;
+            _localPlayer.entityWorldPosition = worldPosition;
+            _localPlayer.entityRotation = rotation;
         }
         OnDataChanged?.Invoke();
     }
@@ -98,9 +98,9 @@ public class CS_UIMiniMapModel : CS_BaseModel
     {
         if (_enemies.TryGetValue(id, out var data))
         {
-            data.WorldPosition = worldPosition;
-            data.Rotation = rotation;
-            data.IsActive = true;
+            data.entityWorldPosition = worldPosition;
+            data.entityRotation = rotation;
+            data.entityIsActive = true;
         }
         else
         {
@@ -119,7 +119,7 @@ public class CS_UIMiniMapModel : CS_BaseModel
     {
         if (_enemies.TryGetValue(id, out var data))
         {
-            data.IsActive = isActive;
+            data.entityIsActive = isActive;
             OnDataChanged?.Invoke();
         }
     }
@@ -134,9 +134,9 @@ public class CS_UIMiniMapModel : CS_BaseModel
     {
         if (_multiplayerAllies.TryGetValue(id, out var data))
         {
-            data.WorldPosition = worldPosition;
-            data.Rotation = rotation;
-            data.IsActive = true;
+            data.entityWorldPosition = worldPosition;
+            data.entityRotation = rotation;
+            data.entityIsActive = true;
         }
         else
         {
@@ -159,19 +159,19 @@ public class CS_UIMiniMapModel : CS_BaseModel
 
     public void SetMapRadius(float radius)
     {
-        MapRadius = radius;
+        miniMapRadius = radius;
         OnDataChanged?.Invoke();
     }
 
     public void SetMapWorldSize(float size)
     {
-        MapWorldSize = size;
+        miniMapWorldSize = size;
         OnDataChanged?.Invoke();
     }
 
     public void SetRotateWithPlayer(bool rotate)
     {
-        RotateWithPlayer = rotate;
+        rotatePlayer = rotate;
         OnDataChanged?.Invoke();
     }
 

@@ -65,8 +65,8 @@ public class CS_UIMiniMapView : CS_BaseView<CS_UIMiniMapPresenter>
         if (_mapImage != null)
         {
             _mapImage.uvRect = new Rect(
-                data.UvOffsetX,
-                data.UvOffsetY,
+                data.uvOffsetX,
+                data.uvOffsetY,
                 1f,
                 1f
             );
@@ -75,8 +75,8 @@ public class CS_UIMiniMapView : CS_BaseView<CS_UIMiniMapPresenter>
         // ---- ② 背景回転 ----
         if (_mapRoot != null)
         {
-            _mapRoot.localRotation = data.RotateWithPlayer
-                ? Quaternion.Euler(0f, 0f, data.PlayerRotationY)
+            _mapRoot.localRotation = data.rotateWithPlayer
+                ? Quaternion.Euler(0f, 0f, data.playerRotationY)
                 : Quaternion.identity;
         }
 
@@ -89,9 +89,9 @@ public class CS_UIMiniMapView : CS_BaseView<CS_UIMiniMapPresenter>
 
         // ---- ④ アクティブな ID セットを収集 ----
         var activeIds = new HashSet<string>();
-        foreach (var icon in data.Icons)
+        foreach (var icon in data.icons)
         {
-            activeIds.Add(icon.Id);
+            activeIds.Add(icon.id);
             RenderIcon(icon);
         }
 
@@ -108,21 +108,21 @@ public class CS_UIMiniMapView : CS_BaseView<CS_UIMiniMapPresenter>
 
     private void RenderIcon(MiniMapIconData data)
     {
-        var instance = GetOrCreateIcon(data.Id, data.Type);
+        var instance = GetOrCreateIcon(data.id, data.type);
         if (instance == null) return;
 
         instance.Root.gameObject.SetActive(true);
 
         // 正規化座標（-1〜1）→ UI ピクセル座標
         instance.Root.anchoredPosition = new Vector2(
-            data.NormalizedX * _miniMapDisplayRadius,
-            data.NormalizedY * _miniMapDisplayRadius);
+            data.normalizedX * _miniMapDisplayRadius,
+            data.normalizedY * _miniMapDisplayRadius);
 
         // アイコンの回転
-        instance.Root.localRotation = Quaternion.Euler(0f, 0f, -data.Rotation);
+        instance.Root.localRotation = Quaternion.Euler(0f, 0f, -data.rotation);
 
         // エッジクリップ時は小さく・半透明
-        if (data.IsEdgeClipped)
+        if (data.isEdgeClipped)
         {
             instance.Root.localScale = Vector3.one * 0.7f;
             SetIconAlpha(instance, 0.6f);

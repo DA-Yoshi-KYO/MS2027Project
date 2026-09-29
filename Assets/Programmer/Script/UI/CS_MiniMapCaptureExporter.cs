@@ -35,7 +35,5 @@ public class CS_MiniMapCaptureExporter : MonoBehaviour
 
         byte[] bytes = tex.EncodeToPNG();
         System.IO.File.WriteAllBytes("Assets/Programmer/RenderingTexture/MiniMap.png", bytes);
-
-        Debug.Log("MiniMap.png を保存しました");
     }
 }

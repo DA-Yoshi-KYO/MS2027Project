@@ -1,0 +1,19 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7d672da7d62fb7e2c8967a92d611bf2a, type: 3}
+  m_Name: DB_ItemDataCarriable_Hologram
+  m_EditorClassIdentifier:
+  _itemName: "陽動ホログラム"
+  _icon: {fileID: 0}
+  _description: "投げた先にホログラムを展開し、気付いた警察・悪人のターゲットになる(10秒後に消滅)"
+  _effects:
+  - {fileID: 11400000, guid: e2c9a5f1b7d346e8a4c0f9b3d6e1a852, type: 2}

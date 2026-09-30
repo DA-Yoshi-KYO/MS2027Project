@@ -15,9 +15,11 @@ using UnityEngine;
 public class CS_PoliceVision : MonoBehaviour
 {
     // 標的の優先度(大きいほど優先。要件: プレイヤー > 悪人)
+    // 陽動ホログラムは、気付いたら引き付けられるよう最優先にする
     public const int noTargetPriority = 0;
     public const int villainPriority = 1;
     public const int playerPriority = 2;
+    public const int hologramPriority = 3;
 
     // 変身中のプレイヤーに付くタグ(CS_PlayerTransformationが変身状態に合わせて切り替える)
     private const string _transformedPlayerTag = "PlayerTransformation";
@@ -79,26 +81,52 @@ public class CS_PoliceVision : MonoBehaviour
 
         if (!_isInitialized) return null;
 
-        // 標的はEntityレイヤーのキャラクターの中から探す(警察自身もEntityだが、HPを持たないので標的にはならない)
+        // キャラクター(プレイヤー・悪人)は、Entityレイヤーのコライダーから探す
+        // (警察自身もEntityだが、HPを持たないので標的にはならない)
         int count = Physics.OverlapSphereNonAlloc(transform.position, _viewDistance, _overlapBuffer, CS_PoliceLayers.entityLayers, QueryTriggerInteraction.Ignore);
         for (int i = 0; i < count; i++)
         {
             Collider targetCollider = _overlapBuffer[i];
             Transform candidate = GetTargetRoot(targetCollider, out int candidatePriority);
-            if (candidate == null || !IsVisible(targetCollider, candidate)) continue;
+            if (candidate == null || !IsVisible(targetCollider.bounds.center, candidate)) continue;
 
-            // 今追っている標的は距離を最小として扱い、同じ優先度なら追い続ける(標的が頻繁に切り替わるのを防ぐ)
-            float sqrDistance = candidate == currentTarget ? -1.0f : (candidate.position - transform.position).sqrMagnitude;
+            SelectBetterTarget(candidate, candidatePriority, currentTarget, ref bestTarget, ref bestSqrDistance, ref priority);
+        }
 
-            if (candidatePriority < priority) continue;
-            if (candidatePriority == priority && sqrDistance >= bestSqrDistance) continue;
+        // 陽動ホログラムはコライダーを持たないので、展開中のホログラムから探す
+        foreach (CS_Hologram hologram in CS_Hologram.activeHolograms)
+        {
+            Transform candidate = hologram.transform;
+            if (!IsVisible(candidate.position, candidate)) continue;
 
-            bestTarget = candidate;
-            bestSqrDistance = sqrDistance;
-            priority = candidatePriority;
+            SelectBetterTarget(candidate, hologramPriority, currentTarget, ref bestTarget, ref bestSqrDistance, ref priority);
         }
 
         return bestTarget;
+    }
+
+    /// <summary>
+    /// 候補が今までの一番良い標的より優先すべきなら、一番良い標的を候補に置き換えるメソッド
+    /// 優先度が高い標的 → 今追っている標的 → 近い標的 の順に優先する
+    /// </summary>
+    /// <param name="candidate">候補の標的</param>
+    /// <param name="candidatePriority">候補の優先度</param>
+    /// <param name="currentTarget">今追っている標的(いなければnull)</param>
+    /// <param name="bestTarget">今までの一番良い標的</param>
+    /// <param name="bestSqrDistance">今までの一番良い標的までの距離の2乗</param>
+    /// <param name="bestPriority">今までの一番良い標的の優先度</param>
+    private void SelectBetterTarget(Transform candidate, int candidatePriority, Transform currentTarget,
+        ref Transform bestTarget, ref float bestSqrDistance, ref int bestPriority)
+    {
+        // 今追っている標的は距離を最小として扱い、同じ優先度なら追い続ける(標的が頻繁に切り替わるのを防ぐ)
+        float sqrDistance = candidate == currentTarget ? -1.0f : (candidate.position - transform.position).sqrMagnitude;
+
+        if (candidatePriority < bestPriority) return;
+        if (candidatePriority == bestPriority && sqrDistance >= bestSqrDistance) return;
+
+        bestTarget = candidate;
+        bestSqrDistance = sqrDistance;
+        bestPriority = candidatePriority;
     }
 
     /// <summary>
@@ -152,13 +180,12 @@ public class CS_PoliceVision : MonoBehaviour
     /// <summary>
     /// 標的が視界に映っているかを判定するメソッド
     /// </summary>
-    /// <param name="targetCollider">標的のコライダー</param>
+    /// <param name="targetPosition">標的の中心の位置</param>
     /// <param name="targetRoot">標的の本体</param>
     /// <returns>見えていればtrue</returns>
-    private bool IsVisible(Collider targetCollider, Transform targetRoot)
+    private bool IsVisible(Vector3 targetPosition, Transform targetRoot)
     {
         Vector3 eyePosition = transform.position + Vector3.up * _eyeHeight;
-        Vector3 targetPosition = targetCollider.bounds.center;
 
         // 距離と角度は水平方向だけで判定する(高さの差で見えなくならないように)
         Vector3 toTarget = targetPosition - eyePosition;

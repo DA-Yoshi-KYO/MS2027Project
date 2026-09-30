@@ -47,6 +47,8 @@ using UnityEngine.AI;
  * ・移動速度 = プレイヤーの通常移動速度(Player Base Stats) × CS_VillainStats.moveSpeedMultiplier
  * ・移動(経路探索)はCS_VillainMove(NavMeshAgent)に任せる。このクラスは目的地を決めるだけ
  * ・どのプレイヤーに攻撃されたかは分からないため、攻撃されたら近くのプレイヤーを狙う
+ * ・煙幕(CS_SmokeScreen)の中にいるプレイヤー・煙幕越しのプレイヤーは見つけない
+ *   臨戦態勢範囲の確認と、攻撃された時の反撃相手探しの両方に効く(追跡中のターゲットは見失わない)
  * ・処理はサーバー(オフライン時はその場)でのみ行う。位置はNetworkTransformで同期する
  */
 // ========================================
@@ -69,6 +71,7 @@ public class CS_VillainCombat : NetworkBehaviour
     private const int _hitBufferSize = 16;        // 一度に判定できるコライダーの上限
     private const float _areaSampleRadius = 1f;   // ターゲットの足元のNavMeshを探す半径(m)
     private const float _watchTolerance = 0.5f;   // 様子見中、watchDistanceからこれ以上ずれたら位置を直す(m)
+    private const float _eyeHeight = 0.6f;        // 体の中心(transform.position)から目までの高さ(m)。煙幕の視線判定に使う
 
     private static bool _hasWarnedNoAlleyArea;    // 路地裏Areaが無い警告を出したか(全悪人で共有)
 
@@ -385,17 +388,22 @@ public class CS_VillainCombat : NetworkBehaviour
         return true;
     }
 
+    // 指定範囲で、見えている(煙幕に遮られていない)一番近いプレイヤーを探す
     private CS_PlayerHealth FindNearestPlayer(float range)
     {
         int count = Physics.OverlapSphereNonAlloc(
             transform.position, range, _hitBuffer, _targetLayers, QueryTriggerInteraction.Ignore);
 
+        Vector3 eyePosition = transform.position + Vector3.up * _eyeHeight;
         CS_PlayerHealth nearest = null;
         float nearestSqr = float.MaxValue;
         for (int i = 0; i < count; i++)
         {
             CS_PlayerHealth player = _hitBuffer[i].GetComponentInParent<CS_PlayerHealth>();
             if (!IsValidTarget(player)) continue;
+
+            // 煙幕の中にいる標的・煙幕越しの標的は見えない(近くにいても気付かない)
+            if (CS_SmokeScreen.IsLineBlocked(eyePosition, _hitBuffer[i].bounds.center)) continue;
 
             float sqr = (player.transform.position - transform.position).sqrMagnitude;
             if (sqr >= nearestSqr) continue;

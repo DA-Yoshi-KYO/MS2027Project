@@ -112,4 +112,48 @@ public class CS_VillainKnockback : NetworkBehaviour, IKnockbackable
         if (_superArmorWhileAttacking && _combat.isAttacking) return false;
         return true;
     }
+
+#if UNITY_EDITOR
+    // ---- テスト用(再生中にInspectorでこのコンポーネントを右クリックして実行する。ビルドには含まれない) ----
+
+    [ContextMenu("テスト/一番近いプレイヤーからノックバック")]
+    private void DebugKnockbackFromNearestPlayer()
+    {
+        DebugKnockback(1f);
+    }
+
+    [ContextMenu("テスト/一番近いプレイヤーからノックバック(4倍・見やすい)")]
+    private void DebugKnockbackFromNearestPlayerStrong()
+    {
+        DebugKnockback(4f);
+    }
+
+    private void DebugKnockback(float power)
+    {
+        if (!Application.isPlaying)
+        {
+            Debug.LogWarning("CS_VillainKnockback: テストは再生中に実行してください", this);
+            return;
+        }
+
+        // プレイヤーがいなければ、正面から攻撃されたことにする
+        Vector3 source = transform.position + transform.forward;
+        float nearestSqr = float.MaxValue;
+        foreach (CS_PlayerHealth player in FindObjectsByType<CS_PlayerHealth>(FindObjectsSortMode.None))
+        {
+            float sqr = (player.transform.position - transform.position).sqrMagnitude;
+            if (sqr >= nearestSqr) continue;
+
+            source = player.transform.position;
+            nearestSqr = sqr;
+        }
+
+        // ノックバックした場合は経過時間が0から始まり直す。そうでなければ受け付けられなかった
+        Knockback(source, power);
+        if (!_isKnockedBack || _elapsed > 0f)
+        {
+            Debug.Log("CS_VillainKnockback: ノックバックしませんでした(攻撃中のスーパーアーマー・撃退済み・逃走中のいずれか)", this);
+        }
+    }
+#endif
 }

@@ -47,7 +47,12 @@ using UnityEngine.AI;
  * ・移動速度 = プレイヤーの通常移動速度(Player Base Stats) × CS_VillainStats.moveSpeedMultiplier
  * ・移動(経路探索)はCS_VillainMove(NavMeshAgent)に任せる。このクラスは目的地を決めるだけ
  * ・どのプレイヤーに攻撃されたかは分からないため、攻撃されたら近くのプレイヤーを狙う
- * ・煙幕(CS_SmokeScreen)の中にいるプレイヤー・煙幕越しのプレイヤーは見つけない
+ * ・陽動ホログラム(CS_Hologram)
+ *   臨戦態勢範囲にホログラムがあると気付き、プレイヤーより優先して標的にする(追いかけて攻撃するが、ホログラムは消えない)
+ *   気付くのは犯罪中と、プレイヤーを追跡中(攻撃中は攻撃が終わってから)。帰還中は気付かない
+ *   攻撃されて反撃する時は、ホログラムではなくプレイヤーを狙う
+ *   ホログラムが消えたら、近くに別の標的がいればそちらを狙い、いなければ帰還する(プレイヤーが倒れた時も同じ)
+ * ・煙幕(CS_SmokeScreen)の中にいるプレイヤー・煙幕越しのプレイヤーは見つけない(ホログラムも同じ)
  *   臨戦態勢範囲の確認と、攻撃された時の反撃相手探しの両方に効く(追跡中のターゲットは見失わない)
  * ・ノックバック(CS_VillainKnockback)中は、追跡・攻撃・移動などの行動を全て止める
  *   攻撃中にノックバックした場合(スーパーアーマーをオフにした時のみ)は攻撃を中断し、attackInterval 秒は次の攻撃をしない
@@ -142,7 +147,8 @@ public class CS_VillainCombat : NetworkBehaviour
     private readonly NetworkVariable<CSE_VillainAttackPhase> _attackPhase = new NetworkVariable<CSE_VillainAttackPhase>();
 
     private State _state = State.Idle;
-    private CS_PlayerHealth _target;
+    private Transform _target;               // 標的(プレイヤー、または陽動ホログラム)
+    private CS_PlayerHealth _targetPlayer;   // 標的がプレイヤーの時のHP(倒れたかの判定に使う)。ホログラムの時はnull
     private Vector3 _homePosition;        // スポーンした位置(犯罪を行う場所)
     private Quaternion _homeRotation;
     private float _scanTimer;
@@ -168,6 +174,7 @@ public class CS_VillainCombat : NetworkBehaviour
     private bool hasAuthority => !IsSpawned || IsServer;
 
     private float moveSpeed => _playerBaseStats.moveSpeed * _stats.moveSpeedMultiplier;
+    private bool isTargetHologram => _target != null && _targetPlayer == null;   // 陽動ホログラムを狙っているか
 
     private void Awake()
     {
@@ -245,15 +252,21 @@ public class CS_VillainCombat : NetworkBehaviour
 
     private void UpdateChase()
     {
-        if (!IsValidTarget(_target) || HasTargetLeftAlley() || IsTooFarFromHome())
+        // 標的が倒れた・ホログラムが消えた時は、近くに別の標的がいればそちらを狙う
+        if (!IsTargetValid() && TryEngageInRange(_stats.engageRange, true)) return;
+
+        if (!IsTargetValid() || HasTargetLeftAlley() || IsTooFarFromHome())
         {
-            _target = null;
+            ClearTarget();
             _state = State.Return;
             ReleaseAttackSlot();
             return;
         }
 
-        Vector3 toTarget = GetFlatDirection(_target.transform.position);
+        // プレイヤーを追っている間に陽動ホログラムに気付いたら、ホログラムを狙う
+        if (!isTargetHologram) ScanHologram();
+
+        Vector3 toTarget = GetFlatDirection(_target.position);
         if (!TryAcquireAttackSlot())
         {
             KeepWatchDistance(toTarget);
@@ -262,7 +275,7 @@ public class CS_VillainCombat : NetworkBehaviour
 
         if (toTarget.magnitude > _attackStartDistance)
         {
-            _move.MoveTo(_target.transform.position, moveSpeed);
+            _move.MoveTo(_target.position, moveSpeed);
             return;
         }
 
@@ -324,7 +337,7 @@ public class CS_VillainCombat : NetworkBehaviour
 
         // ターゲットから見て今いる方向に、watchDistance 離れた位置へ移動する(近すぎれば下がり、遠すぎれば近づく)
         Vector3 fromTarget = distance > 0f ? -toTarget / distance : -transform.forward;
-        _move.MoveTo(_target.transform.position + fromTarget * _watchDistance, moveSpeed);
+        _move.MoveTo(_target.position + fromTarget * _watchDistance, moveSpeed);
     }
 
     // グループに属していなければ、常に攻撃できる
@@ -342,7 +355,7 @@ public class CS_VillainCombat : NetworkBehaviour
     {
         _state = State.Attack;
         _attackElapsed = 0f;
-        _attackAimPosition = _target.transform.position;
+        _attackAimPosition = _target.position;
         _damagedTargets.Clear();
         _attackPhase.Value = CSE_VillainAttackPhase.Charge;
     }
@@ -380,32 +393,101 @@ public class CS_VillainCombat : NetworkBehaviour
     {
         if (isEngaged) return;
 
-        TryEngageInRange(_counterSearchRange);
+        // 反撃なので、ホログラムではなく攻撃してきたプレイヤー(の候補)を狙う
+        TryEngageInRange(_counterSearchRange, false);
     }
 
-    // 一定間隔ごとに、臨戦態勢範囲にプレイヤーがいないか確認する
+    // 一定間隔ごとに、臨戦態勢範囲に陽動ホログラム・プレイヤーがいないか確認する
     private bool ScanEngageRange()
+    {
+        if (!TickScanTimer()) return false;
+
+        return TryEngageInRange(_stats.engageRange, true);
+    }
+
+    // 一定間隔ごとに、臨戦態勢範囲に陽動ホログラムがないか確認し、あれば標的をホログラムに切り替える
+    private void ScanHologram()
+    {
+        if (!TickScanTimer()) return;
+
+        Transform hologram = FindNearestHologram(_stats.engageRange);
+        if (hologram != null) SetTarget(hologram, null);
+    }
+
+    // 確認する間隔(scanInterval)がたったか
+    private bool TickScanTimer()
     {
         _scanTimer -= Time.fixedDeltaTime;
         if (_scanTimer > 0f) return false;
-        _scanTimer = _scanInterval;
 
-        return TryEngageInRange(_stats.engageRange);
+        _scanTimer = _scanInterval;
+        return true;
     }
 
-    // 指定範囲で一番近いプレイヤーを探し、見つかったら追跡を始める
-    private bool TryEngageInRange(float range)
+    // 指定範囲で一番近い標的を探し、見つかったら追跡を始める
+    // includeHolograms: 陽動ホログラムも探すか(見つかればプレイヤーより優先する)
+    private bool TryEngageInRange(float range, bool includeHolograms)
     {
-        CS_PlayerHealth nearest = FindNearestPlayer(range);
-        if (nearest == null) return false;
+        Transform hologram = includeHolograms ? FindNearestHologram(range) : null;
+        if (hologram != null)
+        {
+            SetTarget(hologram, null);
+            return true;
+        }
 
-        _target = nearest;
+        CS_PlayerHealth player = FindNearestPlayer(range);
+        if (player == null) return false;
+
+        SetTarget(player.transform, player);
+        return true;
+    }
+
+    // 標的を設定して追跡を始める(player: 標的がプレイヤーの時のHP。ホログラムの時はnull)
+    private void SetTarget(Transform target, CS_PlayerHealth player)
+    {
+        _target = target;
+        _targetPlayer = player;
         _state = State.Chase;
 
         // 追跡を始めた時点では路地裏にいるものとして数え直す
         _isTargetInAlley = true;
         _outsideAlleyTime = 0f;
-        return true;
+    }
+
+    private void ClearTarget()
+    {
+        _target = null;
+        _targetPlayer = null;
+    }
+
+    // 標的がまだ狙える状態か(プレイヤーは倒れていない、ホログラムは消えていない)
+    private bool IsTargetValid()
+    {
+        if (_target == null) return false;   // Destroy(Despawn)されたホログラム・プレイヤーもnull扱いになる
+
+        return _targetPlayer == null || IsValidTarget(_targetPlayer);
+    }
+
+    // 指定範囲で、見えている(煙幕に遮られていない)一番近い陽動ホログラムを探す
+    // ホログラムはコライダーを持たないので、展開中のホログラムの一覧から探す
+    private Transform FindNearestHologram(float range)
+    {
+        Vector3 eyePosition = transform.position + Vector3.up * _eyeHeight;
+        Transform nearest = null;
+        float nearestSqr = range * range;
+        foreach (CS_Hologram hologram in CS_Hologram.activeHolograms)
+        {
+            Vector3 position = hologram.transform.position;
+            float sqr = (position - transform.position).sqrMagnitude;
+            if (sqr > nearestSqr) continue;
+
+            // 煙幕の中にある・煙幕越しのホログラムは見えない
+            if (CS_SmokeScreen.IsLineBlocked(eyePosition, position)) continue;
+
+            nearest = hologram.transform;
+            nearestSqr = sqr;
+        }
+        return nearest;
     }
 
     // 指定範囲で、見えている(煙幕に遮られていない)一番近いプレイヤーを探す
@@ -477,7 +559,7 @@ public class CS_VillainCombat : NetworkBehaviour
     private bool IsTargetInAlley()
     {
         // ジャンプ中などで足元にNavMeshが見つからない時は、直前の判定結果を使う
-        if (!NavMesh.SamplePosition(_target.transform.position, out NavMeshHit hit, _areaSampleRadius, NavMesh.AllAreas))
+        if (!NavMesh.SamplePosition(_target.position, out NavMeshHit hit, _areaSampleRadius, NavMesh.AllAreas))
         {
             return _isTargetInAlley;
         }

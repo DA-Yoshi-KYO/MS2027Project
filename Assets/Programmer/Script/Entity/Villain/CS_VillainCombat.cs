@@ -49,6 +49,8 @@ using UnityEngine.AI;
  * ・どのプレイヤーに攻撃されたかは分からないため、攻撃されたら近くのプレイヤーを狙う
  * ・煙幕(CS_SmokeScreen)の中にいるプレイヤー・煙幕越しのプレイヤーは見つけない
  *   臨戦態勢範囲の確認と、攻撃された時の反撃相手探しの両方に効く(追跡中のターゲットは見失わない)
+ * ・ノックバック(CS_VillainKnockback)中は、追跡・攻撃・移動などの行動を全て止める
+ *   攻撃中にノックバックした場合(スーパーアーマーをオフにした時のみ)は攻撃を中断し、attackInterval 秒は次の攻撃をしない
  * ・処理はサーバー(オフライン時はその場)でのみ行う。位置はNetworkTransformで同期する
  */
 // ========================================
@@ -130,6 +132,7 @@ public class CS_VillainCombat : NetworkBehaviour
     private CS_VillainMove _move;
     private CS_VillainStats _stats;
     private CS_VillainHealth _health;
+    private CS_VillainKnockback _knockback;   // 付いていなければノックバックしない
     private CS_VillainGroup _group;       // 所属するグループ。スポナーを通さず置いた悪人はnull
     private readonly Collider[] _hitBuffer = new Collider[_hitBufferSize];
     private readonly HashSet<IDamageable> _hitTargets = new HashSet<IDamageable>();
@@ -171,6 +174,7 @@ public class CS_VillainCombat : NetworkBehaviour
         _move = GetComponent<CS_VillainMove>();
         _stats = GetComponent<CS_VillainStats>();
         _health = GetComponent<CS_VillainHealth>();
+        _knockback = GetComponent<CS_VillainKnockback>();
 
         // スポナーはInstantiate時に位置を決めるので、Awakeの時点でスポーン位置になっている
         _homePosition = transform.position;
@@ -195,11 +199,13 @@ public class CS_VillainCombat : NetworkBehaviour
     private void OnEnable()
     {
         _health.onDamaged += HandleDamaged;
+        if (_knockback != null) _knockback.onKnockbackStarted += HandleKnockbackStarted;
     }
 
     private void OnDisable()
     {
         _health.onDamaged -= HandleDamaged;
+        if (_knockback != null) _knockback.onKnockbackStarted -= HandleKnockbackStarted;
         ReleaseAttackSlot();
 
         // 逃走などで無効になった時、最後の目的地へ歩き続けないようにする(破棄中は既に消えていることがある)
@@ -217,6 +223,9 @@ public class CS_VillainCombat : NetworkBehaviour
         if (!hasAuthority) return;
 
         _attackCooldown = Mathf.Max(0f, _attackCooldown - Time.fixedDeltaTime);
+
+        // ノックバック中は他の行動を止める(移動はCS_VillainKnockbackが行う)
+        if (_knockback != null && _knockback.isKnockedBack) return;
 
         switch (_state)
         {
@@ -353,6 +362,17 @@ public class CS_VillainCombat : NetworkBehaviour
             target.TakeDamage(damage);
             _attackData.OnHit(context, target);
         }
+    }
+
+    // 攻撃中にノックバックしたら、攻撃を中断して追跡に戻る(サーバーのみ呼ばれる)
+    // スーパーアーマーがオンの間は攻撃中にノックバックしないので、ここで中断されるのはオフの時だけ
+    private void HandleKnockbackStarted()
+    {
+        if (_state != State.Attack) return;
+
+        _attackPhase.Value = CSE_VillainAttackPhase.None;
+        _attackCooldown = _attackInterval;
+        _state = State.Chase;
     }
 
     // 攻撃されたら、臨戦態勢でなければ近くのプレイヤーを狙う(サーバーのみ呼ばれる)

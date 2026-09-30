@@ -88,6 +88,16 @@ public class CS_VillainMove : MonoBehaviour
         _agent.ResetPath();
     }
 
+    // 経路を無視して、指定した分だけ押し動かす(ノックバック用)
+    // NavMeshの上を動くので、壁やNavMeshの端を越えて押し出されることはない
+    public void Push(Vector3 offset)
+    {
+        Stop();
+        if (!canMove) return;
+
+        _agent.Move(offset);
+    }
+
     // 止まったまま、指定した方向へ向きを変える
     public void FaceTowards(Vector3 direction)
     {

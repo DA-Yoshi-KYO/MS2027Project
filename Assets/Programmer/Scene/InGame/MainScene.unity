@@ -4428,6 +4428,17 @@ MeshFilter:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 147099979}
   m_Mesh: {fileID: 10202, guid: 0000000000000000e000000000000000, type: 0}
+--- !u!114 &147917115 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 7320680779433681021, guid: 29368471a063cc5408cd40d308b7515e, type: 3}
+  m_PrefabInstance: {fileID: 593828811}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d3af7d0a058b48b44bfa47d10efa550a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CS_UIDefeatVillainCountView
 --- !u!1 &149325666
 GameObject:
   m_ObjectHideFlags: 0
@@ -76143,6 +76154,10 @@ PrefabInstance:
       propertyPath: m_Name
       value: GameControllerManager
       objectReference: {fileID: 0}
+    - target: {fileID: 4991146684625455718, guid: c31aec72227231d4d9902b790fdef737, type: 3}
+      propertyPath: _view
+      value: 
+      objectReference: {fileID: 147917115}
     - target: {fileID: 6506779480347543485, guid: c31aec72227231d4d9902b790fdef737, type: 3}
       propertyPath: m_LocalPosition.x
       value: 0

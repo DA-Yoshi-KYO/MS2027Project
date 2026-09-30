@@ -1,0 +1,18 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a8f2c6e1d4b94753c0e9b5a2f7d1c386, type: 3}
+  m_Name: DB_ItemEffectHologram
+  m_EditorClassIdentifier: Assembly-CSharp::CSO_ItemEffectHologram
+  _projectilePrefab: {fileID: 3830000000000000007, guid: 7e3c1a9f5d2b46c8a0f4e7b3d9c2a615, type: 3}
+  _forwardSpeed: 10
+  _upwardSpeed: 4
+  _spawnOffset: {x: 0.8, y: 1.2}

@@ -47,6 +47,10 @@ using UnityEngine.AI;
  * ・移動速度 = プレイヤーの通常移動速度(Player Base Stats) × CS_VillainStats.moveSpeedMultiplier
  * ・移動(経路探索)はCS_VillainMove(NavMeshAgent)に任せる。このクラスは目的地を決めるだけ
  * ・どのプレイヤーに攻撃されたかは分からないため、攻撃されたら近くのプレイヤーを狙う
+ * ・煙幕(CS_SmokeScreen)の中にいるプレイヤー・煙幕越しのプレイヤーは見つけない
+ *   臨戦態勢範囲の確認と、攻撃された時の反撃相手探しの両方に効く(追跡中のターゲットは見失わない)
+ * ・ノックバック(CS_VillainKnockback)中は、追跡・攻撃・移動などの行動を全て止める
+ *   攻撃中にノックバックした場合(スーパーアーマーをオフにした時のみ)は攻撃を中断し、attackInterval 秒は次の攻撃をしない
  * ・処理はサーバー(オフライン時はその場)でのみ行う。位置はNetworkTransformで同期する
  */
 // ========================================
@@ -69,6 +73,7 @@ public class CS_VillainCombat : NetworkBehaviour
     private const int _hitBufferSize = 16;        // 一度に判定できるコライダーの上限
     private const float _areaSampleRadius = 1f;   // ターゲットの足元のNavMeshを探す半径(m)
     private const float _watchTolerance = 0.5f;   // 様子見中、watchDistanceからこれ以上ずれたら位置を直す(m)
+    private const float _eyeHeight = 0.6f;        // 体の中心(transform.position)から目までの高さ(m)。煙幕の視線判定に使う
 
     private static bool _hasWarnedNoAlleyArea;    // 路地裏Areaが無い警告を出したか(全悪人で共有)
 
@@ -127,6 +132,7 @@ public class CS_VillainCombat : NetworkBehaviour
     private CS_VillainMove _move;
     private CS_VillainStats _stats;
     private CS_VillainHealth _health;
+    private CS_VillainKnockback _knockback;   // 付いていなければノックバックしない
     private CS_VillainGroup _group;       // 所属するグループ。スポナーを通さず置いた悪人はnull
     private readonly Collider[] _hitBuffer = new Collider[_hitBufferSize];
     private readonly HashSet<IDamageable> _hitTargets = new HashSet<IDamageable>();
@@ -168,6 +174,7 @@ public class CS_VillainCombat : NetworkBehaviour
         _move = GetComponent<CS_VillainMove>();
         _stats = GetComponent<CS_VillainStats>();
         _health = GetComponent<CS_VillainHealth>();
+        _knockback = GetComponent<CS_VillainKnockback>();
 
         // スポナーはInstantiate時に位置を決めるので、Awakeの時点でスポーン位置になっている
         _homePosition = transform.position;
@@ -192,11 +199,13 @@ public class CS_VillainCombat : NetworkBehaviour
     private void OnEnable()
     {
         _health.onDamaged += HandleDamaged;
+        if (_knockback != null) _knockback.onKnockbackStarted += HandleKnockbackStarted;
     }
 
     private void OnDisable()
     {
         _health.onDamaged -= HandleDamaged;
+        if (_knockback != null) _knockback.onKnockbackStarted -= HandleKnockbackStarted;
         ReleaseAttackSlot();
 
         // 逃走などで無効になった時、最後の目的地へ歩き続けないようにする(破棄中は既に消えていることがある)
@@ -214,6 +223,9 @@ public class CS_VillainCombat : NetworkBehaviour
         if (!hasAuthority) return;
 
         _attackCooldown = Mathf.Max(0f, _attackCooldown - Time.fixedDeltaTime);
+
+        // ノックバック中は他の行動を止める(移動はCS_VillainKnockbackが行う)
+        if (_knockback != null && _knockback.isKnockedBack) return;
 
         switch (_state)
         {
@@ -352,6 +364,17 @@ public class CS_VillainCombat : NetworkBehaviour
         }
     }
 
+    // 攻撃中にノックバックしたら、攻撃を中断して追跡に戻る(サーバーのみ呼ばれる)
+    // スーパーアーマーがオンの間は攻撃中にノックバックしないので、ここで中断されるのはオフの時だけ
+    private void HandleKnockbackStarted()
+    {
+        if (_state != State.Attack) return;
+
+        _attackPhase.Value = CSE_VillainAttackPhase.None;
+        _attackCooldown = _attackInterval;
+        _state = State.Chase;
+    }
+
     // 攻撃されたら、臨戦態勢でなければ近くのプレイヤーを狙う(サーバーのみ呼ばれる)
     private void HandleDamaged()
     {
@@ -385,17 +408,22 @@ public class CS_VillainCombat : NetworkBehaviour
         return true;
     }
 
+    // 指定範囲で、見えている(煙幕に遮られていない)一番近いプレイヤーを探す
     private CS_PlayerHealth FindNearestPlayer(float range)
     {
         int count = Physics.OverlapSphereNonAlloc(
             transform.position, range, _hitBuffer, _targetLayers, QueryTriggerInteraction.Ignore);
 
+        Vector3 eyePosition = transform.position + Vector3.up * _eyeHeight;
         CS_PlayerHealth nearest = null;
         float nearestSqr = float.MaxValue;
         for (int i = 0; i < count; i++)
         {
             CS_PlayerHealth player = _hitBuffer[i].GetComponentInParent<CS_PlayerHealth>();
             if (!IsValidTarget(player)) continue;
+
+            // 煙幕の中にいる標的・煙幕越しの標的は見えない(近くにいても気付かない)
+            if (CS_SmokeScreen.IsLineBlocked(eyePosition, _hitBuffer[i].bounds.center)) continue;
 
             float sqr = (player.transform.position - transform.position).sqrMagnitude;
             if (sqr >= nearestSqr) continue;

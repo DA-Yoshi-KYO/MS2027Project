@@ -22,6 +22,7 @@ GameObject:
   - component: {fileID: 4257008625129335440}
   - component: {fileID: 1135304791542583852}
   - component: {fileID: 5853495017623006576}
+  - component: {fileID: 1872172813661465890}
   m_Layer: 31
   m_Name: Villain
   m_TagString: Untagged
@@ -199,6 +200,7 @@ MonoBehaviour:
   _chargeTime: 1
   _hitActiveTime: 1
   _attackInterval: 1
+  _watchDistance: 3
   _targetLayers:
     serializedVersion: 2
     m_Bits: 4294967295
@@ -330,6 +332,23 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::CS_VillainHpUI
   _hpBar: {fileID: 6003035532415045048}
+--- !u!114 &1872172813661465890
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 942901870687269662}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f3f3f4ac763ba3f459918a90a744af77, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CS_VillainKnockback
+  ShowTopMostFoldoutHeaderGroup: 1
+  _distance: 0.25
+  _moveTime: 0.15
+  _stunTime: 0.3
+  _superArmorWhileAttacking: 1
 --- !u!1 &3136862546548924743
 GameObject:
   m_ObjectHideFlags: 0
@@ -450,10 +469,6 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 7751489382584213811}
     m_Modifications:
-    - target: {fileID: 3708235467687533375, guid: 19e0c61570e93e84095382a8a7d69d69, type: 3}
-      propertyPath: m_Name
-      value: VillainHpBarCanvas
-      objectReference: {fileID: 0}
     - target: {fileID: 3024163532033439586, guid: 19e0c61570e93e84095382a8a7d69d69, type: 3}
       propertyPath: m_LocalPosition.y
       value: 1.5
@@ -461,6 +476,10 @@ PrefabInstance:
     - target: {fileID: 3024163532033439586, guid: 19e0c61570e93e84095382a8a7d69d69, type: 3}
       propertyPath: m_AnchoredPosition.y
       value: 1.5
+      objectReference: {fileID: 0}
+    - target: {fileID: 3708235467687533375, guid: 19e0c61570e93e84095382a8a7d69d69, type: 3}
+      propertyPath: m_Name
+      value: VillainHpBarCanvas
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []

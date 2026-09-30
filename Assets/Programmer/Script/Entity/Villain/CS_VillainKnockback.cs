@@ -22,6 +22,8 @@ using UnityEngine;
  * ・superArmorWhileAttackingがオンの間は、攻撃中(溜め・攻撃判定)にノックバックしない(ダメージは受ける)
  * ・撃退済み・逃走中(CS_VillainCombatが無効)の悪人はノックバックしない
  * ・処理はサーバー(オフライン時はその場)でのみ行う。位置はNetworkTransformで同期する
+ * ・ノックバックした回数(knockbackCount)はNetworkVariableで全クライアントに同期する
+ *   見た目側(CS_VillainVisual)は、この値が増えたらくらいモーションを再生する
  */
 // ========================================
 
@@ -54,7 +56,11 @@ public class CS_VillainKnockback : NetworkBehaviour, IKnockbackable
     private float _elapsed;        // ノックバックを受けてからの経過時間
     private bool _isKnockedBack;
 
+    // ノックバックした回数。書き込みはサーバーのみ(NetworkVariableのデフォルト)。見た目の再生に全クライアントで使う
+    private readonly NetworkVariable<int> _knockbackCount = new NetworkVariable<int>();
+
     public bool isKnockedBack => _isKnockedBack;   // ノックバック中か(この間は他の行動を止める)
+    public int knockbackCount => _knockbackCount.Value;   // ノックバックした回数(全クライアントで参照可)
 
     // ノックバックを始めた時に呼ばれる(サーバーのみ)。攻撃の中断やくらいモーションの再生に使う
     public event Action onKnockbackStarted;
@@ -82,6 +88,7 @@ public class CS_VillainKnockback : NetworkBehaviour, IKnockbackable
         _velocity = direction * (_distance * Mathf.Max(0f, power) / _moveTime);
         _elapsed = 0f;
         _isKnockedBack = true;
+        _knockbackCount.Value++;
 
         onKnockbackStarted?.Invoke();
     }

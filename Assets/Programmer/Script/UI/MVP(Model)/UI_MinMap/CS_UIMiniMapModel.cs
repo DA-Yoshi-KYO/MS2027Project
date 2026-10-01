@@ -18,6 +18,8 @@ public enum CSE_MiniMapEntityType
     Player,
     Enemy,
     MultiplayerAlly,
+    Police,
+    Max,
 }
 
 /// <summary>
@@ -28,7 +30,7 @@ public class MiniMapEntityData
     public string entityId { get; private set; }
     public CSE_MiniMapEntityType entityType { get; private set; }
     public Vector3 entityWorldPosition { get; set; }
-    public float entityRotation { get; set; } // Y軸回転（度）
+    public float entityRotation { get; set; }
     public bool entityIsActive { get; set; }
 
     public MiniMapEntityData(string id, CSE_MiniMapEntityType type, Vector3 worldPosition, float rotation = 0f)
@@ -43,7 +45,7 @@ public class MiniMapEntityData
 
 /// <summary>
 /// ミニマップの Model
-/// ・プレイヤー・敵・マルチプレイヤーの位置情報を管理する
+/// ・プレイヤー・敵・マルチプレイヤー・警察の位置情報を管理する
 /// ・静止画PNG + uvRect スクロール方式に対応
 /// </summary>
 public class CS_UIMiniMapModel : CS_BaseModel
@@ -52,11 +54,12 @@ public class CS_UIMiniMapModel : CS_BaseModel
     private MiniMapEntityData _localPlayer;
     private readonly Dictionary<string, MiniMapEntityData> _enemies = new();
     private readonly Dictionary<string, MiniMapEntityData> _multiplayerAllies = new();
+    private readonly Dictionary<string, MiniMapEntityData> _polices = new(); // ★ 追加
 
     // ---- ミニマップ設定 ----
-    public float miniMapRadius { get; private set; } // アイコン表示範囲（ワールド単位）
-    public float miniMapWorldSize { get; private set; } // PNG が表現するワールドの広さ（地形スケールに合わせる）
-    public bool rotatePlayer { get; private set; } // プレイヤー向きに追従するか
+    public float miniMapRadius { get; private set; }
+    public float miniMapWorldSize { get; private set; }
+    public bool rotatePlayer { get; private set; }
 
     // ---- イベント ----
     public event Action OnDataChanged;
@@ -154,6 +157,42 @@ public class CS_UIMiniMapModel : CS_BaseModel
     public IReadOnlyDictionary<string, MiniMapEntityData> GetMultiplayerAllies() => _multiplayerAllies;
 
     // =========================================================
+    // 警察
+    // =========================================================
+
+    public void AddOrUpdatePolice(string id, Vector3 worldPosition, float rotation = 0f)
+    {
+        if (_polices.TryGetValue(id, out var data))
+        {
+            data.entityWorldPosition = worldPosition;
+            data.entityRotation = rotation;
+            data.entityIsActive = true;
+        }
+        else
+        {
+            _polices[id] = new MiniMapEntityData(id, CSE_MiniMapEntityType.Police, worldPosition, rotation);
+        }
+        OnDataChanged?.Invoke();
+    }
+
+    public void RemovePolice(string id)
+    {
+        if (_polices.Remove(id))
+            OnDataChanged?.Invoke();
+    }
+
+    public void SetPoliceActive(string id, bool isActive)
+    {
+        if (_polices.TryGetValue(id, out var data))
+        {
+            data.entityIsActive = isActive;
+            OnDataChanged?.Invoke();
+        }
+    }
+
+    public IReadOnlyDictionary<string, MiniMapEntityData> GetPolices() => _polices;
+
+    // =========================================================
     // 設定変更
     // =========================================================
 
@@ -184,5 +223,6 @@ public class CS_UIMiniMapModel : CS_BaseModel
         OnDataChanged = null;
         _enemies.Clear();
         _multiplayerAllies.Clear();
+        _polices.Clear();
     }
 }

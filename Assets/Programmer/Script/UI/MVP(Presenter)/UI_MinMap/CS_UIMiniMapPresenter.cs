@@ -13,8 +13,6 @@ using UnityEngine;
 /// ミニマップの Presenter
 /// ・UICanvas/MiniMap に CS_UIMiniMapView と一緒にアタッチする
 /// ・Model のデータを ViewData に変換して View へ渡す
-/// ・uvRect オフセット計算（背景スクロール）
-/// ・アイコン座標変換（ワールド座標 → 正規化座標）
 /// </summary>
 public class CS_UIMiniMapPresenter : CS_BasePresenter
 {
@@ -47,7 +45,6 @@ public class CS_UIMiniMapPresenter : CS_BasePresenter
     // 初期化
     // =========================================================
 
-    /// <summary>Controller から呼ばれる。View の参照をセットする。</summary>
     public void SetView(CS_UIMiniMapView view)
     {
         _view = view;
@@ -58,10 +55,6 @@ public class CS_UIMiniMapPresenter : CS_BasePresenter
     // Controller から呼ばれる更新エントリポイント
     // =========================================================
 
-    /// <summary>
-    /// Controller が Model の変更を検知したときに呼び出す。
-    /// Model → ViewData 変換 → View.Render() を実行する。
-    /// </summary>
     public void OnModelUpdated(CS_UIMiniMapModel model)
     {
         if (_view == null) return;
@@ -83,7 +76,7 @@ public class CS_UIMiniMapPresenter : CS_BasePresenter
         float mapWorldSize = model.miniMapWorldSize;
         float playerRot = _rotateWithPlayer ? player.entityRotation : 0f;
 
-        // ---- uvRect オフセット計算（背景スクロール）----
+        // ---- uvRect オフセット計算 ----
         float uvX = (player.entityWorldPosition.x - _mapCenterX) / mapWorldSize + 0.5f;
         float uvY = (player.entityWorldPosition.z - _mapCenterZ) / mapWorldSize + 0.5f;
 
@@ -108,7 +101,15 @@ public class CS_UIMiniMapPresenter : CS_BasePresenter
                 mapRadius, playerRot, CSE_MiniMapEntityType.MultiplayerAlly));
         }
 
-        // ---- コンストラクタで生成 ----
+        // 警察アイコン ★ 追加
+        foreach (var kv in model.GetPolices())
+        {
+            if (!kv.Value.entityIsActive) continue;
+            icons.Add(WorldToMiniMapIcon(
+                player.entityWorldPosition, kv.Value,
+                mapRadius, playerRot, CSE_MiniMapEntityType.Police));
+        }
+
         return new MiniMapViewData(
             playerRotationY: player.entityRotation,
             rotateWithPlayer: _rotateWithPlayer,
@@ -118,10 +119,6 @@ public class CS_UIMiniMapPresenter : CS_BasePresenter
         );
     }
 
-    /// <summary>
-    /// ワールド座標 → ミニマップ上の正規化座標（-1〜1）へ変換。
-    /// ミニマップ外はエッジにクランプして IsEdgeClipped = true にする。
-    /// </summary>
     private MiniMapIconData WorldToMiniMapIcon(
         Vector3 playerPos,
         MiniMapEntityData entity,
@@ -133,7 +130,6 @@ public class CS_UIMiniMapPresenter : CS_BasePresenter
         float dx = diff.x;
         float dz = diff.z;
 
-        // プレイヤーの向きに合わせてアイコン座標を回転
         if (_rotateWithPlayer)
         {
             float rad = -playerRotY * Mathf.Deg2Rad;
@@ -145,11 +141,9 @@ public class CS_UIMiniMapPresenter : CS_BasePresenter
             dz = rotZ;
         }
 
-        // 正規化（-1〜1）
         float normX = dx / mapRadius;
         float normY = dz / mapRadius;
 
-        // 円形クリッピング（範囲外はエッジにクランプ）
         float dist = Mathf.Sqrt(normX * normX + normY * normY);
         bool isClipped = dist > 1f;
         if (isClipped)
@@ -158,7 +152,6 @@ public class CS_UIMiniMapPresenter : CS_BasePresenter
             normY /= dist;
         }
 
-        // ---- コンストラクタで生成 ----
         return new MiniMapIconData(
             id: entity.entityId,
             type: type,
@@ -168,10 +161,6 @@ public class CS_UIMiniMapPresenter : CS_BasePresenter
             isEdgeClipped: isClipped
         );
     }
-
-    // =========================================================
-    // OnDestroy
-    // =========================================================
 
     protected override void OnDestroy()
     {
@@ -183,24 +172,20 @@ public class CS_UIMiniMapPresenter : CS_BasePresenter
 // Presenter ↔ View 間のデータ受け渡し用クラス
 // =========================================================
 
-/// <summary>Presenter から View へ渡す描画データ一式</summary>
 public class MiniMapViewData
 {
-    // ---- バッキングフィールド ----
     private readonly float _playerRotationY;
     private readonly bool _rotateWithPlayer;
     private readonly float _uvOffsetX;
     private readonly float _uvOffsetY;
     private readonly List<MiniMapIconData> _icons;
 
-    // ---- プロパティ公開（読み取り専用）----
     public float playerRotationY => _playerRotationY;
     public bool rotateWithPlayer => _rotateWithPlayer;
     public float uvOffsetX => _uvOffsetX;
     public float uvOffsetY => _uvOffsetY;
     public List<MiniMapIconData> icons => _icons;
 
-    // ---- コンストラクタ ----
     public MiniMapViewData(
         float playerRotationY,
         bool rotateWithPlayer,
@@ -216,10 +201,8 @@ public class MiniMapViewData
     }
 }
 
-/// <summary>各アイコン 1 つ分の描画情報</summary>
 public class MiniMapIconData
 {
-    // ---- バッキングフィールド ----
     private readonly string _id;
     private readonly CSE_MiniMapEntityType _type;
     private readonly float _normalizedX;
@@ -227,7 +210,6 @@ public class MiniMapIconData
     private readonly float _rotation;
     private readonly bool _isEdgeClipped;
 
-    // ---- プロパティ公開（読み取り専用）----
     public string id => _id;
     public CSE_MiniMapEntityType type => _type;
     public float normalizedX => _normalizedX;
@@ -235,7 +217,6 @@ public class MiniMapIconData
     public float rotation => _rotation;
     public bool isEdgeClipped => _isEdgeClipped;
 
-    // ---- コンストラクタ ----
     public MiniMapIconData(
         string id,
         CSE_MiniMapEntityType type,

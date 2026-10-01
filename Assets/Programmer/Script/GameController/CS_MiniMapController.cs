@@ -12,10 +12,7 @@ using UnityEngine;
 /// <summary>
 /// ミニマップの Controller
 /// ・GameControllerManager にアタッチする
-/// ・CS_UIMiniMapModel を生成・保持・破棄する
-/// ・CS_UIMiniMapPresenter は UICanvas/MiniMap（View と同じ GameObject）から取得する
-/// ・静止画PNG + uvRect スクロール方式のため MiniMapCamera は不要
-/// ・Player(Clone) は動的生成のため RegisterLocalPlayer() で後からセットする
+/// ・プレイヤー・敵・マルチプレイヤー・警察のアイコンを管理する
 /// </summary>
 public class CS_MiniMapController : MonoBehaviour
 {
@@ -30,8 +27,8 @@ public class CS_MiniMapController : MonoBehaviour
     [SerializeField] private CS_UIMiniMapView _miniMapView;
 
     [Header("ミニマップ設定")]
-    [SerializeField] private float _mapRadius = 50f;  // アイコン表示範囲（ワールド単位）
-    [SerializeField] private float _mapWorldSize = 240f; // PNG が表現するワールドの広さ（地形スケールに合わせる）
+    [SerializeField] private float _mapRadius = 50f;
+    [SerializeField] private float _mapWorldSize = 240f;
     [SerializeField] private bool _rotateWithPlayer = true;
 
     // =========================================================
@@ -43,9 +40,10 @@ public class CS_MiniMapController : MonoBehaviour
 
     private readonly Dictionary<string, Transform> _enemyTransforms = new();
     private readonly Dictionary<string, Transform> _allyTransforms = new();
+    private readonly Dictionary<string, Transform> _policeTransforms = new();
 
     private float _updateTimer;
-    private const float _updateInterval = 0.05f; // 20fps 更新
+    private const float _updateInterval = 0.05f;
 
     // =========================================================
     // Awake : Model 生成
@@ -53,7 +51,6 @@ public class CS_MiniMapController : MonoBehaviour
 
     private void Awake()
     {
-        // mapWorldSize を Model に渡す（uvRect スクロール計算で使用）
         _model = new CS_UIMiniMapModel(_mapRadius, _mapWorldSize, _rotateWithPlayer);
     }
 
@@ -65,12 +62,10 @@ public class CS_MiniMapController : MonoBehaviour
     {
         if (_miniMapView == null)
         {
-            Debug.LogError("[CS_MiniMapController] _miniMapView が未設定です！" +
-                           " UICanvas/MiniMap の CS_UIMiniMapView を Inspector でセットしてください。");
+            Debug.LogError("[CS_MiniMapController] _miniMapView が未設定です！");
             return;
         }
 
-        // Presenter は View と同じ GameObject（UICanvas/MiniMap）から取得
         _presenter = _miniMapView.GetComponent<CS_UIMiniMapPresenter>();
 
         if (_presenter == null)
@@ -79,10 +74,7 @@ public class CS_MiniMapController : MonoBehaviour
             return;
         }
 
-        // Presenter に View をセット（内部で View.SetPresenter(this) も呼ばれる）
         _presenter.SetView(_miniMapView);
-
-        // Model の変更イベントを購読
         _model.OnDataChanged += OnModelDataChanged;
     }
 
@@ -101,7 +93,7 @@ public class CS_MiniMapController : MonoBehaviour
 
     private void SyncPositions()
     {
-        // ローカルプレイヤー（未登録の場合はスキップ）
+        // ローカルプレイヤー
         if (_localPlayerTransform != null)
         {
             _model.SetLocalPlayer(
@@ -110,18 +102,25 @@ public class CS_MiniMapController : MonoBehaviour
             );
         }
 
-        // 登録済み敵の位置を同期
+        // 敵
         foreach (var kv in _enemyTransforms)
         {
             if (kv.Value != null)
                 _model.AddOrUpdateEnemy(kv.Key, kv.Value.position, kv.Value.eulerAngles.y);
         }
 
-        // 登録済みアライの位置を同期
+        // アライ
         foreach (var kv in _allyTransforms)
         {
             if (kv.Value != null)
                 _model.AddOrUpdateMultiplayerAlly(kv.Key, kv.Value.position, kv.Value.eulerAngles.y);
+        }
+
+        // 警察
+        foreach (var kv in _policeTransforms)
+        {
+            if (kv.Value != null)
+                _model.AddOrUpdatePolice(kv.Key, kv.Value.position, kv.Value.eulerAngles.y);
         }
     }
 
@@ -138,10 +137,7 @@ public class CS_MiniMapController : MonoBehaviour
     // 外部 API
     // =========================================================
 
-    /// <summary>
-    /// Player(Clone) 生成後に呼ぶ。
-    /// プレイヤーの Transform を動的にセットする。
-    /// </summary>
+    /// <summary>Player(Clone) 生成後に呼ぶ</summary>
     public void RegisterLocalPlayer(Transform playerTransform)
     {
         if (playerTransform == null)
@@ -167,7 +163,7 @@ public class CS_MiniMapController : MonoBehaviour
         _model.RemoveEnemy(id);
     }
 
-    /// <summary>マルチプレイヤー（アライ）をミニマップに登録する（参加時に呼ぶ）</summary>
+    /// <summary>マルチプレイヤー（アライ）をミニマップに登録する</summary>
     public void RegisterAlly(string id, Transform allyTransform)
     {
         if (allyTransform == null) return;
@@ -175,21 +171,36 @@ public class CS_MiniMapController : MonoBehaviour
         _model.AddOrUpdateMultiplayerAlly(id, allyTransform.position, allyTransform.eulerAngles.y);
     }
 
-    /// <summary>マルチプレイヤー（アライ）をミニマップから削除する（退出時に呼ぶ）</summary>
+    /// <summary>マルチプレイヤー（アライ）をミニマップから削除する</summary>
     public void UnregisterAlly(string id)
     {
         _allyTransforms.Remove(id);
         _model.RemoveMultiplayerAlly(id);
     }
 
+    /// <summary>警察をミニマップに登録する（スポーン時に呼ぶ）★ 追加</summary>
+    public void RegisterPolice(string id, Transform policeTransform)
+    {
+        if (policeTransform == null) return;
+        _policeTransforms[id] = policeTransform;
+        _model.AddOrUpdatePolice(id, policeTransform.position, policeTransform.eulerAngles.y);
+    }
+
+    /// <summary>警察をミニマップから削除する（退場時に呼ぶ）★ 追加</summary>
+    public void UnregisterPolice(string id)
+    {
+        _policeTransforms.Remove(id);
+        _model.RemovePolice(id);
+    }
+
     /// <summary>アイコン表示範囲を変更する</summary>
     public void SetMapRadius(float radius) => _model.SetMapRadius(radius);
 
-    /// <summary>マップ画像のワールドサイズを変更する（動作確認・調整用）</summary>
+    /// <summary>マップ画像のワールドサイズを変更する</summary>
     public void SetMapWorldSize(float size) => _model.SetMapWorldSize(size);
 
     // =========================================================
-    // OnDestroy : Model を破棄（イベント購読も解除）
+    // OnDestroy : Model を破棄
     // =========================================================
 
     private void OnDestroy()

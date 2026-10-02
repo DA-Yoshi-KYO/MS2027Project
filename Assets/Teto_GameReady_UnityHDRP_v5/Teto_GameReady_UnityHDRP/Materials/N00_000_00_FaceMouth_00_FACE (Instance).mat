@@ -29,12 +29,12 @@ Material:
   m_ModifiedSerializedProperties: 0
   m_ValidKeywords:
   - _ALPHATEST_ON
+  m_InvalidKeywords:
   - _DISABLE_SSR_TRANSPARENT
-  m_InvalidKeywords: []
   m_LightmapFlags: 4
   m_EnableInstancingVariants: 0
   m_DoubleSidedGI: 0
-  m_CustomRenderQueue: 2475
+  m_CustomRenderQueue: 2450
   stringTagMap:
     AllLockedGUIDS: f6cce4769b52e1545958a2fee34c4c5c,699b7f6b40d16854daaf602bfa81f63e,2f042ac2ffce1be489f2ccbbf387a882,5281ec54239524d4cb12039e45bff294,34f6a8963511f6940bc4cb312f133935,1133cce4707624f4da38909ca4b3e07b,af3c77fe2e089b747abf3ef9f9d6b1ac,00e365070c797e84e9196e730a75db61,486e7f0096c796846be1a35a51af17af,4c5e8e092b488a44fa04fc02e55d512b,626afbcbe65ce7a47ae040d2b3fcc8f1,e25b0fa772529334e927288cce851934,e90bc487a26f3f34ab953c8edafa5b9f,60a61da6e9d013644bceb43a1c2b0c7c,5925bfe44096afd4d91f4746ac3a8272,7f384d1c9ccc72044a26a1ef93ea01d2
     MotionVector: User
@@ -864,10 +864,10 @@ Material:
     - _StencilRef: 0
     - _StencilRefA: 0
     - _StencilRefB: 0
-    - _StencilRefDepth: 8
+    - _StencilRefDepth: 1
     - _StencilRefDistortionVec: 4
     - _StencilRefGBuffer: 10
-    - _StencilRefMV: 40
+    - _StencilRefMV: 33
     - _StencilRefNyx: 0
     - _StencilRefO: 244
     - _StencilType: 3
@@ -875,7 +875,7 @@ Material:
     - _StencilWriteMaskDepth: 9
     - _StencilWriteMaskDistortionVec: 4
     - _StencilWriteMaskGBuffer: 15
-    - _StencilWriteMaskMV: 41
+    - _StencilWriteMaskMV: 43
     - _StockingCenterX: 0.5
     - _StockingCenterY: 0.5
     - _StockingDecalIntensity: 1
@@ -1517,7 +1517,7 @@ Material:
     - _RimColor4: {r: 1, g: 1, b: 1, a: 1}
     - _SDFColor: {r: 0, g: 0, b: 0, a: 1}
     - _ScanColor: {r: 0.8970588, g: 0.8970588, b: 0.8970588, a: 1}
-    - _ShadowColor: {r: 0.9, g: 0.9, b: 0.9, a: 1}
+    - _ShadowColor: {r: 0.7, g: 0.7, b: 0.7, a: 1}
     - _SkillEmisssionColor: {r: 0, g: 0, b: 0, a: 0}
     - _SkinColor: {r: 1, g: 1, b: 1, a: 1}
     - _SkinSubsurfaceColor: {r: 0.9387, g: 0.60379994, b: 0.40719998, a: 1}

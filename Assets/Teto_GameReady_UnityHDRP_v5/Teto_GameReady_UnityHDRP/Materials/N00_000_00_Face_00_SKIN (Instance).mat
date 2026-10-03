@@ -8,7 +8,7 @@ Material:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_Name: N00_000_00_Face_00_SKIN (Instance)
-  m_Shader: {fileID: -6465566751694194690, guid: 578b449536e30984a9b6967bb91311ac, type: 3}
+  m_Shader: {fileID: -6465566751694194690, guid: b76b53434eea7284b8740ae54d1e73fb, type: 3}
   m_Parent: {fileID: 0}
   m_ModifiedSerializedProperties: 0
   m_ValidKeywords:
@@ -476,6 +476,7 @@ Material:
     - _EyeScale: 0.8
     - _EyeTimeOffset: 0.1
     - _FaceBlushStrength: 0
+    - _FaceBrightness: 1.3
     - _FaceMapRotateOffset: 0
     - _FaceMapSoftness: 0.001
     - _FakePointFrequency: 0

@@ -3025,6 +3025,67 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::CS_VillainSpawnPoint
   _groupRadius: 1.5
+--- !u!1001 &1809267371
+PrefabInstance:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Modification:
+    serializedVersion: 3
+    m_TransformParent: {fileID: 0}
+    m_Modifications:
+    - target: {fileID: 1001100002, guid: 4f8b2d6a1e9c47b3d5a0c8e2f6b1d934, type: 3}
+      propertyPath: m_Name
+      value: HologramItem
+      objectReference: {fileID: 0}
+    - target: {fileID: 4001100002, guid: 4f8b2d6a1e9c47b3d5a0c8e2f6b1d934, type: 3}
+      propertyPath: m_LocalPosition.x
+      value: 0.9848266
+      objectReference: {fileID: 0}
+    - target: {fileID: 4001100002, guid: 4f8b2d6a1e9c47b3d5a0c8e2f6b1d934, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: 1.91
+      objectReference: {fileID: 0}
+    - target: {fileID: 4001100002, guid: 4f8b2d6a1e9c47b3d5a0c8e2f6b1d934, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: 9.787372
+      objectReference: {fileID: 0}
+    - target: {fileID: 4001100002, guid: 4f8b2d6a1e9c47b3d5a0c8e2f6b1d934, type: 3}
+      propertyPath: m_LocalRotation.w
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 4001100002, guid: 4f8b2d6a1e9c47b3d5a0c8e2f6b1d934, type: 3}
+      propertyPath: m_LocalRotation.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 4001100002, guid: 4f8b2d6a1e9c47b3d5a0c8e2f6b1d934, type: 3}
+      propertyPath: m_LocalRotation.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 4001100002, guid: 4f8b2d6a1e9c47b3d5a0c8e2f6b1d934, type: 3}
+      propertyPath: m_LocalRotation.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 4001100002, guid: 4f8b2d6a1e9c47b3d5a0c8e2f6b1d934, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 4001100002, guid: 4f8b2d6a1e9c47b3d5a0c8e2f6b1d934, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 4001100002, guid: 4f8b2d6a1e9c47b3d5a0c8e2f6b1d934, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 15401100002, guid: 4f8b2d6a1e9c47b3d5a0c8e2f6b1d934, type: 3}
+      propertyPath: GlobalObjectIdHash
+      value: 2211748008
+      objectReference: {fileID: 0}
+    m_RemovedComponents: []
+    m_RemovedGameObjects: []
+    m_AddedGameObjects: []
+    m_AddedComponents: []
+  m_SourcePrefab: {fileID: 100100000, guid: 4f8b2d6a1e9c47b3d5a0c8e2f6b1d934, type: 3}
 --- !u!1 &1845737197
 GameObject:
   m_ObjectHideFlags: 0
@@ -3145,6 +3206,7 @@ MonoBehaviour:
   - {fileID: 7937220719263797659, guid: 156f42c7a862f454782e20589af74ea2, type: 3}
   _minMembers: 5
   _maxMembers: 6
+  _maxAttackersPerGroup: 2
   _extraGroupCount: 1
   _respawnCooldown: 20
   _spawnInterval: 60
@@ -3221,3 +3283,4 @@ SceneRoots:
   - {fileID: 594991966}
   - {fileID: 2065377229}
   - {fileID: 1090066215}
+  - {fileID: 1809267371}

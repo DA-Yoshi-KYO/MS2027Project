@@ -14,8 +14,6 @@ using UnityEngine.UI;
 /// ミニマップの View
 /// ・UICanvas 配下の MiniMap GameObject にアタッチする
 /// ・静止画PNG + uvRect スクロール方式
-/// ・背景を uvRect でスクロール・回転して移動を表現する
-/// ・プレイヤー・敵・アライのアイコンを重ねて表示する
 /// </summary>
 public class CS_UIMiniMapView : CS_BaseView<CS_UIMiniMapPresenter>
 {
@@ -36,6 +34,7 @@ public class CS_UIMiniMapView : CS_BaseView<CS_UIMiniMapPresenter>
     [Header("アイコン Prefab")]
     [SerializeField] private GameObject _enemyIconPrefab;
     [SerializeField] private GameObject _allyIconPrefab;
+    [SerializeField] private GameObject _policeIconPrefab;
 
     [Header("表示設定")]
     [SerializeField] private float _miniMapDisplayRadius = 75f;
@@ -113,15 +112,12 @@ public class CS_UIMiniMapView : CS_BaseView<CS_UIMiniMapPresenter>
 
         instance.Root.gameObject.SetActive(true);
 
-        // 正規化座標（-1〜1）→ UI ピクセル座標
         instance.Root.anchoredPosition = new Vector2(
             data.normalizedX * _miniMapDisplayRadius,
             data.normalizedY * _miniMapDisplayRadius);
 
-        // アイコンの回転
         instance.Root.localRotation = Quaternion.Euler(0f, 0f, -data.rotation);
 
-        // エッジクリップ時は小さく・半透明
         if (data.isEdgeClipped)
         {
             instance.Root.localScale = Vector3.one * 0.7f;
@@ -147,6 +143,7 @@ public class CS_UIMiniMapView : CS_BaseView<CS_UIMiniMapPresenter>
         {
             CSE_MiniMapEntityType.Enemy => _enemyIconPrefab,
             CSE_MiniMapEntityType.MultiplayerAlly => _allyIconPrefab,
+            CSE_MiniMapEntityType.Police => _policeIconPrefab,
             _ => null,
         };
 
@@ -184,20 +181,17 @@ public class CS_UIMiniMapView : CS_BaseView<CS_UIMiniMapPresenter>
     }
 
     // =========================================================
-    // 内部クラス（バッキングフィールド + => プロパティ）
+    // 内部クラス
     // =========================================================
 
     private class MiniMapIconInstance
     {
-        // ---- バッキングフィールド ----
         private readonly RectTransform _root;
         private readonly Image _image;
 
-        // ---- プロパティ公開（読み取り専用）----
         public RectTransform Root => _root;
         public Image Image => _image;
 
-        // ---- コンストラクタ ----
         public MiniMapIconInstance(RectTransform root, Image image)
         {
             _root = root;

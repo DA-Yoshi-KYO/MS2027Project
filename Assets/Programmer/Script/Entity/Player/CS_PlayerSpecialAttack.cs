@@ -145,6 +145,7 @@ public class CS_PlayerSpecialAttack : NetworkBehaviour
         {
             float damage = _specialAttackData.CalculateDamage(context, target) * _stats.specialAttackPower;
             target.TakeDamage(damage);
+            CS_AttackHitDetector.TryKnockback(target, transform.position);   // 攻撃した位置から離れる方向へ下がる
             _specialAttackData.OnHit(context, target);
         }
     }

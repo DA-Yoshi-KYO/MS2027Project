@@ -238,6 +238,7 @@ public class CS_PlayerAttack : NetworkBehaviour
         {
             float damage = step.CalculateDamage(context, target) * _stats.attackPower;
             target.TakeDamage(damage);
+            CS_AttackHitDetector.TryKnockback(target, transform.position);   // 攻撃した位置から離れる方向へ下がる
             step.OnHit(context, target);
             _gauge.Fill(step.gaugeGain);
         }

@@ -4862,6 +4862,7 @@ GameObject:
   - component: {fileID: 4936474329407425983}
   - component: {fileID: 1037734796444213086}
   - component: {fileID: 6073959917913869111}
+  - component: {fileID: 1551694478834558629}
   m_Layer: 31
   m_Name: Player
   m_TagString: PlayerNoTransformation
@@ -5262,6 +5263,19 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a58333c962869874d80f4984755a500c, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::CS_PlayerCameraShake
+--- !u!114 &1551694478834558629
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1825699444668748530}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3ad1664441abe1a4092037981d8cb280, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CS_PlayerMiniMapIcon
+  ShowTopMostFoldoutHeaderGroup: 1
 --- !u!1 &3298430547158640491
 GameObject:
   m_ObjectHideFlags: 0

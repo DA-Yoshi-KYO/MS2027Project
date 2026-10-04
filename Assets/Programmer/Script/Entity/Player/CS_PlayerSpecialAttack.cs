@@ -55,6 +55,8 @@ public class CS_PlayerSpecialAttack : NetworkBehaviour
 
     // 操作しているクライアントでだけ発生する。見た目などが購読する
     public event System.Action onSpecialStarted;
+    // 操作しているクライアントでだけ発生する。判定が出る瞬間に呼ばれる。カメラの揺れなどが購読する
+    public event System.Action onSpecialHitTiming;
     public CSO_AttackData specialAttackData => _specialAttackData;
 
     private void Awake()
@@ -104,6 +106,7 @@ public class CS_PlayerSpecialAttack : NetworkBehaviour
         {
             _hasHit = true;
             RequestHit();
+            onSpecialHitTiming?.Invoke();
         }
 
         if (_elapsed >= _specialAttackData.duration)

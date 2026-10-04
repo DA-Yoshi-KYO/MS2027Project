@@ -26,6 +26,8 @@ using UnityEngine.InputSystem;
  *   3. LateUpdate   : カメラをプレイヤーの周りに配置する
  * ・カメラはプレイヤーの子だが、回転がプレイヤーに引っ張られないよう
  *   LateUpdateでワールド座標を直接指定している
+ *   カメラにはCinemachineBrainが付いており、位置・向きはCinemachineCamera(_virtualCameraTransform)へ指定する
+ *   (Brainが実際のカメラへ反映する。攻撃時の揺れはCS_PlayerCameraShakeがImpulseで加える)
  * ・死亡中(CS_PlayerHealth.isDead)は移動・攻撃を行わない(canActで判定)
  *   視点操作(カメラ)は死亡中も継続する
  *   死亡中は水平方向の速度を毎回0にし、死亡時の勢いで滑り続けないようにしている(落下はする)
@@ -71,7 +73,8 @@ public class CS_Player : NetworkBehaviour
     [SerializeField] private float _dashCooldown = 0.8f;    // 次に出せるようになるまでの時間(秒)
 
     [Header("カメラ")]
-    [SerializeField] private Transform _cameraTransform;    // プレイヤーの子のカメラ
+    [SerializeField] private Transform _cameraTransform;    // プレイヤーの子のカメラ(CinemachineBrainが付いている)
+    [SerializeField] private Transform _virtualCameraTransform;  // CinemachineBrainが見るCinemachineCamera(空なら_cameraTransformを直接動かす)
     [SerializeField] private float _cameraDistance = 3.5f;
     [SerializeField] private float _cameraPivotHeight = 1.3f;
     [SerializeField] private float _minPitch = -30f;
@@ -285,9 +288,15 @@ public class CS_Player : NetworkBehaviour
         _rigidbody.isKinematic = true;
 
         // カメラとAudioListenerが複数有効になるのを防ぐ
+        // (CinemachineCameraも消す。残すと、自分のBrainが他人のCinemachineCameraを選んでしまう)
         if (_cameraTransform != null)
         {
             _cameraTransform.gameObject.SetActive(false);
+        }
+
+        if (_virtualCameraTransform != null)
+        {
+            _virtualCameraTransform.gameObject.SetActive(false);
         }
     }
 
@@ -438,14 +447,16 @@ public class CS_Player : NetworkBehaviour
     }
 
     // カメラをプレイヤーの周りに配置する(プレイヤーの回転の影響を受けない)
+    // CinemachineCameraがあれば、そちらを動かす(Brainが実際のカメラへ反映し、揺れなどの演出も加える)
     private void UpdateCameraTransform()
     {
-        if (_cameraTransform == null) return;
+        Transform target = _virtualCameraTransform != null ? _virtualCameraTransform : _cameraTransform;
+        if (target == null) return;
 
         Quaternion rotation = Quaternion.Euler(_pitch, _yaw, 0f);
         Vector3 pivot = transform.position + Vector3.up * _cameraPivotHeight;
         Vector3 position = pivot - rotation * Vector3.forward * _cameraDistance;
 
-        _cameraTransform.SetPositionAndRotation(position, rotation);
+        target.SetPositionAndRotation(position, rotation);
     }
 }

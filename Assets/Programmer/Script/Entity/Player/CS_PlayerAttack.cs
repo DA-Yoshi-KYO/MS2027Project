@@ -68,6 +68,8 @@ public class CS_PlayerAttack : NetworkBehaviour
 
     // 操作しているクライアントでだけ発生する(引数は何段目か、0始まり)。見た目などが購読する
     public event System.Action<int> onStepStarted;
+    // 操作しているクライアントでだけ発生する(引数は何段目か)。判定が出る瞬間に呼ばれる。カメラの揺れなどが購読する
+    public event System.Action<int> onStepHitTiming;
     public int currentStep => _currentStep;               // 現在の段(0始まり、攻撃していなければ-1)
     public IReadOnlyList<CSO_AttackData> attackSteps => _attackSteps;
 
@@ -134,6 +136,7 @@ public class CS_PlayerAttack : NetworkBehaviour
         {
             _hasHit = true;
             RequestHit(_currentStep);
+            onStepHitTiming?.Invoke(_currentStep);
         }
 
         // 攻撃モーション中は、これ以上何もしない

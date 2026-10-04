@@ -77,8 +77,18 @@ jobs:
 
           # 今回のpushで追加されたコミット一覧を1行ずつのMarkdown箇条書きにする
           if [ "$REF_NAME" = "designer_develop" ]; then
-            # develop の取り込み(マージ・プログラマー側のコミット)は流さず、作業データ(Artist/)を触ったコミットだけにする
-            commits_json=$(jq -c '[.commits[] | select([.added[]?, .modified[]?, .removed[]?] | any(startswith("Artist/"))) | {message: (.message | split("\n")[0]), url: .url, author: .author.name}]' "$GITHUB_EVENT_PATH")
+            # develop の取り込み(マージ・プログラマー側のコミット)は流さず、作業データ(Artist/)を触ったコミットだけにする。
+            # push イベントの commits[] には変更ファイル一覧(added/modified/removed)が入らないため、
+            # コミットごとに API で変更ファイルを取得して判定する。
+            commits_json='[]'
+            while IFS= read -r c; do
+              sha=$(echo "$c" | jq -r '.id')
+              hit=$(gh api "repos/${REPO_URL#https://github.com/}/commits/$sha" \
+                --jq 'if (.parents | length) > 1 then false else ([.files[]?.filename] | any(startswith("Artist/"))) end')
+              if [ "$hit" = "true" ]; then
+                commits_json=$(echo "$commits_json" | jq -c --argjson c "$c" '. + [{message: ($c.message | split("\n")[0]), url: $c.url, author: $c.author.name}]')
+              fi
+            done < <(jq -c '.commits[]' "$GITHUB_EVENT_PATH")
           else
             commits_json=$(jq -c '[.commits[] | {message: (.message | split("\n")[0]), url: .url, author: .author.name}]' "$GITHUB_EVENT_PATH")
           fi

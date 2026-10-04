@@ -52,6 +52,9 @@ public class CSO_AttackData : ScriptableObject
     [Header("必殺ゲージ")]
     [SerializeField] private float _gaugeGain = 10f;         // ヒット1回につき溜まる必殺ゲージ量
 
+    [Header("演出")]
+    [SerializeField] private float _cameraShakeForce = 0f;   // 判定が出る瞬間のカメラの揺れの強さ(0で揺れない)。攻撃ごとに決める
+
     public float damage => _damage;
     public float hitDelay => _hitDelay;
     public float duration => _duration;
@@ -59,6 +62,7 @@ public class CSO_AttackData : ScriptableObject
     public float hitRange => _hitRange;
     public float hitRadius => _hitRadius;
     public float gaugeGain => _gaugeGain;
+    public float cameraShakeForce => _cameraShakeForce;
 
     // ダメージ量を計算する(ユニークな計算をしたいときはoverrideする)
     public virtual float CalculateDamage(AttackContext context, IDamageable target)
@@ -78,5 +82,6 @@ public class CSO_AttackData : ScriptableObject
         _hitDelay = Mathf.Clamp(_hitDelay, 0f, _duration);
         _comboWindow = Mathf.Max(0f, _comboWindow);
         _gaugeGain = Mathf.Max(0f, _gaugeGain);
+        _cameraShakeForce = Mathf.Max(0f, _cameraShakeForce);
     }
 }

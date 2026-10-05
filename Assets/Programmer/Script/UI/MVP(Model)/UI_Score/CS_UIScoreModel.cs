@@ -100,4 +100,3 @@ public class CS_UIScoreModel : CS_BaseModel
         _score.Dispose();
     }
 }
-

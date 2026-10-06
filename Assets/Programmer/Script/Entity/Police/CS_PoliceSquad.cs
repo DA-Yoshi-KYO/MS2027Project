@@ -131,6 +131,18 @@ public class CS_PoliceSquad : MonoBehaviour, IPoliceGroup
         }
     }
 
+    /// <summary>
+    /// プレイヤーが出した信号を知らせるメソッド(サーバーで呼ぶこと)
+    /// 警備エリア内のグループが駆け付けるのに加えて、そのプレイヤーの手配度で出現した増援も駆け付ける
+    /// </summary>
+    /// <param name="position">信号を出した位置</param>
+    /// <param name="source">信号を出したプレイヤー</param>
+    public static void NotifyIncident(Vector3 position, CS_PlayerHealth source)
+    {
+        NotifyIncident(position);
+        CS_PoliceWantedManager.ReceiveSignal(source, position);
+    }
+
     private void Start()
     {
         if (IsNetworkClientOnly()) return;

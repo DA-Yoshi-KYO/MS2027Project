@@ -40,6 +40,9 @@ public class CS_PoliceBrain : MonoBehaviour
     private bool _hasRushRequest = false;
     private Vector3 _rushPosition = Vector3.zero;
 
+    // 駆け付け中に位置を追い続けるプレイヤー(出現直後の増援が持ち主へ向かうのに使う。いなければnull)
+    private CS_PlayerHealth _rushTarget = null;
+
     // 探索を続ける残り時間
     private float _searchTimer = 0.0f;
 
@@ -68,6 +71,10 @@ public class CS_PoliceBrain : MonoBehaviour
 
     // 現在の行動状態
     public CSE_PoliceMoveState state => _state;
+
+    // 追跡・駆け付け・探索・攻撃のどれもしていない(巡回・待機している)か
+    public bool isIdle => (_state == CSE_PoliceMoveState.Patrol || _state == CSE_PoliceMoveState.Wait)
+        && !_hasRushRequest && !_attack.isCharging;
 
     private void Awake()
     {
@@ -108,6 +115,29 @@ public class CS_PoliceBrain : MonoBehaviour
     {
         _rushPosition = position;
         _hasRushRequest = true;
+        _rushTarget = null;
+    }
+
+    /// <summary>
+    /// プレイヤーのいる場所へ、プレイヤーが動いても位置を追いながら駆け付けるよう指示するメソッド
+    /// 見つけたら追跡に切り替わる。変身を解いた・倒れた場合は、その時の位置を探索する
+    /// </summary>
+    /// <param name="player">向かう先のプレイヤー</param>
+    public void RequestPursuit(CS_PlayerHealth player)
+    {
+        RequestRush(player.transform.position);
+        _rushTarget = player;
+    }
+
+    /// <summary>
+    /// 移動速度と視野距離を変更するメソッド(手配度の変化など)
+    /// </summary>
+    /// <param name="speedTable">警察の移動状態に応じた速度を格納した辞書</param>
+    /// <param name="viewDistance">視野距離</param>
+    public void ChangeAbility(Dictionary<CSE_PoliceMoveState, float> speedTable, float viewDistance)
+    {
+        _move.ChangeSpeedTable(speedTable);
+        _vision.ChangeViewDistance(viewDistance);
     }
 
     /// <summary>
@@ -204,6 +234,7 @@ public class CS_PoliceBrain : MonoBehaviour
 
         // 標的を見つけた時点で、駆け付けの指示は済んだものとする
         _hasRushRequest = false;
+        _rushTarget = null;
 
         _move.SetDestination(target.position, CSE_PoliceMoveState.Chase);
         _attack.TryStartCharge(target);
@@ -214,6 +245,8 @@ public class CS_PoliceBrain : MonoBehaviour
     /// </summary>
     private void Rush()
     {
+        UpdateRushTarget();
+
         _state = CSE_PoliceMoveState.Rush;
         _move.SetDestination(_rushPosition, CSE_PoliceMoveState.Rush);
 
@@ -221,6 +254,23 @@ public class CS_PoliceBrain : MonoBehaviour
 
         _hasRushRequest = false;
         StartSearch(_rushPosition);
+    }
+
+    /// <summary>
+    /// 位置を追っているプレイヤーがいれば、駆け付ける場所をそのプレイヤーの今の位置に更新するメソッド
+    /// </summary>
+    private void UpdateRushTarget()
+    {
+        if (_rushTarget == null) return;
+
+        // 変身を解いた・倒れたプレイヤーは追わない(駆け付ける場所は、最後に分かっていた位置のままにする)
+        if (!CS_PoliceVision.IsPlayerTargetable(_rushTarget))
+        {
+            _rushTarget = null;
+            return;
+        }
+
+        _rushPosition = _rushTarget.transform.position;
     }
 
     /// <summary>

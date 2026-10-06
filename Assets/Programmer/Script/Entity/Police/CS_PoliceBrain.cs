@@ -61,6 +61,11 @@ public class CS_PoliceBrain : MonoBehaviour
     [Tooltip("見失った場所・駆け付けた現場を探す時間(秒)")]
     private float _searchDuration = 3.0f;
 
+    [SerializeField, Min(0f)]
+    // 大勢が同じ場所を目指したり、その場所にプレイヤーが立っていたりすると、ぴったりの位置には着けないため
+    [Tooltip("駆け付けた現場・探す場所にこの距離まで近づいたら、着いたとみなす")]
+    private float _gatherDistance = 2.0f;
+
     // 現在の行動状態
     public CSE_PoliceMoveState state => _state;
 
@@ -202,7 +207,7 @@ public class CS_PoliceBrain : MonoBehaviour
         _state = CSE_PoliceMoveState.Rush;
         _move.SetDestination(_rushPosition, CSE_PoliceMoveState.Rush);
 
-        if (!_move.hasArrived) return;
+        if (!_move.IsNearDestination(_gatherDistance)) return;
 
         _hasRushRequest = false;
         StartSearch(_rushPosition);
@@ -224,7 +229,7 @@ public class CS_PoliceBrain : MonoBehaviour
     /// </summary>
     private void UpdateSearch()
     {
-        if (!_move.hasArrived) return;
+        if (!_move.IsNearDestination(_gatherDistance)) return;
 
         _searchTimer -= _thinkInterval;
         if (_searchTimer > 0.0f) return;

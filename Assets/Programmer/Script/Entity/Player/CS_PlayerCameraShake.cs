@@ -18,6 +18,7 @@ using UnityEngine;
  *   カメラ側はCinemachineCameraに付いているCinemachineImpulseListenerが受け取る(Gainで全体の強さを一括調整できる)
  * ・揺れるのは自分のカメラだけ。イベントは操作しているクライアントでしか発生せず、
  *   他人のプレイヤーのCinemachineCameraは無効化されているため
+ *   NPCの攻撃は揺らさない(NPCはサーバーが動かすので、ホストの画面が揺れてしまうため)
  * ・見た目の演出用なので通信はしない
  */
 // ========================================
@@ -30,12 +31,14 @@ public class CS_PlayerCameraShake : MonoBehaviour
     private CS_PlayerAttack _attack;
     private CS_PlayerSpecialAttack _special;
     private CinemachineImpulseSource _impulseSource;
+    private CS_Player _player;
 
     private void Awake()
     {
         _attack = GetComponent<CS_PlayerAttack>();
         _special = GetComponent<CS_PlayerSpecialAttack>();
         _impulseSource = GetComponent<CinemachineImpulseSource>();
+        _player = GetComponent<CS_Player>();
     }
 
     private void OnEnable()
@@ -66,6 +69,7 @@ public class CS_PlayerCameraShake : MonoBehaviour
     private void Shake(CSO_AttackData data)
     {
         if (data == null || data.cameraShakeForce <= 0f) return;
+        if (_player != null && _player.isNpc) return;
 
         _impulseSource.GenerateImpulseWithForce(data.cameraShakeForce);
     }

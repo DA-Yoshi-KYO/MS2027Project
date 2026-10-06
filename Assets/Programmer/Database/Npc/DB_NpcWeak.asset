@@ -1,0 +1,39 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 44485cf6ef9ae2b1ca705965b887c943, type: 3}
+  m_Name: DB_NpcWeak
+  m_EditorClassIdentifier: Assembly-CSharp::CSO_NpcPersonality
+  _displayName: "\u96D1\u9B5A"
+  _reactionDelay: 0.5
+  _villainSightRange: 15
+  _itemSightRange: 10
+  _playerSightRange: 30
+  _policeSightRange: 8
+  _huntVillainWeight: 0.8
+  _seekItemWeight: 0.3
+  _harassWeight: 0
+  _fleePoliceWeight: 0.6
+  _wanderWeight: 0.2
+  _attackRange: 1.8
+  _policeAvoidRange: 6
+  _specialMinTargets: 2
+  _specialRange: 4
+  _difficultyMode: 2
+  _adjustInterval: 5
+  _scoreThreshold: 150
+  _weakScoreMargin: 50
+  _levelCount: 5
+  _startLevel: 0
+  _thinkInterval: {x: 1.2, y: 0.6}
+  _attackInterval: {x: 1.5, y: 0.8}
+  _hesitationChance: {x: 0.5, y: 0.2}
+  _huntAggressiveness: {x: 0.3, y: 0.8}

@@ -80,7 +80,7 @@ public class CS_PlayerSpecialAttack : NetworkBehaviour
         // 自分が操作していないプレイヤー、コンボ攻撃中は何もしない
         if (!_player.canAct || _attack.isAttacking) return;
 
-        if (!_isPerforming && _transformation.isTransformed && _gauge.isFull && _player.specialAction.WasPressedThisFrame())
+        if (!_isPerforming && _transformation.isTransformed && _gauge.isFull && _player.input.specialPressed)
         {
             StartSpecial();
         }

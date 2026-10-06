@@ -126,7 +126,7 @@ public class CS_PlayerTransformation : NetworkBehaviour
     private void ReadInput()
     {
         if (!_player.canAct) return;
-        if (!_player.transformationAction.WasPressedThisFrame()) return;
+        if (!_player.input.transformPressed) return;
 
         // 押しても意味の無い状態はここで弾く(最終的な確認はサーバーで行う)
         if (!CanToggle()) return;

@@ -49,7 +49,7 @@ public class CS_PlayerItemSlot : NetworkBehaviour, ICarriableItemHolder
     {
         if (!_player.canAct) return;
         if (!hasItem) return;
-        if (!_player.useItemAction.WasPressedThisFrame()) return;
+        if (!_player.input.useItemPressed) return;
 
         RequestUseItem();
     }

@@ -96,7 +96,7 @@ public class CS_PlayerAttack : NetworkBehaviour
 
         // ゲームパッドは攻撃(RT)と必殺技(RT+LT)が同じRTを共有するため、
         // LTを押しながらの場合は必殺技の合図とみなし、攻撃としては発動させない
-        if (_player.attackAction.WasPressedThisFrame() && !_player.isSpecialModifierHeld)
+        if (_player.input.attackPressed && !_player.isSpecialModifierHeld)
         {
             OnAttackPressed();
         }

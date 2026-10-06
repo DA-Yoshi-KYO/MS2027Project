@@ -1,7 +1,6 @@
 ﻿using System;
 using Unity.Netcode;
 using UnityEngine;
-using UnityEngine.InputSystem;
 
 /*
  * プレイヤーの操作(三人称視点)を行うクラス
@@ -13,12 +12,14 @@ using UnityEngine.InputSystem;
 // ========================================
 /*
  * メモ
- * ・入力は CS_CustomInputActionManager(シングルトン)が保持する
- *   PlayerControls.inputactions由来のCustomInputActionを使う
- *   1台のPCで操作するプレイヤーは常に1体なので、複製はせず共有のまま参照する
- * ・入力、移動、カメラ操作は「自分が操作するプレイヤー」だけが行う(_isControlled)
- *   オンライン: 自分がOwnerのプレイヤー
- *   オフライン: NetworkManagerが動いていないテストシーンのプレイヤー
+ * ・入力はIPlayerInputSource(入力の出どころ)から読む。各操作のコンポーネント(攻撃・必殺技・変身・アイテム)もinputを見る
+ *   人が操作する場合: CS_PlayerInputActions(CS_CustomInputActionManagerが持つPlayerControls.inputactions由来の入力)
+ *   NPCの場合      : 同じオブジェクトに付いているIPlayerInputSource(CS_NpcBrain)
+ * ・入力、移動は「このマシンで動かすプレイヤー」だけが行う(_isControlled)
+ *   オンライン: 自分がOwnerのプレイヤー。NPCはサーバーが動かす
+ *   オフライン: NetworkManagerが動いていないテストシーンのプレイヤー(NPCも含む)
+ * ・NPCかどうか(isNpc)はCS_NpcSpawnerがスポーン前にAssignAsNpc()で設定する(NetworkVariableなので全員へ同期される)
+ *   NPCはカメラを使わず(無効化する)、カーソルも固定しない
  * ・他人のプレイヤーの位置は NetworkTransform(Authority Mode: Owner) が同期する
  * ・移動の流れ
  *   1. Update       : 入力を読み取り、視点(yaw/pitch)を更新する
@@ -86,24 +87,17 @@ public class CS_Player : NetworkBehaviour
 
     // 書き込みはサーバーのみ(NetworkVariableのデフォルト)。CS_PlayerSpawnerがスポーン前に割り当てる
     private readonly NetworkVariable<int> _playerNumber = new NetworkVariable<int>();
+    // 書き込みはサーバーのみ。CS_NpcSpawnerがスポーン前に設定する
+    private readonly NetworkVariable<bool> _isNpc = new NetworkVariable<bool>();
 
     private Rigidbody _rigidbody;
     private CapsuleCollider _collider;
     private CS_PlayerHealth _health;
     private CS_PlayerStats _stats;
 
-    private InputAction _moveAction;
-    private InputAction _mouseLookAction;
-    private InputAction _stickLookAction;
-    private InputAction _attackAction;
-    private InputAction _jumpAction;
-    private InputAction _specialAction;
-    private InputAction _specialModifierAction;  // 必殺技のゲームパッド用コード(RT+LT)のLT側。攻撃(RT)との同時押しを判別するために使う
-    private InputAction _dashAction;    // ダッシュボタン
-    private InputAction _useItemAction; // アイテム使用ボタン(CS_PlayerItemSlotが使う)
-    private InputAction _transformationAction;  // 変身ボタン(CS_PlayerTransformationが使う)
+    private IPlayerInputSource _input;  // 入力の出どころ(このマシンで動かす間だけ持つ)
 
-    private bool _isControlled;     // このプレイヤーを自分が操作するか
+    private bool _isControlled;     // このプレイヤーをこのマシンで動かすか
     private Vector2 _moveInput;
     private bool _jumpRequested;    // Updateで押下を検知し、FixedUpdateで消費する
     private float _yaw;
@@ -115,19 +109,18 @@ public class CS_Player : NetworkBehaviour
     private Vector3 _dashDirection;
     private bool _isSprinting;      // ダッシュ後、ダッシュボタンを押し続けている間か
 
-    public bool isControlled => _isControlled;          // このプレイヤーを自分が操作しているか
+    public bool isControlled => _isControlled;          // このプレイヤーをこのマシンで動かしているか
     public bool canAct => _isControlled && !_health.isDead;   // 移動・攻撃してよいか(CS_PlayerAttackも参照)
-    public InputAction attackAction => _attackAction;   // 攻撃ボタン(CS_PlayerAttackが使う)
-    public InputAction specialAction => _specialAction; // 必殺技ボタン(CS_PlayerSpecialAttackが使う)
+    public IPlayerInputSource input => _input;          // 入力の出どころ(各操作のコンポーネントが使う。動かしていない間はnull)
     // 必殺技コード(RT+LT)のLT側が押されているか(CS_PlayerAttackが、RT+LT同時押し時に攻撃を誤発動させないため参照する)
-    public bool isSpecialModifierHeld => _specialModifierAction != null && _specialModifierAction.IsPressed();
-    public InputAction dashAction => _dashAction;       // ダッシュボタン
+    public bool isSpecialModifierHeld => _input != null && _input.specialModifierHeld;
     public float dashDuration => _dashDuration;         // ダッシュが続く時間(秒、見た目のモーション速度合わせに使う)
-    public InputAction useItemAction => _useItemAction; // アイテム使用ボタン(CS_PlayerItemSlotが使う)
-    public InputAction transformationAction => _transformationAction;  // 変身ボタン(CS_PlayerTransformationが使う)
     public bool isGrounded => IsGrounded();             // 接地しているか(全クライアントで判定できる。見た目用にも使う)
     public bool isSprinting => _isSprinting;            // ダッシュ後、ボタンを押し続けて速くなっているか(見た目用)
     public int playerNumber => _playerNumber.Value;     // 何番目のプレイヤーか(0〜3。HP UIなど画面上の表示先を決めるのに使う)
+    public bool isNpc => _isNpc.Value;                  // NPCか(表示名やリザルトでの判別用)
+    public bool isLocalHuman => _isControlled && !_isNpc.Value;    // このマシンで人が操作しているプレイヤーか(ミニマップの中心などに使う)
+    public float yaw => _yaw;                           // 視点の左右の向き(度)。移動入力はこの向き基準
 
     // 何番目のプレイヤーかを割り当てる(CS_PlayerSpawnerが、スポーンする前に呼ぶ)
     public void AssignPlayerNumber(int number)
@@ -135,6 +128,14 @@ public class CS_Player : NetworkBehaviour
         if (IsSpawned && !IsServer) return;
 
         _playerNumber.Value = number;
+    }
+
+    // NPCとして扱う(CS_NpcSpawnerが、スポーンする前に呼ぶ)
+    public void AssignAsNpc()
+    {
+        if (IsSpawned && !IsServer) return;
+
+        _isNpc.Value = true;
     }
 
     // 操作しているクライアントでだけ発生する。見た目(CS_PlayerVisual)など、ゲームロジックの外から購読する
@@ -159,11 +160,30 @@ public class CS_Player : NetworkBehaviour
         if (_isControlled || IsSpawned) return;
         if (NetworkManager.Singleton != null && NetworkManager.Singleton.IsListening) return;
 
+        if (_isNpc.Value)
+        {
+            SetupAsNpc();
+            return;
+        }
+
         SetupAsLocalPlayer();
     }
 
     public override void OnNetworkSpawn()
     {
+        // NPCはサーバーだけが動かす
+        if (_isNpc.Value)
+        {
+            if (IsServer)
+            {
+                SetupAsNpc();
+                return;
+            }
+
+            SetupAsRemotePlayer();
+            return;
+        }
+
         // 他人のプレイヤーは入力もカメラも不要
         if (!IsOwner)
         {
@@ -176,12 +196,12 @@ public class CS_Player : NetworkBehaviour
 
     public override void OnNetworkDespawn()
     {
-        ReleaseLocalPlayer();
+        ReleaseControl();
     }
 
     public override void OnDestroy()
     {
-        ReleaseLocalPlayer();
+        ReleaseControl();
         base.OnDestroy();
     }
 
@@ -192,18 +212,18 @@ public class CS_Player : NetworkBehaviour
         ReadInput();
 
         // ジャンプ・ダッシュは死亡中に予約されても復帰後に発動しないよう、ここでもcanActを見る
-        if (canAct && _jumpAction.WasPressedThisFrame())
+        if (canAct && _input.jumpPressed)
         {
             _jumpRequested = true;
         }
 
-        if (canAct && !_isDashing && _dashCooldownRemaining <= 0f && _dashAction.WasPressedThisFrame())
+        if (canAct && !_isDashing && _dashCooldownRemaining <= 0f && _input.dashPressed)
         {
             StartDash();
         }
 
         // ダッシュ中でない間にダッシュボタンを押し続けていればスプリント(ZZZのような挙動。クールタイムとは無関係)
-        _isSprinting = canAct && !_isDashing && _dashAction.IsPressed();
+        _isSprinting = canAct && !_isDashing && _input.dashHeld;
     }
 
     private void FixedUpdate()
@@ -242,7 +262,7 @@ public class CS_Player : NetworkBehaviour
 
     private void LateUpdate()
     {
-        if (!_isControlled) return;
+        if (!isLocalHuman) return;
 
         UpdateCameraTransform();
     }
@@ -251,7 +271,7 @@ public class CS_Player : NetworkBehaviour
     private void SetupAsLocalPlayer()
     {
         _isControlled = true;
-        BindInputActions();
+        _input = new CS_PlayerInputActions(_mouseSensitivity, _stickSensitivity);
 
         // カメラ追従のガタつきを防ぐ
         _rigidbody.interpolation = RigidbodyInterpolation.Interpolate;
@@ -263,19 +283,37 @@ public class CS_Player : NetworkBehaviour
         Cursor.visible = false;
     }
 
-    // 自分のプレイヤーの後片付け(入力参照の解放、カーソル解除)
-    // ※ CS_CustomInputActionManagerは共有のシングルトンなので、Disable/Disposeはしない
-    private void ReleaseLocalPlayer()
+    // NPCの初期化(入力はNPCの頭脳から受け取る。カメラは使わない)
+    private void SetupAsNpc()
+    {
+        _input = GetComponent<IPlayerInputSource>();
+        if (_input == null)
+        {
+            Debug.LogError("CS_Player: NPCに入力の出どころ(IPlayerInputSource)が付いていません", this);
+            return;
+        }
+
+        _isControlled = true;
+        _yaw = transform.eulerAngles.y;
+        DisableCameras();
+    }
+
+    // 動かしていたプレイヤーの後片付け(入力参照の解放、カーソル解除)
+    private void ReleaseControl()
     {
         if (!_isControlled) return;
 
+        bool wasLocalHuman = isLocalHuman;
+
         _isControlled = false;
+        _input = null;
         _moveInput = Vector2.zero;
         _jumpRequested = false;
         _isDashing = false;
         _dashCooldownRemaining = 0f;
         _isSprinting = false;
-        UnbindInputActions();
+
+        if (!wasLocalHuman) return;
 
         Cursor.lockState = CursorLockMode.None;
         Cursor.visible = true;
@@ -286,9 +324,13 @@ public class CS_Player : NetworkBehaviour
     {
         // 位置はNetworkTransformが更新するので、物理で動かさない
         _rigidbody.isKinematic = true;
+        DisableCameras();
+    }
 
-        // カメラとAudioListenerが複数有効になるのを防ぐ
-        // (CinemachineCameraも消す。残すと、自分のBrainが他人のCinemachineCameraを選んでしまう)
+    // カメラとAudioListenerが複数有効になるのを防ぐ(他人のプレイヤー、NPC)
+    // (CinemachineCameraも消す。残すと、自分のBrainが他人のCinemachineCameraを選んでしまう)
+    private void DisableCameras()
+    {
         if (_cameraTransform != null)
         {
             _cameraTransform.gameObject.SetActive(false);
@@ -300,49 +342,12 @@ public class CS_Player : NetworkBehaviour
         }
     }
 
-    // CS_CustomInputActionManagerが持つ各アクションの参照を取得する
-    private void BindInputActions()
-    {
-        CustomInputAction.PlayerActions player = CS_CustomInputActionManager.instance.customInputAction.Player;
-
-        _moveAction = player.Move;
-        _mouseLookAction = player.Look;
-        _stickLookAction = player.LookStick;
-        _attackAction = player.Attack;
-        _jumpAction = player.Jump;
-        _specialAction = player.Special;
-        _specialModifierAction = player.SpecialModifier;
-        _dashAction = player.Dash;
-        _useItemAction = player.UseItem;
-        _transformationAction = player.Transformation;
-    }
-
-    // アクションへの参照を外す(アクション自体は共有のシングルトンが持ち続ける)
-    private void UnbindInputActions()
-    {
-        _moveAction = null;
-        _mouseLookAction = null;
-        _stickLookAction = null;
-        _attackAction = null;
-        _jumpAction = null;
-        _specialAction = null;
-        _specialModifierAction = null;
-        _dashAction = null;
-        _useItemAction = null;
-        _transformationAction = null;
-    }
-
     // 入力を読み取り、移動入力と視点(yaw/pitch)を更新する
     private void ReadInput()
     {
-        _moveInput = _moveAction.ReadValue<Vector2>();
+        _moveInput = _input.move;
 
-        // マウスは「1フレームの移動量」なのでdeltaTimeを掛けない
-        // スティックは「傾き」なので速度として扱いdeltaTimeを掛ける
-        Vector2 mouseLook = _mouseLookAction.ReadValue<Vector2>() * _mouseSensitivity;
-        Vector2 stickLook = _stickLookAction.ReadValue<Vector2>() * _stickSensitivity * Time.deltaTime;
-        Vector2 look = mouseLook + stickLook;
-
+        Vector2 look = _input.look;
         _yaw += look.x;
         _pitch = Mathf.Clamp(_pitch - look.y, _minPitch, _maxPitch);
     }

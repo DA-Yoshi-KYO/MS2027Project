@@ -13,7 +13,7 @@ using UnityEngine.AI;
 /// <summary>
 /// 警察1人の行動を判断するクラス
 /// 一定間隔で状況を判断し、CS_PoliceMove(移動)とCS_PoliceAttack(攻撃)に指示を出す
-/// 判断の優先順位: 標的が見えている(追跡・攻撃) > 駆け付け > 探索 > 巡回
+/// 判断の優先順位: 標的が見えている(追跡・攻撃) > 駆け付け > 探索 > 巡回・待機(所属先が決める)
 /// </summary>
 [RequireComponent(typeof(CS_PoliceMove))]
 [RequireComponent(typeof(CS_PoliceVision))]
@@ -24,8 +24,8 @@ public class CS_PoliceBrain : MonoBehaviour
     private CS_PoliceVision _vision = null;
     private CS_PoliceAttack _attack = null;
 
-    // 所属しているグループ
-    private CS_PoliceSquad _squad = null;
+    // 所属先(巡回するグループ、または手配度で出現した増援のまとまり)
+    private IPoliceGroup _group = null;
 
     // 現在の行動状態
     private CSE_PoliceMoveState _state = CSE_PoliceMoveState.Patrol;
@@ -81,12 +81,12 @@ public class CS_PoliceBrain : MonoBehaviour
     /// <summary>
     /// 警察の行動に関する初期化メソッド
     /// </summary>
-    /// <param name="squad">所属するグループ</param>
+    /// <param name="group">所属先</param>
     /// <param name="speedTable">警察の移動状態に応じた速度を格納した辞書</param>
     /// <param name="status">警察のステータス</param>
-    public void Setting(CS_PoliceSquad squad, Dictionary<CSE_PoliceMoveState, float> speedTable, CSO_PoliceStatus status)
+    public void Setting(IPoliceGroup group, Dictionary<CSE_PoliceMoveState, float> speedTable, CSO_PoliceStatus status)
     {
-        _squad = squad;
+        _group = group;
         _move.Setting(speedTable);
         _vision.Setting(status.viewAngle, status.viewDistance);
         _attack.Setting(status.attackPower);
@@ -157,8 +157,8 @@ public class CS_PoliceBrain : MonoBehaviour
             return;
         }
 
-        // 4. どれでもなければ巡回する
-        Patrol();
+        // 4. どれでもなければ、所属先に合わせて巡回・待機する
+        MoveIdle();
     }
 
     /// <summary>
@@ -168,10 +168,10 @@ public class CS_PoliceBrain : MonoBehaviour
     private Transform FindTarget()
     {
         Transform ownTarget = _vision.FindTarget(_currentTarget, out int ownPriority);
-        if (ownTarget != null) _squad.ReportTarget(ownTarget, ownPriority);
+        if (ownTarget != null) _group.ReportTarget(ownTarget, ownPriority);
 
         // 自分には見えていなくても、仲間が見つけた標的の方が優先度が高ければそちらを追う
-        Transform sharedTarget = _squad.GetSharedTarget(out int sharedPriority);
+        Transform sharedTarget = _group.GetSharedTarget(out int sharedPriority);
         if (sharedTarget != null && sharedPriority > ownPriority) return sharedTarget;
 
         return ownTarget != null ? ownTarget : sharedTarget;
@@ -220,7 +220,7 @@ public class CS_PoliceBrain : MonoBehaviour
     }
 
     /// <summary>
-    /// 探索場所に着いてから一定時間経ったら、巡回に戻るメソッド
+    /// 探索場所に着いてから一定時間経ったら、巡回・待機に戻るメソッド
     /// </summary>
     private void UpdateSearch()
     {
@@ -229,28 +229,19 @@ public class CS_PoliceBrain : MonoBehaviour
         _searchTimer -= _thinkInterval;
         if (_searchTimer > 0.0f) return;
 
-        Patrol();
+        MoveIdle();
     }
 
     /// <summary>
-    /// グループの巡回ルート(先頭以外は隊列の位置)に沿って移動するメソッド
+    /// 所属先に合わせて巡回・待機するメソッド(巡回するグループなら巡回ルート、増援ならその場で待機)
     /// </summary>
-    private void Patrol()
+    private void MoveIdle()
     {
-        _state = CSE_PoliceMoveState.Patrol;
-        _move.SetDestination(_squad.GetPatrolDestination(this), CSE_PoliceMoveState.Patrol);
-
-        // 先頭の警察は巡回ポイントの少し手前で次のポイントへ向かい直す
-        // (ポイントで減速して止まると、後ろの警察が追い付いてぶつかるため)
-        if (_squad.IsLeader(this) && _move.IsNearDestination(_squad.patrolPointPassDistance))
-        {
-            _squad.AdvancePatrolPoint();
-            _move.SetDestination(_squad.GetPatrolDestination(this), CSE_PoliceMoveState.Patrol);
-        }
+        _state = _group.MoveIdle(this, _move);
     }
 
     /// <summary>
-    /// 異常事態(詰まり・巡回ルートに戻れない)を検知したら、グループに再スポーンを依頼するメソッド
+    /// 異常事態(詰まり・巡回ルートに戻れない)を検知したら、所属先に再スポーンを依頼するメソッド
     /// </summary>
     private void CheckAbnormal()
     {
@@ -258,10 +249,10 @@ public class CS_PoliceBrain : MonoBehaviour
 
         // 巡回ルートにたどり着けるかは、ルートを直接目指す先頭の警察だけが判定する
         // (後ろの警察の目的地は隊列の位置なので、たどり着けなくても異常ではない)
-        bool cannotReturnToRoute = _state == CSE_PoliceMoveState.Patrol && _squad.IsLeader(this) && _move.isPathUnreachable;
+        bool cannotReturnToRoute = _state == CSE_PoliceMoveState.Patrol && _group.IsLeader(this) && _move.isPathUnreachable;
         if (!_move.isStuck && !cannotReturnToRoute) return;
 
         _hasReportedAbnormal = true;
-        _squad.RequestRespawn(this);
+        _group.RequestRespawn(this);
     }
 }

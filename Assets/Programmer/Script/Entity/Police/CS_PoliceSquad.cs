@@ -22,7 +22,7 @@ using UnityEngine.AI;
 /// 出現と判断はサーバー(またはオフライン)だけで行う
 /// 巡回ルートのScene上の表示はCSED_PoliceSquadGizmoが行う
 /// </summary>
-public class CS_PoliceSquad : MonoBehaviour
+public class CS_PoliceSquad : MonoBehaviour, IPoliceGroup
 {
     // 出現中の全グループ(事件の通知を全グループに届けるため)
     private static readonly List<CS_PoliceSquad> _activeSquads = new List<CS_PoliceSquad>();
@@ -100,9 +100,6 @@ public class CS_PoliceSquad : MonoBehaviour
     [SerializeField, Min(0f)]
     [Tooltip("メンバーが見つけた標的を、見えなくなってからも共有し続ける時間(秒)")]
     private float _shareDuration = 0.5f;
-
-    // 先頭の警察が巡回ポイントを通過したとみなす距離
-    public float patrolPointPassDistance => _patrolPointPassDistance;
 
     // 巡回ルートの表示用(CSED_PoliceSquadGizmoが参照する)
     public IReadOnlyList<Transform> patrolPoints => _patrolPoints;
@@ -191,12 +188,33 @@ public class CS_PoliceSquad : MonoBehaviour
     }
 
     /// <summary>
+    /// グループの巡回ルート(先頭以外は隊列の位置)に沿って移動させるメソッド
+    /// </summary>
+    /// <param name="member">巡回させるメンバー</param>
+    /// <param name="move">メンバーの移動</param>
+    /// <returns>メンバーの状態(巡回)</returns>
+    public CSE_PoliceMoveState MoveIdle(CS_PoliceBrain member, CS_PoliceMove move)
+    {
+        move.SetDestination(GetPatrolDestination(member), CSE_PoliceMoveState.Patrol);
+
+        // 先頭の警察は巡回ポイントの少し手前で次のポイントへ向かい直す
+        // (ポイントで減速して止まると、後ろの警察が追い付いてぶつかるため)
+        if (IsLeader(member) && move.IsNearDestination(_patrolPointPassDistance))
+        {
+            AdvancePatrolPoint();
+            move.SetDestination(GetPatrolDestination(member), CSE_PoliceMoveState.Patrol);
+        }
+
+        return CSE_PoliceMoveState.Patrol;
+    }
+
+    /// <summary>
     /// 巡回中のメンバーが目指す位置を取得するメソッド
     /// 先頭は巡回ポイント、それ以外は先頭の通った道筋を一定間隔あけてたどった位置を目指す
     /// </summary>
     /// <param name="member">巡回中のメンバー</param>
     /// <returns>目指す位置</returns>
-    public Vector3 GetPatrolDestination(CS_PoliceBrain member)
+    private Vector3 GetPatrolDestination(CS_PoliceBrain member)
     {
         int slot = _members.IndexOf(member);
         if (slot > 0)
@@ -214,7 +232,7 @@ public class CS_PoliceSquad : MonoBehaviour
     /// <summary>
     /// 次の巡回ポイントへ進めるメソッド(先頭のメンバーが巡回ポイントを通過した時に呼ぶ)
     /// </summary>
-    public void AdvancePatrolPoint()
+    private void AdvancePatrolPoint()
     {
         if (_patrolPoints.Length == 0) return;
 
@@ -250,7 +268,7 @@ public class CS_PoliceSquad : MonoBehaviour
         int slot = _members.IndexOf(member);
         if (slot < 0) return;
 
-        DespawnMember(member);
+        CS_PoliceSpawnUtility.Despawn(member.gameObject);
         _members[slot] = SpawnMember(slot);
 
         // 先頭が出し直された場合、前の先頭の道筋は使えないので記録し直す
@@ -330,37 +348,14 @@ public class CS_PoliceSquad : MonoBehaviour
     {
         // 同じ位置に重ならないよう、出現位置を横にずらす
         Vector3 position = _spawnPoint.position + _spawnPoint.right * ((slot - 1) * _formationSpacing);
-        CS_PoliceBrain member = Instantiate(_policePrefab, position, _spawnPoint.rotation);
+        CS_PoliceBrain member = CS_PoliceSpawnUtility.Spawn(_policePrefab, position, _spawnPoint.rotation);
 
         // ぶつかった時は後ろの警察が道を譲るよう、先頭ほど回避の優先度を高くする
         member.GetComponent<NavMeshAgent>().avoidancePriority = _leaderAvoidancePriority + slot;
 
-        // ネットワーク接続中は、クライアントにも出現させる
-        if (NetworkManager.Singleton != null && NetworkManager.Singleton.IsServer
-            && member.TryGetComponent(out NetworkObject networkObject))
-        {
-            networkObject.Spawn(true);
-        }
-
         CSO_PoliceStatus status = _memberStatuses[slot];
         member.Setting(this, CreateSpeedTable(status), status);
         return member;
-    }
-
-    /// <summary>
-    /// メンバーを消すメソッド
-    /// </summary>
-    /// <param name="member">消すメンバー</param>
-    private void DespawnMember(CS_PoliceBrain member)
-    {
-        // ネットワークに出現済みなら、クライアント側も含めて消す
-        if (member.TryGetComponent(out NetworkObject networkObject) && networkObject.IsSpawned)
-        {
-            networkObject.Despawn(true);
-            return;
-        }
-
-        Destroy(member.gameObject);
     }
 
     /// <summary>

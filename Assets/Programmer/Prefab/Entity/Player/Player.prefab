@@ -4865,6 +4865,7 @@ GameObject:
   - component: {fileID: 1551694478834558629}
   - component: {fileID: 216742350355605707}
   - component: {fileID: 8888284080912326668}
+  - component: {fileID: -4510307253191130015}
   m_Layer: 31
   m_Name: Player
   m_TagString: PlayerNoTransformation
@@ -5172,6 +5173,9 @@ MonoBehaviour:
   _transformDuration: 5
   _cooldown: 5
   _policeNotifyInterval: 10
+  _policeNotifyShortenTime: 20
+  _policeNotifyShortenAmount: 2
+  _policeNotifyMinInterval: 2
 --- !u!114 &4417805521937715263
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -5310,6 +5314,22 @@ MonoBehaviour:
   _crimeCompletedPenalty: 20
   _killedByPolicePenalty: 50
   _defeatPlayerScore: 0
+--- !u!114 &-4510307253191130015
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1825699444668748530}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 208e51ca32fa30a4085ff29301c37eb2, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CS_PlayerWantedLevel
+  ShowTopMostFoldoutHeaderGroup: 1
+  _maxLevel: 5
+  _crimeCompletedIncrease: 1
+  _decreaseInterval: 2
 --- !u!1 &3298430547158640491
 GameObject:
   m_ObjectHideFlags: 0

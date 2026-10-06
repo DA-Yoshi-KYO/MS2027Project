@@ -20,8 +20,15 @@ using UnityEngine;
  * ・解除してから_cooldown秒(既定5秒)経つまで再変身できない
  * ・タグは変身が完了した時に切り替える(変身途中はまだ通常のタグ)
  *   通常・変身途中: PlayerNoTransformation / 変身完了: PlayerTransformation
- * ・変身完了中は、変身が完了した瞬間から_policeNotifyInterval秒(既定10秒)ごとに、
- *   現在地をCS_PoliceSquad.NotifyIncidentで警察へ知らせる(警備エリア内なら、そのグループが駆け付ける)
+ * ・変身完了中は、一定間隔で現在地をCS_PoliceSquad.NotifyIncidentで警察へ知らせる(警備エリア内なら、そのグループが駆け付ける)
+ *   間隔は変身を続けるほど短くなる(仕様書「変形のリスク」、データ表「プレイヤーデータ」)
+ *     間隔 = 初期信号間隔(_policeNotifyInterval、既定10秒)
+ *          - 短縮時間(_policeNotifyShortenAmount、既定2秒) × (変身完了からの経過時間 ÷ 間隔短縮時間(_policeNotifyShortenTime、既定20秒) の切り捨て)
+ *     例: 変身完了から0〜20秒は10秒おき → 20〜40秒は8秒おき → 40〜60秒は6秒おき…
+ *   最短間隔(_policeNotifyMinInterval)より短くはしない(データ表の値だと100秒で0秒になるため。値はプランナーに確認中の仮)
+ *   次の信号の間隔は、信号を出した時点の経過時間で決める。解除して再変身すると、また初期信号間隔から始まる
+ *   間隔が短くなった瞬間にonPoliceNotifyIntervalShortenedを発生させる(手配度 CS_PlayerWantedLevel が+1する)
+ *   (最短間隔に達した後は、それ以上短くならないので発生しない)
  *   変身が完了した瞬間そのものは、警察側(CS_PoliceTransformationWatcher)がタグの変化で検知している
  * ・状態と各時刻はNetworkVariableで持つ(書き込みはサーバーのみ、読み取りは全員可)
  *   流れ: Ownerがボタンを押す → サーバーへ依頼(RPC) → サーバーが条件を確認して確定 → 全員のタグが切り替わる
@@ -42,7 +49,10 @@ public class CS_PlayerTransformation : NetworkBehaviour
     [SerializeField] private float _cooldown = 5f;              // 解除してから再変身できるまでの時間(秒)
 
     [Header("警察への通知")]
-    [SerializeField] private float _policeNotifyInterval = 10f; // 変身完了中に現在地を警察へ知らせる間隔(秒)
+    [SerializeField] private float _policeNotifyInterval = 10f;         // 初期信号間隔: 変身完了直後に現在地を警察へ知らせる間隔(秒)
+    [SerializeField] private float _policeNotifyShortenTime = 20f;      // 間隔短縮時間: 変身を続けてこの秒数が経つごとに間隔を短くする(秒)
+    [SerializeField] private float _policeNotifyShortenAmount = 2f;     // 短縮時間: 1回で短くする量(秒)
+    [SerializeField] private float _policeNotifyMinInterval = 2f;       // 最短の間隔(秒)。プランナーに確認中の仮の値
 
     private const string _normalTag = "PlayerNoTransformation";
     private const string _transformedTag = "PlayerTransformation";
@@ -53,6 +63,8 @@ public class CS_PlayerTransformation : NetworkBehaviour
     private CS_PlayerSpecialAttack _specialAttack;
 
     private double _nextPoliceNotifyTime;   // 次に警察へ知らせる時刻(サーバー、またはオフラインのみ使う)
+    private double _transformedTime;        // 変身が完了した時刻(サーバー、またはオフラインのみ使う)
+    private float _currentPoliceNotifyInterval;     // 今の信号の間隔(サーバー、またはオフラインのみ使う)
 
     // 書き込みはサーバーのみ(NetworkVariableのデフォルト)。読み取りは全員可
     private readonly NetworkVariable<CSE_PlayerTransformState> _state = new NetworkVariable<CSE_PlayerTransformState>();
@@ -68,6 +80,7 @@ public class CS_PlayerTransformation : NetworkBehaviour
     public bool canTransform => _state.Value == CSE_PlayerTransformState.Normal && cooldownRemaining <= 0f;
 
     public event Action<CSE_PlayerTransformState> onStateChanged;   // 見た目・HUD用
+    public event Action onPoliceNotifyIntervalShortened;  // 変身を続けて信号の間隔が短くなった時(サーバー、またはオフラインのみ)。手配度用
 
     private void Awake()
     {
@@ -116,6 +129,7 @@ public class CS_PlayerTransformation : NetworkBehaviour
         if (!IsSpawned || IsServer)
         {
             UpdateTransforming();
+            UpdatePoliceNotifyInterval();
             UpdatePoliceNotify();
         }
 
@@ -198,18 +212,42 @@ public class CS_PlayerTransformation : NetworkBehaviour
         if (GetCurrentTime() < _transformEndTime.Value) return;
 
         _health.SetInvincible(this, false);
-        _nextPoliceNotifyTime = GetCurrentTime() + _policeNotifyInterval;
+        _transformedTime = GetCurrentTime();
+        _currentPoliceNotifyInterval = GetPoliceNotifyInterval(0f);
+        _nextPoliceNotifyTime = _transformedTime + GetPoliceNotifyInterval(0f);
         SetState(CSE_PlayerTransformState.Transformed);
     }
 
-    // 変身完了中は、一定間隔で現在地を警察へ知らせる(サーバー、またはオフラインのみ)
+    // 変身を続けて信号の間隔が短くなったら知らせる(サーバー、またはオフラインのみ)
+    private void UpdatePoliceNotifyInterval()
+    {
+        if (!isTransformed) return;
+
+        float interval = GetPoliceNotifyInterval((float)(GetCurrentTime() - _transformedTime));
+        if (interval >= _currentPoliceNotifyInterval) return;
+
+        _currentPoliceNotifyInterval = interval;
+        onPoliceNotifyIntervalShortened?.Invoke();
+    }
+
+    // 変身完了中は、変身を続けるほど短くなる間隔で、現在地を警察へ知らせる(サーバー、またはオフラインのみ)
     private void UpdatePoliceNotify()
     {
         if (!isTransformed) return;
         if (GetCurrentTime() < _nextPoliceNotifyTime) return;
 
-        _nextPoliceNotifyTime += _policeNotifyInterval;
+        // 次の間隔は、この信号を出した時点の経過時間で決める
+        float elapsed = (float)(_nextPoliceNotifyTime - _transformedTime);
+        _nextPoliceNotifyTime += GetPoliceNotifyInterval(elapsed);
         CS_PoliceSquad.NotifyIncident(transform.position);
+    }
+
+    // 変身完了からの経過時間に応じた信号の間隔(間隔短縮時間ごとに短縮時間だけ短くなる。最短間隔より短くしない)
+    private float GetPoliceNotifyInterval(float elapsed)
+    {
+        int shortenCount = _policeNotifyShortenTime > 0f ? Mathf.FloorToInt(elapsed / _policeNotifyShortenTime) : 0;
+        float interval = _policeNotifyInterval - _policeNotifyShortenAmount * shortenCount;
+        return Mathf.Max(_policeNotifyMinInterval, interval);
     }
 
     // 変身を解除し、クールタイムを開始する(サーバー、またはオフラインで実行される)
@@ -260,6 +298,15 @@ public class CS_PlayerTransformation : NetworkBehaviour
     private bool IsPerformingSpecial()
     {
         return _specialAttack != null && _specialAttack.isPerformingSpecial;
+    }
+
+    // Inspectorで調整した値が不正にならないようにする(最短間隔が0以下だと、毎フレーム信号を出してしまうため)
+    private void OnValidate()
+    {
+        _policeNotifyMinInterval = Mathf.Max(0.1f, _policeNotifyMinInterval);
+        _policeNotifyInterval = Mathf.Max(_policeNotifyMinInterval, _policeNotifyInterval);
+        _policeNotifyShortenTime = Mathf.Max(0f, _policeNotifyShortenTime);
+        _policeNotifyShortenAmount = Mathf.Max(0f, _policeNotifyShortenAmount);
     }
 
     // 各時刻の基準(オンラインはサーバー時刻で揃える)

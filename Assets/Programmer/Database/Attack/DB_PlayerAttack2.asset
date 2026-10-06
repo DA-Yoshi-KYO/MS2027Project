@@ -12,10 +12,11 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 9c3c863a4a5235446bd428dcf73d38be, type: 3}
   m_Name: DB_PlayerAttack2
   m_EditorClassIdentifier: 
-  _damage: 14
+  _damage: 1
   _hitDelay: 0.15
-  _duration: 0.40
-  _comboWindow: 0.50
+  _duration: 0.4
+  _comboWindow: 0.5
   _hitRange: 1.2
   _hitRadius: 0.9
+  _gaugeGain: 10
   _cameraShakeForce: 0.1

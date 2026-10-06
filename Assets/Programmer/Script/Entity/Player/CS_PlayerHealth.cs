@@ -26,6 +26,8 @@ using UnityEngine;
  *   ダメージ処理はサーバーだけで行うため、無敵の状態もサーバー(またはオフライン)だけが持つ
  * ・被弾すると(致死でなければ)、_postDamageInvincibleDuration秒(既定3秒、Inspectorで調整可能)だけ無敵になる
  *   (無敵中は上記の通りダメージを受けないため、この無敵は連続ヒットでは再スタートしない)
+ * ・最後にダメージを与えた相手(lastAttacker)を覚えておく。倒された時のスコア計算(CS_PlayerScoring)で使う
+ *   攻撃者付きのTakeDamage(damage, attacker)で受けた時だけ分かる(攻撃者無しで受けた場合はnullになる)
  * ・オフライン(NetworkManagerが動いていない)のテストシーンでも単体で動く
  */
 // ========================================
@@ -46,11 +48,13 @@ public class CS_PlayerHealth : NetworkBehaviour, IDamageable, IHealable
     private readonly HashSet<object> _invincibleSources = new HashSet<object>();   // 無敵にしている要因(サーバー、またはオフラインでのみ意味を持つ)
     private readonly object _postDamageInvincibleSource = new object();          // 被弾後無敵の要因キー(このクラス専用)
     private Coroutine _postDamageInvincibleCoroutine;
+    private GameObject _lastAttacker;      // 最後にダメージを与えた相手(サーバー、またはオフラインでのみ意味を持つ)
 
     public float maxHp => _stats.maxHp;
     public float currentHp => _currentHp.Value;
     public bool isDead => _isDead.Value;
     public bool isInvincible => _invincibleSources.Count > 0;
+    public GameObject lastAttacker => _lastAttacker;    // 最後にダメージを与えた相手(分からなければnull)
 
     public event Action<float, float> onHpChanged;   // (current, max)
     public event Action onDeath;
@@ -91,12 +95,19 @@ public class CS_PlayerHealth : NetworkBehaviour, IDamageable, IHealable
     // IDamageable実装。攻撃側から呼ばれる(サーバー、またはオフラインで実行される想定)
     public void TakeDamage(float damage)
     {
+        TakeDamage(damage, null);
+    }
+
+    // IDamageable実装(攻撃者付き)。攻撃者はlastAttackerとして覚えておく
+    public void TakeDamage(float damage, GameObject attacker)
+    {
         // ネットワーク時はサーバーのみが処理する(オフラインはそのまま通す)
         if (IsSpawned && !IsServer) return;
         if (_isDead.Value) return;
         if (isInvincible) return;
         if (damage <= 0f) return;
 
+        _lastAttacker = attacker;
         _currentHp.Value = Mathf.Max(0f, _currentHp.Value - damage);
 
         bool justDied = _currentHp.Value <= 0f;

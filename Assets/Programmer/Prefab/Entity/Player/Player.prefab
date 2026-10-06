@@ -4863,6 +4863,8 @@ GameObject:
   - component: {fileID: 1037734796444213086}
   - component: {fileID: 6073959917913869111}
   - component: {fileID: 1551694478834558629}
+  - component: {fileID: 216742350355605707}
+  - component: {fileID: 8888284080912326668}
   m_Layer: 31
   m_Name: Player
   m_TagString: PlayerNoTransformation
@@ -5276,6 +5278,38 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::CS_PlayerMiniMapIcon
   ShowTopMostFoldoutHeaderGroup: 1
+--- !u!114 &216742350355605707
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1825699444668748530}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4460631366c2801429f12e5bad52db8c, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CS_PlayerResultDataHolder
+  ShowTopMostFoldoutHeaderGroup: 1
+--- !u!114 &8888284080912326668
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1825699444668748530}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d86f0db0b2a85b947afa2a701a3553ca, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CS_PlayerScoring
+  ShowTopMostFoldoutHeaderGroup: 1
+  _defaultVillainScore: 100
+  _bonusStartCount: 5
+  _bonusStep: 0.2
+  _crimeCompletedPenalty: 20
+  _killedByPolicePenalty: 50
+  _defeatPlayerScore: 0
 --- !u!1 &3298430547158640491
 GameObject:
   m_ObjectHideFlags: 0

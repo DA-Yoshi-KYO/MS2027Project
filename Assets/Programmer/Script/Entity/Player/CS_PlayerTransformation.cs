@@ -27,6 +27,8 @@ using UnityEngine;
  *     例: 変身完了から0〜20秒は10秒おき → 20〜40秒は8秒おき → 40〜60秒は6秒おき…
  *   最短間隔(_policeNotifyMinInterval)より短くはしない(データ表の値だと100秒で0秒になるため。値はプランナーに確認中の仮)
  *   次の信号の間隔は、信号を出した時点の経過時間で決める。解除して再変身すると、また初期信号間隔から始まる
+ *   間隔が短くなった瞬間にonPoliceNotifyIntervalShortenedを発生させる(手配度 CS_PlayerWantedLevel が+1する)
+ *   (最短間隔に達した後は、それ以上短くならないので発生しない)
  *   変身が完了した瞬間そのものは、警察側(CS_PoliceTransformationWatcher)がタグの変化で検知している
  * ・状態と各時刻はNetworkVariableで持つ(書き込みはサーバーのみ、読み取りは全員可)
  *   流れ: Ownerがボタンを押す → サーバーへ依頼(RPC) → サーバーが条件を確認して確定 → 全員のタグが切り替わる
@@ -62,6 +64,7 @@ public class CS_PlayerTransformation : NetworkBehaviour
 
     private double _nextPoliceNotifyTime;   // 次に警察へ知らせる時刻(サーバー、またはオフラインのみ使う)
     private double _transformedTime;        // 変身が完了した時刻(サーバー、またはオフラインのみ使う)
+    private float _currentPoliceNotifyInterval;     // 今の信号の間隔(サーバー、またはオフラインのみ使う)
 
     // 書き込みはサーバーのみ(NetworkVariableのデフォルト)。読み取りは全員可
     private readonly NetworkVariable<CSE_PlayerTransformState> _state = new NetworkVariable<CSE_PlayerTransformState>();
@@ -77,6 +80,7 @@ public class CS_PlayerTransformation : NetworkBehaviour
     public bool canTransform => _state.Value == CSE_PlayerTransformState.Normal && cooldownRemaining <= 0f;
 
     public event Action<CSE_PlayerTransformState> onStateChanged;   // 見た目・HUD用
+    public event Action onPoliceNotifyIntervalShortened;  // 変身を続けて信号の間隔が短くなった時(サーバー、またはオフラインのみ)。手配度用
 
     private void Awake()
     {
@@ -125,6 +129,7 @@ public class CS_PlayerTransformation : NetworkBehaviour
         if (!IsSpawned || IsServer)
         {
             UpdateTransforming();
+            UpdatePoliceNotifyInterval();
             UpdatePoliceNotify();
         }
 
@@ -208,8 +213,21 @@ public class CS_PlayerTransformation : NetworkBehaviour
 
         _health.SetInvincible(this, false);
         _transformedTime = GetCurrentTime();
+        _currentPoliceNotifyInterval = GetPoliceNotifyInterval(0f);
         _nextPoliceNotifyTime = _transformedTime + GetPoliceNotifyInterval(0f);
         SetState(CSE_PlayerTransformState.Transformed);
+    }
+
+    // 変身を続けて信号の間隔が短くなったら知らせる(サーバー、またはオフラインのみ)
+    private void UpdatePoliceNotifyInterval()
+    {
+        if (!isTransformed) return;
+
+        float interval = GetPoliceNotifyInterval((float)(GetCurrentTime() - _transformedTime));
+        if (interval >= _currentPoliceNotifyInterval) return;
+
+        _currentPoliceNotifyInterval = interval;
+        onPoliceNotifyIntervalShortened?.Invoke();
     }
 
     // 変身完了中は、変身を続けるほど短くなる間隔で、現在地を警察へ知らせる(サーバー、またはオフラインのみ)

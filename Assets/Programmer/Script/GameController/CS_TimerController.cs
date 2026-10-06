@@ -6,19 +6,41 @@
  * 2026-09-25 | 初回作成
  * ================================================ */
 
+using Unity.Netcode;
 using UnityEngine;
 
 /// <summary>
-/// タイマーだけを管理するコントローラー
-/// ・タイマーModelを生成
-/// ・毎フレーム時間を減らす
-/// ・0になったら SceneTransitioner にシーン移動を依頼する
-/// ※ UIはPresenterが自動で拾うので、ここではUIを一切触らない
+/// タイマーを管理するコントローラー
+/// ・サーバーが終了時刻を NetworkVariable で同期する
+/// ・各クライアントは ServerTime から残り時間を計算する（自分で減らさない）
+/// ・オフライン（NetworkManager が動いていないテストシーン）でも単体で動く
+/// ・経過時間・残り時間を外部から取得できる API を持つ
+/// ・時間切れの判定はサーバーだけが行う
 /// </summary>
-public class CS_TimerController : MonoBehaviour
+public class CS_TimerController : NetworkBehaviour
 {
+    // =========================================================
+    // Inspector
+    // =========================================================
+
     [Header("タイマーの最大時間（秒）")]
-    [SerializeField] private float _maxTime = 300f;   // 5分
+    [SerializeField] private float _maxTime = 300f; // 5分（調整可能）
+
+    // =========================================================
+    // NetworkVariable（サーバーが書き込み・全員に同期）
+    // =========================================================
+
+    // ゲームの終了時刻（ServerTime.Time ベース）
+    // サーバーが OnNetworkSpawn で設定する
+    private readonly NetworkVariable<double> _endTime = new NetworkVariable<double>(
+        0,
+        NetworkVariableReadPermission.Everyone,
+        NetworkVariableWritePermission.Server
+    );
+
+    // =========================================================
+    // 内部フィールド
+    // =========================================================
 
     // タイマーのModel（UIはPresenterが自動で拾う）
     private CS_UITimerModel _timerModel;
@@ -26,39 +48,156 @@ public class CS_TimerController : MonoBehaviour
     // シーン遷移担当（同じオブジェクトに付ける前提）
     private CS_SceneTransitioner _sceneTransitioner;
 
+    // 終了フラグ（毎フレームシーン移動しないようにする）
+    private bool _isFinished;
+
+    // オフライン時の残り時間（NetworkManager が動いていない場合に使う）
+    private float _offlineRemainTime;
+
+    // =========================================================
+    // 初期化
+    // =========================================================
+
     void Awake()
     {
-        //タイマーModel生成
+        // タイマーModel生成
         _timerModel = new CS_UITimerModel(_maxTime);
-
-        //初期残り時間を設定
         _timerModel.SetTime(_maxTime);
 
-        //同じオブジェクトに付いている SceneTransitioner を取得
+        // オフライン用の残り時間を初期化
+        _offlineRemainTime = _maxTime;
+
+        // 同じオブジェクトに付いている SceneTransitioner を取得
         _sceneTransitioner = GetComponent<CS_SceneTransitioner>();
 
         if (_sceneTransitioner == null)
         {
-            Debug.LogError("同じオブジェクトに CS_SceneTransitioner が付いていません！");
+            Debug.LogError("[CS_TimerController] 同じオブジェクトに CS_SceneTransitioner が付いていません！");
         }
     }
 
+    /// <summary>
+    /// NetworkBehaviour の OnNetworkSpawn
+    /// サーバーだけ終了時刻を設定する
+    /// </summary>
+    public override void OnNetworkSpawn()
+    {
+        base.OnNetworkSpawn();
+
+        if (IsServer)
+        {
+            // サーバーが終了時刻を設定（全員に同期される）
+            _endTime.Value = GetCurrentTime() + _maxTime;
+            Debug.Log($"[CS_TimerController] 終了時刻をセット : {_endTime.Value}");
+        }
+    }
+
+    // =========================================================
+    // Update
+    // =========================================================
+
     void Update()
     {
-        //毎フレーム時間を減らす
-        float remain = _timerModel.currentTime.CurrentValue - Time.deltaTime;
+        // 終了済みなら何もしない
+        if (_isFinished) return;
+
+        // 残り時間を計算
+        float remain = CalcRemainTime();
+
+        // Model に反映（UI に届く）
         _timerModel.SetTime(remain);
 
-        //0以下になったらシーン移動を依頼
-        if (_timerModel.currentTime.CurrentValue <= 0.0f)
+        // 時間切れ判定（サーバーだけ or オフライン時）
+        if (ShouldCheckFinish() && remain <= 0f)
         {
+            _isFinished = true;
+
+            // =========================================================
+            // TODO: プレイヤー側の実装後に追加
+            // =========================================================
+            // var allResults = new List<CS_ResultData>();
+            // foreach (var player in 全プレイヤーのリスト)
+            // {
+            //     var resultData = player.GetComponent<CS_PlayerResultDataHolder>().resultData;
+            //     allResults.Add(resultData);
+            // }
+            // CS_ResultDataStore.Save(allResults);
+            // =========================================================
+
             _sceneTransitioner.StartTransition();
         }
     }
 
-    void OnDestroy()
+    // =========================================================
+    // 外部 API（経過時間・残り時間を他のシステムから取得できる）
+    // =========================================================
+
+    /// <summary>残り時間を取得する（ランダムイベント・悪人の時間経過で使う）</summary>
+    public float GetRemainTime() => Mathf.Max(0f, CalcRemainTime());
+
+    /// <summary>経過時間を取得する</summary>
+    public float GetElapsedTime() => Mathf.Max(0f, _maxTime - CalcRemainTime());
+
+    // =========================================================
+    // 内部処理
+    // =========================================================
+
+    /// <summary>
+    /// 残り時間を計算する
+    /// ・オンライン : ServerTime から計算（自分で減らさない）
+    /// ・オフライン : Time.deltaTime で減らす
+    /// </summary>
+    private float CalcRemainTime()
     {
-        //Modelを破棄（Presenterの購読も自動で解除される）
+        if (IsOnline())
+        {
+            // オンライン：ServerTime から残り時間を計算
+            return (float)(_endTime.Value - GetCurrentTime());
+        }
+        else
+        {
+            // オフライン：Time.deltaTime で減らす
+            _offlineRemainTime -= Time.deltaTime;
+            return _offlineRemainTime;
+        }
+    }
+
+    /// <summary>
+    /// 時間切れ判定を行うべきか
+    /// ・オンライン : サーバーだけ判定する
+    /// ・オフライン : 常に判定する
+    /// </summary>
+    private bool ShouldCheckFinish()
+    {
+        return !IsOnline() || IsServer;
+    }
+
+    /// <summary>
+    /// 現在時刻を取得する
+    /// ・オンライン : ServerTime（全員で揃う）
+    /// ・オフライン : Time.timeAsDouble
+    /// CS_PlayerTransformation の GetCurrentTime() と同じ方式
+    /// </summary>
+    private double GetCurrentTime()
+    {
+        return IsOnline() ? NetworkManager.ServerTime.Time : Time.timeAsDouble;
+    }
+
+    /// <summary>
+    /// NetworkManager がオンラインで動いているか
+    /// </summary>
+    private bool IsOnline()
+    {
+        return NetworkManager != null && NetworkManager.IsListening;
+    }
+
+    // =========================================================
+    // OnDestroy
+    // =========================================================
+
+    public override void OnDestroy()
+    {
+        base.OnDestroy();
         _timerModel?.Dispose();
     }
 }

@@ -12,7 +12,8 @@ using UnityEngine;
 /// <summary>
 /// リザルトシーンの Controller
 /// ・リザルトシーンの GameControllerManager にアタッチする
-/// ・ソロ / マルチ 両対応
+/// ・CS_ResultDataStore から実データを受け取って表示する
+/// ・データがない場合はデバッグ用の仮データを表示する
 /// </summary>
 public class CS_ResultController : MonoBehaviour
 {
@@ -23,9 +24,9 @@ public class CS_ResultController : MonoBehaviour
     [Header("UICanvas 配下の Result を直接セット")]
     [SerializeField] private CS_UIResultView _view;
 
-    [Header("デバッグ設定")]
-    [SerializeField] private bool _isMulti = false; // true = マルチ / false = ソロ
-    [SerializeField] private int _debugPlayerCount = 4; // マルチのデバッグ人数
+    [Header("デバッグ設定（ResultScene 単体で再生するとき用）")]
+    [SerializeField] private bool _isMultiDebug = false;
+    [SerializeField] private int _debugPlayerCount = 4;
 
     // =========================================================
     // 内部フィールド
@@ -44,7 +45,7 @@ public class CS_ResultController : MonoBehaviour
     }
 
     // =========================================================
-    // Start : Presenter 取得 → MVP 組み立て → 仮データ表示
+    // Start : Presenter 取得 → MVP 組み立て → データ表示
     // =========================================================
 
     private void Start()
@@ -67,83 +68,95 @@ public class CS_ResultController : MonoBehaviour
 
         Debug.Log("[CS_ResultController] 初期化完了！");
 
-        // ★ 仮データで表示確認
-        ShowDebugResult();
+        // ---- 実データがあれば表示・なければデバッグ表示 ----
+        if (CS_ResultDataStore.hasData)
+        {
+            ShowRealResult();
+        }
+        else
+        {
+            Debug.Log("[CS_ResultController] 実データなし → デバッグ表示");
+            ShowDebugResult();
+        }
     }
 
     // =========================================================
-    // 仮データ表示（配置確認用・後で削除）
+    // 実データ表示（MainScene から受け取ったデータ）
+    // =========================================================
+
+    private void ShowRealResult()
+    {
+        var results = new List<CS_ResultData>(CS_ResultDataStore.results);
+
+        // 読み取ったらクリア
+        CS_ResultDataStore.Clear();
+
+        if (results.Count == 1)
+        {
+            _view.ShowSoloPanel();
+            _model.SetSoloResult(results[0]);
+        }
+        else
+        {
+            _view.ShowMultiPanel();
+            _model.SetMultiResults(results);
+        }
+    }
+
+    // =========================================================
+    // デバッグ表示（ResultScene 単体で再生するとき用）
     // =========================================================
 
     private void ShowDebugResult()
     {
-        if (_isMulti)
+        if (_isMultiDebug)
         {
             // ---- マルチ仮データ ----
-            var allData = new List<ResultData>();
+            var allData = new List<CS_ResultData>();
             for (int i = 0; i < _debugPlayerCount; i++)
             {
-                allData.Add(new ResultData(
-                    playerName: $"Player{i + 1}",
-                    defeatVillainCount: Random.Range(0, 10),
-                    foundByPoliceCount: Random.Range(0, 5),
-                    crimeCompletedCount: Random.Range(0, 3),
-                    defeatPlayerCount: Random.Range(0, 4)
+                var data = new CS_ResultData(i + 1);
+
+                // 点数はゲーム中に計算済みの値を入れる想定
+                // デバッグ用にランダムな値を入れる
+                int villainCount = UnityEngine.Random.Range(0, 10);
+                int policeCount = UnityEngine.Random.Range(0, 5);
+                int crimeCount = UnityEngine.Random.Range(0, 3);
+                int playerCount = UnityEngine.Random.Range(0, 4);
+
+                data.SetScore(new CS_ResultData.Score(
+                    defeatVillainScore: villainCount * 100, // 仮の点数（実際はボーナス込みで加算）
+                    foundByPoliceScore: policeCount * -50,
+                    crimeCompletedScore: crimeCount * -80,
+                    defeatPlayerScore: playerCount * 50,
+                    defeatVillainCount: villainCount,
+                    foundByPoliceCount: policeCount,
+                    crimeCompletedCount: crimeCount,
+                    defeatPlayerCount: playerCount
                 ));
+                allData.Add(data);
             }
-            SetMultiResult(allData);
+            _view.ShowMultiPanel();
+            _model.SetMultiResults(allData);
         }
         else
         {
             // ---- ソロ仮データ ----
-            var data = new ResultData(
-                playerName: "Player1",
+            var data = new CS_ResultData(1);
+            data.SetScore(new CS_ResultData.Score(
+                defeatVillainScore: 500, // 5人 × 100点（仮）
+                foundByPoliceScore: -100, // 2回 × -50点
+                crimeCompletedScore: -80, // 1回 × -80点
+                defeatPlayerScore: 150, // 3人 × 50点（仮）
                 defeatVillainCount: 5,
                 foundByPoliceCount: 2,
                 crimeCompletedCount: 1,
                 defeatPlayerCount: 3
-            );
-            SetSoloResult(data);
+            ));
+            _view.ShowSoloPanel();
+            _model.SetSoloResult(data);
         }
     }
-
-    // =========================================================
-    // 外部 API
-    // =========================================================
-
-    /// <summary>ソロ用：プレイヤーのスコアデータを受け取って表示する</summary>
-    public void SetSoloResult(ResultData data)
-    {
-        if (data == null)
-        {
-            Debug.LogError("[CS_ResultController] ResultData が null です！");
-            return;
-        }
-        _view.ShowSoloPanel();
-        _model.SetResultData(data);
-    }
-
-    /// <summary>マルチ用：全プレイヤーのスコアデータを受け取って表示する</summary>
-    public void SetMultiResult(List<ResultData> allPlayersData)
-    {
-        if (allPlayersData == null || allPlayersData.Count == 0)
-        {
-            Debug.LogError("[CS_ResultController] allPlayersData が null または空です！");
-            return;
-        }
-        _view.ShowMultiPanel();
-        _model.SetMultiResultData(allPlayersData);
-    }
-
-    /// <summary>ソロ用：順位をセットする（後から実装）</summary>
-    public void SetRank(int rank) => _model.SetRank(rank);
-
-    /// <summary>ソロ用：称号をセットする（後から実装）</summary>
-    public void SetTitle(string title) => _model.SetTitle(title);
-
-    /// <summary>マルチ用：特定プレイヤーの称号をセットする（後から実装）</summary>
-    public void SetPlayerTitle(string playerName, string title)
-        => _model.SetPlayerTitle(playerName, title);
 
     // =========================================================
     // OnDestroy : Model を破棄

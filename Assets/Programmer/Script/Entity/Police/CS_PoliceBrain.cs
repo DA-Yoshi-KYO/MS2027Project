@@ -110,6 +110,16 @@ public class CS_PoliceBrain : MonoBehaviour
         _hasRushRequest = true;
     }
 
+    /// <summary>
+    /// 判断・移動・攻撃をすべて止めるメソッド(消える演出の間に動かないようにする)
+    /// </summary>
+    public void StopActing()
+    {
+        _move.SetStopped(true);
+        _attack.enabled = false;
+        enabled = false;
+    }
+
     private void Update()
     {
         if (!_isInitialized) return;

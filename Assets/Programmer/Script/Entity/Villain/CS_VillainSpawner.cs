@@ -18,7 +18,13 @@ using UnityEngine;
  *   オフライン(NetworkManagerが動いていないテストシーン): その場で生成する
  * ・スポーン位置はシーン上のCS_VillainSpawnPointを起動時に1回だけ取得する
  *   使用中(グループが残っている)のスポーン位置には生成しない
- * ・1グループの人数は minMembers ～ maxMembers 人(両端を含む)からランダム
+ * ・ゲームの経過時間による変化(timeScaling)
+ *   設定されていれば、生成時の経過時間の段階で、1グループの人数・HP・犯罪完遂時間・攻撃力を決める
+ *   (HPなどは生成する悪人のCS_VillainStatsに、Spawnより前に設定する)
+ *   段階が変わったら、既にフィールドにいる悪人のHP上限・犯罪完遂時間・攻撃力も変える(グループの人数は変えない)
+ *   HP上限が増えた分は現在HPも増やす(受けたダメージはそのまま残る)
+ *   経過時間はCS_TimerController(ゲームのタイマー)から取る。シーンに無ければ、スポナーの起動からの時間を使う
+ * ・timeScalingが未設定なら、1グループの人数は minMembers ～ maxMembers 人(両端を含む)からランダム
  *   各メンバーの種類は villainPrefabs からランダムに選ぶ
  * ・グループのうち同時に攻撃してくるのは maxAttackersPerGroup 人まで(残りは様子見。CS_VillainGroup参照)
  * ・グループのメンバーが全員いなくなったら(撃退・逃走でDestroyされたら)、そのスポーン位置は空く
@@ -41,13 +47,18 @@ public class CS_VillainSpawner : MonoBehaviour
     [Tooltip("生成する悪人の種類。メンバーごとにランダムで選ばれる")]
     private NetworkObject[] _villainPrefabs;
 
+    [Header("時間経過による変化")]
+    [SerializeField]
+    [Tooltip("経過時間ごとの人数・HP・犯罪完遂時間(DB_VillainTimeScaling)。未設定なら下の最少・最多人数を使う")]
+    private CSO_VillainTimeScaling _timeScaling;
+
     [Header("グループ")]
     [SerializeField, Min(1)]
-    [Tooltip("1グループの最少人数")]
+    [Tooltip("1グループの最少人数(Time Scalingが未設定の時だけ使う)")]
     private int _minMembers = 5;
 
     [SerializeField, Min(1)]
-    [Tooltip("1グループの最多人数")]
+    [Tooltip("1グループの最多人数(Time Scalingが未設定の時だけ使う)")]
     private int _maxMembers = 6;
 
     [SerializeField, Min(1)]
@@ -82,6 +93,9 @@ public class CS_VillainSpawner : MonoBehaviour
     private float _spawnTimer;
     private bool _isRunning;
     private bool _hasWarnedNoPoint;   // 空きポイント不足の警告を毎回出さないためのフラグ
+    private CS_TimerController _timer;   // ゲームのタイマー(経過時間の取得用)。テストシーンなどで無ければnull
+    private float _startTime;            // スポナーが動き始めた時刻(タイマーが無い時の経過時間に使う)
+    private CSO_VillainTimeScaling.Stage _currentStage;   // 今の経過時間の段階(変わったら既にいる悪人にも反映する)
 
     public int groupCount => _groups.Count;
 
@@ -106,6 +120,9 @@ public class CS_VillainSpawner : MonoBehaviour
             return;
         }
 
+        _timer = FindAnyObjectByType<CS_TimerController>();
+        _startTime = Time.time;
+
         _isRunning = true;
         FillRequiredGroups();
     }
@@ -129,8 +146,38 @@ public class CS_VillainSpawner : MonoBehaviour
         _checkTimer = 0f;
 
         RemoveDeadGroups();
+        UpdateStage();
         FillRequiredGroups();
         SpawnByInterval();
+    }
+
+    // 経過時間の段階が変わったら、既にフィールドにいる悪人のステータスを新しい段階の値にする
+    private void UpdateStage()
+    {
+        if (_timeScaling == null) return;
+
+        CSO_VillainTimeScaling.Stage stage = _timeScaling.GetStage(GetElapsedTime());
+        if (stage == _currentStage) return;
+
+        _currentStage = stage;
+        foreach (CS_VillainGroup group in _groups)
+        {
+            foreach (CS_VillainCrime member in group.members)
+            {
+                if (member != null) ApplyStage(member, stage);
+            }
+        }
+    }
+
+    private static void ApplyStage(CS_VillainCrime member, CSO_VillainTimeScaling.Stage stage)
+    {
+        if (!member.TryGetComponent(out CS_VillainStats stats)) return;
+
+        float previousMaxHp = stats.maxHp;
+        stats.UpdateSpawnOverrides(stage.maxHp, stage.attackPower, stage.crimeCompleteTime);
+
+        // HP上限が増えた分だけ現在HPも増やす(受けたダメージはそのまま残す)
+        if (member.TryGetComponent(out CS_VillainHealth health)) health.ApplyMaxHpChange(previousMaxHp);
     }
 
     private void OnValidate()
@@ -205,12 +252,15 @@ public class CS_VillainSpawner : MonoBehaviour
     private CS_VillainGroup SpawnGroup(CS_VillainSpawnPoint point)
     {
         CS_VillainGroup group = new CS_VillainGroup(point, _maxAttackersPerGroup);
-        int memberCount = Random.Range(_minMembers, _maxMembers + 1);
+
+        // 経過時間の段階があれば、その人数・ステータスで生成する
+        CSO_VillainTimeScaling.Stage stage = _timeScaling != null ? _timeScaling.GetStage(GetElapsedTime()) : null;
+        int memberCount = stage != null ? stage.memberCount : Random.Range(_minMembers, _maxMembers + 1);
 
         for (int i = 0; i < memberCount; i++)
         {
             Vector3 position = point.GetMemberPosition(i, memberCount);
-            NetworkObject villain = SpawnVillain(position, point.transform.position);
+            NetworkObject villain = SpawnVillain(position, point.transform.position, stage);
             group.AddMember(villain.GetComponent<CS_VillainCrime>());
         }
 
@@ -219,7 +269,7 @@ public class CS_VillainSpawner : MonoBehaviour
     }
 
     // 悪人を1人生成する。グループの中心(犯罪を行う場所)を向かせる
-    private NetworkObject SpawnVillain(Vector3 position, Vector3 center)
+    private NetworkObject SpawnVillain(Vector3 position, Vector3 center, CSO_VillainTimeScaling.Stage stage)
     {
         NetworkObject prefab = _villainPrefabs[Random.Range(0, _villainPrefabs.Length)];
 
@@ -228,6 +278,13 @@ public class CS_VillainSpawner : MonoBehaviour
         Quaternion rotation = lookDirection.sqrMagnitude > 0f ? Quaternion.LookRotation(lookDirection) : Quaternion.identity;
 
         NetworkObject villain = Instantiate(prefab, position, rotation);
+
+        // ステータスの初期化(Spawn時、オフラインはStart時)より前に、経過時間の段階の値を設定する
+        if (stage != null && villain.TryGetComponent(out CS_VillainStats stats))
+        {
+            stats.SetSpawnOverrides(stage.maxHp, stage.attackPower, stage.crimeCompleteTime);
+        }
+
         if (NetworkManager.Singleton != null && NetworkManager.Singleton.IsListening)
         {
             villain.Spawn(true);
@@ -286,5 +343,15 @@ public class CS_VillainSpawner : MonoBehaviour
         if (NetworkManager.Singleton == null || !NetworkManager.Singleton.IsListening) return _offlinePlayerCount;
 
         return NetworkManager.Singleton.ConnectedClientsIds.Count;
+    }
+
+    // ゲームの経過時間(秒)。タイマーが無いシーンでは、スポナーが動き始めてからの時間
+    // オンラインでタイマーがまだSpawnされていない間は、終了時刻が未設定で正しい値が取れないので使わない
+    private float GetElapsedTime()
+    {
+        bool isOnline = NetworkManager.Singleton != null && NetworkManager.Singleton.IsListening;
+        if (_timer != null && (_timer.IsSpawned || !isOnline)) return _timer.GetElapsedTime();
+
+        return Time.time - _startTime;
     }
 }

@@ -22,6 +22,7 @@ GameObject:
   - component: {fileID: 5853495017623006576}
   - component: {fileID: 1872172813661465890}
   - component: {fileID: 487590664383712497}
+  - component: {fileID: 5997323292010348831}
   m_Layer: 31
   m_Name: Villain
   m_TagString: Untagged
@@ -307,6 +308,19 @@ MonoBehaviour:
   _playerBaseStats: {fileID: 11400000, guid: 817504dae6f859c46802b52e2c8274fb, type: 2}
   _locomotionDamping: 0.08
   _maxTrackedSpeed: 40
+--- !u!114 &5997323292010348831
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 942901870687269662}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9028e2acd9cd531469b5e36b9df99085, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CS_VillainMiniMapIcon
+  ShowTopMostFoldoutHeaderGroup: 1
 --- !u!1001 &6001146616934783539
 PrefabInstance:
   m_ObjectHideFlags: 0

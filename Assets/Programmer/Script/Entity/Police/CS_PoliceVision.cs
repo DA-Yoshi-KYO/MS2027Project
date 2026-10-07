@@ -67,6 +67,15 @@ public class CS_PoliceVision : MonoBehaviour
     }
 
     /// <summary>
+    /// 視野距離だけを変更するメソッド(手配度の変化など)
+    /// </summary>
+    /// <param name="viewDistance">視野距離</param>
+    public void ChangeViewDistance(float viewDistance)
+    {
+        _viewDistance = viewDistance;
+    }
+
+    /// <summary>
     /// 視界に映っている標的の中から、追うべき標的を探すメソッド
     /// 優先度が高い標的 → 今追っている標的 → 近い標的 の順に選ぶ
     /// </summary>

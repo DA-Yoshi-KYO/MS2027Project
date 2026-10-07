@@ -20,6 +20,8 @@ GameObject:
   - component: {fileID: 5263718849201735512}
   - component: {fileID: 3140592653589793238}
   - component: {fileID: 2718281828459045235}
+  - component: {fileID: 1618033988749894848}
+  - component: {fileID: 1414213562373095048}
   m_Layer: 31
   m_Name: Police
   m_TagString: Untagged
@@ -290,3 +292,30 @@ MonoBehaviour:
   SwitchTransformSpaceWhenParented: 0
   Interpolate: 1
   SlerpPosition: 0
+--- !u!114 &1618033988749894848
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 681291065592780614}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 95acd40884394998a42fd50ed5d68697, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CS_PoliceFadeOut
+  ShowTopMostFoldoutHeaderGroup: 1
+  _fadeDuration: 1
+--- !u!114 &1414213562373095048
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 681291065592780614}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 38056ec95aba417fabd398c366b49043, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CS_PoliceMiniMapIcon
+  ShowTopMostFoldoutHeaderGroup: 1

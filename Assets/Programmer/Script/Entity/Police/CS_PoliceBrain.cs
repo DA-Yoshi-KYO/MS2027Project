@@ -228,6 +228,9 @@ public class CS_PoliceBrain : MonoBehaviour
     /// <param name="target">追跡する標的</param>
     private void Chase(Transform target)
     {
+        // 新しく標的にした(見つけた)瞬間に、プレイヤーのスコア(暗躍ボーナス)へ知らせる
+        if (target != _currentTarget) ReportFound(target);
+
         _state = CSE_PoliceMoveState.Chase;
         _currentTarget = target;
         _lastSeenPosition = target.position;
@@ -238,6 +241,17 @@ public class CS_PoliceBrain : MonoBehaviour
 
         _move.SetDestination(target.position, CSE_PoliceMoveState.Chase);
         _attack.TryStartCharge(target);
+    }
+
+    /// <summary>
+    /// 標的がプレイヤーなら、警察に見つかったことをプレイヤーのスコアへ知らせるメソッド(暗躍ボーナスがリセットされる)
+    /// 判断はサーバー(またはオフライン)だけで行うので、ここもサーバーで呼ばれる
+    /// </summary>
+    /// <param name="target">新しく標的にしたもの</param>
+    private void ReportFound(Transform target)
+    {
+        CS_PlayerScoring scoring = target.GetComponentInParent<CS_PlayerScoring>();
+        if (scoring != null) scoring.ReportFoundByPolice();
     }
 
     /// <summary>

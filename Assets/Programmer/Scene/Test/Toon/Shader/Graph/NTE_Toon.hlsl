@@ -174,24 +174,25 @@ void NTE_Metal_float(NTE_ARGS)
 }
 NTE_HALF_FORWARD(NTE_Metal)
 
-// ---------------- Eye (transparent iris): brighter iris, glowing painted highlights, camera catchlight ----------------
-void NTE_Eye_float(float4 Tex, float4 BaseColor, float3 NormalWS, float Brightness,
-    float HighlightBoost, float IrisSaturation, float CatchlightStrength, float CatchlightSize, out float3 Color)
+// ---------------- Eye (transparent iris) ----------------
+// Mask (35_EyeHighlightMask): R = highlight shapes, G = lower-iris glow, B = upper-iris eyelid shade.
+void NTE_Eye_float(float4 Tex, float4 BaseColor, float4 Mask, float3 NormalWS, float Brightness,
+    float HighlightBoost, float IrisSaturation, float HighlightStrength, float IrisGradient, out float3 Color)
 {
     float3 c = Tex.rgb * BaseColor.rgb;
     float l = dot(c, float3(0.2126, 0.7152, 0.0722));
-    c = max(lerp(l.xxx, c, 1.0 + IrisSaturation), 0.0);         // richer iris colour
-    float hl = smoothstep(0.7, 0.95, max(c.r, max(c.g, c.b)) * (1.0 - (max(c.r, max(c.g, c.b)) - min(c.r, min(c.g, c.b)))));
-    c += hl * HighlightBoost;                                    // painted highlights go HDR -> bloom sparkle
-    float3 nv = normalize(mul((float3x3)UNITY_MATRIX_V, NormalWS));
-    float cl = smoothstep(1.0 - CatchlightSize * 0.05, 1.0 - CatchlightSize * 0.05 + 0.004,
-                          dot(nv, normalize(float3(-0.3, 0.45, 1.0))));
-    c += cl * CatchlightStrength;
+    c = max(lerp(l.xxx, c, 1.0 + IrisSaturation), 0.0);                    // richer iris colour
+    float mx = max(c.r, max(c.g, c.b));
+    float painted = smoothstep(0.65, 0.9, mx * (1.0 - (mx - min(c.r, min(c.g, c.b)))));
+    c *= lerp(1.0, 0.55, Mask.b * IrisGradient * 2.0);                       // eyelid shade at the top
+    c += c * Mask.g * IrisGradient * 2.5 + Mask.g * IrisGradient * 0.15;     // glowing lower iris
+    c += painted * HighlightBoost;                                           // painted highlights -> HDR
+    c = lerp(c, float3(1.0, 1.0, 1.0) * (1.0 + HighlightStrength), saturate(Mask.r * 1.2) * step(0.001, HighlightStrength)); // baked highlights
     Color = c * Brightness;
 }
-void NTE_Eye_half(half4 Tex, half4 BaseColor, half3 NormalWS, half Brightness, half HighlightBoost,
-    half IrisSaturation, half CatchlightStrength, half CatchlightSize, out half3 Color)
+void NTE_Eye_half(half4 Tex, half4 BaseColor, half4 Mask, half3 NormalWS, half Brightness, half HighlightBoost,
+    half IrisSaturation, half HighlightStrength, half IrisGradient, out half3 Color)
 {
-    float3 c; NTE_Eye_float(Tex, BaseColor, NormalWS, Brightness, HighlightBoost, IrisSaturation, CatchlightStrength, CatchlightSize, c); Color = c;
+    float3 c; NTE_Eye_float(Tex, BaseColor, Mask, NormalWS, Brightness, HighlightBoost, IrisSaturation, HighlightStrength, IrisGradient, c); Color = c;
 }
 #endif

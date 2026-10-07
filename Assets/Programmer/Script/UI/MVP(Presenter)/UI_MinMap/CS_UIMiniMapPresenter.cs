@@ -77,8 +77,9 @@ public class CS_UIMiniMapPresenter : CS_BasePresenter
         float playerRot = _rotateWithPlayer ? player.entityRotation : 0f;
 
         // ---- uvRect オフセット計算 ----
-        float uvX = (player.entityWorldPosition.x - _mapCenterX) / mapWorldSize + 0.5f;
-        float uvY = (player.entityWorldPosition.z - _mapCenterZ) / mapWorldSize + 0.5f;
+        // プレイヤーのUV座標（オフセットを引く前の値）を ViewData に渡す
+        float playerUvX = (player.entityWorldPosition.x - _mapCenterX) / mapWorldSize + 0.5f;
+        float playerUvY = (player.entityWorldPosition.z - _mapCenterZ) / mapWorldSize + 0.5f;
 
         // ---- アイコンリスト構築 ----
         var icons = new List<MiniMapIconData>();
@@ -101,7 +102,7 @@ public class CS_UIMiniMapPresenter : CS_BasePresenter
                 mapRadius, playerRot, CSE_MiniMapEntityType.MultiplayerAlly));
         }
 
-        // 警察アイコン ★ 追加
+        // 警察アイコン
         foreach (var kv in model.GetPolices())
         {
             if (!kv.Value.entityIsActive) continue;
@@ -113,8 +114,10 @@ public class CS_UIMiniMapPresenter : CS_BasePresenter
         return new MiniMapViewData(
             playerRotationY: player.entityRotation,
             rotateWithPlayer: _rotateWithPlayer,
-            uvOffsetX: uvX - 0.5f,
-            uvOffsetY: uvY - 0.5f,
+            playerUvX: playerUvX,  // ★ オフセット前のUV座標を渡す
+            playerUvY: playerUvY,  // ★ オフセット前のUV座標を渡す
+            mapRadius: mapRadius,  // ★ 縮尺計算用に渡す
+            mapWorldSize: mapWorldSize, // ★ 縮尺計算用に渡す
             icons: icons
         );
     }
@@ -132,7 +135,8 @@ public class CS_UIMiniMapPresenter : CS_BasePresenter
 
         if (_rotateWithPlayer)
         {
-            float rad = -playerRotY * Mathf.Deg2Rad;
+            // ★ 修正：背景と同じ向きに回す（- → +）
+            float rad = playerRotY * Mathf.Deg2Rad;
             float cos = Mathf.Cos(rad);
             float sin = Mathf.Sin(rad);
             float rotX = dx * cos - dz * sin;
@@ -174,29 +178,40 @@ public class CS_UIMiniMapPresenter : CS_BasePresenter
 
 public class MiniMapViewData
 {
+    // ---- バッキングフィールド ----
     private readonly float _playerRotationY;
     private readonly bool _rotateWithPlayer;
-    private readonly float _uvOffsetX;
-    private readonly float _uvOffsetY;
+    private readonly float _playerUvX;    // ★ 追加：オフセット前のUV座標
+    private readonly float _playerUvY;    // ★ 追加：オフセット前のUV座標
+    private readonly float _mapRadius;    // ★ 追加：縮尺計算用
+    private readonly float _mapWorldSize; // ★ 追加：縮尺計算用
     private readonly List<MiniMapIconData> _icons;
 
+    // ---- プロパティ公開（読み取り専用）----
     public float playerRotationY => _playerRotationY;
     public bool rotateWithPlayer => _rotateWithPlayer;
-    public float uvOffsetX => _uvOffsetX;
-    public float uvOffsetY => _uvOffsetY;
+    public float playerUvX => _playerUvX;
+    public float playerUvY => _playerUvY;
+    public float mapRadius => _mapRadius;
+    public float mapWorldSize => _mapWorldSize;
     public List<MiniMapIconData> icons => _icons;
 
+    // ---- コンストラクタ ----
     public MiniMapViewData(
         float playerRotationY,
         bool rotateWithPlayer,
-        float uvOffsetX,
-        float uvOffsetY,
+        float playerUvX,
+        float playerUvY,
+        float mapRadius,
+        float mapWorldSize,
         List<MiniMapIconData> icons)
     {
         _playerRotationY = playerRotationY;
         _rotateWithPlayer = rotateWithPlayer;
-        _uvOffsetX = uvOffsetX;
-        _uvOffsetY = uvOffsetY;
+        _playerUvX = playerUvX;
+        _playerUvY = playerUvY;
+        _mapRadius = mapRadius;
+        _mapWorldSize = mapWorldSize;
         _icons = icons;
     }
 }

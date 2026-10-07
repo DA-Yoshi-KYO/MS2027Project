@@ -14,6 +14,8 @@ using UnityEngine.UI;
 /// ミニマップの View
 /// ・UICanvas 配下の MiniMap GameObject にアタッチする
 /// ・静止画PNG + uvRect スクロール方式
+/// ・背景とアイコンの縮尺を mapRadius で統一する
+/// ・背景テクスチャの Wrap Mode は Clamp 推奨（マップ端で繰り返し表示されなくなる）
 /// </summary>
 public class CS_UIMiniMapView : CS_BaseView<CS_UIMiniMapPresenter>
 {
@@ -37,7 +39,13 @@ public class CS_UIMiniMapView : CS_BaseView<CS_UIMiniMapPresenter>
     [SerializeField] private GameObject _policeIconPrefab;
 
     [Header("表示設定")]
-    [SerializeField] private float _miniMapDisplayRadius = 75f;
+    [SerializeField] private float _miniMapDisplayRadius = 75f; // mapRadius に対応するpx数
+
+    // ---- 確認用（Inspector で倍率を確認する・変更不可）----
+    [Header("確認用（変更不可・再生中に更新される）")]
+    [SerializeField, Min(0)] private float _debugPixelsPerMeter; // 1m あたり何px か
+    [SerializeField, Min(0)] private float _debugMetersPerPixel; // 1px あたり何m か
+    [SerializeField, Min(0)] private float _debugVisibleRange;   // 見えるワールドの範囲（直径m）
 
     // =========================================================
     // 内部フィールド
@@ -61,14 +69,25 @@ public class CS_UIMiniMapView : CS_BaseView<CS_UIMiniMapPresenter>
     public void Render(MiniMapViewData data)
     {
         // ---- ① 背景スクロール ----
+        // 背景とアイコンの縮尺を mapRadius で統一する
         if (_mapImage != null)
         {
+            float imageWidth = _mapImage.rectTransform.rect.width;
+            float imageWorldSize = imageWidth * data.mapRadius / _miniMapDisplayRadius;
+            float uvSize = imageWorldSize / data.mapWorldSize;
+
+            // playerUvX/Y はオフセット前のUV座標（0〜1）
             _mapImage.uvRect = new Rect(
-                data.uvOffsetX,
-                data.uvOffsetY,
-                1f,
-                1f
+                data.playerUvX - uvSize * 0.5f,
+                data.playerUvY - uvSize * 0.5f,
+                uvSize,
+                uvSize
             );
+
+            // ---- 確認用：倍率を更新（Inspector で確認できる）----
+            _debugPixelsPerMeter = _miniMapDisplayRadius / data.mapRadius;
+            _debugMetersPerPixel = data.mapRadius / _miniMapDisplayRadius;
+            _debugVisibleRange = imageWorldSize; // 見えるワールドの直径（m）
         }
 
         // ---- ② 背景回転 ----

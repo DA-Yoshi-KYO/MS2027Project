@@ -12,6 +12,14 @@ case "$first_line" in
         ;;
 esac
 
+# デザイナー用ブランチ(designer_develop / designer_output)ではprefixを必須にしない
+branch=$(git rev-parse --abbrev-ref HEAD 2>/dev/null)
+case "$branch" in
+    designer_*)
+        exit 0
+        ;;
+esac
+
 pattern='^(feat|fix|docs|style|refactor|perf|test|chore|build|ci|revert|update)(\([a-zA-Z0-9_-]+\))?: .+'
 
 if ! echo "$first_line" | grep -qE "$pattern"; then

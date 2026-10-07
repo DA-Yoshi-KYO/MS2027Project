@@ -56,6 +56,7 @@ public class CS_PlayerAttack : NetworkBehaviour
     private CS_PlayerSpecialGauge _gauge;
     private CS_PlayerSpecialAttack _specialAttack;
     private CS_PlayerTransformation _transformation;
+    private CS_PlayerScoring _scoring;
     private readonly Collider[] _hitBuffer = new Collider[_hitBufferSize];
     private readonly HashSet<IDamageable> _hitTargets = new HashSet<IDamageable>();
 
@@ -68,6 +69,8 @@ public class CS_PlayerAttack : NetworkBehaviour
 
     // 操作しているクライアントでだけ発生する(引数は何段目か、0始まり)。見た目などが購読する
     public event System.Action<int> onStepStarted;
+    // 操作しているクライアントでだけ発生する(引数は何段目か)。判定が出る瞬間に呼ばれる。カメラの揺れなどが購読する
+    public event System.Action<int> onStepHitTiming;
     public int currentStep => _currentStep;               // 現在の段(0始まり、攻撃していなければ-1)
     public IReadOnlyList<CSO_AttackData> attackSteps => _attackSteps;
 
@@ -78,6 +81,7 @@ public class CS_PlayerAttack : NetworkBehaviour
         _gauge = GetComponent<CS_PlayerSpecialGauge>();
         _specialAttack = GetComponent<CS_PlayerSpecialAttack>();
         _transformation = GetComponent<CS_PlayerTransformation>();
+        _scoring = GetComponent<CS_PlayerScoring>();
 
         if (HasValidSteps()) return;
 
@@ -134,6 +138,7 @@ public class CS_PlayerAttack : NetworkBehaviour
         {
             _hasHit = true;
             RequestHit(_currentStep);
+            onStepHitTiming?.Invoke(_currentStep);
         }
 
         // 攻撃モーション中は、これ以上何もしない
@@ -237,10 +242,23 @@ public class CS_PlayerAttack : NetworkBehaviour
         foreach (IDamageable target in _hitTargets)
         {
             float damage = step.CalculateDamage(context, target) * _stats.attackPower;
-            target.TakeDamage(damage);
+            DealDamage(target, damage);
+            CS_AttackHitDetector.TryKnockback(target, transform.position);   // 攻撃した位置から離れる方向へ下がる
             step.OnHit(context, target);
             _gauge.Fill(step.gaugeGain);
         }
+    }
+
+    // ダメージを与える。スコア(CS_PlayerScoring)があればそれを通し、誰が倒したかをスコアに反映する
+    private void DealDamage(IDamageable target, float damage)
+    {
+        if (_scoring != null)
+        {
+            _scoring.DealDamage(target, damage);
+            return;
+        }
+
+        target.TakeDamage(damage, gameObject);
     }
 
     // 選択中に、各段の判定範囲をシーンビューへ表示する(調整用)

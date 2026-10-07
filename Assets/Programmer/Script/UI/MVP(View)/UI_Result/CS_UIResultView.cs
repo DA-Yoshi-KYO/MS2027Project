@@ -13,8 +13,7 @@ using UnityEngine;
 /// <summary>
 /// リザルトシーンの View
 /// ・ソロ / マルチ 両対応
-/// ・ソロ：1人分の詳細表示
-/// ・マルチ：参加人数分の詳細表示（スコア順・Prefab で動的生成）
+/// ・点数は CS_ResultData.Score の加算済みスコアをそのまま表示する
 /// </summary>
 public class CS_UIResultView : CS_BaseView<CS_UIResultPresenter>
 {
@@ -23,27 +22,25 @@ public class CS_UIResultView : CS_BaseView<CS_UIResultPresenter>
     // =========================================================
 
     [Header("ソロ用 UI")]
-    [SerializeField] private GameObject _soloPanel; // ソロ用パネル
-
-    [SerializeField] private TextMeshProUGUI _defeatVillainCountText;
-    [SerializeField] private TextMeshProUGUI _foundByPoliceCountText;
-    [SerializeField] private TextMeshProUGUI _crimeCompletedCountText;
-    [SerializeField] private TextMeshProUGUI _defeatPlayerCountText;
-    [SerializeField] private TextMeshProUGUI _totalScoreText;
-    [SerializeField] private TextMeshProUGUI _rankText;
-    [SerializeField] private TextMeshProUGUI _titleText;
+    [SerializeField] private GameObject _soloPanel;
+    [SerializeField] private TextMeshProUGUI _defeatVillainText;    // 悪人撃破
+    [SerializeField] private TextMeshProUGUI _foundByPoliceText;    // 警察発見
+    [SerializeField] private TextMeshProUGUI _crimeCompletedText;   // 犯罪完遂
+    [SerializeField] private TextMeshProUGUI _defeatPlayerText;     // 他P撃破
+    [SerializeField] private TextMeshProUGUI _totalScoreText;       // 総合スコア
+    [SerializeField] private TextMeshProUGUI _rankText;             // 順位（仮）
+    [SerializeField] private TextMeshProUGUI _titleText;            // 称号（仮）
 
     [Header("マルチ用 UI")]
-    [SerializeField] private GameObject _multiPanel;           // マルチ用パネル
-    [SerializeField] private Transform _playerResultsRoot;    // 各プレイヤー結果の親
-    [SerializeField] private GameObject _playerResultPrefab;   // 1プレイヤー分の表示 Prefab
+    [SerializeField] private GameObject _multiPanel;
+    [SerializeField] private Transform _playerResultsRoot;
+    [SerializeField] private GameObject _playerResultPrefab;
 
     // =========================================================
     // 内部フィールド
     // =========================================================
 
-    // 生成したプレイヤー結果 UI のリスト
-    private readonly List<GameObject> _playerResultItems = new List<GameObject>();
+    private readonly List<GameObject> _playerResultItems = new();
 
     // =========================================================
     // CS_BaseView
@@ -55,76 +52,64 @@ public class CS_UIResultView : CS_BaseView<CS_UIResultPresenter>
     }
 
     // =========================================================
-    // ソロ用：描画（Presenter から呼ばれる）
+    // ソロ用：描画
     // =========================================================
 
-    public void UpdateDefeatVillainCount(int count)
+    public void UpdateSoloResult(CS_ResultData data)
     {
-        if (_defeatVillainCountText != null)
-            _defeatVillainCountText.text = $"倒した悪人 : {count}人 (+{count * 100}点)";
-    }
+        if (data == null) return;
 
-    public void UpdateFoundByPoliceCount(int count)
-    {
-        if (_foundByPoliceCountText != null)
-            _foundByPoliceCountText.text = $"警察に発見 : {count}回 (-{count * 50}点)";
-    }
+        var s = data.score;
 
-    public void UpdateCrimeCompletedCount(int count)
-    {
-        if (_crimeCompletedCountText != null)
-            _crimeCompletedCountText.text = $"犯罪完遂 : {count}回 (-{count * 80}点)";
-    }
+        // 点数は加算済みスコアをそのまま表示
+        if (_defeatVillainText != null)
+            _defeatVillainText.text =
+                $"倒した悪人 : {s.defeatVillainCount}人 ({s.defeatVillainScore:+#;-#;0}点)";
 
-    public void UpdateDefeatPlayerCount(int count)
-    {
-        if (_defeatPlayerCountText != null)
-            _defeatPlayerCountText.text = $"他P撃破 : {count}人 (+{count * 50}点)"; // 仮
-    }
+        if (_foundByPoliceText != null)
+            _foundByPoliceText.text =
+                $"警察に発見 : {s.foundByPoliceCount}回 ({s.foundByPoliceScore:+#;-#;0}点)";
 
-    public void UpdateTotalScore(int score)
-    {
+        if (_crimeCompletedText != null)
+            _crimeCompletedText.text =
+                $"犯罪完遂 : {s.crimeCompletedCount}回 ({s.crimeCompletedScore:+#;-#;0}点)";
+
+        if (_defeatPlayerText != null)
+            _defeatPlayerText.text =
+                $"他P撃破 : {s.defeatPlayerCount}人 ({s.defeatPlayerScore:+#;-#;0}点)";
+
         if (_totalScoreText != null)
-            _totalScoreText.text = $"総合スコア : {score}点";
-    }
+            _totalScoreText.text = $"総合スコア : {data.totalScore}点";
 
-    public void UpdateRank(int rank)
-    {
         if (_rankText != null)
-            _rankText.text = rank <= 0 ? "順位 : ---" : $"順位 : {rank}位";
-    }
+            _rankText.text = "順位 : ---"; // 仮
 
-    public void UpdateTitle(string title)
-    {
         if (_titleText != null)
-            _titleText.text = $"称号 : {title}";
+            _titleText.text = $"称号 : {data.title}";
     }
 
     // =========================================================
-    // マルチ用：描画（Presenter から呼ばれる）
+    // マルチ用：描画
     // =========================================================
 
     /// <summary>
     /// マルチ用：全プレイヤー分の結果を表示する
-    /// スコア順に並び替え済みのリストを受け取る
+    /// リストの順番 = 順位（Model でソート済み）
     /// </summary>
-    public void UpdateMultiPlayerResults(List<PlayerResultData> results)
+    public void UpdateMultiResults(List<CS_ResultData> results)
     {
         if (results == null || results.Count == 0) return;
 
-        // 既存の UI をクリア
         ClearPlayerResultItems();
 
-        // 各プレイヤー分の UI を生成
-        foreach (var result in results)
+        for (int i = 0; i < results.Count; i++)
         {
             var item = Instantiate(_playerResultPrefab, _playerResultsRoot);
-            _playerResultItems.Add(item);
-
-            // Prefab 内のテキストを更新
             var itemView = item.GetComponent<CS_UIPlayerResultItemView>();
             if (itemView != null)
-                itemView.UpdateView(result);
+                itemView.UpdateView(results[i], rank: i + 1);
+
+            _playerResultItems.Add(item);
         }
     }
 
@@ -132,14 +117,12 @@ public class CS_UIResultView : CS_BaseView<CS_UIResultPresenter>
     // ソロ / マルチ 切り替え
     // =========================================================
 
-    /// <summary>ソロ表示に切り替える</summary>
     public void ShowSoloPanel()
     {
         if (_soloPanel != null) _soloPanel.SetActive(true);
         if (_multiPanel != null) _multiPanel.SetActive(false);
     }
 
-    /// <summary>マルチ表示に切り替える</summary>
     public void ShowMultiPanel()
     {
         if (_soloPanel != null) _soloPanel.SetActive(false);

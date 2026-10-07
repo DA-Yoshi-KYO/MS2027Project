@@ -37,6 +37,7 @@ public class CS_VillainGroup
 
     public CS_VillainSpawnPoint spawnPoint => _spawnPoint;
     public bool isCrimeCompleted => _isCrimeCompleted;
+    public IReadOnlyList<CS_VillainCrime> members => _members;   // 撃退・逃走で消えたメンバーはnullになっている
 
     // Destroyされたメンバーはnull扱いになるので、1人でも残っていれば生存
     public bool isAlive => _members.Exists(member => member != null);

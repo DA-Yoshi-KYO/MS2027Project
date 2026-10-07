@@ -90,6 +90,30 @@ public class CS_TimerController : NetworkBehaviour
             _endTime.Value = GetCurrentTime() + _maxTime;
             Debug.Log($"[CS_TimerController] 終了時刻をセット : {_endTime.Value}");
         }
+
+        // 各クライアントがシーン移動イベントで保存する
+        NetworkManager.SceneManager.OnSceneEvent += HandleSceneEvent;
+    }
+
+    public override void OnNetworkDespawn()
+    {
+        base.OnNetworkDespawn();
+
+        // A案：購読解除
+        NetworkManager.SceneManager.OnSceneEvent -= HandleSceneEvent;
+    }
+
+    // =========================================================
+    // シーン移動イベント
+    // =========================================================
+
+    private void HandleSceneEvent(SceneEvent sceneEvent)
+    {
+        // シーン移動開始前（プレイヤーが消える前）に保存する
+        if (sceneEvent.SceneEventType == SceneEventType.Load)
+        {
+            CS_ResultDataStore.Save(CS_PlayerResultDataHolder.CollectResults());
+        }
     }
 
     // =========================================================
@@ -112,17 +136,20 @@ public class CS_TimerController : NetworkBehaviour
         {
             _isFinished = true;
 
-            // =========================================================
-            // TODO: プレイヤー側の実装後に追加
-            // =========================================================
-            // var allResults = new List<CS_ResultData>();
-            // foreach (var player in 全プレイヤーのリスト)
-            // {
-            //     var resultData = player.GetComponent<CS_PlayerResultDataHolder>().resultData;
-            //     allResults.Add(resultData);
-            // }
-            // CS_ResultDataStore.Save(allResults);
-            // =========================================================
+            // オフライン時はここで保存してシーン移動
+            if (!IsOnline())
+            {
+                // オフライン：その場で保存してシーン移動
+                CS_ResultDataStore.Save(CS_PlayerResultDataHolder.CollectResults());
+                _sceneTransitioner.StartTransition();
+            }
+            else
+            {
+                // オンライン（サーバー）：全員をまとめてシーン移動
+                // 各クライアントは OnSceneEvent で保存するので
+                // ここでは Save() を呼ばない
+                _sceneTransitioner.StartTransition();
+            }
 
             _sceneTransitioner.StartTransition();
         }

@@ -20,7 +20,7 @@ using UnityEngine;
  * ■ 流れ(抽選・開始・終了はサーバー、またはオフラインで行う)
  *   1. ゲームの経過時間が、スケジュールの各タイミングの時間を過ぎたら(1タイミングにつき1回)
  *   2. そのタイミングの候補からイベントを1つ、開催中でない発生地点から1つ、ランダムに選ぶ
- *   3. CSO_RandomEvent.OnStart → 毎フレーム OnUpdate → IsFinishedがtrueになったら OnEnd
+ *   3. CSO_RandomEvent.OnStart → 毎フレーム OnUpdate → 終わる条件(duration秒たった or IsFinished)を満たしたら OnEnd
  *   4. 開始・終了の時に onEventStarted / onEventEnded を呼ぶ
  *      クライアントにもRPCで知らせ、同じ内容のCS_RandomEventContextで呼ぶ(UI・ミニマップ・演出用)
  *   候補が空・空いている発生地点が無い場合は、そのタイミングでは何も起きない
@@ -36,15 +36,19 @@ using UnityEngine;
  *   発生地点は全員で同じ順番になるよう、位置(x → z → y)で並べている
  *   途中参加したクライアントには、参加前に始まったイベントは知らされない
  *
- * ■ 後から追加する予定のもの(今は作っていない)
- *   ・イベントの終了時間 : CSO_RandomEvent.IsFinishedで context.elapsedTime を見れば、イベントごとに作れる
- *   ・イベントの範囲内だけ警察に探知されない : onEventStarted / onEventEnded と context.point を使って警察側で判定する
+ * ■ 警察の介入
+ *   blockPoliceDetectionがオンのイベントの開催中は、発生地点の範囲(radius、水平方向)の中で警察に探知されない
+ *   警察側は、標的を見つける判定に IsPoliceDetectionBlocked(標的の位置) を足す(煙幕のIsLineBlockedと同じ使い方)
+ *     if (CS_RandomEventManager.IsPoliceDetectionBlocked(targetPosition)) return false;
+ *   開催中のイベントはクライアントにも通知しているので、サーバー・クライアントのどちらで呼んでもよい
  */
 // ========================================
 
 public class CS_RandomEventManager : NetworkBehaviour
 {
     private const float _checkInterval = 0.25f;   // 経過時間を確認する間隔(秒)
+
+    private static CS_RandomEventManager _current;   // シーンにいるマネージャー(警察からの問い合わせに使う)
 
     [SerializeField]
     [Tooltip("発生スケジュール(DB_RandomEventSchedule)。いつ・どのイベントを起こすか")]
@@ -70,7 +74,31 @@ public class CS_RandomEventManager : NetworkBehaviour
 
     private void Awake()
     {
+        _current = this;
         _points = CollectPoints();
+    }
+
+    public override void OnDestroy()
+    {
+        if (_current == this) _current = null;
+        base.OnDestroy();
+    }
+
+    // 指定した位置が、警察に探知されないイベント(blockPoliceDetection)の範囲の中か
+    public static bool IsPoliceDetectionBlocked(Vector3 position)
+    {
+        if (_current == null) return false;
+
+        foreach (CS_RandomEventContext context in _current._activeEvents)
+        {
+            if (!context.randomEvent.blockPoliceDetection || context.point == null) continue;
+
+            Vector3 offset = position - context.point.transform.position;
+            offset.y = 0f;
+            float radius = context.point.radius;
+            if (offset.sqrMagnitude <= radius * radius) return true;
+        }
+        return false;
     }
 
     private void Start()
@@ -144,7 +172,7 @@ public class CS_RandomEventManager : NetworkBehaviour
             context.AddElapsedTime(deltaTime);
             context.randomEvent.OnUpdate(context, deltaTime);
 
-            if (!context.randomEvent.IsFinished(context)) continue;
+            if (!context.randomEvent.ShouldEnd(context)) continue;
 
             context.randomEvent.OnEnd(context);
             context.point.isOccupied = false;

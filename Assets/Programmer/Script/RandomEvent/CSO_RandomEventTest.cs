@@ -11,7 +11,7 @@ using UnityEngine;
 /*
  * メモ
  * ・右クリック → Create → RandomEvent → Test でアセットを作り、発生スケジュールの候補に入れて使う
- * ・duration 秒たったら終わる(イベントごとに終わる条件を作る例にもなっている)
+ * ・終了時間(Duration)は共通設定のものを使う(テスト用アセットは10秒)
  * ・本番のスケジュールには入れないこと
  */
 // ========================================
@@ -19,18 +19,9 @@ using UnityEngine;
 [CreateAssetMenu(fileName = "DB_RandomEventTest", menuName = "RandomEvent/Test")]
 public class CSO_RandomEventTest : CSO_RandomEvent
 {
-    [SerializeField, Min(0f)]
-    [Tooltip("始まってから終わるまでの時間(秒)")]
-    private float _duration = 10f;
-
     public override void OnStart(CS_RandomEventContext context)
     {
-        Debug.Log($"CSO_RandomEventTest: 「{displayName}」が {context.point.name} で始まりました(経過時間 {context.startTime:0.0}秒)");
-    }
-
-    public override bool IsFinished(CS_RandomEventContext context)
-    {
-        return context.elapsedTime >= _duration;
+        Debug.Log($"CSO_RandomEventTest: 「{displayName}」が {context.point.name} で始まりました(経過時間 {context.startTime:0.0}秒、警察に探知されない: {blockPoliceDetection})");
     }
 
     public override void OnEnd(CS_RandomEventContext context)

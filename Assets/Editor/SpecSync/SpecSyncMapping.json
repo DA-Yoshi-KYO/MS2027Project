@@ -1,0 +1,73 @@
+{
+  "_site": "summervacationgamejam.atlassian.net",
+  "_pageId": "21004355",
+  "_tables": [
+    {
+      "_heading": "プレイヤーデータ",
+      "_assetPath": "Assets/Programmer/Database/Player/DB_PlayerStats.asset",
+      "_rows": [ { "_rowKey": "初期値" } ],
+      "_columns": [
+        { "_column": "HP", "_property": "_maxHp" },
+        { "_column": "通常移動速度", "_property": "_moveSpeed", "_scale": 5 },
+        { "_column": "ダッシュ時速度", "_property": "_dashSpeed", "_scale": 5 },
+        { "_column": "ジャンプ力", "_property": "_jumpPower", "_scale": 5 },
+        { "_column": "攻撃力", "_property": "_attackPower" },
+        { "_column": "必殺技ゲージ", "_property": "_maxGauge" },
+        { "_column": "必殺技威力", "_property": "_specialAttackPower" },
+        { "_column": "初期信号間隔", "_property": "_policeNotifyInterval", "_assetPath": "Assets/Programmer/Prefab/Entity/Player/Player.prefab", "_component": "CS_PlayerTransformation" },
+        { "_column": "間隔短縮時間", "_property": "_policeNotifyShortenTime", "_assetPath": "Assets/Programmer/Prefab/Entity/Player/Player.prefab", "_component": "CS_PlayerTransformation" },
+        { "_column": "短縮時間", "_property": "_policeNotifyShortenAmount", "_assetPath": "Assets/Programmer/Prefab/Entity/Player/Player.prefab", "_component": "CS_PlayerTransformation" }
+      ]
+    },
+    {
+      "_heading": "悪人データ",
+      "_rows": [
+        { "_rowKey": "A", "_assetPath": "Assets/Programmer/Database/Villain/DB_VillainStatsA.asset" },
+        { "_rowKey": "B", "_assetPath": "Assets/Programmer/Database/Villain/DB_VillainStatsB.asset" }
+      ],
+      "_columns": [
+        { "_column": "HP", "_property": "_maxHp" },
+        { "_column": "移動速度", "_property": "_moveSpeedMultiplier" },
+        { "_column": "攻撃力", "_property": "_attackPower" },
+        { "_column": "臨戦態勢範囲", "_property": "_engageRange" },
+        { "_column": "犯罪完遂までの時間", "_property": "_crimeCompleteTime" },
+        { "_column": "撃破スコア", "_property": "", "_note": "悪人側に撃破スコア(IDefeatScore)の項目がまだ無い" }
+      ]
+    },
+    {
+      "_heading": "警察データ",
+      "_rows": [
+        { "_rowKey": "A", "_assetPath": "Assets/Programmer/Database/Police/DB_PoliceA.asset" },
+        { "_rowKey": "B", "_assetPath": "Assets/Programmer/Database/Police/DB_PoliceB.asset" }
+      ],
+      "_columns": [
+        { "_column": "HP", "_property": "", "_note": "警察は不死のため項目なし" },
+        { "_column": "巡回速度(通常)", "_property": "_patrolSpeedMultiplier" },
+        { "_column": "追跡速度", "_property": "_chaseSpeedMultiplier" },
+        { "_column": "攻撃力", "_property": "", "_note": "プレイヤーを一撃で倒すため10000以上で固定(CSO_PoliceStatusのMin)" },
+        { "_column": "視界範囲(円錐)", "_property": "_viewDistance" }
+      ]
+    },
+    {
+      "_heading": "手配度データ",
+      "_assetPath": "Assets/Programmer/Database/Police/DB_PoliceWantedLevel.asset",
+      "_arrayProperty": "_levels",
+      "_columns": [
+        { "_column": "警察の出現数", "_property": "_policeCount" },
+        { "_column": "警察の追跡速度倍率", "_property": "_chaseSpeedMultiplier" },
+        { "_column": "視界範囲", "_property": "_viewDistance" }
+      ]
+    },
+    {
+      "_heading": "悪人の時間経過による変化データ",
+      "_assetPath": "Assets/Programmer/Database/Villain/DB_VillainTimeScaling.asset",
+      "_arrayProperty": "_stages",
+      "_columns": [
+        { "_column": "時間", "_property": "_startTime", "_scale": 60 },
+        { "_column": "1グループの人数", "_property": "_memberCount" },
+        { "_column": "HP", "_property": "_maxHp" },
+        { "_column": "犯罪完了までの時間", "_property": "_crimeCompleteTime" }
+      ]
+    }
+  ]
+}

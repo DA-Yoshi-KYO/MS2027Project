@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using Unity.Netcode;
 using UnityEngine;
 
@@ -23,6 +24,11 @@ using UnityEngine;
  * ・手配度はNetworkVariableで持つ(書き込みはサーバーのみ、読み取りは全員可)
  *   増減の判断はサーバーだけが行う(変身状態・犯罪完遂の判定がサーバーで行われるため)
  * ・onLevelChangedは全クライアントで発生する(警察の変化・追加スポーン・UI用)
+ * ・出現・消滅の通知(警察側が、途中で出現・接続したプレイヤーのonLevelChangedを購読するため)
+ *   出現中のプレイヤーはactivePlayersで一覧でき、出現・消滅の時にonAnySpawned / onAnyDespawnedが発生する(staticイベント)
+ *   出現: オンラインはOnNetworkSpawn、オフラインはStart / 消滅: OnNetworkDespawn、またはOnDestroy
+ *   (リスポーンは同じオブジェクトのまま復活するので、出現・消滅にはならない)
+ *   プレイヤー側から警察のスクリプトは呼ばず、警察側がこれらを購読して警察を動かす
  * ・オフライン(NetworkManagerが動いていない)のテストシーンでも単体で動く
  */
 // ========================================
@@ -42,6 +48,10 @@ public class CS_PlayerWantedLevel : NetworkBehaviour
     // 書き込みはサーバーのみ(NetworkVariableのデフォルト)。読み取りは全員可
     private readonly NetworkVariable<int> _level = new NetworkVariable<int>();
 
+    // 出現中のプレイヤーの一覧(警察側が、すでにいるプレイヤーを購読するのに使う)
+    private static readonly List<CS_PlayerWantedLevel> _activePlayers = new List<CS_PlayerWantedLevel>();
+
+    private bool _isRegistered;     // activePlayersに登録済みか(二重登録・二重解除を防ぐ)
     private bool _isDecreasing;     // 下がっている途中か(サーバー、またはオフラインのみ使う)
     private float _decreaseTimer;
 
@@ -49,6 +59,12 @@ public class CS_PlayerWantedLevel : NetworkBehaviour
     public int maxLevel => _maxLevel;
 
     public event Action<int> onLevelChanged;    // (今の手配度)全クライアントで発生する
+
+    public static IReadOnlyList<CS_PlayerWantedLevel> activePlayers => _activePlayers;
+
+    // プレイヤーが出現した・消えた時(全クライアント・オフラインで発生する。警察側はサーバー、またはオフラインでだけ購読する)
+    public static event Action<CS_PlayerWantedLevel> onAnySpawned;
+    public static event Action<CS_PlayerWantedLevel> onAnyDespawned;
 
     private void Awake()
     {
@@ -61,14 +77,25 @@ public class CS_PlayerWantedLevel : NetworkBehaviour
         CS_VillainGroup.onAnyCrimeCompleted += HandleCrimeCompleted;
     }
 
+    // オフライン(NetworkManagerが動いていない)のテストシーン用
+    private void Start()
+    {
+        if (IsSpawned) return;
+        if (NetworkManager.Singleton != null && NetworkManager.Singleton.IsListening) return;
+
+        Register();
+    }
+
     public override void OnNetworkSpawn()
     {
         _level.OnValueChanged += HandleLevelChanged;
+        Register();
     }
 
     public override void OnNetworkDespawn()
     {
         _level.OnValueChanged -= HandleLevelChanged;
+        Unregister();
     }
 
     public override void OnDestroy()
@@ -82,7 +109,37 @@ public class CS_PlayerWantedLevel : NetworkBehaviour
         if (_health != null) _health.onDeath -= HandleDeath;
         CS_VillainGroup.onAnyCrimeCompleted -= HandleCrimeCompleted;
 
+        Unregister();
         base.OnDestroy();
+    }
+
+    // 出現中の一覧に加えて知らせる
+    private void Register()
+    {
+        if (_isRegistered) return;
+
+        _isRegistered = true;
+        _activePlayers.Add(this);
+        onAnySpawned?.Invoke(this);
+    }
+
+    // 出現中の一覧から外して知らせる
+    private void Unregister()
+    {
+        if (!_isRegistered) return;
+
+        _isRegistered = false;
+        _activePlayers.Remove(this);
+        onAnyDespawned?.Invoke(this);
+    }
+
+    // Domain Reloadオフ対策(再生のたびに一覧とイベントを空にする)
+    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+    private static void ResetStatics()
+    {
+        _activePlayers.Clear();
+        onAnySpawned = null;
+        onAnyDespawned = null;
     }
 
     private void Update()

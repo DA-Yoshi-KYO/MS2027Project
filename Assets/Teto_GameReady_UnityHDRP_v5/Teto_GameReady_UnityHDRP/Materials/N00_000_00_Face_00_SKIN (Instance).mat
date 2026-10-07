@@ -8,7 +8,7 @@ Material:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_Name: N00_000_00_Face_00_SKIN (Instance)
-  m_Shader: {fileID: -6465566751694194690, guid: b76b53434eea7284b8740ae54d1e73fb, type: 3}
+  m_Shader: {fileID: -6465566751694194690, guid: d0b55cd0989a4387979a91aafa88a577, type: 3}
   m_Parent: {fileID: 0}
   m_ModifiedSerializedProperties: 0
   m_ValidKeywords:
@@ -273,6 +273,8 @@ Material:
         m_Offset: {x: 0, y: 0}
     m_Ints: []
     m_Floats:
+    - _CelRimStrength: 0.0
+    - _CelShadowStrength: 0.0
     - CharacterLeft: 0
     - CharacterRight: 0
     - Emission_Type: 0
@@ -338,6 +340,7 @@ Material:
     - _BoundMinZ: 0
     - _BrightLineMaskContrast: 1
     - _BumpScale: 0
+    - _CastShadowStrength: 0.35
     - _CloakViewWeight: 0.5
     - _CloudBrightness: 1
     - _CloudHeight: 1
@@ -476,7 +479,7 @@ Material:
     - _EyeScale: 0.8
     - _EyeTimeOffset: 0.1
     - _FaceBlushStrength: 0
-    - _FaceBrightness: 1.3
+    - _FaceBrightness: 1.12
     - _FaceMapRotateOffset: 0
     - _FaceMapSoftness: 0.001
     - _FakePointFrequency: 0
@@ -754,6 +757,7 @@ Material:
     - _Second_HeightRadio: 0.6
     - _Second_NoiseStrength: 0.15
     - _ShaderOptimizerEnabled: 1
+    - _ShadowMatteFilter: 2.006836
     - _ShadowOffsetPower: 0.56
     - _ShadowProcess: 0.55
     - _ShadowRampWidth: 1
@@ -779,6 +783,15 @@ Material:
     - _Shininess5: 10
     - _SkillEmissionScaler: 3.2
     - _SkillEmisssionPower: 0.6
+    - _SkinFormShading: 0.06
+    - _SkinLightWrap: 0.4
+    - _SkinRimStrength: 0.025
+    - _SkinRoughness: 0.6
+    - _SkinScatterStrength: 0.045
+    - _SkinShadowSoftness: 0.7
+    - _SkinShadowStrength: 0.24
+    - _SkinShadowThreshold: 0.3
+    - _SkinSpecularStrength: 0.022
     - _Skirktype: 1
     - _Smoothness: 0.100000024
     - _SmoothnessRemapMax: 1
@@ -850,10 +863,10 @@ Material:
     - _StencilRef: 0
     - _StencilRefA: 0
     - _StencilRefB: 0
-    - _StencilRefDepth: 1
+    - _StencilRefDepth: 0
     - _StencilRefDistortionVec: 4
     - _StencilRefGBuffer: 10
-    - _StencilRefMV: 33
+    - _StencilRefMV: 32
     - _StencilRefNyx: 0
     - _StencilRefO: 244
     - _StencilType: 3
@@ -1386,6 +1399,7 @@ Material:
     - _BottomColor02: {r: 1, g: 0, b: 0, a: 0}
     - _BrightLineColor: {r: 1, g: 1, b: 1, a: 1}
     - _BrightLineMaskSpeed: {r: 0, g: 0, b: 0, a: 0}
+    - _CastShadowTint: {r: 0.85, g: 0.7, b: 0.65, a: 1}
     - _ClipPlane: {r: 0, g: 0, b: 0, a: 0}
     - _Color: {r: 1, g: 1, b: 1, a: 1}
     - _Color2: {r: 1, g: 1, b: 1, a: 1}
@@ -1503,9 +1517,11 @@ Material:
     - _RimColor4: {r: 1, g: 1, b: 1, a: 1}
     - _SDFColor: {r: 0, g: 0, b: 0, a: 1}
     - _ScanColor: {r: 0.8970588, g: 0.8970588, b: 0.8970588, a: 1}
-    - _ShadowColor: {r: 0.7, g: 0.7, b: 0.7, a: 1}
+    - _ShadowColor: {r: 0.92, g: 0.88, b: 0.95, a: 1}
     - _SkillEmisssionColor: {r: 0, g: 0, b: 0, a: 0}
     - _SkinColor: {r: 1, g: 1, b: 1, a: 1}
+    - _SkinScatterTint: {r: 1, g: 0.45, b: 0.32, a: 1}
+    - _SkinShadowTint: {r: 0.94, g: 0.74, b: 0.69, a: 1}
     - _SkinSubsurfaceColor: {r: 0.9387, g: 0.60379994, b: 0.40719998, a: 1}
     - _SpecularColor: {r: 1, g: 1, b: 1, a: 1}
     - _SpecularColor2: {r: 1, g: 1, b: 1, a: 1}

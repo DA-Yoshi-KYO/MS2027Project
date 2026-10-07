@@ -8,7 +8,7 @@ Material:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_Name: N00_000_Hair_00_HAIR_01 (Instance)
-  m_Shader: {fileID: -6465566751694194690, guid: 578b449536e30984a9b6967bb91311ac, type: 3}
+  m_Shader: {fileID: -6465566751694194690, guid: b860c3c1ae6a466aa929c3e11a403c6c, type: 3}
   m_Parent: {fileID: 0}
   m_ModifiedSerializedProperties: 0
   m_ValidKeywords:
@@ -753,6 +753,7 @@ Material:
     - _Second_HeightRadio: 0.6
     - _Second_NoiseStrength: 0.15
     - _ShaderOptimizerEnabled: 1
+    - _ShadowMatteFilter: 2.006836
     - _ShadowOffsetPower: 0.56
     - _ShadowProcess: 0.55
     - _ShadowRampWidth: 1
@@ -849,10 +850,10 @@ Material:
     - _StencilRef: 0
     - _StencilRefA: 0
     - _StencilRefB: 0
-    - _StencilRefDepth: 1
+    - _StencilRefDepth: 0
     - _StencilRefDistortionVec: 4
     - _StencilRefGBuffer: 10
-    - _StencilRefMV: 33
+    - _StencilRefMV: 32
     - _StencilRefNyx: 0
     - _StencilRefO: 244
     - _StencilType: 3
@@ -1502,7 +1503,7 @@ Material:
     - _RimColor4: {r: 1, g: 1, b: 1, a: 1}
     - _SDFColor: {r: 0, g: 0, b: 0, a: 1}
     - _ScanColor: {r: 0.8970588, g: 0.8970588, b: 0.8970588, a: 1}
-    - _ShadowColor: {r: 0.7, g: 0.7, b: 0.7, a: 1}
+    - _ShadowColor: {r: 0.78, g: 0.8, b: 0.88, a: 1}
     - _SkillEmisssionColor: {r: 0, g: 0, b: 0, a: 0}
     - _SkinColor: {r: 1, g: 1, b: 1, a: 1}
     - _SkinSubsurfaceColor: {r: 0.9387, g: 0.60379994, b: 0.40719998, a: 1}

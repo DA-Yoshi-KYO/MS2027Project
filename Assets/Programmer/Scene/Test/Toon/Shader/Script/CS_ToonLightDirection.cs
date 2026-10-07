@@ -1,4 +1,4 @@
-﻿/* ================================================
+/* ================================================
  * HDRP Toon Shader - Main Light Direction Sender
  * ================================================
  * 制作者：吉本竜
@@ -17,6 +17,7 @@ using UnityEngine;
 /// 「表面法線」と「光源方向」の内積を計算することで
 /// 明部・暗部の判定に使用する。
 /// </summary>
+[ExecuteAlways]
 public class CS_ToonLightDirection : MonoBehaviour
 {
     /// <summary>
@@ -33,6 +34,13 @@ public class CS_ToonLightDirection : MonoBehaviour
     /// </summary>
     [SerializeField]
     private Renderer[] targetRenderers;
+
+    /// <summary>
+    /// 設定されている場合、この配下の Renderer をすべて対象にする。
+    /// Hair や Cloth などの登録漏れで光源方向が既定値 (0,1,0) のままになるのを防ぐ。
+    /// </summary>
+    [SerializeField]
+    private Transform characterRoot;
 
     /// <summary>
     /// Shader Graph 側の MainLightDirection の
@@ -54,9 +62,26 @@ public class CS_ToonLightDirection : MonoBehaviour
     /// 初期化処理。
     /// MaterialPropertyBlock を一度だけ生成する。
     /// </summary>
-    private void Awake()
+    private void OnEnable()
     {
         propertyBlock = new MaterialPropertyBlock();
+        CollectRenderers();
+    }
+
+    /// <summary>
+    /// characterRoot 配下の Renderer を収集する（Inspector 変更時も再収集）。
+    /// </summary>
+    private void CollectRenderers()
+    {
+        if (characterRoot != null)
+        {
+            targetRenderers = characterRoot.GetComponentsInChildren<Renderer>(true);
+        }
+    }
+
+    private void OnValidate()
+    {
+        CollectRenderers();
     }
 
     /// <summary>
@@ -66,7 +91,7 @@ public class CS_ToonLightDirection : MonoBehaviour
     private void Update()
     {
         // Main Light が設定されていない場合は処理しない。
-        if (mainLight == null)
+        if (mainLight == null || targetRenderers == null)
         {
             return;
         }
@@ -85,6 +110,7 @@ public class CS_ToonLightDirection : MonoBehaviour
          * そのため、Directional Light の forward を反転して
          * Shader 用の Light Direction として使用する。
          */
+        if (propertyBlock == null) propertyBlock = new MaterialPropertyBlock();
         Vector3 lightDirection = -mainLight.transform.forward;
 
         // 登録されている全 Renderer に Light Direction を渡す。

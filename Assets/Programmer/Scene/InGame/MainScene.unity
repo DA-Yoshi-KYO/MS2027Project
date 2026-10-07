@@ -7752,6 +7752,8 @@ GameObject:
   m_Component:
   - component: {fileID: 251977354}
   - component: {fileID: 251977355}
+  - component: {fileID: 251977356}
+  - component: {fileID: 251977357}
   m_Layer: 0
   m_Name: VillainSpawnPoint_CT
   m_TagString: Untagged
@@ -7771,7 +7773,8 @@ Transform:
   m_LocalPosition: {x: 0, y: 1.5, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
-  m_Children: []
+  m_Children:
+  - {fileID: 579757047}
   m_Father: {fileID: 1678867596}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!114 &251977355
@@ -7787,6 +7790,47 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::CS_VillainSpawnPoint
   _groupRadius: 1.5
+--- !u!114 &251977356
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 251977353}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Unity.Netcode.Runtime::Unity.Netcode.NetworkObject
+  GlobalObjectIdHash: 2140912812
+  InScenePlacedSourceGlobalObjectIdHash: 0
+  m_InScenePlacedDisabledByDefault: 0
+  DeferredDespawnTick: 0
+  Ownership: 1
+  AlwaysReplicateAsRoot: 0
+  SynchronizeTransform: 1
+  m_InScenePlaced: 1
+  ActiveSceneSynchronization: 0
+  SceneMigrationSynchronization: 0
+  SpawnWithObservers: 1
+  DontDestroyWithOwner: 0
+  AutoObjectParentSync: 1
+  SyncOwnerTransformWhenParented: 1
+  AllowOwnerToParent: 0
+--- !u!114 &251977357
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 251977353}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 934b8d9424368d4408103227542fdadd, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CS_VillainCrimeGauge
+  ShowTopMostFoldoutHeaderGroup: 1
+  _gaugeCanvas: {fileID: 579757048}
 --- !u!1 &257053064
 GameObject:
   m_ObjectHideFlags: 0
@@ -21337,6 +21381,113 @@ MeshFilter:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 578117334}
   m_Mesh: {fileID: 10202, guid: 0000000000000000e000000000000000, type: 0}
+--- !u!1001 &579757046
+PrefabInstance:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Modification:
+    serializedVersion: 3
+    m_TransformParent: {fileID: 251977354}
+    m_Modifications:
+    - target: {fileID: 1982544902914890987, guid: 00cd9623b73b5e949853a1831c4778ca, type: 3}
+      propertyPath: m_Name
+      value: VillainCrimeGaugeCanvas
+      objectReference: {fileID: 0}
+    - target: {fileID: 2198410077073791852, guid: 00cd9623b73b5e949853a1831c4778ca, type: 3}
+      propertyPath: m_Pivot.x
+      value: 0.5
+      objectReference: {fileID: 0}
+    - target: {fileID: 2198410077073791852, guid: 00cd9623b73b5e949853a1831c4778ca, type: 3}
+      propertyPath: m_Pivot.y
+      value: 0.5
+      objectReference: {fileID: 0}
+    - target: {fileID: 2198410077073791852, guid: 00cd9623b73b5e949853a1831c4778ca, type: 3}
+      propertyPath: m_AnchorMax.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2198410077073791852, guid: 00cd9623b73b5e949853a1831c4778ca, type: 3}
+      propertyPath: m_AnchorMax.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2198410077073791852, guid: 00cd9623b73b5e949853a1831c4778ca, type: 3}
+      propertyPath: m_AnchorMin.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2198410077073791852, guid: 00cd9623b73b5e949853a1831c4778ca, type: 3}
+      propertyPath: m_AnchorMin.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2198410077073791852, guid: 00cd9623b73b5e949853a1831c4778ca, type: 3}
+      propertyPath: m_SizeDelta.x
+      value: 1920
+      objectReference: {fileID: 0}
+    - target: {fileID: 2198410077073791852, guid: 00cd9623b73b5e949853a1831c4778ca, type: 3}
+      propertyPath: m_SizeDelta.y
+      value: 1080
+      objectReference: {fileID: 0}
+    - target: {fileID: 2198410077073791852, guid: 00cd9623b73b5e949853a1831c4778ca, type: 3}
+      propertyPath: m_LocalPosition.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2198410077073791852, guid: 00cd9623b73b5e949853a1831c4778ca, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2198410077073791852, guid: 00cd9623b73b5e949853a1831c4778ca, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2198410077073791852, guid: 00cd9623b73b5e949853a1831c4778ca, type: 3}
+      propertyPath: m_LocalRotation.w
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 2198410077073791852, guid: 00cd9623b73b5e949853a1831c4778ca, type: 3}
+      propertyPath: m_LocalRotation.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2198410077073791852, guid: 00cd9623b73b5e949853a1831c4778ca, type: 3}
+      propertyPath: m_LocalRotation.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2198410077073791852, guid: 00cd9623b73b5e949853a1831c4778ca, type: 3}
+      propertyPath: m_LocalRotation.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2198410077073791852, guid: 00cd9623b73b5e949853a1831c4778ca, type: 3}
+      propertyPath: m_AnchoredPosition.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2198410077073791852, guid: 00cd9623b73b5e949853a1831c4778ca, type: 3}
+      propertyPath: m_AnchoredPosition.y
+      value: 2.3
+      objectReference: {fileID: 0}
+    - target: {fileID: 2198410077073791852, guid: 00cd9623b73b5e949853a1831c4778ca, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2198410077073791852, guid: 00cd9623b73b5e949853a1831c4778ca, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2198410077073791852, guid: 00cd9623b73b5e949853a1831c4778ca, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.z
+      value: 0
+      objectReference: {fileID: 0}
+    m_RemovedComponents: []
+    m_RemovedGameObjects: []
+    m_AddedGameObjects: []
+    m_AddedComponents: []
+  m_SourcePrefab: {fileID: 100100000, guid: 00cd9623b73b5e949853a1831c4778ca, type: 3}
+--- !u!224 &579757047 stripped
+RectTransform:
+  m_CorrespondingSourceObject: {fileID: 2198410077073791852, guid: 00cd9623b73b5e949853a1831c4778ca, type: 3}
+  m_PrefabInstance: {fileID: 579757046}
+  m_PrefabAsset: {fileID: 0}
+--- !u!1 &579757048 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 1982544902914890987, guid: 00cd9623b73b5e949853a1831c4778ca, type: 3}
+  m_PrefabInstance: {fileID: 579757046}
+  m_PrefabAsset: {fileID: 0}
 --- !u!1 &582763012
 GameObject:
   m_ObjectHideFlags: 0
@@ -30879,6 +31030,8 @@ GameObject:
   m_Component:
   - component: {fileID: 834333344}
   - component: {fileID: 834333345}
+  - component: {fileID: 834333346}
+  - component: {fileID: 834333347}
   m_Layer: 0
   m_Name: VillainSpawnPoint_SW
   m_TagString: Untagged
@@ -30898,7 +31051,8 @@ Transform:
   m_LocalPosition: {x: -80, y: 1.5, z: -65}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
-  m_Children: []
+  m_Children:
+  - {fileID: 1699143851}
   m_Father: {fileID: 1678867596}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!114 &834333345
@@ -30914,6 +31068,47 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::CS_VillainSpawnPoint
   _groupRadius: 1.5
+--- !u!114 &834333346
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 834333343}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Unity.Netcode.Runtime::Unity.Netcode.NetworkObject
+  GlobalObjectIdHash: 3919898544
+  InScenePlacedSourceGlobalObjectIdHash: 0
+  m_InScenePlacedDisabledByDefault: 0
+  DeferredDespawnTick: 0
+  Ownership: 1
+  AlwaysReplicateAsRoot: 0
+  SynchronizeTransform: 1
+  m_InScenePlaced: 1
+  ActiveSceneSynchronization: 0
+  SceneMigrationSynchronization: 0
+  SpawnWithObservers: 1
+  DontDestroyWithOwner: 0
+  AutoObjectParentSync: 1
+  SyncOwnerTransformWhenParented: 1
+  AllowOwnerToParent: 0
+--- !u!114 &834333347
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 834333343}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 934b8d9424368d4408103227542fdadd, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CS_VillainCrimeGauge
+  ShowTopMostFoldoutHeaderGroup: 1
+  _gaugeCanvas: {fileID: 1699143850}
 --- !u!1 &835771900
 GameObject:
   m_ObjectHideFlags: 0
@@ -35449,6 +35644,113 @@ MeshFilter:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 946776670}
   m_Mesh: {fileID: 10202, guid: 0000000000000000e000000000000000, type: 0}
+--- !u!1001 &948583503
+PrefabInstance:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Modification:
+    serializedVersion: 3
+    m_TransformParent: {fileID: 1432302578}
+    m_Modifications:
+    - target: {fileID: 1982544902914890987, guid: 00cd9623b73b5e949853a1831c4778ca, type: 3}
+      propertyPath: m_Name
+      value: VillainCrimeGaugeCanvas
+      objectReference: {fileID: 0}
+    - target: {fileID: 2198410077073791852, guid: 00cd9623b73b5e949853a1831c4778ca, type: 3}
+      propertyPath: m_Pivot.x
+      value: 0.5
+      objectReference: {fileID: 0}
+    - target: {fileID: 2198410077073791852, guid: 00cd9623b73b5e949853a1831c4778ca, type: 3}
+      propertyPath: m_Pivot.y
+      value: 0.5
+      objectReference: {fileID: 0}
+    - target: {fileID: 2198410077073791852, guid: 00cd9623b73b5e949853a1831c4778ca, type: 3}
+      propertyPath: m_AnchorMax.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2198410077073791852, guid: 00cd9623b73b5e949853a1831c4778ca, type: 3}
+      propertyPath: m_AnchorMax.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2198410077073791852, guid: 00cd9623b73b5e949853a1831c4778ca, type: 3}
+      propertyPath: m_AnchorMin.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2198410077073791852, guid: 00cd9623b73b5e949853a1831c4778ca, type: 3}
+      propertyPath: m_AnchorMin.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2198410077073791852, guid: 00cd9623b73b5e949853a1831c4778ca, type: 3}
+      propertyPath: m_SizeDelta.x
+      value: 1920
+      objectReference: {fileID: 0}
+    - target: {fileID: 2198410077073791852, guid: 00cd9623b73b5e949853a1831c4778ca, type: 3}
+      propertyPath: m_SizeDelta.y
+      value: 1080
+      objectReference: {fileID: 0}
+    - target: {fileID: 2198410077073791852, guid: 00cd9623b73b5e949853a1831c4778ca, type: 3}
+      propertyPath: m_LocalPosition.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2198410077073791852, guid: 00cd9623b73b5e949853a1831c4778ca, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2198410077073791852, guid: 00cd9623b73b5e949853a1831c4778ca, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2198410077073791852, guid: 00cd9623b73b5e949853a1831c4778ca, type: 3}
+      propertyPath: m_LocalRotation.w
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 2198410077073791852, guid: 00cd9623b73b5e949853a1831c4778ca, type: 3}
+      propertyPath: m_LocalRotation.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2198410077073791852, guid: 00cd9623b73b5e949853a1831c4778ca, type: 3}
+      propertyPath: m_LocalRotation.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2198410077073791852, guid: 00cd9623b73b5e949853a1831c4778ca, type: 3}
+      propertyPath: m_LocalRotation.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2198410077073791852, guid: 00cd9623b73b5e949853a1831c4778ca, type: 3}
+      propertyPath: m_AnchoredPosition.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2198410077073791852, guid: 00cd9623b73b5e949853a1831c4778ca, type: 3}
+      propertyPath: m_AnchoredPosition.y
+      value: 2.3
+      objectReference: {fileID: 0}
+    - target: {fileID: 2198410077073791852, guid: 00cd9623b73b5e949853a1831c4778ca, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2198410077073791852, guid: 00cd9623b73b5e949853a1831c4778ca, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2198410077073791852, guid: 00cd9623b73b5e949853a1831c4778ca, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.z
+      value: 0
+      objectReference: {fileID: 0}
+    m_RemovedComponents: []
+    m_RemovedGameObjects: []
+    m_AddedGameObjects: []
+    m_AddedComponents: []
+  m_SourcePrefab: {fileID: 100100000, guid: 00cd9623b73b5e949853a1831c4778ca, type: 3}
+--- !u!224 &948583504 stripped
+RectTransform:
+  m_CorrespondingSourceObject: {fileID: 2198410077073791852, guid: 00cd9623b73b5e949853a1831c4778ca, type: 3}
+  m_PrefabInstance: {fileID: 948583503}
+  m_PrefabAsset: {fileID: 0}
+--- !u!1 &948583505 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 1982544902914890987, guid: 00cd9623b73b5e949853a1831c4778ca, type: 3}
+  m_PrefabInstance: {fileID: 948583503}
+  m_PrefabAsset: {fileID: 0}
 --- !u!1 &950367092
 GameObject:
   m_ObjectHideFlags: 0
@@ -37251,6 +37553,8 @@ GameObject:
   m_Component:
   - component: {fileID: 986048758}
   - component: {fileID: 986048759}
+  - component: {fileID: 986048760}
+  - component: {fileID: 986048761}
   m_Layer: 0
   m_Name: VillainSpawnPoint_NE
   m_TagString: Untagged
@@ -37270,7 +37574,8 @@ Transform:
   m_LocalPosition: {x: 70, y: 1.5, z: 80}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
-  m_Children: []
+  m_Children:
+  - {fileID: 1662087087}
   m_Father: {fileID: 1678867596}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!114 &986048759
@@ -37286,6 +37591,47 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::CS_VillainSpawnPoint
   _groupRadius: 1.5
+--- !u!114 &986048760
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 986048757}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Unity.Netcode.Runtime::Unity.Netcode.NetworkObject
+  GlobalObjectIdHash: 2004978397
+  InScenePlacedSourceGlobalObjectIdHash: 0
+  m_InScenePlacedDisabledByDefault: 0
+  DeferredDespawnTick: 0
+  Ownership: 1
+  AlwaysReplicateAsRoot: 0
+  SynchronizeTransform: 1
+  m_InScenePlaced: 1
+  ActiveSceneSynchronization: 0
+  SceneMigrationSynchronization: 0
+  SpawnWithObservers: 1
+  DontDestroyWithOwner: 0
+  AutoObjectParentSync: 1
+  SyncOwnerTransformWhenParented: 1
+  AllowOwnerToParent: 0
+--- !u!114 &986048761
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 986048757}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 934b8d9424368d4408103227542fdadd, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CS_VillainCrimeGauge
+  ShowTopMostFoldoutHeaderGroup: 1
+  _gaugeCanvas: {fileID: 1662087088}
 --- !u!1 &987632829
 GameObject:
   m_ObjectHideFlags: 0
@@ -40184,6 +40530,113 @@ MeshFilter:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1060895123}
   m_Mesh: {fileID: 10202, guid: 0000000000000000e000000000000000, type: 0}
+--- !u!1001 &1062625372
+PrefabInstance:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Modification:
+    serializedVersion: 3
+    m_TransformParent: {fileID: 1866579284}
+    m_Modifications:
+    - target: {fileID: 1982544902914890987, guid: 00cd9623b73b5e949853a1831c4778ca, type: 3}
+      propertyPath: m_Name
+      value: VillainCrimeGaugeCanvas
+      objectReference: {fileID: 0}
+    - target: {fileID: 2198410077073791852, guid: 00cd9623b73b5e949853a1831c4778ca, type: 3}
+      propertyPath: m_Pivot.x
+      value: 0.5
+      objectReference: {fileID: 0}
+    - target: {fileID: 2198410077073791852, guid: 00cd9623b73b5e949853a1831c4778ca, type: 3}
+      propertyPath: m_Pivot.y
+      value: 0.5
+      objectReference: {fileID: 0}
+    - target: {fileID: 2198410077073791852, guid: 00cd9623b73b5e949853a1831c4778ca, type: 3}
+      propertyPath: m_AnchorMax.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2198410077073791852, guid: 00cd9623b73b5e949853a1831c4778ca, type: 3}
+      propertyPath: m_AnchorMax.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2198410077073791852, guid: 00cd9623b73b5e949853a1831c4778ca, type: 3}
+      propertyPath: m_AnchorMin.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2198410077073791852, guid: 00cd9623b73b5e949853a1831c4778ca, type: 3}
+      propertyPath: m_AnchorMin.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2198410077073791852, guid: 00cd9623b73b5e949853a1831c4778ca, type: 3}
+      propertyPath: m_SizeDelta.x
+      value: 1920
+      objectReference: {fileID: 0}
+    - target: {fileID: 2198410077073791852, guid: 00cd9623b73b5e949853a1831c4778ca, type: 3}
+      propertyPath: m_SizeDelta.y
+      value: 1080
+      objectReference: {fileID: 0}
+    - target: {fileID: 2198410077073791852, guid: 00cd9623b73b5e949853a1831c4778ca, type: 3}
+      propertyPath: m_LocalPosition.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2198410077073791852, guid: 00cd9623b73b5e949853a1831c4778ca, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2198410077073791852, guid: 00cd9623b73b5e949853a1831c4778ca, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2198410077073791852, guid: 00cd9623b73b5e949853a1831c4778ca, type: 3}
+      propertyPath: m_LocalRotation.w
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 2198410077073791852, guid: 00cd9623b73b5e949853a1831c4778ca, type: 3}
+      propertyPath: m_LocalRotation.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2198410077073791852, guid: 00cd9623b73b5e949853a1831c4778ca, type: 3}
+      propertyPath: m_LocalRotation.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2198410077073791852, guid: 00cd9623b73b5e949853a1831c4778ca, type: 3}
+      propertyPath: m_LocalRotation.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2198410077073791852, guid: 00cd9623b73b5e949853a1831c4778ca, type: 3}
+      propertyPath: m_AnchoredPosition.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2198410077073791852, guid: 00cd9623b73b5e949853a1831c4778ca, type: 3}
+      propertyPath: m_AnchoredPosition.y
+      value: 2.3
+      objectReference: {fileID: 0}
+    - target: {fileID: 2198410077073791852, guid: 00cd9623b73b5e949853a1831c4778ca, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2198410077073791852, guid: 00cd9623b73b5e949853a1831c4778ca, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2198410077073791852, guid: 00cd9623b73b5e949853a1831c4778ca, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.z
+      value: 0
+      objectReference: {fileID: 0}
+    m_RemovedComponents: []
+    m_RemovedGameObjects: []
+    m_AddedGameObjects: []
+    m_AddedComponents: []
+  m_SourcePrefab: {fileID: 100100000, guid: 00cd9623b73b5e949853a1831c4778ca, type: 3}
+--- !u!224 &1062625373 stripped
+RectTransform:
+  m_CorrespondingSourceObject: {fileID: 2198410077073791852, guid: 00cd9623b73b5e949853a1831c4778ca, type: 3}
+  m_PrefabInstance: {fileID: 1062625372}
+  m_PrefabAsset: {fileID: 0}
+--- !u!1 &1062625374 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 1982544902914890987, guid: 00cd9623b73b5e949853a1831c4778ca, type: 3}
+  m_PrefabInstance: {fileID: 1062625372}
+  m_PrefabAsset: {fileID: 0}
 --- !u!1 &1064338411
 GameObject:
   m_ObjectHideFlags: 0
@@ -52936,6 +53389,8 @@ GameObject:
   m_Component:
   - component: {fileID: 1432302578}
   - component: {fileID: 1432302579}
+  - component: {fileID: 1432302580}
+  - component: {fileID: 1432302581}
   m_Layer: 0
   m_Name: VillainSpawnPoint_NW
   m_TagString: Untagged
@@ -52955,7 +53410,8 @@ Transform:
   m_LocalPosition: {x: -85, y: 1.5, z: 75}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
-  m_Children: []
+  m_Children:
+  - {fileID: 948583504}
   m_Father: {fileID: 1678867596}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!114 &1432302579
@@ -52971,6 +53427,144 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::CS_VillainSpawnPoint
   _groupRadius: 1.5
+--- !u!114 &1432302580
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1432302577}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Unity.Netcode.Runtime::Unity.Netcode.NetworkObject
+  GlobalObjectIdHash: 1023459908
+  InScenePlacedSourceGlobalObjectIdHash: 0
+  m_InScenePlacedDisabledByDefault: 0
+  DeferredDespawnTick: 0
+  Ownership: 1
+  AlwaysReplicateAsRoot: 0
+  SynchronizeTransform: 1
+  m_InScenePlaced: 1
+  ActiveSceneSynchronization: 0
+  SceneMigrationSynchronization: 0
+  SpawnWithObservers: 1
+  DontDestroyWithOwner: 0
+  AutoObjectParentSync: 1
+  SyncOwnerTransformWhenParented: 1
+  AllowOwnerToParent: 0
+--- !u!114 &1432302581
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1432302577}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 934b8d9424368d4408103227542fdadd, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CS_VillainCrimeGauge
+  ShowTopMostFoldoutHeaderGroup: 1
+  _gaugeCanvas: {fileID: 948583505}
+--- !u!1001 &1439833205
+PrefabInstance:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Modification:
+    serializedVersion: 3
+    m_TransformParent: {fileID: 834333344}
+    m_Modifications:
+    - target: {fileID: 1982544902914890987, guid: 00cd9623b73b5e949853a1831c4778ca, type: 3}
+      propertyPath: m_Name
+      value: VillainCrimeGaugeCanvas
+      objectReference: {fileID: 0}
+    - target: {fileID: 2198410077073791852, guid: 00cd9623b73b5e949853a1831c4778ca, type: 3}
+      propertyPath: m_Pivot.x
+      value: 0.5
+      objectReference: {fileID: 0}
+    - target: {fileID: 2198410077073791852, guid: 00cd9623b73b5e949853a1831c4778ca, type: 3}
+      propertyPath: m_Pivot.y
+      value: 0.5
+      objectReference: {fileID: 0}
+    - target: {fileID: 2198410077073791852, guid: 00cd9623b73b5e949853a1831c4778ca, type: 3}
+      propertyPath: m_AnchorMax.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2198410077073791852, guid: 00cd9623b73b5e949853a1831c4778ca, type: 3}
+      propertyPath: m_AnchorMax.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2198410077073791852, guid: 00cd9623b73b5e949853a1831c4778ca, type: 3}
+      propertyPath: m_AnchorMin.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2198410077073791852, guid: 00cd9623b73b5e949853a1831c4778ca, type: 3}
+      propertyPath: m_AnchorMin.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2198410077073791852, guid: 00cd9623b73b5e949853a1831c4778ca, type: 3}
+      propertyPath: m_SizeDelta.x
+      value: 1920
+      objectReference: {fileID: 0}
+    - target: {fileID: 2198410077073791852, guid: 00cd9623b73b5e949853a1831c4778ca, type: 3}
+      propertyPath: m_SizeDelta.y
+      value: 1080
+      objectReference: {fileID: 0}
+    - target: {fileID: 2198410077073791852, guid: 00cd9623b73b5e949853a1831c4778ca, type: 3}
+      propertyPath: m_LocalPosition.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2198410077073791852, guid: 00cd9623b73b5e949853a1831c4778ca, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2198410077073791852, guid: 00cd9623b73b5e949853a1831c4778ca, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2198410077073791852, guid: 00cd9623b73b5e949853a1831c4778ca, type: 3}
+      propertyPath: m_LocalRotation.w
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 2198410077073791852, guid: 00cd9623b73b5e949853a1831c4778ca, type: 3}
+      propertyPath: m_LocalRotation.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2198410077073791852, guid: 00cd9623b73b5e949853a1831c4778ca, type: 3}
+      propertyPath: m_LocalRotation.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2198410077073791852, guid: 00cd9623b73b5e949853a1831c4778ca, type: 3}
+      propertyPath: m_LocalRotation.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2198410077073791852, guid: 00cd9623b73b5e949853a1831c4778ca, type: 3}
+      propertyPath: m_AnchoredPosition.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2198410077073791852, guid: 00cd9623b73b5e949853a1831c4778ca, type: 3}
+      propertyPath: m_AnchoredPosition.y
+      value: 2.3
+      objectReference: {fileID: 0}
+    - target: {fileID: 2198410077073791852, guid: 00cd9623b73b5e949853a1831c4778ca, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2198410077073791852, guid: 00cd9623b73b5e949853a1831c4778ca, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2198410077073791852, guid: 00cd9623b73b5e949853a1831c4778ca, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.z
+      value: 0
+      objectReference: {fileID: 0}
+    m_RemovedComponents: []
+    m_RemovedGameObjects: []
+    m_AddedGameObjects: []
+    m_AddedComponents: []
+  m_SourcePrefab: {fileID: 100100000, guid: 00cd9623b73b5e949853a1831c4778ca, type: 3}
 --- !u!1 &1446377666
 GameObject:
   m_ObjectHideFlags: 0
@@ -61454,6 +62048,113 @@ MeshFilter:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1661904683}
   m_Mesh: {fileID: 10202, guid: 0000000000000000e000000000000000, type: 0}
+--- !u!1001 &1662087086
+PrefabInstance:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Modification:
+    serializedVersion: 3
+    m_TransformParent: {fileID: 986048758}
+    m_Modifications:
+    - target: {fileID: 1982544902914890987, guid: 00cd9623b73b5e949853a1831c4778ca, type: 3}
+      propertyPath: m_Name
+      value: VillainCrimeGaugeCanvas
+      objectReference: {fileID: 0}
+    - target: {fileID: 2198410077073791852, guid: 00cd9623b73b5e949853a1831c4778ca, type: 3}
+      propertyPath: m_Pivot.x
+      value: 0.5
+      objectReference: {fileID: 0}
+    - target: {fileID: 2198410077073791852, guid: 00cd9623b73b5e949853a1831c4778ca, type: 3}
+      propertyPath: m_Pivot.y
+      value: 0.5
+      objectReference: {fileID: 0}
+    - target: {fileID: 2198410077073791852, guid: 00cd9623b73b5e949853a1831c4778ca, type: 3}
+      propertyPath: m_AnchorMax.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2198410077073791852, guid: 00cd9623b73b5e949853a1831c4778ca, type: 3}
+      propertyPath: m_AnchorMax.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2198410077073791852, guid: 00cd9623b73b5e949853a1831c4778ca, type: 3}
+      propertyPath: m_AnchorMin.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2198410077073791852, guid: 00cd9623b73b5e949853a1831c4778ca, type: 3}
+      propertyPath: m_AnchorMin.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2198410077073791852, guid: 00cd9623b73b5e949853a1831c4778ca, type: 3}
+      propertyPath: m_SizeDelta.x
+      value: 1920
+      objectReference: {fileID: 0}
+    - target: {fileID: 2198410077073791852, guid: 00cd9623b73b5e949853a1831c4778ca, type: 3}
+      propertyPath: m_SizeDelta.y
+      value: 1080
+      objectReference: {fileID: 0}
+    - target: {fileID: 2198410077073791852, guid: 00cd9623b73b5e949853a1831c4778ca, type: 3}
+      propertyPath: m_LocalPosition.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2198410077073791852, guid: 00cd9623b73b5e949853a1831c4778ca, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2198410077073791852, guid: 00cd9623b73b5e949853a1831c4778ca, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2198410077073791852, guid: 00cd9623b73b5e949853a1831c4778ca, type: 3}
+      propertyPath: m_LocalRotation.w
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 2198410077073791852, guid: 00cd9623b73b5e949853a1831c4778ca, type: 3}
+      propertyPath: m_LocalRotation.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2198410077073791852, guid: 00cd9623b73b5e949853a1831c4778ca, type: 3}
+      propertyPath: m_LocalRotation.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2198410077073791852, guid: 00cd9623b73b5e949853a1831c4778ca, type: 3}
+      propertyPath: m_LocalRotation.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2198410077073791852, guid: 00cd9623b73b5e949853a1831c4778ca, type: 3}
+      propertyPath: m_AnchoredPosition.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2198410077073791852, guid: 00cd9623b73b5e949853a1831c4778ca, type: 3}
+      propertyPath: m_AnchoredPosition.y
+      value: 2.3
+      objectReference: {fileID: 0}
+    - target: {fileID: 2198410077073791852, guid: 00cd9623b73b5e949853a1831c4778ca, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2198410077073791852, guid: 00cd9623b73b5e949853a1831c4778ca, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2198410077073791852, guid: 00cd9623b73b5e949853a1831c4778ca, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.z
+      value: 0
+      objectReference: {fileID: 0}
+    m_RemovedComponents: []
+    m_RemovedGameObjects: []
+    m_AddedGameObjects: []
+    m_AddedComponents: []
+  m_SourcePrefab: {fileID: 100100000, guid: 00cd9623b73b5e949853a1831c4778ca, type: 3}
+--- !u!224 &1662087087 stripped
+RectTransform:
+  m_CorrespondingSourceObject: {fileID: 2198410077073791852, guid: 00cd9623b73b5e949853a1831c4778ca, type: 3}
+  m_PrefabInstance: {fileID: 1662087086}
+  m_PrefabAsset: {fileID: 0}
+--- !u!1 &1662087088 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 1982544902914890987, guid: 00cd9623b73b5e949853a1831c4778ca, type: 3}
+  m_PrefabInstance: {fileID: 1662087086}
+  m_PrefabAsset: {fileID: 0}
 --- !u!1 &1673027753
 GameObject:
   m_ObjectHideFlags: 0
@@ -62831,6 +63532,16 @@ MeshFilter:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1693513791}
   m_Mesh: {fileID: 10202, guid: 0000000000000000e000000000000000, type: 0}
+--- !u!1 &1699143850 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 1982544902914890987, guid: 00cd9623b73b5e949853a1831c4778ca, type: 3}
+  m_PrefabInstance: {fileID: 1439833205}
+  m_PrefabAsset: {fileID: 0}
+--- !u!224 &1699143851 stripped
+RectTransform:
+  m_CorrespondingSourceObject: {fileID: 2198410077073791852, guid: 00cd9623b73b5e949853a1831c4778ca, type: 3}
+  m_PrefabInstance: {fileID: 1439833205}
+  m_PrefabAsset: {fileID: 0}
 --- !u!1 &1699293829
 GameObject:
   m_ObjectHideFlags: 0
@@ -68311,6 +69022,8 @@ GameObject:
   m_Component:
   - component: {fileID: 1866579284}
   - component: {fileID: 1866579285}
+  - component: {fileID: 1866579286}
+  - component: {fileID: 1866579287}
   m_Layer: 0
   m_Name: VillainSpawnPoint_SE
   m_TagString: Untagged
@@ -68330,7 +69043,8 @@ Transform:
   m_LocalPosition: {x: 55, y: 1.5, z: -55}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
-  m_Children: []
+  m_Children:
+  - {fileID: 1062625373}
   m_Father: {fileID: 1678867596}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!114 &1866579285
@@ -68346,6 +69060,47 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::CS_VillainSpawnPoint
   _groupRadius: 1.5
+--- !u!114 &1866579286
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1866579283}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Unity.Netcode.Runtime::Unity.Netcode.NetworkObject
+  GlobalObjectIdHash: 855286047
+  InScenePlacedSourceGlobalObjectIdHash: 0
+  m_InScenePlacedDisabledByDefault: 0
+  DeferredDespawnTick: 0
+  Ownership: 1
+  AlwaysReplicateAsRoot: 0
+  SynchronizeTransform: 1
+  m_InScenePlaced: 1
+  ActiveSceneSynchronization: 0
+  SceneMigrationSynchronization: 0
+  SpawnWithObservers: 1
+  DontDestroyWithOwner: 0
+  AutoObjectParentSync: 1
+  SyncOwnerTransformWhenParented: 1
+  AllowOwnerToParent: 0
+--- !u!114 &1866579287
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1866579283}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 934b8d9424368d4408103227542fdadd, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CS_VillainCrimeGauge
+  ShowTopMostFoldoutHeaderGroup: 1
+  _gaugeCanvas: {fileID: 1062625374}
 --- !u!1 &1868837871
 GameObject:
   m_ObjectHideFlags: 0

@@ -13,7 +13,7 @@ using UnityEngine;
  * メモ
  * ・右クリック → Create → Villain → Villain Time Scaling でアセットを作る(初期値は悪人のデータ表の値)
  * ・CS_VillainSpawnerのTime Scalingに設定すると、グループの生成時に、その時点の経過時間の段階の値を使う
- *   既にフィールドにいる悪人の値は変わらない(新しく生成した悪人だけ)
+ *   段階が変わると、既にフィールドにいる悪人のHP上限・犯罪完遂時間・攻撃力も変わる(グループの人数は変わらない)
  * ・段階は startTime(ゲーム開始からの秒数)が小さい順に並べる
  *   経過時間がstartTime以上の段階のうち、一番後ろのものが使われる
  * ・maxHp / crimeCompleteTime / attackPower は0以下にすると、悪人のBase Statsの値のまま変えない

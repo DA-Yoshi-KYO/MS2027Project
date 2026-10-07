@@ -20,7 +20,9 @@ using UnityEngine;
  *   使用中(グループが残っている)のスポーン位置には生成しない
  * ・ゲームの経過時間による変化(timeScaling)
  *   設定されていれば、生成時の経過時間の段階で、1グループの人数・HP・犯罪完遂時間・攻撃力を決める
- *   (HPなどは生成する悪人のCS_VillainStatsに、Spawnより前に設定する。既にいる悪人は変わらない)
+ *   (HPなどは生成する悪人のCS_VillainStatsに、Spawnより前に設定する)
+ *   段階が変わったら、既にフィールドにいる悪人のHP上限・犯罪完遂時間・攻撃力も変える(グループの人数は変えない)
+ *   HP上限が増えた分は現在HPも増やす(受けたダメージはそのまま残る)
  *   経過時間はCS_TimerController(ゲームのタイマー)から取る。シーンに無ければ、スポナーの起動からの時間を使う
  * ・timeScalingが未設定なら、1グループの人数は minMembers ～ maxMembers 人(両端を含む)からランダム
  *   各メンバーの種類は villainPrefabs からランダムに選ぶ
@@ -92,6 +94,7 @@ public class CS_VillainSpawner : MonoBehaviour
     private bool _hasWarnedNoPoint;   // 空きポイント不足の警告を毎回出さないためのフラグ
     private CS_TimerController _timer;   // ゲームのタイマー(経過時間の取得用)。テストシーンなどで無ければnull
     private float _startTime;            // スポナーが動き始めた時刻(タイマーが無い時の経過時間に使う)
+    private CSO_VillainTimeScaling.Stage _currentStage;   // 今の経過時間の段階(変わったら既にいる悪人にも反映する)
 
     public int groupCount => _groups.Count;
 
@@ -139,8 +142,38 @@ public class CS_VillainSpawner : MonoBehaviour
         _checkTimer = 0f;
 
         RemoveDeadGroups();
+        UpdateStage();
         FillRequiredGroups();
         SpawnByInterval();
+    }
+
+    // 経過時間の段階が変わったら、既にフィールドにいる悪人のステータスを新しい段階の値にする
+    private void UpdateStage()
+    {
+        if (_timeScaling == null) return;
+
+        CSO_VillainTimeScaling.Stage stage = _timeScaling.GetStage(GetElapsedTime());
+        if (stage == _currentStage) return;
+
+        _currentStage = stage;
+        foreach (CS_VillainGroup group in _groups)
+        {
+            foreach (CS_VillainCrime member in group.members)
+            {
+                if (member != null) ApplyStage(member, stage);
+            }
+        }
+    }
+
+    private static void ApplyStage(CS_VillainCrime member, CSO_VillainTimeScaling.Stage stage)
+    {
+        if (!member.TryGetComponent(out CS_VillainStats stats)) return;
+
+        float previousMaxHp = stats.maxHp;
+        stats.UpdateSpawnOverrides(stage.maxHp, stage.attackPower, stage.crimeCompleteTime);
+
+        // HP上限が増えた分だけ現在HPも増やす(受けたダメージはそのまま残す)
+        if (member.TryGetComponent(out CS_VillainHealth health)) health.ApplyMaxHpChange(previousMaxHp);
     }
 
     private void OnValidate()

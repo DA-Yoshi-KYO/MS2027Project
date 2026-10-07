@@ -24,6 +24,7 @@ using UnityEngine;
  *   時間経過による強化用。Base Statsの一部をこの悪人だけ差し替える(0以下の値は差し替えない)
  *   生成直後・Spawnより前に呼ぶ(初期化時にこの値で始まり、現在HPも満タンになる)
  *   ResetToBaseで戻る値も、差し替えた値になる
+ *   生成後に差し替える値を変える(時間経過の段階が変わった時) : UpdateSpawnOverrides
  * ・onXxxChangedは値が変わった時に呼ばれる。HPバー表示や他システムからの購読用
  * ・moveSpeedMultiplierは倍率なので、実際の速度は移動処理側でプレイヤーの基準速度に掛けて使う
  */
@@ -151,6 +152,30 @@ public class CS_VillainStats : NetworkBehaviour
         _overrideMaxHp = maxHp;
         _overrideAttackPower = attackPower;
         _overrideCrimeCompleteTime = crimeCompleteTime;
+    }
+
+    // 生成後に、差し替える値を変える(サーバー、またはオフライン)。時間経過の段階が変わった時用
+    // 0より大きい値だけ、差し替える値と現在値の両方を変える(0以下の値はそのまま)
+    // HP上限を変えた時は、呼んだ側でCS_VillainHealth.ApplyMaxHpChangeを呼んで現在HPを合わせる
+    public void UpdateSpawnOverrides(float maxHp, float attackPower, float crimeCompleteTime)
+    {
+        if (IsSpawned && !IsServer) return;
+
+        if (maxHp > 0f)
+        {
+            _overrideMaxHp = maxHp;
+            SetMaxHp(maxHp);
+        }
+        if (attackPower > 0f)
+        {
+            _overrideAttackPower = attackPower;
+            SetAttackPower(attackPower);
+        }
+        if (crimeCompleteTime > 0f)
+        {
+            _overrideCrimeCompleteTime = crimeCompleteTime;
+            SetCrimeCompleteTime(crimeCompleteTime);
+        }
     }
 
     private void ApplyBaseStats()

@@ -121,6 +121,18 @@ public class CS_VillainHealth : NetworkBehaviour, IDamageable
         onHpChanged?.Invoke(current, maxHp);
     }
 
+    // HP上限を変えた後に呼ぶ(サーバー、またはオフライン)
+    // 上限が増えた分だけ現在HPも増やし(受けたダメージはそのまま残す)、上限を超えていれば切り詰める
+    // (onMaxHpChangedはオフラインでは呼ばれないので、上限を変えた側から直接呼ぶ)
+    public void ApplyMaxHpChange(float previousMaxHp)
+    {
+        if (IsSpawned && !IsServer) return;
+        if (_isDefeated) return;
+
+        float increase = Mathf.Max(0f, maxHp - previousMaxHp);
+        _currentHp.Value = Mathf.Min(maxHp, _currentHp.Value + increase);
+    }
+
     // HP上限が変わったとき、現在HPが上限を超えないようにする(サーバーのみ)
     private void HandleMaxHpChanged(float newMaxHp)
     {

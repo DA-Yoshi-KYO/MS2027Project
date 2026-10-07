@@ -20,6 +20,10 @@ using UnityEngine;
  *                   / SetEngageRange / SetCrimeCompleteTime
  *   増減させる場合 : 例) SetAttackPower(attackPower + 1) のように現在値+差分を渡す
  *   基準値に戻す   : ResetToBase()
+ * ・生成時の上書き : SetSpawnOverrides(HP上限, 攻撃力, 犯罪完遂時間)
+ *   時間経過による強化用。Base Statsの一部をこの悪人だけ差し替える(0以下の値は差し替えない)
+ *   生成直後・Spawnより前に呼ぶ(初期化時にこの値で始まり、現在HPも満タンになる)
+ *   ResetToBaseで戻る値も、差し替えた値になる
  * ・onXxxChangedは値が変わった時に呼ばれる。HPバー表示や他システムからの購読用
  * ・moveSpeedMultiplierは倍率なので、実際の速度は移動処理側でプレイヤーの基準速度に掛けて使う
  */
@@ -35,6 +39,11 @@ public class CS_VillainStats : NetworkBehaviour
     private readonly NetworkVariable<float> _attackPower = new NetworkVariable<float>();
     private readonly NetworkVariable<float> _engageRange = new NetworkVariable<float>();
     private readonly NetworkVariable<float> _crimeCompleteTime = new NetworkVariable<float>();
+
+    // 生成時にBase Statsから差し替える値(0以下なら差し替えない)。サーバー(またはオフライン)だけが持つ
+    private float _overrideMaxHp;
+    private float _overrideAttackPower;
+    private float _overrideCrimeCompleteTime;
 
     public float maxHp => _maxHp.Value;
     public float moveSpeedMultiplier => _moveSpeedMultiplier.Value;
@@ -136,15 +145,28 @@ public class CS_VillainStats : NetworkBehaviour
         ApplyBaseStats();
     }
 
+    // 生成時にBase Statsの一部を差し替える(0以下の値は差し替えない)。生成直後・Spawnより前に呼ぶ
+    public void SetSpawnOverrides(float maxHp, float attackPower, float crimeCompleteTime)
+    {
+        _overrideMaxHp = maxHp;
+        _overrideAttackPower = attackPower;
+        _overrideCrimeCompleteTime = crimeCompleteTime;
+    }
+
     private void ApplyBaseStats()
     {
         if (_baseStats == null) return;
 
-        _maxHp.Value = _baseStats.maxHp;
+        _maxHp.Value = OverrideOrBase(_overrideMaxHp, _baseStats.maxHp);
         _moveSpeedMultiplier.Value = _baseStats.moveSpeedMultiplier;
-        _attackPower.Value = _baseStats.attackPower;
+        _attackPower.Value = OverrideOrBase(_overrideAttackPower, _baseStats.attackPower);
         _engageRange.Value = _baseStats.engageRange;
-        _crimeCompleteTime.Value = _baseStats.crimeCompleteTime;
+        _crimeCompleteTime.Value = OverrideOrBase(_overrideCrimeCompleteTime, _baseStats.crimeCompleteTime);
+    }
+
+    private static float OverrideOrBase(float overrideValue, float baseValue)
+    {
+        return overrideValue > 0f ? overrideValue : baseValue;
     }
 
     private void HandleMaxHpChanged(float previous, float current) => onMaxHpChanged?.Invoke(current);

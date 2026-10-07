@@ -27,6 +27,7 @@ using UnityEngine;
  *   (待ち中の位置からは、待ちが早く終わる位置を選ぶ)
  *   時間経過による追加では、待ち中の位置には生成しない
  * ・グループ単位の犯罪の進行は、生成したCS_VillainGroupのTickを毎フレーム呼んで進める
+ *   進行度はスポーン位置の犯罪完遂ゲージ(CS_VillainCrimeGauge)にも毎フレーム渡す(付いていなければ何もしない)
  * ・生成する悪人のプレハブはNetworkPrefabsList(DefaultNetworkPrefabs)に登録し、CS_VillainCrimeを付けておくこと
  */
 // ========================================
@@ -117,6 +118,9 @@ public class CS_VillainSpawner : MonoBehaviour
         foreach (CS_VillainGroup group in _groups)
         {
             group.Tick(Time.deltaTime);
+
+            // グループの進行度を、スポーン位置の犯罪完遂ゲージへ渡す(完遂したらゲージは消す)
+            SetGauge(group.spawnPoint, group.crimeProgress, !group.isCrimeCompleted);
         }
 
         _spawnTimer += Time.deltaTime;
@@ -145,8 +149,15 @@ public class CS_VillainSpawner : MonoBehaviour
 
             group.spawnPoint.isOccupied = false;
             group.spawnPoint.StartCooldown(_respawnCooldown);
+            SetGauge(group.spawnPoint, 0f, false);   // ゲージを隠して0に戻す
             _groups.RemoveAt(i);
         }
+    }
+
+    // スポーン位置に犯罪完遂ゲージ(CS_VillainCrimeGauge)が付いていれば、値と表示を設定する
+    private static void SetGauge(CS_VillainSpawnPoint point, float progress, bool isVisible)
+    {
+        if (point.TryGetComponent(out CS_VillainCrimeGauge gauge)) gauge.SetProgress(progress, isVisible);
     }
 
     // 最低グループ数を下回っていたら、空きがある限り生成する(足りなければリスポーン待ちの位置も使う)

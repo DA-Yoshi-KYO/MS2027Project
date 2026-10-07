@@ -126,7 +126,8 @@ public class CS_PoliceAttack : MonoBehaviour
         Vector3 center = transform.position + GetAttackDirection() * _hitboxForwardOffset;
 
         // 攻撃判定には攻撃を出した位置(警察の中心)を渡し、そこから壁越しになる相手には当たらないようにする
-        CS_PoliceAttackHitbox.Create(center, transform.position, _attackPower, _hitboxRadius, _hitboxLifetime);
+        // 攻撃した警察(自分)も渡し、プレイヤー側が「警察に倒された」と判定できるようにする
+        CS_PoliceAttackHitbox.Create(center, transform.position, gameObject, _attackPower, _hitboxRadius, _hitboxLifetime);
     }
 
     /// <summary>

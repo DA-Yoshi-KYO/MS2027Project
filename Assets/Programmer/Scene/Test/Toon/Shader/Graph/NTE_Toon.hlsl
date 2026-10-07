@@ -64,6 +64,40 @@ float3 NTE_Rim(NTEToonInput i, float lit)
     return i.rimColor * smoothstep(e, e + 0.08, NTE_Fresnel(i)) * lerp(0.35, 1.0, lit) * i.rimStrength;
 }
 
+// ---------------- Environment from above (moon / sky) ----------------
+// Light comes from above: up-facing surfaces (crown of the head, shoulders, back of the hand) get extra light,
+// down-facing surfaces (palms, skirt underside, under the chin) and back faces (inside of skirts / sleeves)
+// fall into the texture-coloured shadow. FaceSign: 1 = front face, 0 = back face.
+float3 NTE_Environment(NTEToonInput i, float3 col, float lit, float faceSign, float sky, float bottom, float back)
+{
+    float front = saturate(faceSign);
+    float up = i.N.y;
+    float top = smoothstep(0.25, 0.95, up) * front;
+    float under = smoothstep(-0.05, -0.75, up) * front;
+    float3 shade = NTE_ShadowColor(i);
+    col *= 1.0 + max(sky, 0.0) * top * lerp(0.6, 1.0, lit);
+    col = lerp(col, min(col, shade), saturate(bottom) * under);
+    col = lerp(col, shade * 0.9, saturate(back) * (1.0 - front));
+    return col;
+}
+
+// ---------------- Fabric weave (fine fibres) ----------------
+// Plain-weave thread pattern in UV space + per-thread fibre noise. Fades out when it gets
+// smaller than ~1.5 px so it never shimmers in the distance. Returns -0.5..0.5.
+float NTE_Hash(float2 p) { return frac(sin(dot(p, float2(12.9898, 78.233))) * 43758.5453); }
+float NTE_Fabric(float2 uv, float scale)
+{
+    float2 p = uv * max(scale, 1.0);
+    float2 fw = fwidth(p);
+    float fade = saturate(1.5 - max(fw.x, fw.y) * 2.0);
+    float2 cell = floor(p);
+    float2 f = frac(p);
+    float checker = abs(fmod(cell.x + cell.y, 2.0));
+    float thread = lerp(sin(f.x * 3.14159), sin(f.y * 3.14159), checker);     // warp / weft on top
+    float fibre = NTE_Hash(cell + floor(f * 4.0) * 0.37);                      // fine fibre noise inside a thread
+    return (thread * 0.75 + fibre * 0.25 - 0.5) * fade;
+}
+
 // View-space normal (for matcap-style reflections that follow the camera)
 float3 NTE_ViewNormal(float3 N) { return normalize(mul((float3x3)UNITY_MATRIX_V, N)); }
 
@@ -80,27 +114,38 @@ float NTE_GoldMask(float3 c)
 float3 NTE_MetalShade(NTEToonInput i, float3 base, float lit)
 {
     float3 nv = NTE_ViewNormal(i.N);
-    float band = smoothstep(-0.25, 0.35, nv.y);                 // sky-ish upper reflection
-    float3 col = lerp(base * 0.45, base * 1.35, band);
-    col = lerp(col * 0.85, col, lit);
+    float mx = max(base.r, max(base.g, base.b));
+    // Small parts (buttons) are flat on the mesh, so their shape comes from the painted texture:
+    // bright painted areas = facing the sky, dark painted areas = reflecting the ground.
+    float painted = smoothstep(0.35, 0.85, mx);
+    float band = saturate(smoothstep(-0.25, 0.35, nv.y) * 0.55 + painted * 0.65);
+    float3 tint = base / max(mx, 1e-4);                          // pure metal hue
+    float3 col = lerp(base * 0.3, tint * mx * 1.7, band);       // high contrast = metallic
+    col = lerp(col * 0.8, col, lit);
     float3 hv = normalize(float3(-0.35, 0.55, 1.0));            // fixed camera-space key
     float spec = smoothstep(1.0 - i.specSize * 0.25, 1.0 - i.specSize * 0.25 + 0.02, dot(nv, hv));
-    col += i.specColor * spec * i.specStrength;
-    col += base * pow(NTE_Fresnel(i), 3.0) * 0.6;              // metallic edge glint
+    float3 H = normalize(i.L + i.V);
+    float specL = smoothstep(0.93, 0.96, saturate(dot(i.N, H))) * lit;   // real moon glint
+    float glint = smoothstep(0.8, 0.95, mx);                     // painted highlight -> HDR sparkle
+    col += i.specColor * lerp(1.0.xxx, tint, 0.4) * (spec + specL + glint * 0.8) * i.specStrength;
+    col += tint * mx * pow(NTE_Fresnel(i), 3.0) * 0.6;          // metallic edge glint
     return col;
 }
 
 #define NTE_ARGS float4 Tex, float4 BaseColor, float3 ShadowColor, float3 NormalWS, float3 ViewWS, float3 TangentWS, float3 MainLightDirection, \
     float ShadowThreshold, float ShadowSoftness, float ShadowSaturation, float3 RimColor, float RimStrength, float RimWidth, \
-    float ShadowStrength, float Brightness, float3 SpecColor, float SpecStrength, float SpecSize, out float3 Color
+    float ShadowStrength, float Brightness, float3 SpecColor, float SpecStrength, float SpecSize, \
+    float FaceSign, float4 UV, float SkyLight, float BottomShade, float BackFaceShade, float DetailScale, float DetailStrength, out float3 Color
 #define NTE_INPUT NTEToonInput i = NTE_MakeInput(Tex, BaseColor, ShadowColor, NormalWS, ViewWS, TangentWS, MainLightDirection, \
     ShadowThreshold, ShadowSoftness, ShadowSaturation, RimColor, RimStrength, RimWidth, ShadowStrength, Brightness, SpecColor, SpecStrength, SpecSize)
 #define NTE_HALF_ARGS half4 Tex, half4 BaseColor, half3 ShadowColor, half3 NormalWS, half3 ViewWS, half3 TangentWS, half3 MainLightDirection, \
     half ShadowThreshold, half ShadowSoftness, half ShadowSaturation, half3 RimColor, half RimStrength, half RimWidth, \
-    half ShadowStrength, half Brightness, half3 SpecColor, half SpecStrength, half SpecSize, out half3 Color
+    half ShadowStrength, half Brightness, half3 SpecColor, half SpecStrength, half SpecSize, \
+    half FaceSign, half4 UV, half SkyLight, half BottomShade, half BackFaceShade, half DetailScale, half DetailStrength, out half3 Color
 #define NTE_HALF_FORWARD(name) void name##_half(NTE_HALF_ARGS) { float3 c; name##_float(Tex, BaseColor, ShadowColor, NormalWS, ViewWS, TangentWS, \
     MainLightDirection, ShadowThreshold, ShadowSoftness, ShadowSaturation, RimColor, RimStrength, RimWidth, ShadowStrength, Brightness, \
-    SpecColor, SpecStrength, SpecSize, c); Color = c; }
+    SpecColor, SpecStrength, SpecSize, FaceSign, UV, SkyLight, BottomShade, BackFaceShade, DetailScale, DetailStrength, c); Color = c; }
+#define NTE_ENV(col, lit) col = NTE_Environment(i, col, lit, FaceSign, SkyLight, BottomShade, BackFaceShade)
 
 // ---------------- Cloth: soft band, fabric sheen, auto gold buttons ----------------
 void NTE_Cloth_float(NTE_ARGS)
@@ -108,8 +153,12 @@ void NTE_Cloth_float(NTE_ARGS)
     NTE_INPUT;
     float lit = NTE_LitBand(i);
     float3 col = NTE_Diffuse(i, lit);
-    col += i.albedo * pow(NTE_Fresnel(i), 3.0) * 0.12 * lit;     // soft fabric sheen at grazing angles
     float gold = NTE_GoldMask(i.albedo) * step(0.001, i.specStrength);
+    float weave = NTE_Fabric(UV.xy, DetailScale) * DetailStrength * (1.0 - gold);
+    col *= 1.0 + weave * 2.0 * lerp(0.6, 1.0, lit);              // fine woven fibres
+    float fres = pow(NTE_Fresnel(i), 3.0);
+    col += i.albedo * fres * (0.18 + max(weave, 0.0) * 1.5) * lit; // fuzzy fabric sheen, catches on the threads
+    NTE_ENV(col, lit);
     col = lerp(col, NTE_MetalShade(i, i.albedo, lit), gold);
     Color = (col + NTE_Rim(i, lit)) * i.brightness;
 }
@@ -123,6 +172,7 @@ void NTE_Skin_float(NTE_ARGS)
     float3 col = NTE_Diffuse(i, lit);
     float terminator = 4.0 * lit * (1.0 - lit);                 // faint warm blush at the shadow edge
     col += i.albedo * float3(0.10, 0.03, 0.02) * terminator * i.shadowStrength;
+    NTE_ENV(col, lit);
     Color = (col + NTE_Rim(i, lit)) * i.brightness;
 }
 NTE_HALF_FORWARD(NTE_Skin)
@@ -133,7 +183,7 @@ void NTE_Hair_float(NTE_ARGS)
     NTE_INPUT;
     float lit = NTE_LitBand(i);
     float3 col = NTE_Diffuse(i, lit);
-    col *= lerp(0.93, 1.04, saturate(i.N.y * 0.5 + 0.5));       // light from above, cooler underneath
+    NTE_ENV(col, lit);                                           // crown catches the moonlight, underside darker
     // Kajiya-Kay along the strand (tangent), using the view as the highlight light so the ring stays visible.
     float3 H = normalize(i.L + i.V * 2.0);
     // VRoid hair UVs run along the strand in V, so the strand direction is the bitangent.
@@ -152,13 +202,18 @@ void NTE_Leather_float(NTE_ARGS)
     NTE_INPUT;
     float lit = NTE_LitBand(i);
     float3 col = NTE_Diffuse(i, lit);
+    NTE_ENV(col, lit);
+    // Glossy leather: sharp toon highlight from the moon + a camera-fixed key so it always reads as shiny,
+    // a sky reflection on top-facing parts and a bright lacquer edge.
     float3 nv = NTE_ViewNormal(i.N);
-    float3 hv = normalize(float3(-0.3, 0.6, 1.0));
-    float ndh = saturate(dot(nv, hv));
     float expo = lerp(8.0, 96.0, 1.0 - i.specSize);
-    float sheen = smoothstep(0.15, 0.6, pow(ndh, expo));        // toon-ish but soft sheen blob
-    col += i.specColor * sheen * i.specStrength;
-    col += i.specColor * pow(NTE_Fresnel(i), 4.0) * 0.15 * lit; // leather edge highlight
+    float3 H = normalize(i.L + i.V);
+    float specL = smoothstep(0.35, 0.45, pow(saturate(dot(i.N, H)), expo)) * lit;
+    float3 hv = normalize(float3(-0.3, 0.6, 1.0));
+    float specC = smoothstep(0.2, 0.5, pow(saturate(dot(nv, hv)), expo * 0.35));
+    float skyRef = smoothstep(0.45, 0.85, nv.y) * 0.35;
+    float edge = smoothstep(0.55, 0.85, NTE_Fresnel(i)) * 0.4 * lerp(0.4, 1.0, lit);
+    col += i.specColor * (specL + specC * 0.7 + skyRef + edge) * i.specStrength;
     float gold = NTE_GoldMask(i.albedo);                         // buckles / studs
     col = lerp(col, NTE_MetalShade(i, i.albedo, lit), gold);
     Color = (col + NTE_Rim(i, lit)) * i.brightness;
@@ -170,7 +225,9 @@ void NTE_Metal_float(NTE_ARGS)
 {
     NTE_INPUT;
     float lit = NTE_LitBand(i);
-    Color = (NTE_MetalShade(i, i.albedo, lit) + NTE_Rim(i, lit)) * i.brightness;
+    float3 col = NTE_MetalShade(i, i.albedo, lit);
+    NTE_ENV(col, lit);
+    Color = (col + NTE_Rim(i, lit)) * i.brightness;
 }
 NTE_HALF_FORWARD(NTE_Metal)
 

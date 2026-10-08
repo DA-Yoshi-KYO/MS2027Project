@@ -73,11 +73,11 @@ float3 NTE_Environment(NTEToonInput i, float3 col, float lit, float faceSign, fl
     float front = saturate(faceSign);
     float up = i.N.y;
     float top = smoothstep(0.25, 0.95, up) * front;
-    float under = smoothstep(-0.05, -0.75, up) * front;
+    float under = smoothstep(0.1, -0.6, up) * front;
     float3 shade = NTE_ShadowColor(i);
     col *= 1.0 + max(sky, 0.0) * top * lerp(0.6, 1.0, lit);
     col = lerp(col, min(col, shade), saturate(bottom) * under);
-    col = lerp(col, shade * 0.9, saturate(back) * (1.0 - front));
+    col = lerp(col, shade * 0.7, saturate(back) * (1.0 - front));          // inside of skirts / sleeves
     return col;
 }
 
@@ -96,6 +96,59 @@ float NTE_Fabric(float2 uv, float scale)
     float thread = lerp(sin(f.x * 3.14159), sin(f.y * 3.14159), checker);     // warp / weft on top
     float fibre = NTE_Hash(cell + floor(f * 4.0) * 0.37);                      // fine fibre noise inside a thread
     return (thread * 0.75 + fibre * 0.25 - 0.5) * fade;
+}
+
+// Slub / heather grain: thread-direction streaks at a much coarser scale than the weave,
+// so cloth still reads as fabric at game-camera distance. Returns -0.5..0.5.
+float NTE_ValueNoise(float2 p)
+{
+    float2 c = floor(p), f = frac(p);
+    f = f * f * (3.0 - 2.0 * f);
+    return lerp(lerp(NTE_Hash(c), NTE_Hash(c + float2(1, 0)), f.x),
+                lerp(NTE_Hash(c + float2(0, 1)), NTE_Hash(c + float2(1, 1)), f.x), f.y);
+}
+float NTE_FabricGrain(float2 uv, float scale)
+{
+    float2 p = uv * max(scale, 1.0);
+    float2 fw = fwidth(p);
+    float fade = saturate(2.0 - max(fw.x, fw.y) * 2.5);
+    float warp = NTE_ValueNoise(p * float2(1.0, 7.0));          // streaks along U threads
+    float weft = NTE_ValueNoise(p * float2(7.0, 1.0) + 17.0);    // streaks along V threads
+    float blotch = NTE_ValueNoise(p * 0.35 + 5.0);               // soft uneven dye
+    return ((warp + weft) * 0.35 + blotch * 0.3 - 0.5) * fade;
+}
+
+// ---------------- Spot / point lights for the Unlit toon ----------------
+// Filled every frame by CS_ToonPunctualLights (Shader.SetGlobal...). HDRP Unlit ignores scene lights,
+// so the chosen spot lights are re-evaluated here with the same cel band as the main light.
+//  _NTE_LightPos   : xyz = absolute world position, w = 1 / range^2
+//  _NTE_LightDir   : xyz = spot forward, w = 0 spot / 1 point
+//  _NTE_LightColor : rgb = colour * toon intensity
+//  _NTE_LightCone  : x = cos(outer half angle), y = 1 / (cos(inner) - cos(outer))
+#define NTE_MAX_LIGHTS 8
+float  _NTE_LightCount;
+float4 _NTE_LightPos[NTE_MAX_LIGHTS];
+float4 _NTE_LightDir[NTE_MAX_LIGHTS];
+float4 _NTE_LightColor[NTE_MAX_LIGHTS];
+float4 _NTE_LightCone[NTE_MAX_LIGHTS];
+
+float3 NTE_PunctualLights(NTEToonInput i, float3 posWS, float faceSign)
+{
+    float3 sum = 0.0;
+    int count = (int)min(_NTE_LightCount, (float)NTE_MAX_LIGHTS);
+    [loop] for (int k = 0; k < count; k++)
+    {
+        float3 d = _NTE_LightPos[k].xyz - posWS;
+        float dist2 = max(dot(d, d), 1e-6);
+        float3 L = d * rsqrt(dist2);
+        float r = saturate(dist2 * _NTE_LightPos[k].w);
+        float att = (1.0 - r) * (1.0 - r);                                   // smooth range falloff
+        float cone = saturate((dot(-L, _NTE_LightDir[k].xyz) - _NTE_LightCone[k].x) * _NTE_LightCone[k].y);
+        cone = lerp(smoothstep(0.0, 1.0, cone), 1.0, _NTE_LightDir[k].w);    // point light: no cone
+        float band = smoothstep(i.threshold - i.softness, i.threshold + i.softness, dot(i.N, L) * 0.5 + 0.5);
+        sum += _NTE_LightColor[k].rgb * att * cone * band;
+    }
+    return i.albedo * sum * lerp(0.15, 1.0, saturate(faceSign));          // inside of skirts stays dark
 }
 
 // View-space normal (for matcap-style reflections that follow the camera)
@@ -135,17 +188,19 @@ float3 NTE_MetalShade(NTEToonInput i, float3 base, float lit)
 #define NTE_ARGS float4 Tex, float4 BaseColor, float3 ShadowColor, float3 NormalWS, float3 ViewWS, float3 TangentWS, float3 MainLightDirection, \
     float ShadowThreshold, float ShadowSoftness, float ShadowSaturation, float3 RimColor, float RimStrength, float RimWidth, \
     float ShadowStrength, float Brightness, float3 SpecColor, float SpecStrength, float SpecSize, \
-    float FaceSign, float4 UV, float SkyLight, float BottomShade, float BackFaceShade, float DetailScale, float DetailStrength, out float3 Color
+    float FaceSign, float4 UV, float SkyLight, float BottomShade, float BackFaceShade, float DetailScale, float DetailStrength, \
+    float3 PositionWS, float FabricSheen, out float3 Color
 #define NTE_INPUT NTEToonInput i = NTE_MakeInput(Tex, BaseColor, ShadowColor, NormalWS, ViewWS, TangentWS, MainLightDirection, \
     ShadowThreshold, ShadowSoftness, ShadowSaturation, RimColor, RimStrength, RimWidth, ShadowStrength, Brightness, SpecColor, SpecStrength, SpecSize)
 #define NTE_HALF_ARGS half4 Tex, half4 BaseColor, half3 ShadowColor, half3 NormalWS, half3 ViewWS, half3 TangentWS, half3 MainLightDirection, \
     half ShadowThreshold, half ShadowSoftness, half ShadowSaturation, half3 RimColor, half RimStrength, half RimWidth, \
     half ShadowStrength, half Brightness, half3 SpecColor, half SpecStrength, half SpecSize, \
-    half FaceSign, half4 UV, half SkyLight, half BottomShade, half BackFaceShade, half DetailScale, half DetailStrength, out half3 Color
+    half FaceSign, half4 UV, half SkyLight, half BottomShade, half BackFaceShade, half DetailScale, half DetailStrength, \
+    float3 PositionWS, half FabricSheen, out half3 Color
 #define NTE_HALF_FORWARD(name) void name##_half(NTE_HALF_ARGS) { float3 c; name##_float(Tex, BaseColor, ShadowColor, NormalWS, ViewWS, TangentWS, \
     MainLightDirection, ShadowThreshold, ShadowSoftness, ShadowSaturation, RimColor, RimStrength, RimWidth, ShadowStrength, Brightness, \
-    SpecColor, SpecStrength, SpecSize, FaceSign, UV, SkyLight, BottomShade, BackFaceShade, DetailScale, DetailStrength, c); Color = c; }
-#define NTE_ENV(col, lit) col = NTE_Environment(i, col, lit, FaceSign, SkyLight, BottomShade, BackFaceShade)
+    SpecColor, SpecStrength, SpecSize, FaceSign, UV, SkyLight, BottomShade, BackFaceShade, DetailScale, DetailStrength, PositionWS, FabricSheen, c); Color = c; }
+#define NTE_ENV(col, lit) col = NTE_Environment(i, col, lit, FaceSign, SkyLight, BottomShade, BackFaceShade) + NTE_PunctualLights(i, PositionWS, FaceSign)
 
 // ---------------- Cloth: soft band, fabric sheen, auto gold buttons ----------------
 void NTE_Cloth_float(NTE_ARGS)
@@ -154,10 +209,17 @@ void NTE_Cloth_float(NTE_ARGS)
     float lit = NTE_LitBand(i);
     float3 col = NTE_Diffuse(i, lit);
     float gold = NTE_GoldMask(i.albedo) * step(0.001, i.specStrength);
-    float weave = NTE_Fabric(UV.xy, DetailScale) * DetailStrength * (1.0 - gold);
-    col *= 1.0 + weave * 2.0 * lerp(0.6, 1.0, lit);              // fine woven fibres
-    float fres = pow(NTE_Fresnel(i), 3.0);
-    col += i.albedo * fres * (0.18 + max(weave, 0.0) * 1.5) * lit; // fuzzy fabric sheen, catches on the threads
+    float notGold = 1.0 - gold;
+    float weave = NTE_Fabric(UV.xy, DetailScale) * DetailStrength * notGold;          // close-up threads
+    float grain = NTE_FabricGrain(UV.xy, DetailScale * 0.1) * DetailStrength * notGold; // visible at game distance
+    col *= 1.0 + (weave * 2.0 + grain * 1.6) * lerp(0.6, 1.0, lit);
+    // Velvet / cloth profile: fibres catch light at grazing angles (bright fuzzy edge),
+    // faces looking straight at the camera go slightly matte and dusty.
+    float nv = saturate(dot(i.N, i.V));
+    float sheen = pow(1.0 - nv, 2.0) * (1.0 + max(weave, 0.0) * 3.0);
+    float3 sheenCol = lerp(i.albedo, 1.0.xxx, 0.35);
+    col *= lerp(1.0, 0.9, FabricSheen * nv * nv * notGold);
+    col += sheenCol * sheen * FabricSheen * 0.45 * lerp(0.35, 1.0, lit) * notGold;
     NTE_ENV(col, lit);
     col = lerp(col, NTE_MetalShade(i, i.albedo, lit), gold);
     Color = (col + NTE_Rim(i, lit)) * i.brightness;

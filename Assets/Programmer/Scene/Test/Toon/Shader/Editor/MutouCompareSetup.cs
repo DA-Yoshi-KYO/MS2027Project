@@ -132,7 +132,7 @@ public static class MutouCompareSetup
         return m;
     }
 
-    static Material GetOutlineMaterial(Part p)
+    static Material GetOutlineMaterial(Part p, float modelScale)
     {
         string tpl = p switch
         {
@@ -148,6 +148,8 @@ public static class MutouCompareSetup
         if (m == null) { m = new Material(template); AssetDatabase.CreateAsset(m, path); }
         else m.CopyPropertiesFromMaterial(template);
         m.SetTexture("_BaseMap", BaseTex(p));
+        if (template.HasProperty("_OutlineWidth"))
+            m.SetFloat("_OutlineWidth", template.GetFloat("_OutlineWidth") / modelScale);
         EditorUtility.SetDirty(m);
         return m;
     }
@@ -183,40 +185,58 @@ public static class MutouCompareSetup
     }
 
     // ================= Outline =================
+    // 背面法 (inverted hull)。本体と同じメッシュを子オブジェクト "Outline" に複製し SHG_Outline を当てる。
+    // mutou は SkinnedMesh ではなく通常の MeshRenderer なので両方に対応する。
     static void SetupOutline(GameObject root, Renderer src, Part[] parts)
     {
-        if (!(src is SkinnedMeshRenderer smr)) return;
-        var outlineRoot = root.transform.Find("Outline");
-        if (outlineRoot == null)
+        if (parts.All(p => p == Part.Eye)) return;   // 目だけのメッシュ (表情差分) には線を付けない
+
+        var t = src.transform.Find("Outline");
+        if (t == null)
         {
             var go = new GameObject("Outline");
             Undo.RegisterCreatedObjectUndo(go, "Mutou outline");
-            go.transform.SetParent(root.transform, false);
-            outlineRoot = go.transform;
-        }
-        var t = outlineRoot.Find(src.name);
-        if (t == null)
-        {
-            var go = new GameObject(src.name);
-            Undo.RegisterCreatedObjectUndo(go, "Mutou outline");
-            go.transform.SetParent(outlineRoot, false);
+            go.transform.SetParent(src.transform, false);
             t = go.transform;
         }
-        var o = t.GetComponent<SkinnedMeshRenderer>();
-        if (o == null) o = Undo.AddComponent<SkinnedMeshRenderer>(t.gameObject);
+        t.gameObject.SetActive(src.gameObject.activeSelf);
+
+        // 線の太さを Teto (スケール 1) と同じ見た目にするため、モデルのスケールで割る
+        float scale = Mathf.Max(src.transform.lossyScale.x, 1e-4f);
+        var mats = parts.Select(p => GetOutlineMaterial(p, scale)).ToArray();
+
+        Renderer o;
+        if (src is SkinnedMeshRenderer smr)
+        {
+            var so = t.GetComponent<SkinnedMeshRenderer>();
+            if (so == null) so = Undo.AddComponent<SkinnedMeshRenderer>(t.gameObject);
+            Undo.RecordObject(so, "Mutou outline");
+            so.sharedMesh = smr.sharedMesh;
+            so.bones = smr.bones;
+            so.rootBone = smr.rootBone;
+            so.localBounds = smr.localBounds;
+            so.updateWhenOffscreen = smr.updateWhenOffscreen;
+            if (smr.sharedMesh != null)
+                for (int i = 0; i < smr.sharedMesh.blendShapeCount; i++)
+                    so.SetBlendShapeWeight(i, smr.GetBlendShapeWeight(i));
+            o = so;
+        }
+        else
+        {
+            var srcFilter = src.GetComponent<MeshFilter>();
+            if (srcFilter == null) return;
+            var mf = t.GetComponent<MeshFilter>();
+            if (mf == null) mf = Undo.AddComponent<MeshFilter>(t.gameObject);
+            Undo.RecordObject(mf, "Mutou outline");
+            mf.sharedMesh = srcFilter.sharedMesh;
+            var mr = t.GetComponent<MeshRenderer>();
+            if (mr == null) mr = Undo.AddComponent<MeshRenderer>(t.gameObject);
+            o = mr;
+        }
         Undo.RecordObject(o, "Mutou outline");
-        o.sharedMesh = smr.sharedMesh;
-        o.bones = smr.bones;
-        o.rootBone = smr.rootBone;
-        o.localBounds = smr.localBounds;
-        o.updateWhenOffscreen = smr.updateWhenOffscreen;
         o.shadowCastingMode = ShadowCastingMode.Off;
         o.receiveShadows = false;
-        o.sharedMaterials = parts.Select(GetOutlineMaterial).ToArray();
-        // BlendShape (表情) を本体と揃える
-        if (smr.sharedMesh != null)
-            for (int i = 0; i < smr.sharedMesh.blendShapeCount; i++)
-                o.SetBlendShapeWeight(i, smr.GetBlendShapeWeight(i));
+        o.sharedMaterials = mats;
     }
 
     // ================= Scene helpers =================

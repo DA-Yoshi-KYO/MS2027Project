@@ -69,12 +69,14 @@ Material:
     - _AlphaCutoffEnable: 1
     - _AlphaDstBlend: 0
     - _AlphaSrcBlend: 1
+    - _BackFaceShade: 0.35
     - _BlendMode: 0
+    - _BottomShade: 0.982
     - _CelBrightness: 1.15
     - _CelCastShadowStrength: 0.4
     - _CelRimStrength: 0.03
     - _CelRimWidth: 0.3
-    - _CelShadowSaturation: 0.4
+    - _CelShadowSaturation: 0.577
     - _CelShadowSoftness: 0.2
     - _CelShadowStrength: 0.08
     - _CelShadowThreshold: 0.4
@@ -84,6 +86,8 @@ Material:
     - _CullMode: 0
     - _CullModeForward: 0
     - _DepthOffsetEnable: 0
+    - _DetailScale: 600
+    - _DetailStrength: 0
     - _DoubleSidedEnable: 1
     - _DoubleSidedGIMode: 0
     - _DoubleSidedNormalMode: 1
@@ -92,10 +96,12 @@ Material:
     - _EnableBlendModePreserveSpecularLighting: 0
     - _EnableFogOnTransparent: 1
     - _ExcludeFromTUAndAA: 0
+    - _FabricSheen: 0
     - _OpaqueCullMode: 2
     - _PerPixelSorting: 0
     - _RenderQueueType: 1
-    - _ShadowMatteFilter: 2.006836
+    - _ShadowMatteFilter: 4.0357e-41
+    - _SkyLight: 0.15
     - _SrcBlend: 1
     - _StencilRef: 0
     - _StencilRefDepth: 0

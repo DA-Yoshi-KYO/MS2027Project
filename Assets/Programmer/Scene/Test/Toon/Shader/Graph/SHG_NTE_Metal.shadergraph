@@ -65,6 +65,9 @@
         },
         {
             "m_Id": "daeecf1936764cad8f0ab5741bf17a42"
+        },
+        {
+            "m_Id": "ab21b42d78194848b7e12d252097ed98"
         }
     ],
     "m_Keywords": [],
@@ -233,6 +236,12 @@
         },
         {
             "m_Id": "f6525000b3ed4aa9b367f6bcd355142f"
+        },
+        {
+            "m_Id": "86928a4af6a346899125a2435931b333"
+        },
+        {
+            "m_Id": "56530afc295f4b6bb986f174c3ea750a"
         }
     ],
     "m_GroupDatas": [],
@@ -1006,6 +1015,34 @@
                     "m_Id": "3187bdf89db649d997ed5cfcb159b146"
                 },
                 "m_SlotId": 7
+            }
+        },
+        {
+            "m_OutputSlot": {
+                "m_Node": {
+                    "m_Id": "86928a4af6a346899125a2435931b333"
+                },
+                "m_SlotId": 0
+            },
+            "m_InputSlot": {
+                "m_Node": {
+                    "m_Id": "03c660c14b494b47bae82cd3b4d2fd21"
+                },
+                "m_SlotId": 26
+            }
+        },
+        {
+            "m_OutputSlot": {
+                "m_Node": {
+                    "m_Id": "56530afc295f4b6bb986f174c3ea750a"
+                },
+                "m_SlotId": 0
+            },
+            "m_InputSlot": {
+                "m_Node": {
+                    "m_Id": "03c660c14b494b47bae82cd3b4d2fd21"
+                },
+                "m_SlotId": 27
             }
         }
     ],
@@ -3610,6 +3647,9 @@
         },
         {
             "m_Id": "daeecf1936764cad8f0ab5741bf17a42"
+        },
+        {
+            "m_Id": "ab21b42d78194848b7e12d252097ed98"
         }
     ]
 }
@@ -3822,7 +3862,7 @@
     "m_FunctionName": "NTE_CastShadowTint",
     "m_FunctionSource": "",
     "m_FunctionSourceUsePragmas": true,
-    "m_FunctionBody": "// Cast shadow colour = texture colour x ShadowColor. Faded out on faces already turned away from the light\n// (the cel band shades those) so self-shadow acne at the terminator does not show as dirty blotches.\nfloat ndl = dot(NormalWS * rsqrt(max(dot(NormalWS, NormalWS), 1e-6)), LightDir * rsqrt(max(dot(LightDir, LightDir), 1e-6)));\nfloat fade = smoothstep(-0.35, 0.1, ndl);\nShadowTint = $precision4(max(Albedo * BaseColor, 0.0) * saturate(Tint) * 0.7 * Brightness, saturate(Strength) * fade);"
+    "m_FunctionBody": "// Cast shadow colour = texture colour x ShadowColor. Faded out on faces already turned away from the light\n// (the cel band shades those) so self-shadow acne at the terminator does not show as dirty blotches.\nfloat ndl = dot(NormalWS * rsqrt(max(dot(NormalWS, NormalWS), 1e-6)), LightDir * rsqrt(max(dot(LightDir, LightDir), 1e-6)));\nfloat fade = smoothstep(-0.75, -0.35, ndl);\nShadowTint = $precision4(max(Albedo * BaseColor, 0.0) * saturate(Tint) * 0.55 * Brightness, saturate(Strength) * fade);"
 }
 
 {
@@ -5042,6 +5082,12 @@
             "m_Id": "f837c669ec2c48169ac8185a48dbdb32"
         },
         {
+            "m_Id": "922fa10dae9f4e9981ed94ca2c0dc153"
+        },
+        {
+            "m_Id": "0d2b9cbfaf7742dc9f8f0e15fd9fbdb5"
+        },
+        {
             "m_Id": "5991105e731b4e07b8b3b733c41007c5"
         }
     ],
@@ -5277,7 +5323,7 @@
     "m_Hidden": false,
     "m_PerRendererData": false,
     "m_customAttributes": [],
-    "m_Value": 0.4,
+    "m_Value": 0.55,
     "m_FloatType": 1,
     "m_LiteralFloatMode": false,
     "m_RangeValues": {
@@ -6377,7 +6423,7 @@
     "m_Hidden": false,
     "m_PerRendererData": false,
     "m_customAttributes": [],
-    "m_Value": 0.4,
+    "m_Value": 0.6,
     "m_FloatType": 1,
     "m_LiteralFloatMode": false,
     "m_RangeValues": {
@@ -6732,6 +6778,201 @@
         "y": 0.0,
         "z": 0.0
     },
+    "m_Labels": [],
+    "m_LiteralMode": false
+}
+
+{
+    "m_SGVersion": 0,
+    "m_Type": "UnityEditor.ShaderGraph.Vector3MaterialSlot",
+    "m_ObjectId": "c0df4f3243414cad86bcaeeb5f7a01ec",
+    "m_Id": 0,
+    "m_DisplayName": "Out",
+    "m_SlotType": 1,
+    "m_Hidden": false,
+    "m_ShaderOutputName": "Out",
+    "m_StageCapability": 3,
+    "m_Value": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+    },
+    "m_DefaultValue": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+    },
+    "m_Labels": []
+}
+
+{
+    "m_SGVersion": 1,
+    "m_Type": "UnityEditor.ShaderGraph.PositionNode",
+    "m_ObjectId": "86928a4af6a346899125a2435931b333",
+    "m_Group": {
+        "m_Id": ""
+    },
+    "m_Name": "Position",
+    "m_DrawState": {
+        "m_Expanded": true,
+        "m_Position": {
+            "serializedVersion": "2",
+            "x": -950.0,
+            "y": 1820.0,
+            "width": 200.0,
+            "height": 100.0
+        }
+    },
+    "m_Slots": [
+        {
+            "m_Id": "c0df4f3243414cad86bcaeeb5f7a01ec"
+        }
+    ],
+    "synonyms": [
+        "location"
+    ],
+    "m_Precision": 0,
+    "m_PreviewExpanded": false,
+    "m_DismissedVersion": 0,
+    "m_PreviewMode": 0,
+    "m_CustomColors": {
+        "m_SerializableColors": []
+    },
+    "m_Space": 4,
+    "m_PositionSource": 0
+}
+
+{
+    "m_SGVersion": 0,
+    "m_Type": "UnityEditor.ShaderGraph.Vector3MaterialSlot",
+    "m_ObjectId": "922fa10dae9f4e9981ed94ca2c0dc153",
+    "m_Id": 26,
+    "m_DisplayName": "PositionWS",
+    "m_SlotType": 0,
+    "m_Hidden": false,
+    "m_ShaderOutputName": "PositionWS",
+    "m_StageCapability": 3,
+    "m_Value": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+    },
+    "m_DefaultValue": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+    },
+    "m_Labels": [],
+    "m_LiteralMode": false
+}
+
+{
+    "m_SGVersion": 1,
+    "m_Type": "UnityEditor.ShaderGraph.Internal.Vector1ShaderProperty",
+    "m_ObjectId": "ab21b42d78194848b7e12d252097ed98",
+    "m_Guid": {
+        "m_GuidSerialized": "92dfee0c-0cdc-467f-a9eb-fd83d98d4db8"
+    },
+    "promotedFromAssetID": "",
+    "promotedFromCategoryName": "",
+    "promotedOrdering": -1,
+    "m_Name": "Fabric Sheen",
+    "m_DefaultRefNameVersion": 1,
+    "m_RefNameGeneratedByDisplayName": "Fabric Sheen",
+    "m_DefaultReferenceName": "_FabricSheen",
+    "m_OverrideReferenceName": "_FabricSheen",
+    "m_GeneratePropertyBlock": true,
+    "m_UseCustomSlotLabel": false,
+    "m_CustomSlotLabel": "",
+    "m_DismissedVersion": 0,
+    "m_Precision": 0,
+    "overrideHLSLDeclaration": false,
+    "hlslDeclarationOverride": 0,
+    "m_Hidden": false,
+    "m_PerRendererData": false,
+    "m_customAttributes": [],
+    "m_Value": 0.0,
+    "m_FloatType": 1,
+    "m_LiteralFloatMode": false,
+    "m_RangeValues": {
+        "x": 0.0,
+        "y": 1.0
+    },
+    "m_SliderType": 0,
+    "m_SliderPower": 3.0,
+    "m_EnumType": 0,
+    "m_CSharpEnumString": "",
+    "m_EnumNames": [
+        "Default"
+    ],
+    "m_EnumValues": [
+        0
+    ]
+}
+
+{
+    "m_SGVersion": 0,
+    "m_Type": "UnityEditor.ShaderGraph.Vector1MaterialSlot",
+    "m_ObjectId": "c80cdf86abda4b8381a6c8fe840a4d1b",
+    "m_Id": 0,
+    "m_DisplayName": "Fabric Sheen",
+    "m_SlotType": 1,
+    "m_Hidden": false,
+    "m_ShaderOutputName": "Out",
+    "m_StageCapability": 3,
+    "m_Value": 0.0,
+    "m_DefaultValue": 0.0,
+    "m_Labels": []
+}
+
+{
+    "m_SGVersion": 0,
+    "m_Type": "UnityEditor.ShaderGraph.PropertyNode",
+    "m_ObjectId": "56530afc295f4b6bb986f174c3ea750a",
+    "m_Group": {
+        "m_Id": ""
+    },
+    "m_Name": "Property",
+    "m_DrawState": {
+        "m_Expanded": true,
+        "m_Position": {
+            "serializedVersion": "2",
+            "x": -950.0,
+            "y": 1940.0,
+            "width": 200.0,
+            "height": 100.0
+        }
+    },
+    "m_Slots": [
+        {
+            "m_Id": "c80cdf86abda4b8381a6c8fe840a4d1b"
+        }
+    ],
+    "synonyms": [],
+    "m_Precision": 0,
+    "m_PreviewExpanded": true,
+    "m_DismissedVersion": 0,
+    "m_PreviewMode": 0,
+    "m_CustomColors": {
+        "m_SerializableColors": []
+    },
+    "m_Property": {
+        "m_Id": "ab21b42d78194848b7e12d252097ed98"
+    }
+}
+
+{
+    "m_SGVersion": 0,
+    "m_Type": "UnityEditor.ShaderGraph.Vector1MaterialSlot",
+    "m_ObjectId": "0d2b9cbfaf7742dc9f8f0e15fd9fbdb5",
+    "m_Id": 27,
+    "m_DisplayName": "FabricSheen",
+    "m_SlotType": 0,
+    "m_Hidden": false,
+    "m_ShaderOutputName": "FabricSheen",
+    "m_StageCapability": 3,
+    "m_Value": 0.0,
+    "m_DefaultValue": 0.0,
     "m_Labels": [],
     "m_LiteralMode": false
 }

@@ -27,6 +27,7 @@ public class CSED_LevelDesignWindow : EditorWindow
 
     [SerializeField] private CSE_LevelDesignMode _mode = CSE_LevelDesignMode.Solo;
     [SerializeField] private CSE_LevelDesignTab _tab = CSE_LevelDesignTab.Player;
+    [SerializeField] private string _layoutHint;   // レイアウト未登録の時の案内(閉じるまで表示)
     private readonly Dictionary<ScriptableObject, bool> _foldouts = new Dictionary<ScriptableObject, bool>();
     private Vector2 _scroll;
 
@@ -34,6 +35,12 @@ public class CSED_LevelDesignWindow : EditorWindow
     {
         get => _mode;
         set { _mode = value; titleContent = new GUIContent(GetTitle(value)); Repaint(); }
+    }
+
+    public string layoutHint
+    {
+        get => _layoutHint;
+        set { _layoutHint = value; Repaint(); }
     }
 
     // ウィンドウを開いてモードを設定する(レイアウトに無ければ指定したウィンドウの隣にタブで開く)
@@ -65,6 +72,12 @@ public class CSED_LevelDesignWindow : EditorWindow
             GUILayout.FlexibleSpace();
             CSE_LevelDesignMode newMode = (CSE_LevelDesignMode)EditorGUILayout.EnumPopup(_mode, EditorStyles.toolbarPopup, GUILayout.Width(70));
             if (newMode != _mode) mode = newMode;
+        }
+
+        if (!string.IsNullOrEmpty(_layoutHint))
+        {
+            EditorGUILayout.HelpBox(_layoutHint, MessageType.Info);
+            if (GUILayout.Button("案内を閉じる")) _layoutHint = null;
         }
 
         if (CSED_LevelDesignSession.isChoicePending)

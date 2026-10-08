@@ -20,7 +20,7 @@ using UnityEngine;
  *   マルチ用: Gameビュー + Play Mode Status + ステータス調整ウィンドウ(4分割)
  * ・窓の分割をコードで組むにはUnityの内部構造を触る必要があり壊れやすいので、
  *   一度だけ手で並べて「今の配置を保存」し、そのファイルをコミットして全員で使う
- * ・レイアウトファイルがまだ無い時は、必要なウィンドウだけ開いて保存の手順を案内する
+ * ・レイアウトファイルがまだ無い時は、必要なウィンドウだけ開き、ステータス調整ウィンドウの中で保存の手順を案内する
  * ・レイアウトの読み込み・保存はUnityの内部API(WindowLayout)を使う。見つからない場合はエラーを出す
  */
 // ========================================
@@ -30,7 +30,6 @@ public static class CSED_LevelDesignLayout
     private const string _layoutFolder = "Assets/Editor/LevelDesign/Layouts";
     private const string _soloLayoutPath = _layoutFolder + "/LD_Solo.wlt";
     private const string _multiLayoutPath = _layoutFolder + "/LD_Multi.wlt";
-    private const string _playModeStatusMenu = "Window/Multiplayer/Play Mode Status";
 
     [MenuItem("Tools/レベルデザイン/ソロ用", false, 0)]
     private static void OpenSolo() => OpenLayout(CSE_LevelDesignMode.Solo);
@@ -71,24 +70,37 @@ public static class CSED_LevelDesignLayout
         };
     }
 
-    // レイアウトファイルがまだ無い時: 必要なウィンドウを開き、並べて保存するよう案内する
+    // レイアウトファイルがまだ無い時: 必要なウィンドウを開き、並べて保存するようウィンドウ内で案内する
+    // (モーダルダイアログはUnityの処理を止めてしまうので使わない)
     private static void OpenWithoutLayout(CSE_LevelDesignMode mode)
     {
         Type inspectorType = typeof(Editor).Assembly.GetType("UnityEditor.InspectorWindow");
-        CSED_LevelDesignWindow.Open(mode, inspectorType != null ? new[] { inspectorType } : new Type[0]);
-        if (mode == CSE_LevelDesignMode.Multi && !EditorApplication.ExecuteMenuItem(_playModeStatusMenu))
+        CSED_LevelDesignWindow window = CSED_LevelDesignWindow.Open(mode, inspectorType != null ? new[] { inspectorType } : new Type[0]);
+        if (mode == CSE_LevelDesignMode.Multi && !OpenPlayModeStatus())
         {
-            Debug.LogWarning("レベルデザイン: Play Mode Statusを開けませんでした(Multiplayer Play Modeパッケージを確認してください)");
+            Debug.LogWarning("レベルデザイン: Play Mode Statusを自動で開けませんでした。Window > Multiplayer > Play Mode Status から開いてください");
         }
 
         string layoutName = mode == CSE_LevelDesignMode.Solo ? "ソロ用" : "マルチ用";
         string windows = mode == CSE_LevelDesignMode.Solo
-            ? "Gameビュー(左) と ステータス調整(右)"
-            : "Gameビュー、Play Mode Status、ステータス調整(右)";
-        EditorUtility.DisplayDialog("レベルデザイン",
-            $"{layoutName}のレイアウトがまだ登録されていません。\n\n{windows} を並べてから、\n" +
-            $"Tools > レベルデザイン > 今の配置を保存 > {layoutName} を押してください。\n" +
-            "保存したファイルをコミットすると、全員が同じレイアウトを使えます。", "OK");
+            ? "Gameビュー(左) と このウィンドウ(右)"
+            : "Gameビュー、Play Mode Status、このウィンドウ(右)";
+        window.layoutHint = $"{layoutName}のレイアウトがまだ登録されていません。\n{windows} を並べてから、" +
+            $"Tools > レベルデザイン > 今の配置を保存 > {layoutName} を押してください。保存したファイルをコミットすると、全員が同じレイアウトを使えます。";
+    }
+
+    // Play Mode Status(Multiplayer Play Mode)のウィンドウを開く
+    // Unity 6では本体に組み込まれていてメニューのパスで実行できないため、ウィンドウの型を名前で探して開く
+    private static bool OpenPlayModeStatus()
+    {
+        foreach (Type type in TypeCache.GetTypesDerivedFrom<EditorWindow>())
+        {
+            if (type.IsAbstract || type.Name.IndexOf("PlayModeStatus", StringComparison.OrdinalIgnoreCase) < 0) continue;
+
+            EditorWindow.GetWindow(type);
+            return true;
+        }
+        return false;
     }
 
     private static void SaveLayout(CSE_LevelDesignMode mode)

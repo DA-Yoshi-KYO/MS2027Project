@@ -70,8 +70,8 @@ public static class CSED_LevelDesignTargets
         return player != null ? player.playerNumber : 0;
     }
 
-    // ソロで表示する操作キャラ(自分が操作しているキャラ。オフラインなど判定できなければ最初の1人)
-    public static CS_PlayerStats FindSoloPlayer(List<CS_PlayerStats> players)
+    // 表示する操作キャラ(自分が操作しているキャラ。オフラインなど判定できなければ最初の1人)
+    public static CS_PlayerStats FindControlledPlayer(List<CS_PlayerStats> players)
     {
         foreach (CS_PlayerStats stats in players)
         {

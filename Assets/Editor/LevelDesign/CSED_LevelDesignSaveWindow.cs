@@ -186,7 +186,7 @@ public class CSED_LevelDesignSaveWindow : EditorWindow
 
     private void SelectAll(bool useEdited)
     {
-        // プレイヤーの編集後は人数分あるので、まとめて選ぶ時はP1(ソロなら操作キャラ)の値にする
+        // プレイヤーの編集後が複数ある時は、まとめて選ぶとP1の値にする
         foreach (CSED_LevelDesignPlayerChoice choice in _playerChoices) choice.choice = useEdited ? 1 : 0;
         foreach (CSED_LevelDesignAssetChoice choice in _assetChoices) choice.choice = useEdited ? 1 : 0;
     }

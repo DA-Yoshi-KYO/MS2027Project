@@ -6,8 +6,8 @@ using UnityEditor;
 using UnityEngine;
 
 /*
- * レベルデザイン用のレイアウト(ソロ用/マルチ用)を展開するメニュー
- * Tools > レベルデザイン > ソロ用 / マルチ用
+ * レベルデザイン用のレイアウトを展開するメニュー
+ * Tools > レベルデザイン > 開く
  *
  * 制作者：　吉田京志郎(Claude Codeで生成)
  */
@@ -16,8 +16,8 @@ using UnityEngine;
 /*
  * メモ
  * ・レイアウトは Layouts フォルダの .wlt ファイル(Unityのレイアウト保存と同じ形式)を読み込む
- *   ソロ用: Gameビュー + ステータス調整ウィンドウ
- *   マルチ用: Gameビュー + Play Mode Status + ステータス調整ウィンドウ(4分割)
+ *   Gameビュー + ステータス調整ウィンドウ
+ * ・マルチ(Multiplayer Play Mode)の2〜4人目は別のUnityで起動し、このレイアウトに入れられないため、ソロ用・マルチ用の区別は設けない
  * ・窓の分割をコードで組むにはUnityの内部構造を触る必要があり壊れやすいので、
  *   一度だけ手で並べて「今の配置を保存」し、そのファイルをコミットして全員で使う
  * ・レイアウトファイルがまだ無い時は、必要なウィンドウだけ開き、ステータス調整ウィンドウの中で保存の手順を案内する
@@ -29,32 +29,18 @@ using UnityEngine;
 public static class CSED_LevelDesignLayout
 {
     private const string _layoutFolder = "Assets/Editor/LevelDesign/Layouts";
-    private const string _soloLayoutPath = _layoutFolder + "/LD_Solo.wlt";
-    private const string _multiLayoutPath = _layoutFolder + "/LD_Multi.wlt";
+    private const string _layoutPath = _layoutFolder + "/LD_Layout.wlt";
     private const string _previousLayoutPath = "Library/LevelDesign/PreviousLayout.wlt";
 
-    [MenuItem("Tools/レベルデザイン/ソロ用", false, 0)]
-    private static void OpenSolo() => OpenLayout(CSE_LevelDesignMode.Solo);
-
-    [MenuItem("Tools/レベルデザイン/マルチ用", false, 1)]
-    private static void OpenMulti() => OpenLayout(CSE_LevelDesignMode.Multi);
-
-    [MenuItem("Tools/レベルデザイン/今の配置を保存/ソロ用", false, 100)]
-    private static void SaveSolo() => SaveLayout(CSE_LevelDesignMode.Solo);
-
-    [MenuItem("Tools/レベルデザイン/今の配置を保存/マルチ用", false, 101)]
-    private static void SaveMulti() => SaveLayout(CSE_LevelDesignMode.Multi);
-
-    private static string GetLayoutPath(CSE_LevelDesignMode mode) => mode == CSE_LevelDesignMode.Solo ? _soloLayoutPath : _multiLayoutPath;
-
-    private static void OpenLayout(CSE_LevelDesignMode mode)
+    [MenuItem("Tools/レベルデザイン/開く", false, 0)]
+    private static void OpenLayout()
     {
         SavePreviousLayout();
 
-        string path = GetLayoutPath(mode);
+        string path = _layoutPath;
         if (!File.Exists(path))
         {
-            OpenWithoutLayout(mode);
+            OpenWithoutLayout();
             return;
         }
 
@@ -65,36 +51,25 @@ public static class CSED_LevelDesignLayout
             return;
         }
 
-        // 読み込んだレイアウトの中のステータス調整ウィンドウにモードを設定する(無ければ開く)
+        // 読み込んだレイアウトにステータス調整ウィンドウが無ければ開く
         EditorApplication.delayCall += () =>
         {
-            CSED_LevelDesignWindow[] windows = Resources.FindObjectsOfTypeAll<CSED_LevelDesignWindow>();
-            if (windows.Length == 0) CSED_LevelDesignWindow.Open(mode);
-            foreach (CSED_LevelDesignWindow window in windows) window.mode = mode;
+            if (!EditorWindow.HasOpenInstances<CSED_LevelDesignWindow>()) CSED_LevelDesignWindow.Open();
         };
     }
 
     // レイアウトファイルがまだ無い時: 必要なウィンドウを開き、並べて保存するようウィンドウ内で案内する
     // (モーダルダイアログはUnityの処理を止めてしまうので使わない)
-    private static void OpenWithoutLayout(CSE_LevelDesignMode mode)
+    private static void OpenWithoutLayout()
     {
         Type inspectorType = typeof(Editor).Assembly.GetType("UnityEditor.InspectorWindow");
-        CSED_LevelDesignWindow window = CSED_LevelDesignWindow.Open(mode, inspectorType != null ? new[] { inspectorType } : new Type[0]);
-        if (mode == CSE_LevelDesignMode.Multi && !OpenPlayModeStatus())
-        {
-            Debug.LogWarning("レベルデザイン: Play Mode Statusを自動で開けませんでした。Window > Multiplayer > Play Mode Status から開いてください");
-        }
-
-        string layoutName = mode == CSE_LevelDesignMode.Solo ? "ソロ用" : "マルチ用";
-        string windows = mode == CSE_LevelDesignMode.Solo
-            ? "Gameビュー(左) と このウィンドウ(右)"
-            : "Gameビュー、Play Mode Status、このウィンドウ(右)";
-        window.layoutHint = $"{layoutName}のレイアウトがまだ登録されていません。\n{windows} を並べてから、" +
-            $"Tools > レベルデザイン > 今の配置を保存 > {layoutName} を押してください。保存したファイルをコミットすると、全員が同じレイアウトを使えます。";
+        CSED_LevelDesignWindow window = CSED_LevelDesignWindow.Open(inspectorType != null ? new[] { inspectorType } : new Type[0]);
+        window.layoutHint = "レイアウトがまだ登録されていません。\nGameビュー(左) と このウィンドウ(右) を並べてから、" +
+            "Tools > レベルデザイン > 今の配置を保存 を押してください。保存したファイルをコミットすると、全員が同じレイアウトを使えます。";
     }
 
     // 調整用のレイアウトを開く前の配置を退避する
-    // ステータス調整ウィンドウが開いている時は調整中(ソロ⇔マルチの切り替えなど)なので、最初に退避した配置を残す
+    // ステータス調整ウィンドウが開いている時は調整中(開き直しなど)なので、最初に退避した配置を残す
     private static void SavePreviousLayout()
     {
         if (EditorWindow.HasOpenInstances<CSED_LevelDesignWindow>()) return;
@@ -137,21 +112,8 @@ public static class CSED_LevelDesignLayout
         foreach (CSED_LevelDesignWindow window in Resources.FindObjectsOfTypeAll<CSED_LevelDesignWindow>()) window.Close();
     }
 
-    // Play Mode Status(Multiplayer Play Mode)のウィンドウを開く
-    // Unity 6では本体に組み込まれていてメニューのパスで実行できないため、ウィンドウの型を名前で探して開く
-    private static bool OpenPlayModeStatus()
-    {
-        foreach (Type type in TypeCache.GetTypesDerivedFrom<EditorWindow>())
-        {
-            if (type.IsAbstract || type.Name.IndexOf("PlayModeStatus", StringComparison.OrdinalIgnoreCase) < 0) continue;
-
-            EditorWindow.GetWindow(type);
-            return true;
-        }
-        return false;
-    }
-
-    private static void SaveLayout(CSE_LevelDesignMode mode)
+    [MenuItem("Tools/レベルデザイン/今の配置を保存", false, 100)]
+    private static void SaveLayout()
     {
         if (!EditorWindow.HasOpenInstances<CSED_LevelDesignWindow>())
         {
@@ -159,7 +121,7 @@ public static class CSED_LevelDesignLayout
             return;
         }
 
-        string path = GetLayoutPath(mode);
+        string path = _layoutPath;
         Directory.CreateDirectory(_layoutFolder);
         if (!InvokeLayoutMethod(GetWindowLayoutType(), "SaveWindowLayout", Path.GetFullPath(path)))
         {

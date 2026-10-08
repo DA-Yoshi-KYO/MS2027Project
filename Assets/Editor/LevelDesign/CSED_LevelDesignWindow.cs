@@ -18,6 +18,7 @@ using UnityEngine;
  * ・悪人/警察: データ(DB_VillainStats, DB_PoliceStatusなど)を直接変える。全プレイヤー共通なので分割しない
  * ・「初期状態に戻す」は、編集前の値(プレイヤーは最初に表示した時、データは再生開始時かウィンドウを開いた時)に戻す
  * ・再生を止めると、変えた項目の保存先を選ぶウィンドウが出る(CSED_LevelDesignSession)
+ * ・「調整を終了」で、レイアウトを開く前の配置に戻す(CSED_LevelDesignLayout)
  */
 // ========================================
 
@@ -70,6 +71,11 @@ public class CSED_LevelDesignWindow : EditorWindow
         {
             _tab = (CSE_LevelDesignTab)GUILayout.Toolbar((int)_tab, _tabLabels, EditorStyles.toolbarButton);
             GUILayout.FlexibleSpace();
+            if (GUILayout.Button("調整を終了", EditorStyles.toolbarButton, GUILayout.Width(70)))
+            {
+                CSED_LevelDesignLayout.EndAdjustment();
+                GUIUtility.ExitGUI();
+            }
             CSE_LevelDesignMode newMode = (CSE_LevelDesignMode)EditorGUILayout.EnumPopup(_mode, EditorStyles.toolbarPopup, GUILayout.Width(70));
             if (newMode != _mode) mode = newMode;
         }

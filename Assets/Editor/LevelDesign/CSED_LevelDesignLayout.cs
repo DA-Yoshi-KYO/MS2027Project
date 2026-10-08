@@ -22,6 +22,7 @@ using UnityEngine;
  *   一度だけ手で並べて「今の配置を保存」し、そのファイルをコミットして全員で使う
  * ・レイアウトファイルがまだ無い時は、必要なウィンドウだけ開き、ステータス調整ウィンドウの中で保存の手順を案内する
  * ・レイアウトの読み込み・保存はUnityの内部API(WindowLayout)を使う。見つからない場合はエラーを出す
+ * ・開く前の配置は Library に退避しておき、「調整を終了」でその配置に戻す(個人の配置なのでコミットしない)
  */
 // ========================================
 
@@ -30,6 +31,7 @@ public static class CSED_LevelDesignLayout
     private const string _layoutFolder = "Assets/Editor/LevelDesign/Layouts";
     private const string _soloLayoutPath = _layoutFolder + "/LD_Solo.wlt";
     private const string _multiLayoutPath = _layoutFolder + "/LD_Multi.wlt";
+    private const string _previousLayoutPath = "Library/LevelDesign/PreviousLayout.wlt";
 
     [MenuItem("Tools/レベルデザイン/ソロ用", false, 0)]
     private static void OpenSolo() => OpenLayout(CSE_LevelDesignMode.Solo);
@@ -47,6 +49,8 @@ public static class CSED_LevelDesignLayout
 
     private static void OpenLayout(CSE_LevelDesignMode mode)
     {
+        SavePreviousLayout();
+
         string path = GetLayoutPath(mode);
         if (!File.Exists(path))
         {
@@ -87,6 +91,50 @@ public static class CSED_LevelDesignLayout
             : "Gameビュー、Play Mode Status、このウィンドウ(右)";
         window.layoutHint = $"{layoutName}のレイアウトがまだ登録されていません。\n{windows} を並べてから、" +
             $"Tools > レベルデザイン > 今の配置を保存 > {layoutName} を押してください。保存したファイルをコミットすると、全員が同じレイアウトを使えます。";
+    }
+
+    // 調整用のレイアウトを開く前の配置を退避する
+    // ステータス調整ウィンドウが開いている時は調整中(ソロ⇔マルチの切り替えなど)なので、最初に退避した配置を残す
+    private static void SavePreviousLayout()
+    {
+        if (EditorWindow.HasOpenInstances<CSED_LevelDesignWindow>()) return;
+
+        Directory.CreateDirectory(Path.GetDirectoryName(_previousLayoutPath));
+        if (!InvokeLayoutMethod(GetWindowLayoutType(), "SaveWindowLayout", Path.GetFullPath(_previousLayoutPath)))
+        {
+            Debug.LogWarning("レベルデザイン: 今の配置を退避できませんでした。「調整を終了」では元の配置に戻せません");
+        }
+    }
+
+    // 調整を終了して、調整用のレイアウトを開く前の配置に戻す
+    public static void EndAdjustment()
+    {
+        if (!EditorUtility.DisplayDialog("レベルデザイン", "調整を終了して、元のレイアウトに戻しますか？", "はい", "いいえ")) return;
+
+        if (!File.Exists(_previousLayoutPath))
+        {
+            // 戻す配置が無い時は、ステータス調整ウィンドウだけ閉じる
+            Debug.LogWarning("レベルデザイン: 元の配置が見つからないため、ステータス調整ウィンドウだけ閉じます");
+            CloseLevelDesignWindows();
+            return;
+        }
+
+        string path = Path.GetFullPath(_previousLayoutPath);
+        if (!InvokeLayoutMethod(typeof(EditorUtility), "LoadWindowLayout", path) &&
+            !InvokeLayoutMethod(GetWindowLayoutType(), "LoadWindowLayout", path))
+        {
+            Debug.LogError("レベルデザイン: 元のレイアウトを読み込めませんでした: " + _previousLayoutPath);
+            return;
+        }
+
+        File.Delete(_previousLayoutPath);
+        // 元の配置にステータス調整ウィンドウが入っていた場合も、調整は終わりなので閉じる
+        EditorApplication.delayCall += CloseLevelDesignWindows;
+    }
+
+    private static void CloseLevelDesignWindows()
+    {
+        foreach (CSED_LevelDesignWindow window in Resources.FindObjectsOfTypeAll<CSED_LevelDesignWindow>()) window.Close();
     }
 
     // Play Mode Status(Multiplayer Play Mode)のウィンドウを開く

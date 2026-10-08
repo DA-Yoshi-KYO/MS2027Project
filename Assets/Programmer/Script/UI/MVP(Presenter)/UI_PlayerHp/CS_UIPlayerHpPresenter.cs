@@ -8,21 +8,24 @@
  * ================================================ */
 
 using R3;
-using UnityEngine;
 
 /// <summary>
-/// Hpの変化をViewに通知する(Model → View の一方向)
-/// HPバーにアタッチし、指定番号のHpModelがBindされたら購読を始める
-/// Model・HPバーのどちらが先に生成されても紐づく
-/// Modelの破棄は持ち主(使用者)が行うので、ここでは購読解除だけ行う
+/// Hpの変化をViewに通知する
+/// ・ローカルプレイヤーの番号と一致したら表示する
+/// ・_playerNumber の指定不要（Model の localPlayerNumber を使う）
 /// </summary>
 public class CS_UIPlayerHpPresenter : CS_BasePresenter
 {
-    [Header("何番目のプレイヤーのHPを表示するか(0〜3)")][SerializeField] private int _playerNumber;
-    private CS_UIPlayerHpView _view;
+    // =========================================================
+    // 内部フィールド
+    // =========================================================
 
-    //今紐づいているModelの購読(新しいModelを入れると前の購読は自動で解除される)
+    private CS_UIPlayerHpView _view;
     private readonly SerialDisposable _modelSubscription = new SerialDisposable();
+
+    // =========================================================
+    // 初期化
+    // =========================================================
 
     void Awake()
     {
@@ -36,11 +39,10 @@ public class CS_UIPlayerHpPresenter : CS_BasePresenter
         CS_UIPlayerHpModel.OnBound += HandleBound;
         CS_UIPlayerHpModel.OnUnbound += HandleUnbound;
 
-        // Model が存在するなら通常通り Bind
-        if (CS_UIPlayerHpModel.TryGet(_playerNumber, out var model))
-        {
+        // すでに Bind 済みのローカルプレイヤーの Model があれば即購読
+        int localNumber = CS_UIPlayerHpModel.localPlayerNumber;
+        if (localNumber >= 0 && CS_UIPlayerHpModel.TryGet(localNumber, out var model))
             BindModel(model);
-        }
     }
 
     void OnDisable()
@@ -50,37 +52,45 @@ public class CS_UIPlayerHpPresenter : CS_BasePresenter
         UnbindModel();
     }
 
+    // =========================================================
+    // Bind / Unbind ハンドラ
+    // =========================================================
+
     private void HandleBound(int playerNumber, CS_UIPlayerHpModel model)
     {
-        if (playerNumber == _playerNumber)
-        {
-            _view.SetVisible(true);   // ← 見た目だけ表示
+        // ローカルプレイヤーの番号と一致したら表示
+        if (playerNumber == CS_UIPlayerHpModel.localPlayerNumber)
             BindModel(model);
-        }
     }
 
     private void HandleUnbound(int playerNumber)
     {
-        if (playerNumber == _playerNumber)
-        {
+        if (playerNumber == CS_UIPlayerHpModel.localPlayerNumber)
             UnbindModel();
-            _view.SetVisible(false);
-        }
     }
 
-    //Modelを購読してViewに反映する
+    // =========================================================
+    // Model 購読
+    // =========================================================
+
     private void BindModel(CS_UIPlayerHpModel model)
     {
-        //現在Hp・最大Hpのどちらが変わってもViewを更新する
-        //(購読した瞬間に現在値が流れるので、初期表示もここで行われる)
         _modelSubscription.Disposable = model.currentHp
             .CombineLatest(model.maxHp, (hp, max) => (hp, max))
             .Subscribe(x => _view.UpdateHp(x.hp, x.max));
     }
 
-    //Modelの購読をやめる
     private void UnbindModel()
     {
         _modelSubscription.Disposable = null;
+    }
+
+    // =========================================================
+    // OnDestroy
+    // =========================================================
+
+    protected override void OnDestroy()
+    {
+        base.OnDestroy();
     }
 }

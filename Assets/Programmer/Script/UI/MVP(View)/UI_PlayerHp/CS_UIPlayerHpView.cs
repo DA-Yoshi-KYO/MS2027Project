@@ -11,35 +11,41 @@ using UnityEngine;
 using UnityEngine.UI;
 
 /// <summary>
-///  Hpの描画の処理
+/// Hpの描画の処理
 /// </summary>
 public class CS_UIPlayerHpView : CS_BaseView<CS_UIPlayerHpPresenter>
 {
-    [Header("Hpゲージの画像")][SerializeField] private Image _hpGauge;
-    [Header("Hpの数値")][SerializeField] private TextMeshProUGUI _hpText;
+    // =========================================================
+    // Inspector
+    // =========================================================
 
-    private CanvasGroup _canvasGroup;
+    [Header("Hpゲージの画像")]
+    [SerializeField] private Image _hpGauge;
 
-    private void Awake()
+    [Header("Hpの数値")]
+    [SerializeField] private TextMeshProUGUI _hpText;
+
+    // =========================================================
+    // CS_BaseView
+    // =========================================================
+
+    public override void SetPresenter(CS_UIPlayerHpPresenter presenter)
     {
-        _canvasGroup = GetComponent<CanvasGroup>();
+        base.SetPresenter(presenter);
     }
 
-    //PresenterからHp変化の通知を受けて描画を更新する
+    // =========================================================
+    // 描画（Presenter から呼ばれる）
+    // =========================================================
+
     public void UpdateHp(int hp, int max)
     {
-        //画像の更新
         float fill = (float)hp / max;
-        _hpGauge.fillAmount = fill;
 
-        //数値の変更
-        _hpText.text = hp.ToString();
-    }
+        if (_hpGauge != null)
+            _hpGauge.fillAmount = fill;
 
-    public void SetVisible(bool visible)
-    {
-        _canvasGroup.alpha = visible ? 1f : 0f;
-        _canvasGroup.interactable = visible;
-        _canvasGroup.blocksRaycasts = visible;
+        if (_hpText != null)
+            _hpText.text = hp.ToString();
     }
 }

@@ -1,0 +1,29 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2df3d1dd7bd3c7843a37b546031fb2ed, type: 3}
+  m_Name: DB_RandomEventSupplyDrop
+  m_EditorClassIdentifier: Assembly-CSharp::CSO_RandomEventSupplyDrop
+  _displayName: "救援物資"
+  _duration: 60
+  _blockPoliceDetection: 0
+  _supplies:
+  - _item: {fileID: 11401100001, guid: 508f3cd1f3ab4c76aa3305e96f4954c0, type: 3}
+    _count: 1
+  - _item: {fileID: 11401100002, guid: 5acf40e128491e4c86a9ef8475160a9a, type: 3}
+    _count: 1
+  - _item: {fileID: 11401100002, guid: 2e9d7b4c1a6f48e3b0c5d8a7f3e1c294, type: 3}
+    _count: 1
+  - _item: {fileID: 11401100002, guid: 4f8b2d6a1e9c47b3d5a0c8e2f6b1d934, type: 3}
+    _count: 1
+  _placeRadiusRate: 0.5
+  _heightOffset: 1
+  _removeItemsOnEnd: 0

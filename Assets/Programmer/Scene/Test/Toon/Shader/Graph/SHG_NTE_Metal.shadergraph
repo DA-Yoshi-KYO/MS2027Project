@@ -68,6 +68,9 @@
         },
         {
             "m_Id": "ab21b42d78194848b7e12d252097ed98"
+        },
+        {
+            "m_Id": "7b904f1ba28f48b3ae0b88d1b18c8ea5"
         }
     ],
     "m_Keywords": [],
@@ -242,6 +245,9 @@
         },
         {
             "m_Id": "56530afc295f4b6bb986f174c3ea750a"
+        },
+        {
+            "m_Id": "8cc9babe385c46ec8a600a60dee3b12a"
         }
     ],
     "m_GroupDatas": [],
@@ -1044,6 +1050,20 @@
                 },
                 "m_SlotId": 27
             }
+        },
+        {
+            "m_OutputSlot": {
+                "m_Node": {
+                    "m_Id": "8cc9babe385c46ec8a600a60dee3b12a"
+                },
+                "m_SlotId": 0
+            },
+            "m_InputSlot": {
+                "m_Node": {
+                    "m_Id": "03c660c14b494b47bae82cd3b4d2fd21"
+                },
+                "m_SlotId": 28
+            }
         }
     ],
     "m_VertexContext": {
@@ -1522,7 +1542,7 @@
     "m_Type": "UnityEditor.ShaderGraph.Texture2DMaterialSlot",
     "m_ObjectId": "247f73c76c5d4d649fc75975c811495e",
     "m_Id": 0,
-    "m_DisplayName": "BaseMap",
+    "m_DisplayName": "ベーステクスチャ",
     "m_SlotType": 1,
     "m_Hidden": false,
     "m_ShaderOutputName": "Out",
@@ -1735,7 +1755,7 @@
     "m_Type": "UnityEditor.ShaderGraph.Vector3MaterialSlot",
     "m_ObjectId": "2fc0c1243db84f028454df0aa9413eb0",
     "m_Id": 0,
-    "m_DisplayName": "MainLightDirection",
+    "m_DisplayName": "メインライト方向 (スクリプトが設定)",
     "m_SlotType": 1,
     "m_Hidden": false,
     "m_ShaderOutputName": "Out",
@@ -2150,7 +2170,7 @@
     "promotedFromAssetID": "",
     "promotedFromCategoryName": "",
     "promotedOrdering": -1,
-    "m_Name": "BaseColor",
+    "m_Name": "ベースカラー",
     "m_DefaultRefNameVersion": 1,
     "m_RefNameGeneratedByDisplayName": "BaseColor",
     "m_DefaultReferenceName": "_BaseColor",
@@ -2244,7 +2264,7 @@
     "m_Type": "UnityEditor.ShaderGraph.Vector4MaterialSlot",
     "m_ObjectId": "616b27352b874975be58db06712ca502",
     "m_Id": 0,
-    "m_DisplayName": "BaseColor",
+    "m_DisplayName": "ベースカラー",
     "m_SlotType": 1,
     "m_Hidden": false,
     "m_ShaderOutputName": "Out",
@@ -2404,7 +2424,7 @@
     "promotedFromAssetID": "",
     "promotedFromCategoryName": "",
     "promotedOrdering": -1,
-    "m_Name": "BaseMap",
+    "m_Name": "ベーステクスチャ",
     "m_DefaultRefNameVersion": 1,
     "m_RefNameGeneratedByDisplayName": "BaseMap",
     "m_DefaultReferenceName": "_BaseMap",
@@ -3090,7 +3110,7 @@
     "m_Type": "UnityEditor.ShaderGraph.Vector4MaterialSlot",
     "m_ObjectId": "be5d1531df954017b3ce6134f958471f",
     "m_Id": 0,
-    "m_DisplayName": "ShadowColor",
+    "m_DisplayName": "影の色",
     "m_SlotType": 1,
     "m_Hidden": false,
     "m_ShaderOutputName": "Out",
@@ -3208,7 +3228,7 @@
     "promotedFromAssetID": "",
     "promotedFromCategoryName": "",
     "promotedOrdering": -1,
-    "m_Name": "MainLightDirection",
+    "m_Name": "メインライト方向 (スクリプトが設定)",
     "m_DefaultRefNameVersion": 1,
     "m_RefNameGeneratedByDisplayName": "MainLightDirection",
     "m_DefaultReferenceName": "_MainLightDirection",
@@ -3650,6 +3670,9 @@
         },
         {
             "m_Id": "ab21b42d78194848b7e12d252097ed98"
+        },
+        {
+            "m_Id": "7b904f1ba28f48b3ae0b88d1b18c8ea5"
         }
     ]
 }
@@ -3664,7 +3687,7 @@
     "promotedFromAssetID": "",
     "promotedFromCategoryName": "",
     "promotedOrdering": -1,
-    "m_Name": "ShadowColor",
+    "m_Name": "影の色",
     "m_DefaultRefNameVersion": 1,
     "m_RefNameGeneratedByDisplayName": "ShadowColor",
     "m_DefaultReferenceName": "_ShadowColor",
@@ -3862,7 +3885,7 @@
     "m_FunctionName": "NTE_CastShadowTint",
     "m_FunctionSource": "",
     "m_FunctionSourceUsePragmas": true,
-    "m_FunctionBody": "// Cast shadow colour = texture colour x ShadowColor. Faded out on faces already turned away from the light\n// (the cel band shades those) so self-shadow acne at the terminator does not show as dirty blotches.\nfloat ndl = dot(NormalWS * rsqrt(max(dot(NormalWS, NormalWS), 1e-6)), LightDir * rsqrt(max(dot(LightDir, LightDir), 1e-6)));\nfloat fade = smoothstep(-0.75, -0.35, ndl);\nShadowTint = $precision4(max(Albedo * BaseColor, 0.0) * saturate(Tint) * 0.55 * Brightness, saturate(Strength) * fade);"
+    "m_FunctionBody": "// Cast shadow colour = texture colour x ShadowColor. Faded out on faces already turned away from the light\n// (the cel band shades those) so self-shadow acne at the terminator does not show as dirty blotches.\nfloat ndl = dot(NormalWS * rsqrt(max(dot(NormalWS, NormalWS), 1e-6)), LightDir * rsqrt(max(dot(LightDir, LightDir), 1e-6)));\nfloat fade = 1.0; // (ndl kept for reference) shadows from every light must show, e.g. skirt -> thighs under the spot\nShadowTint = $precision4(max(Albedo * BaseColor, 0.0) * saturate(Tint) * 0.5, saturate(Strength) * fade);"
 }
 
 {
@@ -4144,7 +4167,7 @@
     "promotedFromAssetID": "",
     "promotedFromCategoryName": "",
     "promotedOrdering": -1,
-    "m_Name": "Cel Shadow Threshold",
+    "m_Name": "影の境界位置",
     "m_DefaultRefNameVersion": 1,
     "m_RefNameGeneratedByDisplayName": "Cel Shadow Threshold",
     "m_DefaultReferenceName": "_CelShadowThreshold",
@@ -4183,7 +4206,7 @@
     "m_Type": "UnityEditor.ShaderGraph.Vector1MaterialSlot",
     "m_ObjectId": "c4390d84f5934c28a439bf4d2145bff3",
     "m_Id": 0,
-    "m_DisplayName": "Cel Shadow Threshold",
+    "m_DisplayName": "影の境界位置",
     "m_SlotType": 1,
     "m_Hidden": false,
     "m_ShaderOutputName": "Out",
@@ -4240,7 +4263,7 @@
     "promotedFromAssetID": "",
     "promotedFromCategoryName": "",
     "promotedOrdering": -1,
-    "m_Name": "Cel Shadow Softness",
+    "m_Name": "影の境界ぼかし",
     "m_DefaultRefNameVersion": 1,
     "m_RefNameGeneratedByDisplayName": "Cel Shadow Softness",
     "m_DefaultReferenceName": "_CelShadowSoftness",
@@ -4279,7 +4302,7 @@
     "m_Type": "UnityEditor.ShaderGraph.Vector1MaterialSlot",
     "m_ObjectId": "c27d23edfb004acf8a793a5838a5b042",
     "m_Id": 0,
-    "m_DisplayName": "Cel Shadow Softness",
+    "m_DisplayName": "影の境界ぼかし",
     "m_SlotType": 1,
     "m_Hidden": false,
     "m_ShaderOutputName": "Out",
@@ -4336,7 +4359,7 @@
     "promotedFromAssetID": "",
     "promotedFromCategoryName": "",
     "promotedOrdering": -1,
-    "m_Name": "Cel Shadow Saturation",
+    "m_Name": "影の彩度",
     "m_DefaultRefNameVersion": 1,
     "m_RefNameGeneratedByDisplayName": "Cel Shadow Saturation",
     "m_DefaultReferenceName": "_CelShadowSaturation",
@@ -4375,7 +4398,7 @@
     "m_Type": "UnityEditor.ShaderGraph.Vector1MaterialSlot",
     "m_ObjectId": "3bc261c88b5645129b7c9f9574dd17ed",
     "m_Id": 0,
-    "m_DisplayName": "Cel Shadow Saturation",
+    "m_DisplayName": "影の彩度",
     "m_SlotType": 1,
     "m_Hidden": false,
     "m_ShaderOutputName": "Out",
@@ -4432,7 +4455,7 @@
     "promotedFromAssetID": "",
     "promotedFromCategoryName": "",
     "promotedOrdering": -1,
-    "m_Name": "Cel Rim Color",
+    "m_Name": "リムライト色",
     "m_DefaultRefNameVersion": 1,
     "m_RefNameGeneratedByDisplayName": "Cel Rim Color",
     "m_DefaultReferenceName": "_CelRimColor",
@@ -4462,7 +4485,7 @@
     "m_Type": "UnityEditor.ShaderGraph.Vector4MaterialSlot",
     "m_ObjectId": "2f79ff39261c4b7fa59f90a28e6d0dfe",
     "m_Id": 0,
-    "m_DisplayName": "Cel Rim Color",
+    "m_DisplayName": "リムライト色",
     "m_SlotType": 1,
     "m_Hidden": false,
     "m_ShaderOutputName": "Out",
@@ -4529,7 +4552,7 @@
     "promotedFromAssetID": "",
     "promotedFromCategoryName": "",
     "promotedOrdering": -1,
-    "m_Name": "Cel Rim Strength",
+    "m_Name": "リムライト強さ",
     "m_DefaultRefNameVersion": 1,
     "m_RefNameGeneratedByDisplayName": "Cel Rim Strength",
     "m_DefaultReferenceName": "_CelRimStrength",
@@ -4568,7 +4591,7 @@
     "m_Type": "UnityEditor.ShaderGraph.Vector1MaterialSlot",
     "m_ObjectId": "654ef97f203b4f46bd345ae7584eba98",
     "m_Id": 0,
-    "m_DisplayName": "Cel Rim Strength",
+    "m_DisplayName": "リムライト強さ",
     "m_SlotType": 1,
     "m_Hidden": false,
     "m_ShaderOutputName": "Out",
@@ -4625,7 +4648,7 @@
     "promotedFromAssetID": "",
     "promotedFromCategoryName": "",
     "promotedOrdering": -1,
-    "m_Name": "Cel Rim Width",
+    "m_Name": "リムライト幅",
     "m_DefaultRefNameVersion": 1,
     "m_RefNameGeneratedByDisplayName": "Cel Rim Width",
     "m_DefaultReferenceName": "_CelRimWidth",
@@ -4664,7 +4687,7 @@
     "m_Type": "UnityEditor.ShaderGraph.Vector1MaterialSlot",
     "m_ObjectId": "3434699644984e9eb69bbf7aa7a22cd3",
     "m_Id": 0,
-    "m_DisplayName": "Cel Rim Width",
+    "m_DisplayName": "リムライト幅",
     "m_SlotType": 1,
     "m_Hidden": false,
     "m_ShaderOutputName": "Out",
@@ -5088,6 +5111,9 @@
             "m_Id": "0d2b9cbfaf7742dc9f8f0e15fd9fbdb5"
         },
         {
+            "m_Id": "87ca2c1a30b747ed9429613ee318b270"
+        },
+        {
             "m_Id": "5991105e731b4e07b8b3b733c41007c5"
         }
     ],
@@ -5116,7 +5142,7 @@
     "promotedFromAssetID": "",
     "promotedFromCategoryName": "",
     "promotedOrdering": -1,
-    "m_Name": "Cel Shadow Strength",
+    "m_Name": "影の濃さ",
     "m_DefaultRefNameVersion": 1,
     "m_RefNameGeneratedByDisplayName": "Cel Shadow Strength",
     "m_DefaultReferenceName": "_CelShadowStrength",
@@ -5131,7 +5157,7 @@
     "m_Hidden": false,
     "m_PerRendererData": false,
     "m_customAttributes": [],
-    "m_Value": 0.23,
+    "m_Value": 0.35,
     "m_FloatType": 1,
     "m_LiteralFloatMode": false,
     "m_RangeValues": {
@@ -5155,7 +5181,7 @@
     "m_Type": "UnityEditor.ShaderGraph.Vector1MaterialSlot",
     "m_ObjectId": "101cc5d4662e48cdb66d23fed0e45d81",
     "m_Id": 0,
-    "m_DisplayName": "Cel Shadow Strength",
+    "m_DisplayName": "影の濃さ",
     "m_SlotType": 1,
     "m_Hidden": false,
     "m_ShaderOutputName": "Out",
@@ -5212,7 +5238,7 @@
     "promotedFromAssetID": "",
     "promotedFromCategoryName": "",
     "promotedOrdering": -1,
-    "m_Name": "Cel Brightness",
+    "m_Name": "ベースの明るさ",
     "m_DefaultRefNameVersion": 1,
     "m_RefNameGeneratedByDisplayName": "Cel Brightness",
     "m_DefaultReferenceName": "_CelBrightness",
@@ -5232,7 +5258,7 @@
     "m_LiteralFloatMode": false,
     "m_RangeValues": {
         "x": 0.5,
-        "y": 2.0
+        "y": 3.0
     },
     "m_SliderType": 0,
     "m_SliderPower": 3.0,
@@ -5251,7 +5277,7 @@
     "m_Type": "UnityEditor.ShaderGraph.Vector1MaterialSlot",
     "m_ObjectId": "6b64b28f54d84c7cb2de7703b6e83426",
     "m_Id": 0,
-    "m_DisplayName": "Cel Brightness",
+    "m_DisplayName": "ベースの明るさ",
     "m_SlotType": 1,
     "m_Hidden": false,
     "m_ShaderOutputName": "Out",
@@ -5308,7 +5334,7 @@
     "promotedFromAssetID": "",
     "promotedFromCategoryName": "",
     "promotedOrdering": -1,
-    "m_Name": "Cel Cast Shadow Strength",
+    "m_Name": "落ち影の濃さ (月光)",
     "m_DefaultRefNameVersion": 1,
     "m_RefNameGeneratedByDisplayName": "Cel Cast Shadow Strength",
     "m_DefaultReferenceName": "_CelCastShadowStrength",
@@ -5323,7 +5349,7 @@
     "m_Hidden": false,
     "m_PerRendererData": false,
     "m_customAttributes": [],
-    "m_Value": 0.55,
+    "m_Value": 0.7,
     "m_FloatType": 1,
     "m_LiteralFloatMode": false,
     "m_RangeValues": {
@@ -5347,7 +5373,7 @@
     "m_Type": "UnityEditor.ShaderGraph.Vector1MaterialSlot",
     "m_ObjectId": "e8c1359a0a31403cafc30d85499d3340",
     "m_Id": 0,
-    "m_DisplayName": "Cel Cast Shadow Strength",
+    "m_DisplayName": "落ち影の濃さ (月光)",
     "m_SlotType": 1,
     "m_Hidden": false,
     "m_ShaderOutputName": "Out",
@@ -5550,7 +5576,7 @@
     "promotedFromAssetID": "",
     "promotedFromCategoryName": "",
     "promotedOrdering": -1,
-    "m_Name": "Cel Spec Color",
+    "m_Name": "ハイライト色",
     "m_DefaultRefNameVersion": 1,
     "m_RefNameGeneratedByDisplayName": "Cel Spec Color",
     "m_DefaultReferenceName": "_CelSpecColor",
@@ -5580,7 +5606,7 @@
     "m_Type": "UnityEditor.ShaderGraph.Vector4MaterialSlot",
     "m_ObjectId": "1e43711ab1704fd4899749179d4f75c3",
     "m_Id": 0,
-    "m_DisplayName": "Cel Spec Color",
+    "m_DisplayName": "ハイライト色",
     "m_SlotType": 1,
     "m_Hidden": false,
     "m_ShaderOutputName": "Out",
@@ -5647,7 +5673,7 @@
     "promotedFromAssetID": "",
     "promotedFromCategoryName": "",
     "promotedOrdering": -1,
-    "m_Name": "Cel Spec Strength",
+    "m_Name": "ハイライト強さ",
     "m_DefaultRefNameVersion": 1,
     "m_RefNameGeneratedByDisplayName": "Cel Spec Strength",
     "m_DefaultReferenceName": "_CelSpecStrength",
@@ -5686,7 +5712,7 @@
     "m_Type": "UnityEditor.ShaderGraph.Vector1MaterialSlot",
     "m_ObjectId": "4d50fb06d910412f983ba3f20a1c83ff",
     "m_Id": 0,
-    "m_DisplayName": "Cel Spec Strength",
+    "m_DisplayName": "ハイライト強さ",
     "m_SlotType": 1,
     "m_Hidden": false,
     "m_ShaderOutputName": "Out",
@@ -5743,7 +5769,7 @@
     "promotedFromAssetID": "",
     "promotedFromCategoryName": "",
     "promotedOrdering": -1,
-    "m_Name": "Cel Spec Size",
+    "m_Name": "ハイライトサイズ",
     "m_DefaultRefNameVersion": 1,
     "m_RefNameGeneratedByDisplayName": "Cel Spec Size",
     "m_DefaultReferenceName": "_CelSpecSize",
@@ -5782,7 +5808,7 @@
     "m_Type": "UnityEditor.ShaderGraph.Vector1MaterialSlot",
     "m_ObjectId": "53330f42b13b4026aa800ff5188c3a43",
     "m_Id": 0,
-    "m_DisplayName": "Cel Spec Size",
+    "m_DisplayName": "ハイライトサイズ",
     "m_SlotType": 1,
     "m_Hidden": false,
     "m_ShaderOutputName": "Out",
@@ -6184,7 +6210,7 @@
     "promotedFromAssetID": "",
     "promotedFromCategoryName": "",
     "promotedOrdering": -1,
-    "m_Name": "Sky Light",
+    "m_Name": "上向き面の明るさ (空の光)",
     "m_DefaultRefNameVersion": 1,
     "m_RefNameGeneratedByDisplayName": "Sky Light",
     "m_DefaultReferenceName": "_SkyLight",
@@ -6223,7 +6249,7 @@
     "m_Type": "UnityEditor.ShaderGraph.Vector1MaterialSlot",
     "m_ObjectId": "c04b2ff94e7347319430bb1264f7c014",
     "m_Id": 0,
-    "m_DisplayName": "Sky Light",
+    "m_DisplayName": "上向き面の明るさ (空の光)",
     "m_SlotType": 1,
     "m_Hidden": false,
     "m_ShaderOutputName": "Out",
@@ -6296,7 +6322,7 @@
     "promotedFromAssetID": "",
     "promotedFromCategoryName": "",
     "promotedOrdering": -1,
-    "m_Name": "Bottom Shade",
+    "m_Name": "下向き面の暗さ",
     "m_DefaultRefNameVersion": 1,
     "m_RefNameGeneratedByDisplayName": "Bottom Shade",
     "m_DefaultReferenceName": "_BottomShade",
@@ -6335,7 +6361,7 @@
     "m_Type": "UnityEditor.ShaderGraph.Vector1MaterialSlot",
     "m_ObjectId": "127e218e7be7468cb1f7fad71091c56d",
     "m_Id": 0,
-    "m_DisplayName": "Bottom Shade",
+    "m_DisplayName": "下向き面の暗さ",
     "m_SlotType": 1,
     "m_Hidden": false,
     "m_ShaderOutputName": "Out",
@@ -6408,7 +6434,7 @@
     "promotedFromAssetID": "",
     "promotedFromCategoryName": "",
     "promotedOrdering": -1,
-    "m_Name": "Back Face Shade",
+    "m_Name": "裏面 (スカート内側など) の暗さ",
     "m_DefaultRefNameVersion": 1,
     "m_RefNameGeneratedByDisplayName": "Back Face Shade",
     "m_DefaultReferenceName": "_BackFaceShade",
@@ -6447,7 +6473,7 @@
     "m_Type": "UnityEditor.ShaderGraph.Vector1MaterialSlot",
     "m_ObjectId": "6d4951b15b27441ba51d0da2fbafeaba",
     "m_Id": 0,
-    "m_DisplayName": "Back Face Shade",
+    "m_DisplayName": "裏面 (スカート内側など) の暗さ",
     "m_SlotType": 1,
     "m_Hidden": false,
     "m_ShaderOutputName": "Out",
@@ -6520,7 +6546,7 @@
     "promotedFromAssetID": "",
     "promotedFromCategoryName": "",
     "promotedOrdering": -1,
-    "m_Name": "Fabric Detail Scale",
+    "m_Name": "布目の細かさ",
     "m_DefaultRefNameVersion": 1,
     "m_RefNameGeneratedByDisplayName": "Fabric Detail Scale",
     "m_DefaultReferenceName": "_DetailScale",
@@ -6532,7 +6558,7 @@
     "m_Precision": 0,
     "overrideHLSLDeclaration": false,
     "hlslDeclarationOverride": 0,
-    "m_Hidden": false,
+    "m_Hidden": true,
     "m_PerRendererData": false,
     "m_customAttributes": [],
     "m_Value": 600.0,
@@ -6559,7 +6585,7 @@
     "m_Type": "UnityEditor.ShaderGraph.Vector1MaterialSlot",
     "m_ObjectId": "448b879b3b7d4d0a82ab56881b2be7f1",
     "m_Id": 0,
-    "m_DisplayName": "Fabric Detail Scale",
+    "m_DisplayName": "布目の細かさ",
     "m_SlotType": 1,
     "m_Hidden": false,
     "m_ShaderOutputName": "Out",
@@ -6632,7 +6658,7 @@
     "promotedFromAssetID": "",
     "promotedFromCategoryName": "",
     "promotedOrdering": -1,
-    "m_Name": "Fabric Detail Strength",
+    "m_Name": "布目の強さ",
     "m_DefaultRefNameVersion": 1,
     "m_RefNameGeneratedByDisplayName": "Fabric Detail Strength",
     "m_DefaultReferenceName": "_DetailStrength",
@@ -6644,7 +6670,7 @@
     "m_Precision": 0,
     "overrideHLSLDeclaration": false,
     "hlslDeclarationOverride": 0,
-    "m_Hidden": false,
+    "m_Hidden": true,
     "m_PerRendererData": false,
     "m_customAttributes": [],
     "m_Value": 0.0,
@@ -6671,7 +6697,7 @@
     "m_Type": "UnityEditor.ShaderGraph.Vector1MaterialSlot",
     "m_ObjectId": "bd2090c7d50b4105b68a86c1420eb885",
     "m_Id": 0,
-    "m_DisplayName": "Fabric Detail Strength",
+    "m_DisplayName": "布目の強さ",
     "m_SlotType": 1,
     "m_Hidden": false,
     "m_ShaderOutputName": "Out",
@@ -6876,7 +6902,7 @@
     "promotedFromAssetID": "",
     "promotedFromCategoryName": "",
     "promotedOrdering": -1,
-    "m_Name": "Fabric Sheen",
+    "m_Name": "布の光沢",
     "m_DefaultRefNameVersion": 1,
     "m_RefNameGeneratedByDisplayName": "Fabric Sheen",
     "m_DefaultReferenceName": "_FabricSheen",
@@ -6888,7 +6914,7 @@
     "m_Precision": 0,
     "overrideHLSLDeclaration": false,
     "hlslDeclarationOverride": 0,
-    "m_Hidden": false,
+    "m_Hidden": true,
     "m_PerRendererData": false,
     "m_customAttributes": [],
     "m_Value": 0.0,
@@ -6915,7 +6941,7 @@
     "m_Type": "UnityEditor.ShaderGraph.Vector1MaterialSlot",
     "m_ObjectId": "c80cdf86abda4b8381a6c8fe840a4d1b",
     "m_Id": 0,
-    "m_DisplayName": "Fabric Sheen",
+    "m_DisplayName": "布の光沢",
     "m_SlotType": 1,
     "m_Hidden": false,
     "m_ShaderOutputName": "Out",
@@ -6970,6 +6996,117 @@
     "m_SlotType": 0,
     "m_Hidden": false,
     "m_ShaderOutputName": "FabricSheen",
+    "m_StageCapability": 3,
+    "m_Value": 0.0,
+    "m_DefaultValue": 0.0,
+    "m_Labels": [],
+    "m_LiteralMode": false
+}
+
+{
+    "m_SGVersion": 1,
+    "m_Type": "UnityEditor.ShaderGraph.Internal.Vector1ShaderProperty",
+    "m_ObjectId": "7b904f1ba28f48b3ae0b88d1b18c8ea5",
+    "m_Guid": {
+        "m_GuidSerialized": "42fa5e38-8594-4904-a3f6-69dab5a58c75"
+    },
+    "promotedFromAssetID": "",
+    "promotedFromCategoryName": "",
+    "promotedOrdering": -1,
+    "m_Name": "ライト影のくっきり度",
+    "m_DefaultRefNameVersion": 1,
+    "m_RefNameGeneratedByDisplayName": "Fabric Sheen",
+    "m_DefaultReferenceName": "_LightSharpness",
+    "m_OverrideReferenceName": "_LightSharpness",
+    "m_GeneratePropertyBlock": true,
+    "m_UseCustomSlotLabel": false,
+    "m_CustomSlotLabel": "",
+    "m_DismissedVersion": 0,
+    "m_Precision": 0,
+    "overrideHLSLDeclaration": false,
+    "hlslDeclarationOverride": 0,
+    "m_Hidden": false,
+    "m_PerRendererData": false,
+    "m_customAttributes": [],
+    "m_Value": 0.6,
+    "m_FloatType": 1,
+    "m_LiteralFloatMode": false,
+    "m_RangeValues": {
+        "x": 0.0,
+        "y": 1.0
+    },
+    "m_SliderType": 0,
+    "m_SliderPower": 3.0,
+    "m_EnumType": 0,
+    "m_CSharpEnumString": "",
+    "m_EnumNames": [
+        "Default"
+    ],
+    "m_EnumValues": [
+        0
+    ]
+}
+
+{
+    "m_SGVersion": 0,
+    "m_Type": "UnityEditor.ShaderGraph.Vector1MaterialSlot",
+    "m_ObjectId": "7174156e0e1e43f4afaaecfe39924f92",
+    "m_Id": 0,
+    "m_DisplayName": "ライト影のくっきり度",
+    "m_SlotType": 1,
+    "m_Hidden": false,
+    "m_ShaderOutputName": "Out",
+    "m_StageCapability": 3,
+    "m_Value": 0.0,
+    "m_DefaultValue": 0.0,
+    "m_Labels": []
+}
+
+{
+    "m_SGVersion": 0,
+    "m_Type": "UnityEditor.ShaderGraph.PropertyNode",
+    "m_ObjectId": "8cc9babe385c46ec8a600a60dee3b12a",
+    "m_Group": {
+        "m_Id": ""
+    },
+    "m_Name": "Property",
+    "m_DrawState": {
+        "m_Expanded": true,
+        "m_Position": {
+            "serializedVersion": "2",
+            "x": -950.0,
+            "y": 2070.0,
+            "width": 200.0,
+            "height": 100.0
+        }
+    },
+    "m_Slots": [
+        {
+            "m_Id": "7174156e0e1e43f4afaaecfe39924f92"
+        }
+    ],
+    "synonyms": [],
+    "m_Precision": 0,
+    "m_PreviewExpanded": true,
+    "m_DismissedVersion": 0,
+    "m_PreviewMode": 0,
+    "m_CustomColors": {
+        "m_SerializableColors": []
+    },
+    "m_Property": {
+        "m_Id": "7b904f1ba28f48b3ae0b88d1b18c8ea5"
+    }
+}
+
+{
+    "m_SGVersion": 0,
+    "m_Type": "UnityEditor.ShaderGraph.Vector1MaterialSlot",
+    "m_ObjectId": "87ca2c1a30b747ed9429613ee318b270",
+    "m_Id": 28,
+    "m_DisplayName": "LightSharpness",
+    "m_SlotType": 0,
+    "m_Hidden": false,
+    "m_ShaderOutputName": "LightSharpness",
     "m_StageCapability": 3,
     "m_Value": 0.0,
     "m_DefaultValue": 0.0,

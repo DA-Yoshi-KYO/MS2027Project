@@ -31,7 +31,7 @@ public class CS_ToonPunctualLights : MonoBehaviour
 
     /// <summary>トゥーン上の明るさ倍率。</summary>
     [SerializeField, Range(0f, 4f)]
-    private float toonIntensity = 0.6f;
+    private float toonIntensity = 1.0f;
 
     /// <summary>この Intensity (HDRP の単位) のライトをトゥーンの明るさ 1.0 として扱う。</summary>
     [SerializeField]

@@ -56,13 +56,13 @@ Material:
     - _BackFaceShade: 0.45
     - _BlendMode: 0
     - _BottomShade: 0.4
-    - _CelBrightness: 1.2
-    - _CelCastShadowStrength: 0.45
+    - _CelBrightness: 1.15
+    - _CelCastShadowStrength: 0.8
     - _CelRimStrength: 0.12
     - _CelRimWidth: 0.3
     - _CelShadowSaturation: 0.6
     - _CelShadowSoftness: 0.12
-    - _CelShadowStrength: 0.33
+    - _CelShadowStrength: 0.45
     - _CelShadowThreshold: 0.45
     - _CelSpecSize: 0.35
     - _CelSpecStrength: 0.25
@@ -81,10 +81,11 @@ Material:
     - _EnableFogOnTransparent: 1
     - _ExcludeFromTUAndAA: 0
     - _FabricSheen: 0
+    - _LightSharpness: 0.6
     - _OpaqueCullMode: 2
     - _PerPixelSorting: 0
     - _RenderQueueType: 1
-    - _ShadowMatteFilter: 4.0357e-41
+    - _ShadowMatteFilter: 2.3138e-41
     - _SkyLight: 0.3
     - _SrcBlend: 1
     - _StencilRef: 0

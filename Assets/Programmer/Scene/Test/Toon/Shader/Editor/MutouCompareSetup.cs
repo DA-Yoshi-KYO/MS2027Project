@@ -24,6 +24,7 @@ public static class MutouCompareSetup
     const string ToonRoot = "Assets/Programmer/Scene/Test/Toon";
     const string GraphDir = ToonRoot + "/Shader/Graph";
     const string OutlineTplDir = ToonRoot + "/Materiar";
+    const float OutlineWidthScale = 2.5f;   // Teto より線を太く (分かりやすさ優先)
 
     enum Part { Skin, Hair, Eye, Clothes, Gun }
 
@@ -149,7 +150,7 @@ public static class MutouCompareSetup
         else m.CopyPropertiesFromMaterial(template);
         m.SetTexture("_BaseMap", BaseTex(p));
         if (template.HasProperty("_OutlineWidth"))
-            m.SetFloat("_OutlineWidth", template.GetFloat("_OutlineWidth") / modelScale);
+            m.SetFloat("_OutlineWidth", template.GetFloat("_OutlineWidth") / modelScale * OutlineWidthScale);
         EditorUtility.SetDirty(m);
         return m;
     }

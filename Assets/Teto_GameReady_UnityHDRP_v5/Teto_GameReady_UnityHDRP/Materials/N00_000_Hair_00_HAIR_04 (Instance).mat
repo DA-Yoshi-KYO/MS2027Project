@@ -310,6 +310,7 @@ Material:
     - _AutomaticOutlineShift: 0
     - _AutomaticRimShift: 0
     - _AvatarDeathHelp: 0
+    - _BackFaceShade: 0.45
     - _BackShadowProcessOffset: -0.1
     - _BaseTexAlphaBrightness: 1
     - _BaseTexAlphaChannelSwitch: 0
@@ -330,6 +331,7 @@ Material:
     - _BodyAffected: 0
     - _BottomPower: 1
     - _BottomScale: 1
+    - _BottomShade: 0.4
     - _BoundMaxX: 0
     - _BoundMaxY: 0
     - _BoundMaxZ: 0
@@ -338,6 +340,16 @@ Material:
     - _BoundMinZ: 0
     - _BrightLineMaskContrast: 1
     - _BumpScale: 0
+    - _CelBrightness: 1.2
+    - _CelCastShadowStrength: 0.45
+    - _CelRimStrength: 0.12
+    - _CelRimWidth: 0.3
+    - _CelShadowSaturation: 0.6
+    - _CelShadowSoftness: 0.12
+    - _CelShadowStrength: 0.33
+    - _CelShadowThreshold: 0.45
+    - _CelSpecSize: 0.35
+    - _CelSpecStrength: 0.25
     - _CloakViewWeight: 0.5
     - _CloudBrightness: 1
     - _CloudHeight: 1
@@ -388,7 +400,9 @@ Material:
     - _DepthThresh: 1
     - _DetailAlbedoScale: 1
     - _DetailNormalScale: 1
+    - _DetailScale: 600
     - _DetailSmoothnessScale: 1
+    - _DetailStrength: 0
     - _DiffuseMaskSource: 0
     - _DiffusionProfile: 0
     - _DiffusionProfileHash: 0
@@ -475,6 +489,7 @@ Material:
     - _EyePulse: 0
     - _EyeScale: 0.8
     - _EyeTimeOffset: 0.1
+    - _FabricSheen: 0
     - _FaceBlushStrength: 0
     - _FaceMapRotateOffset: 0
     - _FaceMapSoftness: 0.001
@@ -594,6 +609,7 @@ Material:
     - _LightShakPositionY: 0.5
     - _LightShakeScale: 0.01
     - _LightShakeSpeed: 10
+    - _LightSharpness: 0.6
     - _LineAffected: 0
     - _LinkDetailsWithBase: 1
     - _LiquidColorBrightness: 1
@@ -753,7 +769,7 @@ Material:
     - _Second_HeightRadio: 0.6
     - _Second_NoiseStrength: 0.15
     - _ShaderOptimizerEnabled: 0
-    - _ShadowMatteFilter: 4.0357e-41
+    - _ShadowMatteFilter: 2.2959e-41
     - _ShadowOffsetPower: 0.56
     - _ShadowProcess: 0.55
     - _ShadowRampWidth: 1
@@ -780,6 +796,7 @@ Material:
     - _SkillEmissionScaler: 3.2
     - _SkillEmisssionPower: 0.6
     - _Skirktype: 1
+    - _SkyLight: 0.3
     - _Smoothness: 0.100000024
     - _SmoothnessRemapMax: 1
     - _SmoothnessRemapMin: 0
@@ -1386,6 +1403,8 @@ Material:
     - _BottomColor02: {r: 1, g: 0, b: 0, a: 0}
     - _BrightLineColor: {r: 1, g: 1, b: 1, a: 1}
     - _BrightLineMaskSpeed: {r: 0, g: 0, b: 0, a: 0}
+    - _CelRimColor: {r: 1, g: 0.96999997, b: 0.94, a: 1}
+    - _CelSpecColor: {r: 1, g: 1, b: 1, a: 1}
     - _ClipPlane: {r: 0, g: 0, b: 0, a: 0}
     - _Color: {r: 1, g: 1, b: 1, a: 1}
     - _Color2: {r: 1, g: 1, b: 1, a: 1}

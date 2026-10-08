@@ -118,37 +118,77 @@ float NTE_FabricGrain(float2 uv, float scale)
     return ((warp + weft) * 0.35 + blotch * 0.3 - 0.5) * fade;
 }
 
-// ---------------- Spot / point lights for the Unlit toon ----------------
-// Filled every frame by CS_ToonPunctualLights (Shader.SetGlobal...). HDRP Unlit ignores scene lights,
-// so the chosen spot lights are re-evaluated here with the same cel band as the main light.
-//  _NTE_LightPos   : xyz = absolute world position, w = 1 / range^2
-//  _NTE_LightDir   : xyz = spot forward, w = 0 spot / 1 point
-//  _NTE_LightColor : rgb = colour * toon intensity
-//  _NTE_LightCone  : x = cos(outer half angle), y = 1 / (cos(inner) - cos(outer))
-#define NTE_MAX_LIGHTS 8
-float  _NTE_LightCount;
-float4 _NTE_LightPos[NTE_MAX_LIGHTS];
-float4 _NTE_LightDir[NTE_MAX_LIGHTS];
-float4 _NTE_LightColor[NTE_MAX_LIGHTS];
-float4 _NTE_LightCone[NTE_MAX_LIGHTS];
+// ---------------- Spot / point lights for the Unlit toon (read straight from HDRP) ----------------
+// HDRP Unlit does not light itself, but with Shadow Matte enabled the forward pass already includes the
+// HDRP light list and shadow code (LightLoopDef / HDShadow / PunctualLightCommon). So the scene's real
+// spot & point lights are evaluated here with HDRP's own data: same intensity (physical units), same
+// range / cone falloff, same exposure and the light's real shadow map -> it matches the HDRP Lit model.
+// Directional lights are excluded (the main light is the toon band). Nothing to set up per light.
+#if defined(SHADERPASS) && defined(SHADERPASS_FORWARD_UNLIT) && defined(_ENABLE_SHADOW_MATTE) && !defined(SHADERGRAPH_PREVIEW)
+    #if SHADERPASS == SHADERPASS_FORWARD_UNLIT
+        #define NTE_HDRP_LIGHTS 1
+    #endif
+#endif
 
-float3 NTE_PunctualLights(NTEToonInput i, float3 posWS, float faceSign)
+// Sharpness (0..1): 0 = soft photographic edge, 1 = hard cel edge. The light term and the shadow-map term
+// are each pushed through a step + feather (as in Unity Toon Shader's "Step / Feather"), after a small blur
+// that removes shadow-map stair-steps - so the edge is crisp like anime, but never jagged.
+float3 NTE_PunctualLights(NTEToonInput i, float3 posAbsWS, float faceSign, float sharpness)
 {
     float3 sum = 0.0;
-    int count = (int)min(_NTE_LightCount, (float)NTE_MAX_LIGHTS);
-    [loop] for (int k = 0; k < count; k++)
+    float feather = lerp(0.35, 0.03, saturate(sharpness));
+#ifdef NTE_HDRP_LIGHTS
+    float3 posRWS = GetCameraRelativePositionWS(posAbsWS);
+    float2 posSS = ComputeNormalizedDeviceCoordinates(posRWS, UNITY_MATRIX_VP) * _ScreenSize.xy;
+    HDShadowContext shadowContext = InitShadowContext();
+    uint count = _PunctualLightCount;
+    uint used = 0;
+    [loop] for (uint k = 0; k < count && used < 4; k++)                  // at most 4 lights per pixel
     {
-        float3 d = _NTE_LightPos[k].xyz - posWS;
-        float dist2 = max(dot(d, d), 1e-6);
-        float3 L = d * rsqrt(dist2);
-        float r = saturate(dist2 * _NTE_LightPos[k].w);
-        float att = (1.0 - r) * (1.0 - r);                                   // smooth range falloff
-        float cone = saturate((dot(-L, _NTE_LightDir[k].xyz) - _NTE_LightCone[k].x) * _NTE_LightCone[k].y);
-        cone = lerp(smoothstep(0.0, 1.0, cone), 1.0, _NTE_LightDir[k].w);    // point light: no cone
-        float band = smoothstep(i.threshold - i.softness, i.threshold + i.softness, dot(i.N, L) * 0.5 + 0.5);
-        sum += _NTE_LightColor[k].rgb * att * cone * band;
+        LightData light = FetchLight(k);
+        if (light.lightType != GPULIGHTTYPE_POINT && light.lightType != GPULIGHTTYPE_SPOT && light.lightType != GPULIGHTTYPE_PROJECTOR_PYRAMID)
+            continue;
+        if (light.diffuseDimmer <= 0.0)
+            continue;
+
+        float3 L; float4 distances;                                      // {d, d^2, 1/d, d_proj}
+        GetPunctualLightVectors(posRWS, light, L, distances);
+        if (distances.x >= light.range)
+            continue;
+        float att = PunctualLightAttenuation(distances, light.rangeAttenuationScale, light.rangeAttenuationBias,
+                                             light.angleScale, light.angleOffset);   // inverse square + range + cone
+        float ndl = dot(i.N, L);
+        if (att <= 1e-4 || ndl <= -feather)
+            continue;                                                     // cheap early outs before any shadow lookup
+        used++;
+
+        // Lambert like HDRP Lit, terminator turned into a cel edge with a feather.
+        float diff = smoothstep(-feather * 0.5, feather * 1.5, ndl) * lerp(0.6, 1.0, saturate(ndl));
+
+        // Real shadow map of this light (skirt -> thighs, hair -> face, arm -> body ...).
+        // 4 rotated taps + centre on a small disc perpendicular to the light (HDRP filters each tap too),
+        // then step + feather: clean anime edge without shadow-map stair-steps.
+        float shadow = 1.0;
+        if (light.shadowIndex >= 0 && light.shadowDimmer > 0.0)
+        {
+            float3 t1 = normalize(cross(L, abs(L.y) < 0.99 ? float3(0, 1, 0) : float3(1, 0, 0)));
+            float3 t2 = cross(L, t1);
+            float r = 0.004 * distances.x + 0.003;                       // ~2.3 cm at 5 m
+            bool isPoint = light.lightType == GPULIGHTTYPE_POINT;
+            float acc = GetPunctualShadowAttenuation(shadowContext, posSS, posRWS, i.N, light.shadowIndex, L, distances.x, isPoint, true);
+            acc += GetPunctualShadowAttenuation(shadowContext, posSS, posRWS + (t1 * 0.92 + t2 * 0.38) * r, i.N, light.shadowIndex, L, distances.x, isPoint, true);
+            acc += GetPunctualShadowAttenuation(shadowContext, posSS, posRWS + (-t1 * 0.38 + t2 * 0.92) * r, i.N, light.shadowIndex, L, distances.x, isPoint, true);
+            acc += GetPunctualShadowAttenuation(shadowContext, posSS, posRWS + (-t1 * 0.92 - t2 * 0.38) * r, i.N, light.shadowIndex, L, distances.x, isPoint, true);
+            acc += GetPunctualShadowAttenuation(shadowContext, posSS, posRWS + (t1 * 0.38 - t2 * 0.92) * r, i.N, light.shadowIndex, L, distances.x, isPoint, true);
+            shadow = smoothstep(0.5 - feather, 0.5 + feather, acc * 0.2);
+            shadow = lerp(1.0, shadow, light.shadowDimmer);
+        }
+        sum += light.color * (att * diff * shadow * light.diffuseDimmer);
     }
-    return i.albedo * sum * lerp(0.15, 1.0, saturate(faceSign));          // inside of skirts stays dark
+    sum *= INV_PI * GetCurrentExposureMultiplier();                      // HDRP Lambert + camera exposure
+#endif
+    // Divided by the material brightness: final = base * Brightness + light (light keeps HDRP strength).
+    return i.albedo * sum * lerp(0.15, 1.0, saturate(faceSign)) / max(i.brightness, 0.05);   // inside of skirts stays dark
 }
 
 // View-space normal (for matcap-style reflections that follow the camera)
@@ -189,18 +229,18 @@ float3 NTE_MetalShade(NTEToonInput i, float3 base, float lit)
     float ShadowThreshold, float ShadowSoftness, float ShadowSaturation, float3 RimColor, float RimStrength, float RimWidth, \
     float ShadowStrength, float Brightness, float3 SpecColor, float SpecStrength, float SpecSize, \
     float FaceSign, float4 UV, float SkyLight, float BottomShade, float BackFaceShade, float DetailScale, float DetailStrength, \
-    float3 PositionWS, float FabricSheen, out float3 Color
+    float3 PositionWS, float FabricSheen, float LightSharpness, out float3 Color
 #define NTE_INPUT NTEToonInput i = NTE_MakeInput(Tex, BaseColor, ShadowColor, NormalWS, ViewWS, TangentWS, MainLightDirection, \
     ShadowThreshold, ShadowSoftness, ShadowSaturation, RimColor, RimStrength, RimWidth, ShadowStrength, Brightness, SpecColor, SpecStrength, SpecSize)
 #define NTE_HALF_ARGS half4 Tex, half4 BaseColor, half3 ShadowColor, half3 NormalWS, half3 ViewWS, half3 TangentWS, half3 MainLightDirection, \
     half ShadowThreshold, half ShadowSoftness, half ShadowSaturation, half3 RimColor, half RimStrength, half RimWidth, \
     half ShadowStrength, half Brightness, half3 SpecColor, half SpecStrength, half SpecSize, \
     half FaceSign, half4 UV, half SkyLight, half BottomShade, half BackFaceShade, half DetailScale, half DetailStrength, \
-    float3 PositionWS, half FabricSheen, out half3 Color
+    float3 PositionWS, half FabricSheen, half LightSharpness, out half3 Color
 #define NTE_HALF_FORWARD(name) void name##_half(NTE_HALF_ARGS) { float3 c; name##_float(Tex, BaseColor, ShadowColor, NormalWS, ViewWS, TangentWS, \
     MainLightDirection, ShadowThreshold, ShadowSoftness, ShadowSaturation, RimColor, RimStrength, RimWidth, ShadowStrength, Brightness, \
-    SpecColor, SpecStrength, SpecSize, FaceSign, UV, SkyLight, BottomShade, BackFaceShade, DetailScale, DetailStrength, PositionWS, FabricSheen, c); Color = c; }
-#define NTE_ENV(col, lit) col = NTE_Environment(i, col, lit, FaceSign, SkyLight, BottomShade, BackFaceShade) + NTE_PunctualLights(i, PositionWS, FaceSign)
+    SpecColor, SpecStrength, SpecSize, FaceSign, UV, SkyLight, BottomShade, BackFaceShade, DetailScale, DetailStrength, PositionWS, FabricSheen, LightSharpness, c); Color = c; }
+#define NTE_ENV(col, lit) col = NTE_Environment(i, col, lit, FaceSign, SkyLight, BottomShade, BackFaceShade) + NTE_PunctualLights(i, PositionWS, FaceSign, LightSharpness)
 
 // ---------------- Cloth: soft band, fabric sheen, auto gold buttons ----------------
 void NTE_Cloth_float(NTE_ARGS)
@@ -210,8 +250,12 @@ void NTE_Cloth_float(NTE_ARGS)
     float3 col = NTE_Diffuse(i, lit);
     float gold = NTE_GoldMask(i.albedo) * step(0.001, i.specStrength);
     float notGold = 1.0 - gold;
-    float weave = NTE_Fabric(UV.xy, DetailScale) * DetailStrength * notGold;          // close-up threads
-    float grain = NTE_FabricGrain(UV.xy, DetailScale * 0.1) * DetailStrength * notGold; // visible at game distance
+    float weave = 0.0, grain = 0.0;
+    [branch] if (DetailStrength > 0.001)                                  // material-uniform: free to skip
+    {
+        weave = NTE_Fabric(UV.xy, DetailScale) * DetailStrength * notGold;           // close-up threads
+        grain = NTE_FabricGrain(UV.xy, DetailScale * 0.1) * DetailStrength * notGold; // visible at game distance
+    }
     col *= 1.0 + (weave * 2.0 + grain * 1.6) * lerp(0.6, 1.0, lit);
     // Velvet / cloth profile: fibres catch light at grazing angles (bright fuzzy edge),
     // faces looking straight at the camera go slightly matte and dusty.
@@ -221,20 +265,46 @@ void NTE_Cloth_float(NTE_ARGS)
     col *= lerp(1.0, 0.9, FabricSheen * nv * nv * notGold);
     col += sheenCol * sheen * FabricSheen * 0.45 * lerp(0.35, 1.0, lit) * notGold;
     NTE_ENV(col, lit);
-    col = lerp(col, NTE_MetalShade(i, i.albedo, lit), gold);
+    [branch] if (gold > 0.001) col = lerp(col, NTE_MetalShade(i, i.albedo, lit), gold);   // only on buttons
     Color = (col + NTE_Rim(i, lit)) * i.brightness;
 }
 NTE_HALF_FORWARD(NTE_Cloth)
 
-// ---------------- Skin: almost no directional shading, warm cast shadows ----------------
+// ---------------- Skin: soft absorbed light + red subsurface scattering in the shade ----------------
+// Skin graph re-uses two shared inputs (labels differ in SHG_NTE_Skin):
+//   FabricSheen    -> "Skin Scatter (Red Shade)" : how red the shade turns near the lit skin
+//   DetailStrength -> "Skin Absorption"         : how much light sinks into the skin (soft wrap, no hard white)
+float3 NTE_SkinScatter(NTEToonInput i, float3 col, float scatter)
+{
+    // How far this pixel has been darkened from the plain texture (band, cast-shadow side, underside, back face).
+    float lumA = dot(i.albedo, float3(0.2126, 0.7152, 0.0722));
+    float lumC = dot(col, float3(0.2126, 0.7152, 0.0722));
+    float d = saturate(1.0 - lumC / max(lumA, 1e-4));
+    // Light scattered under the skin comes back out red: strongest in the half-shade next to the lit skin,
+    // weaker in deep shade.
+    float edge = saturate(d * 3.0) * lerp(1.0, 0.45, saturate(d * 1.5 - 0.3));
+    float3 red = col * float3(1.06, 0.90, 0.86);
+    red += i.albedo * float3(0.05, 0.008, 0.0) * edge;              // a little blood colour bleeding back
+    return lerp(col, red, saturate(scatter) * edge);
+}
+
 void NTE_Skin_float(NTE_ARGS)
 {
     NTE_INPUT;
-    float lit = NTE_LitBand(i);
+    float absorb = saturate(DetailStrength);
+    // Light sinks into skin: wrap the lighting so the gradient is long and soft instead of a cel step.
+    float ndl = dot(i.N, i.L);
+    float wrap = saturate((ndl + 0.6) / 1.6);
+    wrap = wrap * wrap * (3.0 - 2.0 * wrap);
+    float lit = lerp(NTE_LitBand(i), wrap, absorb * 0.7);
     float3 col = NTE_Diffuse(i, lit);
-    float terminator = 4.0 * lit * (1.0 - lit);                 // faint warm blush at the shadow edge
-    col += i.albedo * float3(0.10, 0.03, 0.02) * terminator * i.shadowStrength;
+    // Absorption: the lit side never goes chalky white, the deep side keeps a faint warm glow from inside.
+    col *= lerp(1.0, lerp(0.93, 1.0, 1.0 - lit), absorb);
+    col += i.albedo * float3(0.03, 0.006, 0.0) * (1.0 - lit) * absorb;
     NTE_ENV(col, lit);
+    col = NTE_SkinScatter(i, col, FabricSheen);
+    // Very soft, velvety sheen (fine hair on the skin) instead of a plastic edge.
+    col += i.albedo * pow(NTE_Fresnel(i), 4.0) * 0.08 * absorb * lit;
     Color = (col + NTE_Rim(i, lit)) * i.brightness;
 }
 NTE_HALF_FORWARD(NTE_Skin)
@@ -277,7 +347,7 @@ void NTE_Leather_float(NTE_ARGS)
     float edge = smoothstep(0.55, 0.85, NTE_Fresnel(i)) * 0.4 * lerp(0.4, 1.0, lit);
     col += i.specColor * (specL + specC * 0.7 + skyRef + edge) * i.specStrength;
     float gold = NTE_GoldMask(i.albedo);                         // buckles / studs
-    col = lerp(col, NTE_MetalShade(i, i.albedo, lit), gold);
+    [branch] if (gold > 0.001) col = lerp(col, NTE_MetalShade(i, i.albedo, lit), gold);   // only on buttons
     Color = (col + NTE_Rim(i, lit)) * i.brightness;
 }
 NTE_HALF_FORWARD(NTE_Leather)

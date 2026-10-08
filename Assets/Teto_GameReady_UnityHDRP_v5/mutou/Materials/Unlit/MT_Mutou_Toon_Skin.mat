@@ -43,7 +43,7 @@ Material:
   - TransparentDepthPostpass
   - TransparentBackface
   - MOTIONVECTORS
-  m_LockedProperties: 
+  m_LockedProperties: _CelRimWidth
   m_SavedProperties:
     serializedVersion: 3
     m_TexEnvs:
@@ -72,13 +72,13 @@ Material:
     - _BackFaceShade: 0.35
     - _BlendMode: 0
     - _BottomShade: 0.982
-    - _CelBrightness: 1.15
-    - _CelCastShadowStrength: 0.4
+    - _CelBrightness: 2
+    - _CelCastShadowStrength: 0.8
     - _CelRimStrength: 0.03
     - _CelRimWidth: 0.3
     - _CelShadowSaturation: 0.577
     - _CelShadowSoftness: 0.2
-    - _CelShadowStrength: 0.08
+    - _CelShadowStrength: 0
     - _CelShadowThreshold: 0.4
     - _CelSpecSize: 0.5
     - _CelSpecStrength: 0
@@ -87,7 +87,7 @@ Material:
     - _CullModeForward: 0
     - _DepthOffsetEnable: 0
     - _DetailScale: 600
-    - _DetailStrength: 0
+    - _DetailStrength: 0.5
     - _DoubleSidedEnable: 1
     - _DoubleSidedGIMode: 0
     - _DoubleSidedNormalMode: 1
@@ -96,11 +96,12 @@ Material:
     - _EnableBlendModePreserveSpecularLighting: 0
     - _EnableFogOnTransparent: 1
     - _ExcludeFromTUAndAA: 0
-    - _FabricSheen: 0
+    - _FabricSheen: 0.35
+    - _LightSharpness: 0.6
     - _OpaqueCullMode: 2
     - _PerPixelSorting: 0
     - _RenderQueueType: 1
-    - _ShadowMatteFilter: 4.0357e-41
+    - _ShadowMatteFilter: 2.3138e-41
     - _SkyLight: 0.15
     - _SrcBlend: 1
     - _StencilRef: 0
@@ -130,6 +131,6 @@ Material:
     - _DoubleSidedConstants: {r: 1, g: 1, b: -1, a: 0}
     - _EmissionColor: {r: 1, g: 1, b: 1, a: 1}
     - _MainLightDirection: {r: 0, g: 1, b: 0, a: 0}
-    - _ShadowColor: {r: 0.95, g: 0.8399999, b: 0.8399999, a: 1}
+    - _ShadowColor: {r: 1, g: 0.9292453, b: 0.9292453, a: 1}
   m_BuildTextureStacks: []
   m_AllowLocking: 1

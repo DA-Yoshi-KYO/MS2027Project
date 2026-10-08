@@ -11,30 +11,34 @@ using UnityEngine.UI;
 
 /// <summary>
 /// 必殺技ゲージ（Special Gauge）のUI表示
-/// Presenterから渡された値を描画するだけ
+/// ・Presenterから渡された値を描画するだけ
+/// ・自分だけ表示するので CanvasGroup / SetVisible は不要
 /// </summary>
 public class CS_UISpecialGaugeView : CS_BaseView<CS_UISpecialGaugePresenter>
 {
-    [SerializeField] private Image _gauge;
-    private CanvasGroup _canvasGroup;
+    // =========================================================
+    // Inspector
+    // =========================================================
 
-    private void Awake()
+    [SerializeField] private Image _gauge;
+
+    // =========================================================
+    // CS_BaseView
+    // =========================================================
+
+    public override void SetPresenter(CS_UISpecialGaugePresenter presenter)
     {
-        _canvasGroup = GetComponent<CanvasGroup>();
+        base.SetPresenter(presenter);
     }
 
-    /// <summary>
-    /// ゲージの表示更新（0〜1）
-    /// </summary>
+    // =========================================================
+    // 描画（Presenter から呼ばれる）
+    // =========================================================
+
+    /// <summary>ゲージの表示更新（0〜1）</summary>
     public void UpdateGauge(float current, float max)
     {
-        _gauge.fillAmount = current / max;
-    }
-
-    public void SetVisible(bool visible)
-    {
-        _canvasGroup.alpha = visible ? 1f : 0f;
-        _canvasGroup.interactable = visible;
-        _canvasGroup.blocksRaycasts = visible;
+        if (_gauge != null)
+            _gauge.fillAmount = current / max;
     }
 }

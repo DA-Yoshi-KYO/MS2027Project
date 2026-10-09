@@ -77,13 +77,22 @@ public class CSED_LevelDesignWindow : EditorWindow
 
     private void DrawPlayerTab()
     {
-        // 操作キャラのステータスは再生中だけ表示する(攻撃のデータはいつでも調整できる)
+        // ステータス: 再生中は操作キャラの値、再生していない時はデータ(DB_PlayerStats)を直接調整する
+        EditorGUILayout.LabelField("ステータス", EditorStyles.boldLabel);
         if (EditorApplication.isPlaying)
         {
             CS_PlayerStats player = CSED_LevelDesignTargets.FindControlledPlayer(CSED_LevelDesignTargets.FindPlayers());
             DrawPlayerBox(player, "操作キャラ", position.width - 24);
-            EditorGUILayout.Space();
         }
+        else
+        {
+            foreach (ScriptableObject asset in CSED_LevelDesignTargets.FindPlayerStatsAssets())
+            {
+                CSED_LevelDesignSession.EnsureSnapshot(asset);
+                DrawAsset(asset);
+            }
+        }
+        EditorGUILayout.Space();
 
         EditorGUILayout.LabelField("攻撃", EditorStyles.boldLabel);
     }
@@ -153,7 +162,8 @@ public class CSED_LevelDesignWindow : EditorWindow
     private void DrawAsset(ScriptableObject asset)
     {
         bool isEdited = CSED_LevelDesignSession.GetAssetChanges(asset).Count > 0;
-        _foldouts.TryGetValue(asset, out bool isOpen);
+        // プレイヤーのステータスは最初から開いておく
+        if (!_foldouts.TryGetValue(asset, out bool isOpen)) isOpen = asset is CSO_PlayerStats;
 
         using (new EditorGUILayout.VerticalScope(EditorStyles.helpBox))
         {

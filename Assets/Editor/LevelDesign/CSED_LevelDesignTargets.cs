@@ -107,6 +107,9 @@ public static class CSED_LevelDesignTargets
         return assets;
     }
 
+    // プレイヤーのステータスのデータ(DB_PlayerStats)。再生していない時に直接調整する
+    public static List<ScriptableObject> FindPlayerStatsAssets() => FindAssetsOfType(typeof(CSO_PlayerStats));
+
     private static List<ScriptableObject> FindAssetsOfType(Type type)
     {
         List<ScriptableObject> assets = new List<ScriptableObject>();

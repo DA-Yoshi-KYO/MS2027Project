@@ -14,6 +14,7 @@ using UnityEngine;
  * ・各ステータスを、今の値 × 倍率 にする(1なら変えない)。効果はゲーム終了まで続く
  *   何度も拾うと倍率が重ねて掛かる(例: 攻撃力×1.2 を2回 → ×1.44)
  * ・ステータスの変更はCS_PlayerStatsを通す(書き込みはサーバーのみ。アイテムの拾得もサーバーで処理される)
+ * ・ステータスを上げた後、プレイヤーの頭上に「POWER UP!!」を出す(CS_PlayerPowerUpPopup)
  */
 // ========================================
 
@@ -49,5 +50,9 @@ public class CSO_ItemEffectStatBoost : CSO_ItemEffect
         if (!Mathf.Approximately(_attackPowerRate, 1f)) stats.SetAttackPower(stats.attackPower * _attackPowerRate);
         if (!Mathf.Approximately(_moveSpeedRate, 1f)) stats.SetMoveSpeed(stats.moveSpeed * _moveSpeedRate);
         if (!Mathf.Approximately(_specialAttackPowerRate, 1f)) stats.SetSpecialAttackPower(stats.specialAttackPower * _specialAttackPowerRate);
+
+        // 頭上に「POWER UP!!」を出す(プレイヤーにCS_PlayerPowerUpPopupが付いていれば)
+        CS_PlayerPowerUpPopup popup = stats.GetComponent<CS_PlayerPowerUpPopup>();
+        if (popup != null) popup.Show();
     }
 }

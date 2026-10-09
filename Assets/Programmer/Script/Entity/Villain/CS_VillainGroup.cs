@@ -18,6 +18,8 @@ using System.Collections.Generic;
  *   1. onAnyCrimeCompleted を1回だけ呼ぶ
  *      → 最終スコアのマイナス・犯罪完遂数の加算は、スコア側がこれを購読してグループ単位で行う
  *   2. 残っているメンバー全員が逃走(フェードアウト → Despawn)する
+ * ・ランダムイベント(大量発生)で生成したグループは、スポーン位置を持たない(spawnPointがnull)
+ *   スポナーがTickを呼ばないので途中で犯罪は進まず、イベントの時間切れでCompleteCrimeが呼ばれて完遂する
  * ・メンバーが撃退・逃走でDestroyされるとnull扱いになる。全員いなくなったらisAliveがfalseになる
  * ・同時に攻撃できるのは、グループのうち maxAttackers 人まで(攻撃枠)
  *   臨戦態勢になったメンバーは攻撃枠を取れたら攻撃し、取れなければつかず離れずで様子を見る
@@ -32,12 +34,14 @@ public class CS_VillainGroup
     private readonly List<CS_VillainCrime> _members = new List<CS_VillainCrime>();
     private readonly HashSet<CS_VillainCombat> _attackers = new HashSet<CS_VillainCombat>();   // 攻撃枠を持っているメンバー
     private readonly int _maxAttackers;
+    private readonly bool _usesTimeScaling;
     private float _crimeElapsed;
     private bool _isCrimeCompleted;
 
     public CS_VillainSpawnPoint spawnPoint => _spawnPoint;
     public bool isCrimeCompleted => _isCrimeCompleted;
-    public IReadOnlyList<CS_VillainCrime> members => _members;   // 撃退・逃走で消えたメンバーはnullになっている
+    public IReadOnlyList<CS_VillainCrime> members => _members;
+    public bool usesTimeScaling => _usesTimeScaling;   // 時間経過の段階でステータスを変えるか   // 撃退・逃走で消えたメンバーはnullになっている
 
     // Destroyされたメンバーはnull扱いになるので、1人でも残っていれば生存
     public bool isAlive => _members.Exists(member => member != null);
@@ -55,10 +59,12 @@ public class CS_VillainGroup
     // どのグループが犯罪を完遂しても呼ばれる(サーバーのみ)。スコア側の購読用
     public static event Action<CS_VillainGroup> onAnyCrimeCompleted;
 
-    public CS_VillainGroup(CS_VillainSpawnPoint spawnPoint, int maxAttackers)
+    // usesTimeScaling: 時間経過の段階でステータスを変えるか(レイドのボスなど、固定のステータスのグループはfalse)
+    public CS_VillainGroup(CS_VillainSpawnPoint spawnPoint, int maxAttackers, bool usesTimeScaling = true)
     {
         _spawnPoint = spawnPoint;
         _maxAttackers = maxAttackers;
+        _usesTimeScaling = usesTimeScaling;
     }
 
     public void AddMember(CS_VillainCrime member)
@@ -97,8 +103,12 @@ public class CS_VillainGroup
         }
     }
 
-    private void CompleteCrime()
+    // 犯罪を完遂する(Tickで完遂時間に達した時、またはランダムイベントの時間切れで呼ばれる)
+    // 既に完遂済み・全員いなくなったグループでは何もしない
+    public void CompleteCrime()
     {
+        if (_isCrimeCompleted || !isAlive) return;
+
         _isCrimeCompleted = true;
         onAnyCrimeCompleted?.Invoke(this);
 

@@ -5,8 +5,8 @@ using UnityEngine;
 using UnityEngine.AI;
 
 /*
- * ランダムイベント「救援物資」
- * 発生地点の周りに、有利になるアイテムを設置する
+ * ケアパッケージの中身「アイテムドロップ」
+ * 開封した箱の周りに、有利になるアイテムを設置する(旧イベント「救援物資」の処理)
  *
  * 制作者：　中出峻輔
  */
@@ -14,20 +14,18 @@ using UnityEngine.AI;
 // ========================================
 /*
  * メモ
- * ・設置するアイテム(どれを・いくつ)は supplies で設定する(プランナー確認中のため、アセットで調整する)
- * ・置き方 : 発生地点の範囲(CS_RandomEventPoint.radius × placeRadiusRate)の円周上に、等間隔で並べる
+ * ・設置するアイテム(どれを・いくつ)は supplies で設定する
+ * ・置き方 : 箱があった位置を中心に、半径 placeRadius(m)の円周上に等間隔で並べる
  *   床から浮いたり埋まったりしないよう、置く位置をNavMeshの上に合わせてから heightOffset だけ上げる
- *   (近くにNavMeshが無い位置は、そのままの高さに置く)
- * ・全て拾われたら、終了時間(Duration)を待たずに終わる
- * ・終わった時に拾われずに残ったアイテムは、removeItemsOnEnd がオンなら消す(オフなら残す)
+ * ・全て拾われたら、イベントの終了時間を待たずに終わる
+ * ・イベントが終わった時に残ったアイテムは、removeItemsOnEnd がオンなら消す(オフなら残す)
  * ・アイテムの生成はサーバー(またはオフライン)で行い、オンラインではSpawnして全員に見せる
  *   アイテムのプレハブはNetworkPrefabsList(DefaultNetworkPrefabs)に登録されていること
- *   (CS_ItemGenerator.GenerateはTransformの子に生成するため使わず、同じ手順でその場に生成している)
  */
 // ========================================
 
-[CreateAssetMenu(fileName = "DB_RandomEventSupplyDrop", menuName = "RandomEvent/Supply Drop")]
-public class CSO_RandomEventSupplyDrop : CSO_RandomEvent
+[CreateAssetMenu(fileName = "DB_CarePackageItemDrop", menuName = "RandomEvent/CarePackage/Item Drop")]
+public class CSO_CarePackageItemDrop : CSO_CarePackageContent
 {
     // 設置するアイテム1種類分
     [Serializable]
@@ -47,49 +45,46 @@ public class CSO_RandomEventSupplyDrop : CSO_RandomEvent
 
     private const float _navMeshSampleRadius = 2f;   // 置く位置の近くでNavMeshを探す半径(m)
 
-    [Header("救援物資")]
     [SerializeField]
     [Tooltip("設置するアイテムと数")]
     private Supply[] _supplies = new Supply[0];
 
-    [SerializeField, Range(0f, 1f)]
-    [Tooltip("アイテムを並べる円の半径(発生地点の範囲に対する割合)")]
-    private float _placeRadiusRate = 0.5f;
+    [SerializeField, Min(0f)]
+    [Tooltip("アイテムを並べる円の半径(m)")]
+    private float _placeRadius = 2f;
 
     [SerializeField, Min(0f)]
     [Tooltip("床(NavMesh)からアイテムを置く高さ(m)。プレイヤーが触れて拾える高さにする")]
     private float _heightOffset = 1f;
 
     [SerializeField]
-    [Tooltip("終わった時に、拾われずに残ったアイテムを消す")]
+    [Tooltip("イベントが終わった時に、拾われずに残ったアイテムを消す")]
     private bool _removeItemsOnEnd;
 
-    public override void OnStart(CS_RandomEventContext context)
+    public override void Open(CS_CarePackageOpening opening)
     {
         List<CS_ItemBase> placed = new List<CS_ItemBase>();
-        context.state = placed;
+        opening.state = placed;
 
         List<CS_ItemBase> items = ExpandSupplies();
-        float radius = context.point.radius * _placeRadiusRate;
         for (int i = 0; i < items.Count; i++)
         {
-            Vector3 position = GetPlacePosition(context.point.transform.position, radius, i, items.Count);
-            placed.Add(SpawnItem(items[i], position));
+            placed.Add(SpawnItem(items[i], GetPlacePosition(opening.position, i, items.Count)));
         }
     }
 
     // 全て拾われたら終わる(拾われたアイテムは消えてnull扱いになる)
-    public override bool IsFinished(CS_RandomEventContext context)
+    public override bool IsFinished(CS_CarePackageOpening opening)
     {
-        if (!(context.state is List<CS_ItemBase> placed)) return true;
+        if (!(opening.state is List<CS_ItemBase> placed)) return true;
 
         return !placed.Exists(item => item != null);
     }
 
-    public override void OnEnd(CS_RandomEventContext context)
+    public override void OnEnd(CS_CarePackageOpening opening)
     {
         if (!_removeItemsOnEnd) return;
-        if (!(context.state is List<CS_ItemBase> placed)) return;
+        if (!(opening.state is List<CS_ItemBase> placed)) return;
 
         foreach (CS_ItemBase item in placed)
         {
@@ -110,14 +105,14 @@ public class CSO_RandomEventSupplyDrop : CSO_RandomEvent
         return items;
     }
 
-    // 発生地点を中心とした円周上に等間隔で並べ、NavMeshの上に合わせる
-    private Vector3 GetPlacePosition(Vector3 center, float radius, int index, int count)
+    // 中心の周りの円周上に等間隔で並べ、NavMeshの上に合わせる
+    private Vector3 GetPlacePosition(Vector3 center, int index, int count)
     {
         Vector3 position = center;
         if (count > 1)
         {
             float angle = 360f / count * index;
-            position += Quaternion.Euler(0f, angle, 0f) * Vector3.forward * radius;
+            position += Quaternion.Euler(0f, angle, 0f) * Vector3.forward * _placeRadius;
         }
 
         if (NavMesh.SamplePosition(position, out NavMeshHit hit, _navMeshSampleRadius, NavMesh.AllAreas))

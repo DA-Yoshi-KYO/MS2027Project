@@ -109,6 +109,12 @@ public class CS_PlayerResultDataHolder : NetworkBehaviour
         Add(defeatVillainScore: point, defeatVillainCount: 1);
     }
 
+    // 悪人撃破の点数だけを足す(倒した数は増やさない)。レイドのボスの貢献度による配分などで使う
+    public void AddDefeatVillainScore(int point)
+    {
+        Add(defeatVillainScore: point);
+    }
+
     // 警察に倒された時。pointはマイナスの点数
     public void AddFoundByPolice(int point)
     {

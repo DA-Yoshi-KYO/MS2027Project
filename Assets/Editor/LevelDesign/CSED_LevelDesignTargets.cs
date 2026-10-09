@@ -7,7 +7,7 @@ using UnityEngine;
 /*
  * ステータス調整ウィンドウで編集する対象をまとめたクラス
  * ・プレイヤー: 再生中のCS_PlayerStatsの値(項目ごとの読み書き方法と、保存先のDB_PlayerStatsの変数名)
- * ・悪人/警察: プロジェクト内のデータ(ScriptableObject)
+ * ・データ: プロジェクト内のScriptableObject(プレイヤーの攻撃、悪人、悪人の攻撃、警察)
  *
  * 制作者：　吉田京志郎(Claude Codeで生成)
  */
@@ -87,25 +87,42 @@ public static class CSED_LevelDesignTargets
         return new SerializedObject(stats).FindProperty("_baseStats")?.objectReferenceValue as CSO_PlayerStats;
     }
 
+    // 攻撃データ(CSO_AttackData)は全員同じ型なので、タブごとにデータ名で分ける
+    private static readonly string[] _playerAttackNames = { "DB_PlayerAttack1", "DB_PlayerAttack2", "DB_PlayerAttack3", "DB_PlayerSpecial" };
+    private static readonly string[] _villainAttackNames = { "DB_VillainAttack" };
+
     public static List<ScriptableObject> FindAssets(CSE_LevelDesignTab tab)
     {
         List<ScriptableObject> assets = new List<ScriptableObject>();
         Type[] types = tab == CSE_LevelDesignTab.Villain ? _villainTypes : tab == CSE_LevelDesignTab.Police ? _policeTypes : new Type[0];
-        foreach (Type type in types)
+        foreach (Type type in types) assets.AddRange(FindAssetsOfType(type));
+
+        string[] attackNames = tab == CSE_LevelDesignTab.Player ? _playerAttackNames : tab == CSE_LevelDesignTab.Villain ? _villainAttackNames : new string[0];
+        List<ScriptableObject> attacks = FindAssetsOfType(typeof(CSO_AttackData));
+        foreach (string name in attackNames)
         {
-            foreach (string guid in AssetDatabase.FindAssets("t:" + type.Name))
-            {
-                ScriptableObject asset = AssetDatabase.LoadAssetAtPath<ScriptableObject>(AssetDatabase.GUIDToAssetPath(guid));
-                if (asset != null && type.IsInstanceOfType(asset)) assets.Add(asset);
-            }
+            ScriptableObject attack = attacks.Find(a => a.name == name);
+            if (attack != null) assets.Add(attack);
         }
         return assets;
     }
 
-    // 悪人・警察タブで扱うデータをすべて返す
+    private static List<ScriptableObject> FindAssetsOfType(Type type)
+    {
+        List<ScriptableObject> assets = new List<ScriptableObject>();
+        foreach (string guid in AssetDatabase.FindAssets("t:" + type.Name))
+        {
+            ScriptableObject asset = AssetDatabase.LoadAssetAtPath<ScriptableObject>(AssetDatabase.GUIDToAssetPath(guid));
+            if (asset != null && type.IsInstanceOfType(asset)) assets.Add(asset);
+        }
+        return assets;
+    }
+
+    // 全タブで扱うデータ(ScriptableObject)をすべて返す
     public static List<ScriptableObject> FindAllAssets()
     {
-        List<ScriptableObject> assets = FindAssets(CSE_LevelDesignTab.Villain);
+        List<ScriptableObject> assets = FindAssets(CSE_LevelDesignTab.Player);
+        assets.AddRange(FindAssets(CSE_LevelDesignTab.Villain));
         assets.AddRange(FindAssets(CSE_LevelDesignTab.Police));
         return assets;
     }

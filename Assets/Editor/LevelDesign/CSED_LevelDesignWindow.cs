@@ -14,8 +14,8 @@ using UnityEngine;
 /*
  * メモ
  * ・プレイヤー: 再生中の操作キャラの値(CS_PlayerStats)を直接変える。値の変更はCS_PlayerStatsのSetメソッドを通す
- * ・悪人/警察: データ(DB_VillainStats, DB_PoliceStatusなど)を直接変える
- * ・「初期状態に戻す」は、編集前の値(プレイヤーは最初に表示した時、データは再生開始時かウィンドウを開いた時)に戻す
+ * ・データ: プレイヤーの攻撃(DB_PlayerAttack1〜3, DB_PlayerSpecial)、悪人(DB_VillainStats, DB_VillainAttackなど)、警察(DB_PoliceStatusなど)を直接変える
+ * ・「初期状態に戻す」はデータごと、「戻す」は項目ごとに、編集前の値(プレイヤーは最初に表示した時、データは再生開始時かウィンドウを開いた時)に戻す
  * ・再生を止めると、変えた項目の保存先を選ぶウィンドウが出る(CSED_LevelDesignSession)
  * ・「調整を終了」で、レイアウトを開く前の配置に戻す(CSED_LevelDesignLayout)
  */
@@ -26,15 +26,8 @@ public class CSED_LevelDesignWindow : EditorWindow
     private static readonly string[] _tabLabels = { "プレイヤー", "悪人", "警察" };
 
     [SerializeField] private CSE_LevelDesignTab _tab = CSE_LevelDesignTab.Player;
-    [SerializeField] private string _layoutHint;   // レイアウト未登録の時の案内(閉じるまで表示)
     private readonly Dictionary<ScriptableObject, bool> _foldouts = new Dictionary<ScriptableObject, bool>();
     private Vector2 _scroll;
-
-    public string layoutHint
-    {
-        get => _layoutHint;
-        set { _layoutHint = value; Repaint(); }
-    }
 
     private const string _title = "ステータス調整";
 
@@ -68,12 +61,6 @@ public class CSED_LevelDesignWindow : EditorWindow
             }
         }
 
-        if (!string.IsNullOrEmpty(_layoutHint))
-        {
-            EditorGUILayout.HelpBox(_layoutHint, MessageType.Info);
-            if (GUILayout.Button("案内を閉じる")) _layoutHint = null;
-        }
-
         if (CSED_LevelDesignSession.isChoicePending)
         {
             EditorGUILayout.HelpBox("前回の調整値の保存がまだ選ばれていません。選ぶまでPlayできません。", MessageType.Warning);
@@ -82,7 +69,7 @@ public class CSED_LevelDesignWindow : EditorWindow
 
         _scroll = EditorGUILayout.BeginScrollView(_scroll);
         if (_tab == CSE_LevelDesignTab.Player) DrawPlayerTab();
-        else DrawAssetTab(_tab);
+        DrawAssetTab(_tab);
         EditorGUILayout.EndScrollView();
     }
 
@@ -90,14 +77,15 @@ public class CSED_LevelDesignWindow : EditorWindow
 
     private void DrawPlayerTab()
     {
-        if (!EditorApplication.isPlaying)
+        // 操作キャラのステータスは再生中だけ表示する(攻撃のデータはいつでも調整できる)
+        if (EditorApplication.isPlaying)
         {
-            EditorGUILayout.HelpBox("再生中に、操作キャラのステータスをここで調整できます。", MessageType.Info);
-            return;
+            CS_PlayerStats player = CSED_LevelDesignTargets.FindControlledPlayer(CSED_LevelDesignTargets.FindPlayers());
+            DrawPlayerBox(player, "操作キャラ", position.width - 24);
+            EditorGUILayout.Space();
         }
 
-        CS_PlayerStats player = CSED_LevelDesignTargets.FindControlledPlayer(CSED_LevelDesignTargets.FindPlayers());
-        DrawPlayerBox(player, "操作キャラ", position.width - 24);
+        EditorGUILayout.LabelField("攻撃", EditorStyles.boldLabel);
     }
 
     private void DrawPlayerBox(CS_PlayerStats stats, string title, float width)
@@ -135,6 +123,7 @@ public class CSED_LevelDesignWindow : EditorWindow
                     EditorGUI.BeginChangeCheck();
                     float value = EditorGUILayout.DelayedFloatField(current);
                     if (EditorGUI.EndChangeCheck()) fields[i].Set(stats, value);
+                    if (DrawItemResetButton(isEdited)) fields[i].Set(stats, originals[i]);
                 }
             }
             EditorGUIUtility.labelWidth = labelWidth;
@@ -143,7 +132,7 @@ public class CSED_LevelDesignWindow : EditorWindow
         }
     }
 
-    // ---------- 悪人・警察 ----------
+    // ---------- データ(プレイヤーの攻撃・悪人・警察) ----------
 
     private void DrawAssetTab(CSE_LevelDesignTab tab)
     {
@@ -155,7 +144,7 @@ public class CSED_LevelDesignWindow : EditorWindow
         }
 
         EditorGUILayout.Space();
-        if (GUILayout.Button("このタブをすべて初期状態に戻す"))
+        if (GUILayout.Button(tab == CSE_LevelDesignTab.Player ? "攻撃のデータをすべて初期状態に戻す" : "このタブをすべて初期状態に戻す"))
         {
             foreach (ScriptableObject asset in assets) CSED_LevelDesignSession.ResetAsset(asset);
         }
@@ -178,16 +167,48 @@ public class CSED_LevelDesignWindow : EditorWindow
             }
             if (!_foldouts[asset]) return;
 
-            // Inspectorと同じ表示で、データの全項目を並べる
+            // データの全項目を並べ、項目ごとに「戻す」ボタンを付ける
+            // 配列や中のクラス(悪人の時間ごとの段階など)は開いて、中の項目ごとに戻せるようにする
             SerializedObject serialized = new SerializedObject(asset);
             serialized.Update();
+            ScriptableObject snapshot = CSED_LevelDesignSession.GetSnapshot(asset);
+            SerializedObject before = snapshot != null ? new SerializedObject(snapshot) : null;
+
+            int indent = EditorGUI.indentLevel;
             SerializedProperty property = serialized.GetIterator();
-            for (bool enterChildren = true; property.NextVisible(enterChildren); enterChildren = false)
+            for (bool enterChildren = true; property.NextVisible(enterChildren); )
             {
+                enterChildren = false;
                 if (property.propertyPath == "m_Script") continue;
-                EditorGUILayout.PropertyField(property, true);
+
+                EditorGUI.indentLevel = indent + property.depth;
+                if (property.propertyType == SerializedPropertyType.Generic && property.hasVisibleChildren)
+                {
+                    // 配列・中のクラスは見出しだけ出し、開いていれば中の項目を続けて描く
+                    property.isExpanded = EditorGUILayout.Foldout(property.isExpanded, property.displayName, true);
+                    enterChildren = property.isExpanded;
+                    continue;
+                }
+
+                SerializedProperty original = before?.FindProperty(property.propertyPath);
+                bool isItemEdited = original != null && !SerializedProperty.DataEquals(property, original);
+                using (new EditorGUILayout.HorizontalScope())
+                {
+                    EditorGUILayout.PropertyField(property, true);
+                    if (DrawItemResetButton(isItemEdited)) serialized.CopyFromSerializedProperty(original);
+                }
             }
+            EditorGUI.indentLevel = indent;
             serialized.ApplyModifiedProperties();
+        }
+    }
+
+    // 項目ごとの「戻す」ボタン。編集した項目だけ押せる
+    private static bool DrawItemResetButton(bool isEdited)
+    {
+        using (new EditorGUI.DisabledScope(!isEdited))
+        {
+            return GUILayout.Button(new GUIContent("戻す", "この項目だけ編集前の値に戻す"), EditorStyles.miniButton, GUILayout.Width(40));
         }
     }
 }

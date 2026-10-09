@@ -20,7 +20,7 @@ using UnityEngine;
  * ・マルチ(Multiplayer Play Mode)の2〜4人目は別のUnityで起動し、このレイアウトに入れられないため、ソロ用・マルチ用の区別は設けない
  * ・窓の分割をコードで組むにはUnityの内部構造を触る必要があり壊れやすいので、
  *   一度だけ手で並べて「今の配置を保存」し、そのファイルをコミットして全員で使う
- * ・レイアウトファイルがまだ無い時は、必要なウィンドウだけ開き、ステータス調整ウィンドウの中で保存の手順を案内する
+ * ・レイアウトファイルがまだ無い時は、ステータス調整ウィンドウだけ開き、保存の手順をConsoleに出す
  * ・レイアウトの読み込み・保存はUnityの内部API(WindowLayout)を使う。見つからない場合はエラーを出す
  * ・開く前の配置は Library に退避しておき、「調整を終了」でその配置に戻す(個人の配置なのでコミットしない)
  */
@@ -58,14 +58,12 @@ public static class CSED_LevelDesignLayout
         };
     }
 
-    // レイアウトファイルがまだ無い時: 必要なウィンドウを開き、並べて保存するようウィンドウ内で案内する
-    // (モーダルダイアログはUnityの処理を止めてしまうので使わない)
+    // レイアウトファイルがまだ無い時: ステータス調整ウィンドウだけ開き、保存の手順はConsoleに出す
     private static void OpenWithoutLayout()
     {
         Type inspectorType = typeof(Editor).Assembly.GetType("UnityEditor.InspectorWindow");
-        CSED_LevelDesignWindow window = CSED_LevelDesignWindow.Open(inspectorType != null ? new[] { inspectorType } : new Type[0]);
-        window.layoutHint = "レイアウトがまだ登録されていません。\nGameビュー(左) と このウィンドウ(右) を並べてから、" +
-            "Tools > レベルデザイン > 今の配置を保存 を押してください。保存したファイルをコミットすると、全員が同じレイアウトを使えます。";
+        CSED_LevelDesignWindow.Open(inspectorType != null ? new[] { inspectorType } : new Type[0]);
+        Debug.Log("レベルデザイン: レイアウトがまだ登録されていません。Gameビュー(左) と ステータス調整(右) を並べてから、Tools > レベルデザイン > 今の配置を保存 を押してください");
     }
 
     // 調整用のレイアウトを開く前の配置を退避する

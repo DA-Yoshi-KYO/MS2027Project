@@ -22,7 +22,7 @@ using UnityEngine;
  * ・値はNetworkVariableで持つ(書き込みはサーバーのみ、読み取りは全員可)
  * ・TryConsumeFull()は満タンの時だけ消費してtrueを返す。満タンでなければ何もせずfalseを返す
  *   (必殺技側は、発動判定と実際の消費を分けて、判定が通る瞬間に改めてこれを呼んでいる)
- * ・onGaugeChangedはHUD用の変更通知
+ * ・onGaugeChangedはHUD用の変更通知(オフラインのテストシーンでも発生する)
  */
 // ========================================
 
@@ -86,7 +86,12 @@ public class CS_PlayerSpecialGauge : NetworkBehaviour
         if (IsSpawned && !IsServer) return;
         if (amount <= 0f) return;
 
+        float previous = _currentGauge.Value;
         _currentGauge.Value = Mathf.Min(maxGauge, _currentGauge.Value + amount);
+        if (_currentGauge.Value != previous)
+        {
+            NotifyOffline();
+        }
     }
 
     // 満タンの時だけ全消費してtrueを返す。満タンでなければ何もしない(サーバーのみ)
@@ -96,7 +101,16 @@ public class CS_PlayerSpecialGauge : NetworkBehaviour
         if (!isFull) return false;
 
         _currentGauge.Value = 0f;
+        NotifyOffline();
         return true;
+    }
+
+    // オフライン時はNetworkVariableの変更通知が届かないため、ここで直接イベントを発生させる
+    private void NotifyOffline()
+    {
+        if (IsSpawned) return;
+
+        onGaugeChanged?.Invoke(_currentGauge.Value, maxGauge);
     }
 
     private void HandleGaugeChanged(float previous, float current)

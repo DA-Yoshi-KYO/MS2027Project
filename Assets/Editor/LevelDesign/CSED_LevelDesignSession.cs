@@ -96,8 +96,9 @@ public static class CSED_LevelDesignSession
             SerializedProperty after = current.FindProperty(before.propertyPath);
             if (after == null || SerializedProperty.DataEquals(before, after)) continue;
 
+            CSED_LevelDesignLabel spec = CSED_LevelDesignLabels.Get(asset, after);
             changes.Add(new CSED_LevelDesignAssetChoice(asset, snapshot, before.propertyPath,
-                $"{asset.name} / {GetDisplayPath(before)}", ToText(before), ToText(after)));
+                GetDisplayPath(asset, after), ToText(before, spec.scale), ToText(after, spec.scale)));
         }
         return changes;
     }
@@ -192,7 +193,8 @@ public static class CSED_LevelDesignSession
             if (!edited) continue;
 
             float before = new SerializedObject(baseStats).FindProperty(fields[i].property)?.floatValue ?? 0f;
-            _playerChoices.Add(new CSED_LevelDesignPlayerChoice(fields[i].label, fields[i].property, baseStats, before, labels.ToArray(), values.ToArray()));
+            CSED_LevelDesignLabel spec = CSED_LevelDesignLabels.GetPlayer(baseStats, fields[i].property, fields[i].label);
+            _playerChoices.Add(new CSED_LevelDesignPlayerChoice(spec.text, fields[i].property, baseStats, before, labels.ToArray(), values.ToArray(), spec.scale));
         }
     }
 
@@ -215,27 +217,29 @@ public static class CSED_LevelDesignSession
 
     // ---------- 表示用 ----------
 
-    // 「_levels.Array.data[0]._policeCount」→「Levels[0] / Police Count」
-    private static string GetDisplayPath(SerializedProperty property)
+    // Confluenceの書き方での項目の場所。例: 「手配度データ / 手配度 1 / 警察の出現数」
+    private static string GetDisplayPath(ScriptableObject asset, SerializedProperty property)
     {
-        string path = property.propertyPath.Replace(".Array.data[", "[");
-        string[] parts = path.Split('.');
-        for (int i = 0; i < parts.Length; i++)
+        List<string> parts = new List<string> { CSED_LevelDesignLabels.GetTitle(asset) };
+        // 配列の要素(「_levels.Array.data[0]」)を親として足してから、項目名を足す
+        int element = property.propertyPath.LastIndexOf(".Array.data[");
+        if (element >= 0)
         {
-            int bracket = parts[i].IndexOf('[');
-            string name = bracket >= 0 ? parts[i].Substring(0, bracket) : parts[i];
-            string index = bracket >= 0 ? parts[i].Substring(bracket) : "";
-            parts[i] = ObjectNames.NicifyVariableName(name) + index;
+            int end = property.propertyPath.IndexOf(']', element);
+            SerializedProperty parent = property.serializedObject.FindProperty(property.propertyPath.Substring(0, end + 1));
+            if (parent != null && parent.propertyPath != property.propertyPath) parts.Add(CSED_LevelDesignLabels.Get(asset, parent).text);
         }
+        parts.Add(CSED_LevelDesignLabels.Get(asset, property).text);
         return string.Join(" / ", parts);
     }
 
-    public static string ToText(SerializedProperty property)
+    // 値の表示用の文字。数値はConfluenceの単位(データの値 ÷ scale)にする
+    public static string ToText(SerializedProperty property, float scale = 1f)
     {
         switch (property.propertyType)
         {
-            case SerializedPropertyType.Float: return property.floatValue.ToString("0.###");
-            case SerializedPropertyType.Integer: return property.intValue.ToString();
+            case SerializedPropertyType.Float: return (property.floatValue / scale).ToString("0.###");
+            case SerializedPropertyType.Integer: return (property.intValue / scale).ToString("0.###");
             case SerializedPropertyType.Boolean: return property.boolValue ? "ON" : "OFF";
             case SerializedPropertyType.String: return property.stringValue;
             case SerializedPropertyType.Enum:

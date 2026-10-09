@@ -117,21 +117,24 @@ public class CSED_LevelDesignWindow : EditorWindow
             EditorGUIUtility.labelWidth = Mathf.Min(140f, width * 0.55f);
 
             float[] originals = CSED_LevelDesignSession.GetOrCaptureOriginal(stats);
+            CSO_PlayerStats baseStats = CSED_LevelDesignTargets.GetBaseStats(stats);
             CSED_LevelDesignPlayerField[] fields = CSED_LevelDesignTargets.playerFields;
             for (int i = 0; i < fields.Length; i++)
             {
                 float current = fields[i].Get(stats);
                 bool isEdited = !Mathf.Approximately(current, originals[i]);
+                // 項目名と単位はConfluenceにそろえる(入力した値はデータの単位に直して入れる)
+                CSED_LevelDesignLabel spec = CSED_LevelDesignLabels.GetPlayer(baseStats, fields[i].property, fields[i].label);
                 // 編集した項目は太字にし、ツールチップで編集前の値を見せる
-                GUIContent label = new GUIContent(fields[i].label, $"編集前: {originals[i]:0.###}");
+                GUIContent label = new GUIContent(spec.text, $"編集前: {spec.ToDisplay(originals[i]):0.###}");
                 GUIStyle style = isEdited ? EditorStyles.boldLabel : EditorStyles.label;
 
                 using (new EditorGUILayout.HorizontalScope())
                 {
                     EditorGUILayout.LabelField(label, style, GUILayout.Width(EditorGUIUtility.labelWidth));
                     EditorGUI.BeginChangeCheck();
-                    float value = EditorGUILayout.DelayedFloatField(current);
-                    if (EditorGUI.EndChangeCheck()) fields[i].Set(stats, value);
+                    float value = EditorGUILayout.DelayedFloatField(spec.ToDisplay(current));
+                    if (EditorGUI.EndChangeCheck()) fields[i].Set(stats, spec.ToData(value));
                     if (DrawItemResetButton(isEdited)) fields[i].Set(stats, originals[i]);
                 }
             }
@@ -169,7 +172,8 @@ public class CSED_LevelDesignWindow : EditorWindow
         {
             using (new EditorGUILayout.HorizontalScope())
             {
-                _foldouts[asset] = EditorGUILayout.Foldout(isOpen, asset.name + (isEdited ? "  (編集中)" : ""), true, isEdited ? EditorStyles.foldoutHeader : EditorStyles.foldout);
+                GUIContent title = new GUIContent(CSED_LevelDesignLabels.GetTitle(asset) + (isEdited ? "  (編集中)" : ""), asset.name);
+                _foldouts[asset] = EditorGUILayout.Foldout(isOpen, title, true, isEdited ? EditorStyles.foldoutHeader : EditorStyles.foldout);
                 using (new EditorGUI.DisabledScope(!isEdited))
                 {
                     if (GUILayout.Button("初期状態に戻す", GUILayout.Width(100))) CSED_LevelDesignSession.ResetAsset(asset);
@@ -195,7 +199,7 @@ public class CSED_LevelDesignWindow : EditorWindow
                 if (property.propertyType == SerializedPropertyType.Generic && property.hasVisibleChildren)
                 {
                     // 配列・中のクラスは見出しだけ出し、開いていれば中の項目を続けて描く
-                    property.isExpanded = EditorGUILayout.Foldout(property.isExpanded, property.displayName, true);
+                    property.isExpanded = EditorGUILayout.Foldout(property.isExpanded, CSED_LevelDesignLabels.Get(asset, property).text, true);
                     enterChildren = property.isExpanded;
                     continue;
                 }
@@ -204,13 +208,39 @@ public class CSED_LevelDesignWindow : EditorWindow
                 bool isItemEdited = original != null && !SerializedProperty.DataEquals(property, original);
                 using (new EditorGUILayout.HorizontalScope())
                 {
-                    EditorGUILayout.PropertyField(property, true);
+                    DrawProperty(asset, property);
                     if (DrawItemResetButton(isItemEdited)) serialized.CopyFromSerializedProperty(original);
                 }
             }
             EditorGUI.indentLevel = indent;
             serialized.ApplyModifiedProperties();
         }
+    }
+
+    // 項目1つを、Confluenceの項目名と単位で描く(単位が違う数値は、入力した値をデータの単位に直して入れる)
+    private static void DrawProperty(ScriptableObject asset, SerializedProperty property)
+    {
+        CSED_LevelDesignLabel spec = CSED_LevelDesignLabels.Get(asset, property);
+        GUIContent label = new GUIContent(spec.text, property.name);
+        if (Mathf.Approximately(spec.scale, 1f))
+        {
+            EditorGUILayout.PropertyField(property, label, true);
+            return;
+        }
+
+        if (property.propertyType == SerializedPropertyType.Float)
+        {
+            EditorGUI.BeginChangeCheck();
+            float value = EditorGUILayout.DelayedFloatField(label, spec.ToDisplay(property.floatValue));
+            if (EditorGUI.EndChangeCheck()) property.floatValue = spec.ToData(value);
+        }
+        else if (property.propertyType == SerializedPropertyType.Integer)
+        {
+            EditorGUI.BeginChangeCheck();
+            float value = EditorGUILayout.DelayedFloatField(label, spec.ToDisplay(property.intValue));
+            if (EditorGUI.EndChangeCheck()) property.intValue = Mathf.RoundToInt(spec.ToData(value));
+        }
+        else EditorGUILayout.PropertyField(property, label, true);
     }
 
     // 項目ごとの「戻す」ボタン。編集した項目だけ押せる

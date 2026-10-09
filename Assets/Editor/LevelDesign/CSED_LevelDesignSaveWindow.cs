@@ -22,12 +22,14 @@ public class CSED_LevelDesignPlayerChoice
     [SerializeField] private string[] _playerLabels;   // P1, P2...
     [SerializeField] private float[] _values;          // 各プレイヤーの編集後の値
     [SerializeField] private int _choice = -1;         // -1:未選択 0:編集前 1〜:そのプレイヤーの値
+    [SerializeField] private float _scale = 1f;        // 表示はConfluenceの単位(データの値 ÷ scale)
 
     public string label => _label;
     public int choice { get => _choice; set => _choice = value; }
 
-    public CSED_LevelDesignPlayerChoice(string label, string property, CSO_PlayerStats target, float before, string[] playerLabels, float[] values)
+    public CSED_LevelDesignPlayerChoice(string label, string property, CSO_PlayerStats target, float before, string[] playerLabels, float[] values, float scale = 1f)
     {
+        _scale = scale > 0f ? scale : 1f;
         _label = label;
         _property = property;
         _target = target;
@@ -40,10 +42,11 @@ public class CSED_LevelDesignPlayerChoice
     public string[] GetOptions()
     {
         string[] options = new string[_values.Length + 1];
-        options[0] = $"編集前 {_before:0.###}";
+        options[0] = $"編集前 {_before / _scale:0.###}";
         for (int i = 0; i < _values.Length; i++)
         {
-            options[i + 1] = _values.Length == 1 ? $"編集後 {_values[i]:0.###}" : $"{_playerLabels[i]} {_values[i]:0.###}";
+            float value = _values[i] / _scale;
+            options[i + 1] = _values.Length == 1 ? $"編集後 {value:0.###}" : $"{_playerLabels[i]} {value:0.###}";
         }
         return options;
     }

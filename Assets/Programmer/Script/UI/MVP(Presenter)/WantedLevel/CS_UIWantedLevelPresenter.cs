@@ -3,23 +3,22 @@
  * ================================================
  * 制作者：元浪梨緒
  * ------------------------------------------------
- * 2026-09-26 | 初回作成
+ * 2026-10-09 | 初回作成
  * ================================================ */
 
 using R3;
 
 /// <summary>
-/// 必殺技ゲージ（Special Gauge）のPresenter
+/// 手配度の変化を View に通知する
 /// ・ローカルプレイヤーの番号と一致したら表示する
-/// ・Bind 時にアイコンをセットする
 /// </summary>
-public class CS_UISpecialGaugePresenter : CS_BasePresenter
+public class CS_UIWantedLevelPresenter : CS_BasePresenter
 {
     // =========================================================
     // 内部フィールド
     // =========================================================
 
-    private CS_UISpecialGaugeView _view;
+    private CS_UIWantedLevelView _view;
     private readonly SerialDisposable _modelSubscription = new SerialDisposable();
 
     // =========================================================
@@ -28,30 +27,26 @@ public class CS_UISpecialGaugePresenter : CS_BasePresenter
 
     void Awake()
     {
-        _view = GetComponent<CS_UISpecialGaugeView>();
+        _view = GetComponent<CS_UIWantedLevelView>();
         _modelSubscription.AddTo(_disposables);
         _view.SetPresenter(this);
     }
 
     void OnEnable()
     {
-        CS_UISpecialGaugeModel.OnBound += HandleBound;
-        CS_UISpecialGaugeModel.OnUnbound += HandleUnbound;
+        CS_UIWantedLevelModel.OnBound += HandleBound;
+        CS_UIWantedLevelModel.OnUnbound += HandleUnbound;
 
         // すでに Bind 済みのローカルプレイヤーの Model があれば即購読
-        int localNumber = CS_UISpecialGaugeModel.localPlayerNumber;
-        if (localNumber >= 0 && CS_UISpecialGaugeModel.TryGet(localNumber, out var model))
-        {
-            // ★ アイコンをセット
-            _view.SetupIcon(localNumber);
+        int localNumber = CS_UIWantedLevelModel.localPlayerNumber;
+        if (localNumber >= 0 && CS_UIWantedLevelModel.TryGet(localNumber, out var model))
             BindModel(model);
-        }
     }
 
     void OnDisable()
     {
-        CS_UISpecialGaugeModel.OnBound -= HandleBound;
-        CS_UISpecialGaugeModel.OnUnbound -= HandleUnbound;
+        CS_UIWantedLevelModel.OnBound -= HandleBound;
+        CS_UIWantedLevelModel.OnUnbound -= HandleUnbound;
         UnbindModel();
     }
 
@@ -59,18 +54,15 @@ public class CS_UISpecialGaugePresenter : CS_BasePresenter
     // Bind / Unbind ハンドラ
     // =========================================================
 
-    private void HandleBound(int playerNumber, CS_UISpecialGaugeModel model)
+    private void HandleBound(int playerNumber, CS_UIWantedLevelModel model)
     {
-        if (playerNumber != CS_UISpecialGaugeModel.localPlayerNumber) return;
-
-        // ★ アイコンをセット
-        _view.SetupIcon(playerNumber);
-        BindModel(model);
+        if (playerNumber == CS_UIWantedLevelModel.localPlayerNumber)
+            BindModel(model);
     }
 
     private void HandleUnbound(int playerNumber)
     {
-        if (playerNumber == CS_UISpecialGaugeModel.localPlayerNumber)
+        if (playerNumber == CS_UIWantedLevelModel.localPlayerNumber)
             UnbindModel();
     }
 
@@ -78,10 +70,11 @@ public class CS_UISpecialGaugePresenter : CS_BasePresenter
     // Model 購読
     // =========================================================
 
-    private void BindModel(CS_UISpecialGaugeModel model)
+    private void BindModel(CS_UIWantedLevelModel model)
     {
-        _modelSubscription.Disposable =
-            model.currentGauge.Subscribe(x => _view.UpdateGauge(x, model.maxGauge));
+        _modelSubscription.Disposable = model.currentLevel
+            .CombineLatest(model.maxLevel, (level, max) => (level, max))
+            .Subscribe(x => _view.UpdateWantedLevel(x.level, x.max));
     }
 
     private void UnbindModel()

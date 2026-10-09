@@ -6,7 +6,9 @@
  * 2026-09-28 | 初回作成
  * ================================================ */
 
+#if UNITY_EDITOR
 using UnityEditor;
+#endif
 using UnityEngine;
 
 /// <summary>
@@ -14,6 +16,7 @@ using UnityEngine;
 /// </summary>
 public class CS_MiniMapCaptureExporter : MonoBehaviour
 {
+#if UNITY_EDITOR
     [MenuItem("Tools/Export MiniMap")]
     static void ExportMiniMap()
     {
@@ -36,4 +39,5 @@ public class CS_MiniMapCaptureExporter : MonoBehaviour
         byte[] bytes = tex.EncodeToPNG();
         System.IO.File.WriteAllBytes("Assets/Programmer/RenderingTexture/MiniMap.png", bytes);
     }
+#endif
 }

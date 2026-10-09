@@ -84,11 +84,21 @@ float3 NTE_Environment(NTEToonInput i, float3 col, float lit, float faceSign, fl
 // ---------------- Fabric weave (fine fibres) ----------------
 // Plain-weave thread pattern in UV space + per-thread fibre noise. Fades out when it gets
 // smaller than ~1.5 px so it never shimmers in the distance. Returns -0.5..0.5.
+// Screen-space derivatives (fwidth/ddx/ddy) are not allowed in HDRP ray tracing (DXR) passes.
+// There we return 0 so the pattern is simply drawn without distance fade.
+float2 NTE_FWidth(float2 p)
+{
+#if defined(SHADER_STAGE_RAY_TRACING)
+    return float2(0.0, 0.0);
+#else
+    return fwidth(p);
+#endif
+}
 float NTE_Hash(float2 p) { return frac(sin(dot(p, float2(12.9898, 78.233))) * 43758.5453); }
 float NTE_Fabric(float2 uv, float scale)
 {
     float2 p = uv * max(scale, 1.0);
-    float2 fw = fwidth(p);
+    float2 fw = NTE_FWidth(p);
     float fade = saturate(1.5 - max(fw.x, fw.y) * 2.0);
     float2 cell = floor(p);
     float2 f = frac(p);
@@ -110,7 +120,7 @@ float NTE_ValueNoise(float2 p)
 float NTE_FabricGrain(float2 uv, float scale)
 {
     float2 p = uv * max(scale, 1.0);
-    float2 fw = fwidth(p);
+    float2 fw = NTE_FWidth(p);
     float fade = saturate(2.0 - max(fw.x, fw.y) * 2.5);
     float warp = NTE_ValueNoise(p * float2(1.0, 7.0));          // streaks along U threads
     float weft = NTE_ValueNoise(p * float2(7.0, 1.0) + 17.0);    // streaks along V threads

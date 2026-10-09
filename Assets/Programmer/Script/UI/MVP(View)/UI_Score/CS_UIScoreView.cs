@@ -6,15 +6,13 @@
  * 2026-09-25 | 初回作成
  * ================================================ */
 
-using TMPro;
+using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
-/// スコアの表示だけを担当するView
-/// Presenterから渡された値を描画するだけで、ロジックは一切持たない
-/// ★ CanvasGroup + SetVisible を追加
-///    → SetActive(false) せずに見た目だけ隠せるので
-///      OnBound が来たときに表示できる
+/// スコアの表示を担当する View
+/// ・自分のスコア表示
+/// ・全員分のランキング表示（リアルタイム更新）
 /// </summary>
 public class CS_UIScoreView : CS_BaseView<CS_UIScorePresenter>
 {
@@ -22,14 +20,18 @@ public class CS_UIScoreView : CS_BaseView<CS_UIScorePresenter>
     // Inspector
     // =========================================================
 
-    [SerializeField] private TextMeshProUGUI _scoreText;
+    [Header("スコア表示")]
+    [SerializeField] private Transform _scoreRoot;        // スコアアイテムの親
+    [SerializeField] private GameObject _scoreItemPrefab;  // CS＿UIScoreItemView を持つ Prefab
 
     // =========================================================
     // 内部フィールド
     // =========================================================
 
-    // 見た目の表示 / 非表示に使う
     private CanvasGroup _canvasGroup;
+
+    // 生成したランキングアイテムのリスト
+    private readonly List<CS_UIScoreItemView> _rankingItems = new();
 
     // =========================================================
     // 初期化
@@ -37,7 +39,6 @@ public class CS_UIScoreView : CS_BaseView<CS_UIScorePresenter>
 
     protected void Awake()
     {
-        // ★ CanvasGroup を取得（なければ自動追加）
         _canvasGroup = GetComponent<CanvasGroup>();
         if (_canvasGroup == null)
             _canvasGroup = gameObject.AddComponent<CanvasGroup>();
@@ -56,11 +57,6 @@ public class CS_UIScoreView : CS_BaseView<CS_UIScorePresenter>
     // 表示 / 非表示
     // =========================================================
 
-    /// <summary>
-    /// 見た目だけ表示 / 非表示を切り替える
-    /// SetActive(false) と違い、GameObject は有効のまま
-    /// → OnBound が来たときに表示できる
-    /// </summary>
     public void SetVisible(bool visible)
     {
         if (_canvasGroup == null) return;
@@ -70,12 +66,59 @@ public class CS_UIScoreView : CS_BaseView<CS_UIScorePresenter>
     }
 
     // =========================================================
-    // 描画（Presenter から呼ばれる）
+    // スコア表示（リアルタイム更新）
     // =========================================================
 
-    public void UpdateScore(int score)
+    /// <summary>
+    /// 全員分のスコアを更新する
+    /// Presenter から渡されるリストはスコア降順にソート済み
+    /// </summary>
+    public void UpdateRanking(List<(int playerNumber, int score)> ranking)
     {
-        if (_scoreText != null)
-            _scoreText.text = score.ToString();
+        // 人数分のアイテムを確保
+        EnsureRankingItems(ranking.Count);
+
+        for (int i = 0; i < ranking.Count; i++)
+        {
+            var (playerNumber, score) = ranking[i];
+            _rankingItems[i].UpdateView(
+                rank: i + 1,
+                playerName: $"Player{playerNumber}",
+                score: score
+            );
+            _rankingItems[i].gameObject.SetActive(true);
+        }
+
+        // 余分なアイテムを非表示
+        for (int i = ranking.Count; i < _rankingItems.Count; i++)
+            _rankingItems[i].gameObject.SetActive(false);
+    }
+
+    // =========================================================
+    // スコアアイテム管理
+    // =========================================================
+
+    /// <summary>必要な数だけスコアアイテムを生成する</summary>
+    private void EnsureRankingItems(int count)
+    {
+        while (_rankingItems.Count < count)
+        {
+            var go = Instantiate(_scoreItemPrefab, _scoreRoot);
+            var item = go.GetComponent<CS_UIScoreItemView>();
+            _rankingItems.Add(item);
+        }
+    }
+
+    // =========================================================
+    // クリーンアップ
+    // =========================================================
+
+    private void OnDestroy()
+    {
+        foreach (var item in _rankingItems)
+        {
+            if (item != null) Destroy(item.gameObject);
+        }
+        _rankingItems.Clear();
     }
 }

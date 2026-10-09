@@ -18,6 +18,8 @@ using System.Collections.Generic;
  *   1. onAnyCrimeCompleted を1回だけ呼ぶ
  *      → 最終スコアのマイナス・犯罪完遂数の加算は、スコア側がこれを購読してグループ単位で行う
  *   2. 残っているメンバー全員が逃走(フェードアウト → Despawn)する
+ * ・ランダムイベント(大量発生)で生成したグループは、スポーン位置を持たない(spawnPointがnull)
+ *   スポナーがTickを呼ばないので途中で犯罪は進まず、イベントの時間切れでCompleteCrimeが呼ばれて完遂する
  * ・メンバーが撃退・逃走でDestroyされるとnull扱いになる。全員いなくなったらisAliveがfalseになる
  * ・同時に攻撃できるのは、グループのうち maxAttackers 人まで(攻撃枠)
  *   臨戦態勢になったメンバーは攻撃枠を取れたら攻撃し、取れなければつかず離れずで様子を見る
@@ -97,8 +99,12 @@ public class CS_VillainGroup
         }
     }
 
-    private void CompleteCrime()
+    // 犯罪を完遂する(Tickで完遂時間に達した時、またはランダムイベントの時間切れで呼ばれる)
+    // 既に完遂済み・全員いなくなったグループでは何もしない
+    public void CompleteCrime()
     {
+        if (_isCrimeCompleted || !isAlive) return;
+
         _isCrimeCompleted = true;
         onAnyCrimeCompleted?.Invoke(this);
 

@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using Unity.Netcode;
 using UnityEngine;
+using UnityEngine.AI;
 
 /*
  * 悪人をグループ単位でフィールドに生成するクラス
@@ -32,6 +33,8 @@ using UnityEngine;
  *   ただし「プレイヤーの数 + 追加グループ数」を保てない場合は、待ち中の位置にも生成する
  *   (待ち中の位置からは、待ちが早く終わる位置を選ぶ)
  *   時間経過による追加では、待ち中の位置には生成しない
+ * ・ランダムイベント(大量発生)用に、スポーン位置を使わずにグループを生成する SpawnEventGroup がある
+ *   イベントのグループは通常のグループ数に数えず、犯罪も進めない(時間経過の段階の反映は通常と同じ)
  * ・グループ単位の犯罪の進行は、生成したCS_VillainGroupのTickを毎フレーム呼んで進める
  *   進行度はスポーン位置の犯罪完遂ゲージ(CS_VillainCrimeGauge)にも毎フレーム渡す(付いていなければ何もしない)
  * ・生成する悪人のプレハブはNetworkPrefabsList(DefaultNetworkPrefabs)に登録し、CS_VillainCrimeを付けておくこと
@@ -41,6 +44,8 @@ using UnityEngine;
 public class CS_VillainSpawner : MonoBehaviour
 {
     private const float _checkInterval = 0.5f;   // グループ数を確認する間隔(秒)
+    private const float _navMeshSampleRadius = 2f;   // イベントの生成位置の近くでNavMeshを探す半径(m)
+    private const float _bodyCenterHeight = 1f;      // 足元から悪人の体の中心(transform.position)までの高さ(m)
 
     [Header("生成する悪人")]
     [SerializeField]
@@ -89,6 +94,7 @@ public class CS_VillainSpawner : MonoBehaviour
 
     private CS_VillainSpawnPoint[] _spawnPoints;
     private readonly List<CS_VillainGroup> _groups = new List<CS_VillainGroup>();
+    private readonly List<CS_VillainGroup> _eventGroups = new List<CS_VillainGroup>();   // ランダムイベントで生成したグループ
     private float _checkTimer;
     private float _spawnTimer;
     private bool _isRunning;
@@ -160,7 +166,13 @@ public class CS_VillainSpawner : MonoBehaviour
         if (stage == _currentStage) return;
 
         _currentStage = stage;
-        foreach (CS_VillainGroup group in _groups)
+        ApplyStageToGroups(_groups, stage);
+        ApplyStageToGroups(_eventGroups, stage);
+    }
+
+    private static void ApplyStageToGroups(List<CS_VillainGroup> groups, CSO_VillainTimeScaling.Stage stage)
+    {
+        foreach (CS_VillainGroup group in groups)
         {
             foreach (CS_VillainCrime member in group.members)
             {
@@ -199,6 +211,40 @@ public class CS_VillainSpawner : MonoBehaviour
             SetGauge(group.spawnPoint, 0f, false);   // ゲージを隠して0に戻す
             _groups.RemoveAt(i);
         }
+
+        // イベントのグループはスポーン位置を持たないので、一覧から外すだけ
+        _eventGroups.RemoveAll(group => !group.isAlive);
+    }
+
+    // ランダムイベントから呼ぶ(サーバー、またはオフライン)。スポーン位置を使わずに、centerの周りにグループを生成する
+    // 通常のグループ数(プレイヤーの数 + 追加グループ数)には数えず、犯罪も進めない(完遂はイベント側でCompleteCrimeを呼ぶ)
+    // memberCount: 1グループの人数。0以下なら、経過時間の段階の人数(段階が無ければ minMembers 〜 maxMembers)
+    public CS_VillainGroup SpawnEventGroup(Vector3 center, float memberRadius, int memberCount)
+    {
+        if (!hasAuthority || !HasValidPrefabs()) return null;
+
+        CS_VillainGroup group = new CS_VillainGroup(null, _maxAttackersPerGroup);
+        CSO_VillainTimeScaling.Stage stage = _timeScaling != null ? _timeScaling.GetStage(GetElapsedTime()) : null;
+        if (memberCount <= 0) memberCount = stage != null ? stage.memberCount : Random.Range(_minMembers, _maxMembers + 1);
+
+        for (int i = 0; i < memberCount; i++)
+        {
+            float angle = 360f / memberCount * i;
+            Vector3 position = center + Quaternion.Euler(0f, angle, 0f) * Vector3.forward * memberRadius;
+            NetworkObject villain = SpawnVillain(SnapToNavMesh(position), center, stage);
+            group.AddMember(villain.GetComponent<CS_VillainCrime>());
+        }
+
+        _eventGroups.Add(group);
+        return group;
+    }
+
+    // 生成位置をNavMeshの上(悪人の体の中心の高さ)に合わせる。近くにNavMeshが無ければそのまま
+    private static Vector3 SnapToNavMesh(Vector3 position)
+    {
+        if (!NavMesh.SamplePosition(position, out NavMeshHit hit, _navMeshSampleRadius, NavMesh.AllAreas)) return position;
+
+        return hit.position + Vector3.up * _bodyCenterHeight;
     }
 
     // スポーン位置に犯罪完遂ゲージ(CS_VillainCrimeGauge)が付いていれば、値と表示を設定する

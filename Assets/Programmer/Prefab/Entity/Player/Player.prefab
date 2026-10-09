@@ -4868,6 +4868,8 @@ GameObject:
   - component: {fileID: -4510307253191130015}
   - component: {fileID: 349586411803567952}
   - component: {fileID: 345532491756338339}
+  - component: {fileID: 7310482956127384501}
+  - component: {fileID: 2849163057284619302}
   m_Layer: 31
   m_Name: Player
   m_TagString: PlayerNoTransformation
@@ -5140,6 +5142,10 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::CS_PlayerItemSlot
   ShowTopMostFoldoutHeaderGroup: 1
+  _syncableItems:
+  - {fileID: 11400000, guid: 0346968b69ed2ed384f4982f842d527a, type: 2}
+  - {fileID: 11400000, guid: 9d4f7b2e6a1c45d8b3e0a7c5f2d9b164, type: 2}
+  - {fileID: 11400000, guid: 5d1f8b3e7a2c49c6a8e4b0f2d9c7e351, type: 2}
 --- !u!114 &3346322341716874633
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -5366,6 +5372,32 @@ MonoBehaviour:
     _riseDistance: 0.8
     _duration: 0.5
     _fadeStartRate: 0.4
+--- !u!114 &7310482956127384501
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1825699444668748530}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 45df938d82ffd8c31e9aa9401331962f, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CS_PlayerSpecialGaugeUI
+  ShowTopMostFoldoutHeaderGroup: 1
+--- !u!114 &2849163057284619302
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1825699444668748530}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6a9f89c3023c9cca3910926b1f5b4b77, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CS_PlayerItemSlotUI
+  ShowTopMostFoldoutHeaderGroup: 1
 --- !u!1 &3298430547158640491
 GameObject:
   m_ObjectHideFlags: 0

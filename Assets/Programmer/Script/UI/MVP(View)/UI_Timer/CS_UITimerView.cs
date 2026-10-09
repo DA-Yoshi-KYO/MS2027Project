@@ -29,7 +29,7 @@ public class CS_UITimerView : CS_BaseView<CS_UITimerPresenter>
         int seconds = totalSec % 60;
 
         // 00:00 形式で表示
-        _timerText.text = $"{minutes:D2}:{seconds:D2}";
+        _timerText.text = $"{minutes:D1}:{seconds:D2}";
     }
 
 }

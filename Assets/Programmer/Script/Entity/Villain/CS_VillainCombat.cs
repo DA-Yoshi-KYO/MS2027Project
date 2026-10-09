@@ -32,6 +32,7 @@ using UnityEngine.AI;
  *   ・Areaが無い場合は警告を出し、路地裏判定を行わない(距離の判定だけになる)
  *   ・ジャンプ中などで足元にNavMeshが見つからない時は、直前の判定結果を使う
  *   ・出入口で行ったり来たりされても追跡と帰還が切り替わり続けないよう、外に出てから一定時間待つ
+ *   ・ランダムイベントで生成された悪人は、イベントの範囲(SetEventArea)の中も路地裏として扱う
  * ・isEngagedがtrueの間は犯罪の手を止める(犯罪の進行側から参照する想定)
  * ・攻撃の流れ
  *   ターゲットまで attackStartDistance 以内に近づくと攻撃を始める
@@ -158,6 +159,9 @@ public class CS_VillainCombat : NetworkBehaviour
     private int _alleyAreaMask;           // 路地裏AreaのNavMeshエリアマスク。0なら路地裏判定を行わない
     private bool _isTargetInAlley;        // 直前のターゲットの路地裏判定(足元のNavMeshが見つからない時に使う)
     private float _outsideAlleyTime;      // ターゲットが路地裏の外に出てからの時間
+    private bool _hasEventArea;           // ランダムイベントの範囲を路地裏として扱うか
+    private Vector3 _eventAreaCenter;     // ランダムイベントの範囲の中心
+    private float _eventAreaRadius;       // ランダムイベントの範囲の半径(水平方向)
 
     public bool isEngaged => _state == State.Chase || _state == State.Attack;   // 臨戦態勢中か
     public bool isCommittingCrime => enabled && _state == State.Idle;             // スポーン位置で犯罪を進めているか
@@ -223,6 +227,15 @@ public class CS_VillainCombat : NetworkBehaviour
     public void SetGroup(CS_VillainGroup group)
     {
         _group = group;
+    }
+
+    // ランダムイベントの範囲(中心から水平に半径radius)を路地裏として扱う(イベントで生成した悪人に、生成直後に呼ぶ)
+    // 範囲の中にいる標的は、路地裏(Alley)のNavMeshの上でなくても路地裏にいるとみなす
+    public void SetEventArea(Vector3 center, float radius)
+    {
+        _hasEventArea = true;
+        _eventAreaCenter = center;
+        _eventAreaRadius = radius;
     }
 
     private void FixedUpdate()
@@ -543,7 +556,7 @@ public class CS_VillainCombat : NetworkBehaviour
     // ターゲットが路地裏の外に出てから、あきらめる時間がたったか
     private bool HasTargetLeftAlley()
     {
-        if (_alleyAreaMask == 0) return false;
+        if (_alleyAreaMask == 0 && !_hasEventArea) return false;
 
         if (IsTargetInAlley())
         {
@@ -555,9 +568,16 @@ public class CS_VillainCombat : NetworkBehaviour
         return _outsideAlleyTime >= _leaveAlleyGiveUpTime;
     }
 
-    // ターゲットの足元のNavMeshが路地裏Areaか
+    // ターゲットが路地裏にいるか(ランダムイベントの範囲の中、または足元のNavMeshが路地裏Area)
     private bool IsTargetInAlley()
     {
+        if (IsTargetInEventArea())
+        {
+            _isTargetInAlley = true;
+            return true;
+        }
+        if (_alleyAreaMask == 0) return false;
+
         // ジャンプ中などで足元にNavMeshが見つからない時は、直前の判定結果を使う
         if (!NavMesh.SamplePosition(_target.position, out NavMeshHit hit, _areaSampleRadius, NavMesh.AllAreas))
         {
@@ -566,6 +586,15 @@ public class CS_VillainCombat : NetworkBehaviour
 
         _isTargetInAlley = (hit.mask & _alleyAreaMask) != 0;
         return _isTargetInAlley;
+    }
+
+    private bool IsTargetInEventArea()
+    {
+        if (!_hasEventArea) return false;
+
+        Vector3 offset = _target.position - _eventAreaCenter;
+        offset.y = 0f;
+        return offset.sqrMagnitude <= _eventAreaRadius * _eventAreaRadius;
     }
 
     private bool IsTooFarFromHome()

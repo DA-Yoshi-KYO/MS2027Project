@@ -11,7 +11,7 @@ using R3;
 /// <summary>
 /// 必殺技ゲージ（Special Gauge）のPresenter
 /// ・ローカルプレイヤーの番号と一致したら表示する
-/// ・_playerNumber の指定不要（Model の localPlayerNumber を使う）
+/// ・Bind 時にアイコンをセットする
 /// </summary>
 public class CS_UISpecialGaugePresenter : CS_BasePresenter
 {
@@ -41,7 +41,11 @@ public class CS_UISpecialGaugePresenter : CS_BasePresenter
         // すでに Bind 済みのローカルプレイヤーの Model があれば即購読
         int localNumber = CS_UISpecialGaugeModel.localPlayerNumber;
         if (localNumber >= 0 && CS_UISpecialGaugeModel.TryGet(localNumber, out var model))
+        {
+            // ★ アイコンをセット
+            _view.SetupIcon(localNumber);
             BindModel(model);
+        }
     }
 
     void OnDisable()
@@ -57,9 +61,11 @@ public class CS_UISpecialGaugePresenter : CS_BasePresenter
 
     private void HandleBound(int playerNumber, CS_UISpecialGaugeModel model)
     {
-        // ローカルプレイヤーの番号と一致したら表示
-        if (playerNumber == CS_UISpecialGaugeModel.localPlayerNumber)
-            BindModel(model);
+        if (playerNumber != CS_UISpecialGaugeModel.localPlayerNumber) return;
+
+        // ★ アイコンをセット
+        _view.SetupIcon(playerNumber);
+        BindModel(model);
     }
 
     private void HandleUnbound(int playerNumber)
@@ -92,4 +98,3 @@ public class CS_UISpecialGaugePresenter : CS_BasePresenter
         base.OnDestroy();
     }
 }
-

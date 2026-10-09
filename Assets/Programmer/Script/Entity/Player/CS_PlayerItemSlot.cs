@@ -24,6 +24,7 @@ using UnityEngine;
  *      リモートクライアントの手元では「自分が何を持っているか」を知る手段がまだない
  *   → 他クライアントにも見せたい場合は、アイテムをIDで持つレジストリ的な仕組みが必要
  *      (ClaudeUsers/ItemSlot実装ガイド.md参照。アイテム担当と要相談)
+ * ・使用ボタンはケアパッケージなどの操作(CS_PlayerInteractor)と同じボタン。操作できるものの近くでは使用しない
  * ・使用ボタン(UseItem)はデザイナーからのキーバインド仕様に無かったため、
  *   暫定でF / コントローラーRBに割り当てている(要確認)
  */
@@ -33,6 +34,7 @@ using UnityEngine;
 public class CS_PlayerItemSlot : NetworkBehaviour, ICarriableItemHolder
 {
     private CS_Player _player;
+    private CS_PlayerInteractor _interactor;   // ケアパッケージなどの操作(同じボタンを使う)。付いていなければnull
     private CSO_ItemDataCarriable _heldItem;
 
     public bool hasItem => _heldItem != null;
@@ -43,6 +45,7 @@ public class CS_PlayerItemSlot : NetworkBehaviour, ICarriableItemHolder
     private void Awake()
     {
         _player = GetComponent<CS_Player>();
+        _interactor = GetComponent<CS_PlayerInteractor>();
     }
 
     private void Update()
@@ -50,6 +53,7 @@ public class CS_PlayerItemSlot : NetworkBehaviour, ICarriableItemHolder
         if (!_player.canAct) return;
         if (!hasItem) return;
         if (!_player.useItemAction.WasPressedThisFrame()) return;
+        if (_interactor != null && _interactor.hasInteractTarget) return;   // 操作できるもの(ケアパッケージなど)の近くでは、アイテムを使わず操作を優先する
 
         RequestUseItem();
     }

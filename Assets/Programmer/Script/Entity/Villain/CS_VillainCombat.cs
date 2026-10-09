@@ -33,6 +33,8 @@ using UnityEngine.AI;
  *   ・ジャンプ中などで足元にNavMeshが見つからない時は、直前の判定結果を使う
  *   ・出入口で行ったり来たりされても追跡と帰還が切り替わり続けないよう、外に出てから一定時間待つ
  *   ・ランダムイベントで生成された悪人は、イベントの範囲(SetEventArea)の中も路地裏として扱う
+ *   ・レイドのボス(SetEventAreaのconfineがtrue)は範囲の中に留まる
+ *     範囲の中の標的に反応し、範囲の外の標的は見つけない。追いかける時も範囲の外へは出ない
  * ・isEngagedがtrueの間は犯罪の手を止める(犯罪の進行側から参照する想定)
  * ・攻撃の流れ
  *   ターゲットまで attackStartDistance 以内に近づくと攻撃を始める
@@ -162,6 +164,7 @@ public class CS_VillainCombat : NetworkBehaviour
     private bool _hasEventArea;           // ランダムイベントの範囲を路地裏として扱うか
     private Vector3 _eventAreaCenter;     // ランダムイベントの範囲の中心
     private float _eventAreaRadius;       // ランダムイベントの範囲の半径(水平方向)
+    private bool _isConfinedToEventArea;  // ランダムイベントの範囲の中に留まるか(レイドのボス)
 
     public bool isEngaged => _state == State.Chase || _state == State.Attack;   // 臨戦態勢中か
     public bool isCommittingCrime => enabled && _state == State.Idle;             // スポーン位置で犯罪を進めているか
@@ -178,6 +181,12 @@ public class CS_VillainCombat : NetworkBehaviour
     private bool hasAuthority => !IsSpawned || IsServer;
 
     private float moveSpeed => _playerBaseStats.moveSpeed * _stats.moveSpeedMultiplier;
+
+    // 臨戦態勢になる範囲。範囲の中に留まる悪人(レイドのボス)は、イベントの範囲全体を見る
+    // (範囲の外の標的はFindNearestPlayer / FindNearestHologramで外す)
+    private float engageRange => _isConfinedToEventArea
+        ? Vector3.Distance(transform.position, _eventAreaCenter) + _eventAreaRadius
+        : _stats.engageRange;
     private bool isTargetHologram => _target != null && _targetPlayer == null;   // 陽動ホログラムを狙っているか
 
     private void Awake()
@@ -231,11 +240,15 @@ public class CS_VillainCombat : NetworkBehaviour
 
     // ランダムイベントの範囲(中心から水平に半径radius)を路地裏として扱う(イベントで生成した悪人に、生成直後に呼ぶ)
     // 範囲の中にいる標的は、路地裏(Alley)のNavMeshの上でなくても路地裏にいるとみなす
-    public void SetEventArea(Vector3 center, float radius)
+    // confine: 範囲の中に留まる(レイドのボス用)
+    //   臨戦態勢範囲の代わりに、範囲の中にいる標的に反応し、範囲の外の標的は見つけない(攻撃されても追わない)
+    //   追いかける時も範囲の外へは出ない
+    public void SetEventArea(Vector3 center, float radius, bool confine = false)
     {
         _hasEventArea = true;
         _eventAreaCenter = center;
         _eventAreaRadius = radius;
+        _isConfinedToEventArea = confine;
     }
 
     private void FixedUpdate()
@@ -266,7 +279,7 @@ public class CS_VillainCombat : NetworkBehaviour
     private void UpdateChase()
     {
         // 標的が倒れた・ホログラムが消えた時は、近くに別の標的がいればそちらを狙う
-        if (!IsTargetValid() && TryEngageInRange(_stats.engageRange, true)) return;
+        if (!IsTargetValid() && TryEngageInRange(engageRange, true)) return;
 
         if (!IsTargetValid() || HasTargetLeftAlley() || IsTooFarFromHome())
         {
@@ -288,7 +301,7 @@ public class CS_VillainCombat : NetworkBehaviour
 
         if (toTarget.magnitude > _attackStartDistance)
         {
-            _move.MoveTo(_target.position, moveSpeed);
+            _move.MoveTo(ClampToEventArea(_target.position), moveSpeed);
             return;
         }
 
@@ -415,7 +428,7 @@ public class CS_VillainCombat : NetworkBehaviour
     {
         if (!TickScanTimer()) return false;
 
-        return TryEngageInRange(_stats.engageRange, true);
+        return TryEngageInRange(engageRange, true);
     }
 
     // 一定間隔ごとに、臨戦態勢範囲に陽動ホログラムがないか確認し、あれば標的をホログラムに切り替える
@@ -423,7 +436,7 @@ public class CS_VillainCombat : NetworkBehaviour
     {
         if (!TickScanTimer()) return;
 
-        Transform hologram = FindNearestHologram(_stats.engageRange);
+        Transform hologram = FindNearestHologram(engageRange);
         if (hologram != null) SetTarget(hologram, null);
     }
 
@@ -493,6 +506,7 @@ public class CS_VillainCombat : NetworkBehaviour
             Vector3 position = hologram.transform.position;
             float sqr = (position - transform.position).sqrMagnitude;
             if (sqr > nearestSqr) continue;
+            if (IsOutsideConfinedArea(position)) continue;
 
             // 煙幕の中にある・煙幕越しのホログラムは見えない
             if (CS_SmokeScreen.IsLineBlocked(eyePosition, position)) continue;
@@ -516,6 +530,7 @@ public class CS_VillainCombat : NetworkBehaviour
         {
             CS_PlayerHealth player = _hitBuffer[i].GetComponentInParent<CS_PlayerHealth>();
             if (!IsValidTarget(player)) continue;
+            if (IsOutsideConfinedArea(player.transform.position)) continue;
 
             // 煙幕の中にいる標的・煙幕越しの標的は見えない(近くにいても気付かない)
             if (CS_SmokeScreen.IsLineBlocked(eyePosition, _hitBuffer[i].bounds.center)) continue;
@@ -590,11 +605,36 @@ public class CS_VillainCombat : NetworkBehaviour
 
     private bool IsTargetInEventArea()
     {
-        if (!_hasEventArea) return false;
+        return _hasEventArea && IsInEventArea(_target.position);
+    }
 
-        Vector3 offset = _target.position - _eventAreaCenter;
+    // 位置がランダムイベントの範囲の中か(水平方向)
+    private bool IsInEventArea(Vector3 position)
+    {
+        Vector3 offset = position - _eventAreaCenter;
         offset.y = 0f;
         return offset.sqrMagnitude <= _eventAreaRadius * _eventAreaRadius;
+    }
+
+    // 範囲の中に留まる悪人(レイドのボス)は、目的地を範囲の中に収める(範囲の外へは追わない)
+    private Vector3 ClampToEventArea(Vector3 destination)
+    {
+        if (!_isConfinedToEventArea) return destination;
+
+        Vector3 offset = destination - _eventAreaCenter;
+        float height = offset.y;
+        offset.y = 0f;
+        if (offset.sqrMagnitude <= _eventAreaRadius * _eventAreaRadius) return destination;
+
+        Vector3 clamped = _eventAreaCenter + offset.normalized * _eventAreaRadius;
+        clamped.y = _eventAreaCenter.y + height;
+        return clamped;
+    }
+
+    // 標的が範囲の外にいて、見つけてはいけないか(範囲の中に留まる悪人のみ)
+    private bool IsOutsideConfinedArea(Vector3 position)
+    {
+        return _isConfinedToEventArea && !IsInEventArea(position);
     }
 
     private bool IsTooFarFromHome()

@@ -21,6 +21,8 @@ using UnityEngine;
  *   2. onDefeated / onAnyVillainDefeated を呼ぶ
  *      → スコア加算はスコア側がonAnyVillainDefeatedを購読して行う
  *   3. ネットワーク時はDespawn、オフライン時はDestroyする
+ * ・攻撃者付きのTakeDamage(damage, attacker)で受けると、onDamagedByで「誰が・実際にどれだけ減らしたか」を知らせる
+ *   (攻撃者無しのTakeDamage(damage)はattackerがnullになる)。レイドのボスの貢献度の記録に使う
  * ・CS_VillainStatsより後に初期化する必要があるため、
  *   コンポーネントはCS_VillainStatsより下にアタッチする(RequireComponentで自動追加した場合はそうなる)
  */
@@ -43,6 +45,7 @@ public class CS_VillainHealth : NetworkBehaviour, IDamageable
     public event Action<float, float> onHpChanged;   // (current, max)
     public event Action onDamaged;                    // ダメージを受けた時(サーバーのみ)。反撃の開始に使う
     public event Action onDefeated;                   // この悪人が撃退された時(サーバーのみ)
+    public event Action<GameObject, float> onDamagedBy;   // (攻撃者 / 分からなければnull, 実際に減ったHP)。撃退より先に呼ばれる(サーバーのみ)
 
     // どの悪人が撃退されても呼ばれる(サーバーのみ)。スコア加算など、悪人全体を見る側の購読用
     public static event Action<CS_VillainHealth> onAnyVillainDefeated;
@@ -81,12 +84,22 @@ public class CS_VillainHealth : NetworkBehaviour, IDamageable
     // IDamageable実装。攻撃側から呼ばれる(サーバー、またはオフラインで実行される想定)
     public void TakeDamage(float damage)
     {
+        TakeDamage(damage, null);
+    }
+
+    // IDamageable実装(攻撃者付き)。プレイヤーの攻撃などは、こちらで攻撃者を渡してくる
+    // attackerが分からないダメージ(nullの時)もHPは減る
+    public void TakeDamage(float damage, GameObject attacker)
+    {
         // ネットワーク時はサーバーのみが処理する(オフラインはそのまま通す)
         if (IsSpawned && !IsServer) return;
         if (_isDefeated) return;
         if (damage <= 0f) return;
 
+        // 実際に減ったHP(残りHPを超えた分は含めない)を、攻撃者付きで知らせる(レイドの貢献度の記録などに使う)
+        float appliedDamage = Mathf.Min(damage, _currentHp.Value);
         _currentHp.Value = Mathf.Max(0f, _currentHp.Value - damage);
+        onDamagedBy?.Invoke(attacker, appliedDamage);
 
         if (_currentHp.Value <= 0f)
         {

@@ -174,6 +174,8 @@ public class CS_VillainSpawner : MonoBehaviour
     {
         foreach (CS_VillainGroup group in groups)
         {
+            if (!group.usesTimeScaling) continue;   // レイドのボスなど、固定のステータスのグループ
+
             foreach (CS_VillainCrime member in group.members)
             {
                 if (member != null) ApplyStage(member, stage);
@@ -219,19 +221,27 @@ public class CS_VillainSpawner : MonoBehaviour
     // ランダムイベントから呼ぶ(サーバー、またはオフライン)。スポーン位置を使わずに、centerの周りにグループを生成する
     // 通常のグループ数(プレイヤーの数 + 追加グループ数)には数えず、犯罪も進めない(完遂はイベント側でCompleteCrimeを呼ぶ)
     // memberCount: 1グループの人数。0以下なら、経過時間の段階の人数(段階が無ければ minMembers 〜 maxMembers)
-    public CS_VillainGroup SpawnEventGroup(Vector3 center, float memberRadius, int memberCount)
+    // prefab: 生成する悪人のプレハブ(nullなら villainPrefabs からランダム。レイドのボスなどは専用のプレハブを渡す)
+    // usesTimeScaling: 時間経過の段階で人数・ステータスを変えるか(falseならプレハブのBase Statsのまま)
+    public CS_VillainGroup SpawnEventGroup(Vector3 center, float memberRadius, int memberCount,
+        NetworkObject prefab = null, bool usesTimeScaling = true)
     {
-        if (!hasAuthority || !HasValidPrefabs()) return null;
+        if (!hasAuthority) return null;
+        if (prefab == null && !HasValidPrefabs()) return null;
 
-        CS_VillainGroup group = new CS_VillainGroup(null, _maxAttackersPerGroup);
-        CSO_VillainTimeScaling.Stage stage = _timeScaling != null ? _timeScaling.GetStage(GetElapsedTime()) : null;
+        CS_VillainGroup group = new CS_VillainGroup(null, _maxAttackersPerGroup, usesTimeScaling);
+        CSO_VillainTimeScaling.Stage stage = usesTimeScaling && _timeScaling != null ? _timeScaling.GetStage(GetElapsedTime()) : null;
         if (memberCount <= 0) memberCount = stage != null ? stage.memberCount : Random.Range(_minMembers, _maxMembers + 1);
 
         for (int i = 0; i < memberCount; i++)
         {
-            float angle = 360f / memberCount * i;
-            Vector3 position = center + Quaternion.Euler(0f, angle, 0f) * Vector3.forward * memberRadius;
-            NetworkObject villain = SpawnVillain(SnapToNavMesh(position), center, stage);
+            Vector3 position = center;
+            if (memberCount > 1)
+            {
+                float angle = 360f / memberCount * i;
+                position += Quaternion.Euler(0f, angle, 0f) * Vector3.forward * memberRadius;
+            }
+            NetworkObject villain = SpawnVillain(SnapToNavMesh(position), center, stage, prefab);
             group.AddMember(villain.GetComponent<CS_VillainCrime>());
         }
 
@@ -315,9 +325,10 @@ public class CS_VillainSpawner : MonoBehaviour
     }
 
     // 悪人を1人生成する。グループの中心(犯罪を行う場所)を向かせる
-    private NetworkObject SpawnVillain(Vector3 position, Vector3 center, CSO_VillainTimeScaling.Stage stage)
+    // prefabがnullなら villainPrefabs からランダムに選ぶ
+    private NetworkObject SpawnVillain(Vector3 position, Vector3 center, CSO_VillainTimeScaling.Stage stage, NetworkObject prefab = null)
     {
-        NetworkObject prefab = _villainPrefabs[Random.Range(0, _villainPrefabs.Length)];
+        if (prefab == null) prefab = _villainPrefabs[Random.Range(0, _villainPrefabs.Length)];
 
         Vector3 lookDirection = center - position;
         lookDirection.y = 0f;

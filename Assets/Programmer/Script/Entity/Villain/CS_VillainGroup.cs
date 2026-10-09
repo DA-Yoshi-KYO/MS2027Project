@@ -34,12 +34,14 @@ public class CS_VillainGroup
     private readonly List<CS_VillainCrime> _members = new List<CS_VillainCrime>();
     private readonly HashSet<CS_VillainCombat> _attackers = new HashSet<CS_VillainCombat>();   // 攻撃枠を持っているメンバー
     private readonly int _maxAttackers;
+    private readonly bool _usesTimeScaling;
     private float _crimeElapsed;
     private bool _isCrimeCompleted;
 
     public CS_VillainSpawnPoint spawnPoint => _spawnPoint;
     public bool isCrimeCompleted => _isCrimeCompleted;
-    public IReadOnlyList<CS_VillainCrime> members => _members;   // 撃退・逃走で消えたメンバーはnullになっている
+    public IReadOnlyList<CS_VillainCrime> members => _members;
+    public bool usesTimeScaling => _usesTimeScaling;   // 時間経過の段階でステータスを変えるか   // 撃退・逃走で消えたメンバーはnullになっている
 
     // Destroyされたメンバーはnull扱いになるので、1人でも残っていれば生存
     public bool isAlive => _members.Exists(member => member != null);
@@ -57,10 +59,12 @@ public class CS_VillainGroup
     // どのグループが犯罪を完遂しても呼ばれる(サーバーのみ)。スコア側の購読用
     public static event Action<CS_VillainGroup> onAnyCrimeCompleted;
 
-    public CS_VillainGroup(CS_VillainSpawnPoint spawnPoint, int maxAttackers)
+    // usesTimeScaling: 時間経過の段階でステータスを変えるか(レイドのボスなど、固定のステータスのグループはfalse)
+    public CS_VillainGroup(CS_VillainSpawnPoint spawnPoint, int maxAttackers, bool usesTimeScaling = true)
     {
         _spawnPoint = spawnPoint;
         _maxAttackers = maxAttackers;
+        _usesTimeScaling = usesTimeScaling;
     }
 
     public void AddMember(CS_VillainCrime member)

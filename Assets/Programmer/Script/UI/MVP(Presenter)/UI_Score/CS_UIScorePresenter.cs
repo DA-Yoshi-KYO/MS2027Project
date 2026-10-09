@@ -9,7 +9,7 @@
 /// <summary>
 /// スコアの変化を View に通知する
 /// ・全員分のランキング表示（リアルタイム更新）
-/// ・自分のスコア表示は削除済み
+/// ・必殺技ゲージ満タン状態の変化も受け取る
 /// </summary>
 public class CS_UIScorePresenter : CS_BasePresenter
 {
@@ -32,6 +32,7 @@ public class CS_UIScorePresenter : CS_BasePresenter
     void OnEnable()
     {
         CS_UIScoreModel.OnRankingUpdated += HandleRankingUpdated;
+        CS_UISpecialGaugeModel.OnGaugeFullChanged += HandleGaugeFullChanged; // ★ 追加
 
         // 初期表示
         HandleRankingUpdated();
@@ -40,6 +41,7 @@ public class CS_UIScorePresenter : CS_BasePresenter
     void OnDisable()
     {
         CS_UIScoreModel.OnRankingUpdated -= HandleRankingUpdated;
+        CS_UISpecialGaugeModel.OnGaugeFullChanged -= HandleGaugeFullChanged; // ★ 追加
     }
 
     // =========================================================
@@ -49,6 +51,15 @@ public class CS_UIScorePresenter : CS_BasePresenter
     private void HandleRankingUpdated()
     {
         _view.UpdateRanking(CS_UIScoreModel.GetRanking());
+    }
+
+    // =========================================================
+    // ★ 必殺技ゲージ満タン状態の変化
+    // =========================================================
+
+    private void HandleGaugeFullChanged(int playerNumber, bool isFull)
+    {
+        _view.UpdateIconColor(playerNumber, isFull);
     }
 
     // =========================================================

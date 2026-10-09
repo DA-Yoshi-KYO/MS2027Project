@@ -11,7 +11,8 @@ using UnityEngine;
 
 /// <summary>
 /// スコアの表示を担当する View
-/// ・全員分のスコア表示（リアルタイム更新）
+/// ・全員分のランキング表示（リアルタイム更新）
+/// ・必殺技ゲージ満タン時にアイコンの色を変える
 /// </summary>
 public class CS_UIScoreView : CS_BaseView<CS_UIScorePresenter>
 {
@@ -20,13 +21,15 @@ public class CS_UIScoreView : CS_BaseView<CS_UIScorePresenter>
     // =========================================================
 
     [Header("ランキング表示")]
-    [SerializeField] private Transform _scoreRoot;       // スコアアイテムの親
-    [SerializeField] private GameObject _scoreItemPrefab; // CS_UIScoreItemView を持つ Prefab
+    [SerializeField] private Transform _rankingRoot;
+    [SerializeField] private GameObject _rankingItemPrefab;
 
     // =========================================================
     // 内部フィールド
     // =========================================================
 
+    // playerNumber → RankingItemView のマップ
+    private readonly Dictionary<int, CS_UIScoreItemView> _rankingItemMap = new();
     private readonly List<CS_UIScoreItemView> _rankingItems = new();
 
     // =========================================================
@@ -39,27 +42,31 @@ public class CS_UIScoreView : CS_BaseView<CS_UIScorePresenter>
     }
 
     // =========================================================
-    // スコア表示（リアルタイム更新）
+    // ランキング表示（リアルタイム更新）
     // =========================================================
 
-    /// <summary>
-    /// 全員分のスコアを更新する
-    /// Presenter から渡されるリストはスコア降順にソート済み
-    /// </summary>
     public void UpdateRanking(List<(int playerNumber, int score)> ranking)
     {
-        // 人数分のアイテムを確保
-        EnsureScoreItems(ranking.Count);
+        EnsureRankingItems(ranking.Count);
+
+        // playerNumber → RankingItemView のマップを更新
+        _rankingItemMap.Clear();
 
         for (int i = 0; i < ranking.Count; i++)
         {
             var (playerNumber, score) = ranking[i];
-            _rankingItems[i].UpdateView(
+            var item = _rankingItems[i];
+
+            item.UpdateView(
                 rank: i + 1,
                 playerNumber: playerNumber,
-                score: score
+                score: score,
+                isFull: CS_UISpecialGaugeModel.IsFull(playerNumber) // ★ 満タン状態を渡す
             );
-            _rankingItems[i].gameObject.SetActive(true);
+            item.gameObject.SetActive(true);
+
+            // ★ playerNumber と item を紐づける
+            _rankingItemMap[playerNumber] = item;
         }
 
         // 余分なアイテムを非表示
@@ -68,14 +75,24 @@ public class CS_UIScoreView : CS_BaseView<CS_UIScorePresenter>
     }
 
     // =========================================================
-    // スコアアイテム管理
+    // ★ アイコンの色を更新（満タン状態が変わったとき）
     // =========================================================
 
-    private void EnsureScoreItems(int count)
+    public void UpdateIconColor(int playerNumber, bool isFull)
+    {
+        if (_rankingItemMap.TryGetValue(playerNumber, out var item))
+            item.SetIconFull(isFull);
+    }
+
+    // =========================================================
+    // ランキングアイテム管理
+    // =========================================================
+
+    private void EnsureRankingItems(int count)
     {
         while (_rankingItems.Count < count)
         {
-            var go = Instantiate(_scoreItemPrefab, _scoreRoot);
+            var go = Instantiate(_rankingItemPrefab, _rankingRoot);
             var item = go.GetComponent<CS_UIScoreItemView>();
             _rankingItems.Add(item);
         }
@@ -92,5 +109,6 @@ public class CS_UIScoreView : CS_BaseView<CS_UIScorePresenter>
             if (item != null) Destroy(item.gameObject);
         }
         _rankingItems.Clear();
+        _rankingItemMap.Clear();
     }
 }

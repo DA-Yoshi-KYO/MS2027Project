@@ -15,7 +15,7 @@ using UnityEngine;
 /// プレイヤーごとの必殺技ゲージ（Special Gauge）を保持するModel
 /// ・Bind(playerNumber) で公開する
 /// ・SetLocalPlayerNumber() でローカルプレイヤーの番号を登録する
-/// ・Presenter はローカルプレイヤーの番号と一致したら表示する
+/// ・全員分の満タン状態を static で管理する
 /// </summary>
 public class CS_UISpecialGaugeModel : CS_BaseModel
 {
@@ -25,7 +25,7 @@ public class CS_UISpecialGaugeModel : CS_BaseModel
 
     private static readonly Dictionary<int, CS_UISpecialGaugeModel> _boundModels = new();
 
-    // ローカルプレイヤーの番号（自分の番号）
+    // ローカルプレイヤーの番号
     private static int _localPlayerNumber = -1;
 
     // Bind された時の通知（番号, Model）
@@ -34,22 +34,29 @@ public class CS_UISpecialGaugeModel : CS_BaseModel
     // Bind が外れた時の通知（番号）
     public static event Action<int> OnUnbound;
 
+    // ★ 満タン状態が変わった時の通知（playerNumber, isFull）
+    public static event Action<int, bool> OnGaugeFullChanged;
+
     // 指定番号の Model を取得する
     public static bool TryGet(int playerNumber, out CS_UISpecialGaugeModel model)
         => _boundModels.TryGetValue(playerNumber, out model);
 
-    /// <summary>
-    /// ローカルプレイヤーの番号を登録する
-    /// IsOwner のプレイヤーが OnNetworkSpawn で呼ぶ
-    /// </summary>
+    /// <summary>ローカルプレイヤーの番号を登録する</summary>
     public static void SetLocalPlayerNumber(int playerNumber)
     {
         _localPlayerNumber = playerNumber;
-        Debug.Log($"[CS_UISpecialGaugeModel] LocalPlayerNumber = {playerNumber}");
     }
 
     /// <summary>ローカルプレイヤーの番号を取得する</summary>
     public static int localPlayerNumber => _localPlayerNumber;
+
+    /// <summary>指定プレイヤーの満タン状態を取得する</summary>
+    public static bool IsFull(int playerNumber)
+    {
+        if (_boundModels.TryGetValue(playerNumber, out var model))
+            return model.isFull;
+        return false;
+    }
 
     // Domain Reload 対策
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
@@ -59,6 +66,7 @@ public class CS_UISpecialGaugeModel : CS_BaseModel
         _localPlayerNumber = -1;
         OnBound = null;
         OnUnbound = null;
+        OnGaugeFullChanged = null;
     }
 
     // =========================================================
@@ -69,7 +77,11 @@ public class CS_UISpecialGaugeModel : CS_BaseModel
     public ReadOnlyReactiveProperty<float> currentGauge => _currentGauge;
     public float maxGauge { get; private set; }
 
+    // ★ 満タン状態
+    public bool isFull => _currentGauge.Value >= maxGauge;
+
     private int _playerNumber = -1;
+    private bool _wasFullPrev = false; // 前フレームの満タン状態
 
     public CS_UISpecialGaugeModel(float maxGauge, float initGauge)
     {
@@ -108,6 +120,15 @@ public class CS_UISpecialGaugeModel : CS_BaseModel
     public void SetGauge(float value)
     {
         _currentGauge.Value = Mathf.Clamp(value, 0f, maxGauge);
+
+        // ★ 満タン状態が変わったら通知
+        bool isFull = this.isFull;
+        if (isFull != _wasFullPrev)
+        {
+            _wasFullPrev = isFull;
+            if (_playerNumber >= 0)
+                OnGaugeFullChanged?.Invoke(_playerNumber, isFull);
+        }
     }
 
     public void AddGauge(float value)

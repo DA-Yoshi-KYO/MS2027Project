@@ -15,6 +15,7 @@ using UnityEngine;
 /// サーバー時刻を基準に残り時間を管理するController。
 /// ・Inspectorから通常の残り時間通知を追加できる
 /// ・最後の数秒は1つの通知を5、4、3、2、1と更新できる
+/// ・オフラインでは通常シーン遷移の直前にリザルトを保存する
 /// </summary>
 public class CS_TimerController : NetworkBehaviour
 {
@@ -150,6 +151,15 @@ public class CS_TimerController : NetworkBehaviour
             _isFinished = true;
             _notificationController?.HideCountdown();
 
+            // オフラインではNetworkManager.SceneManager.OnSceneEventが
+            // 発生しないため、通常のシーン遷移より先に保存する。
+            if (!IsOnline())
+            {
+                CS_ResultDataStore.Save(
+                    CS_PlayerResultDataHolder.CollectResults()
+                );
+            }
+
             if (_sceneTransitioner != null)
                 _sceneTransitioner.StartTransition();
         }
@@ -257,6 +267,10 @@ public class CS_TimerController : NetworkBehaviour
         return !IsOnline() || IsServer;
     }
 
+    /// <summary>
+    /// NetworkManager.SceneManagerによるオンラインシーン移動時に、
+    /// 各クライアントが自分のResultDataStoreへ保存する。
+    /// </summary>
     private void HandleSceneEvent(SceneEvent sceneEvent)
     {
         if (sceneEvent.SceneEventType != SceneEventType.Load)

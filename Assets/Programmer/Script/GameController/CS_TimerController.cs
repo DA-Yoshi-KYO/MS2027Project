@@ -7,6 +7,7 @@
  * ================================================ */
 
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using Unity.Netcode;
 using UnityEngine;
@@ -15,10 +16,15 @@ using UnityEngine;
 /// サーバー時刻を基準に残り時間を管理するController。
 /// ・Inspectorから通常の残り時間通知を追加できる
 /// ・最後の数秒は1つの通知を5、4、3、2、1と更新できる
-/// ・オフラインでは通常シーン遷移の直前にリザルトを保存する
+/// ・オフラインでは遷移直前にリザルトを保存する
+/// ・オンラインではRPCで各端末へ保存を指示してから全員で遷移する
 /// </summary>
 public class CS_TimerController : NetworkBehaviour
 {
+    // =========================================================
+    // Inspector用データ
+    // =========================================================
+
     [Serializable]
     private class TimeNotificationSetting
     {
@@ -44,6 +50,10 @@ public class CS_TimerController : NetworkBehaviour
         }
     }
 
+    // =========================================================
+    // Inspector
+    // =========================================================
+
     [Header("タイマーの最大時間（秒）")]
     [Min(1f)]
     [SerializeField] private float _maxTime = 300f;
@@ -60,6 +70,10 @@ public class CS_TimerController : NetworkBehaviour
     [Min(1)]
     [SerializeField] private int _countdownStartSeconds = 5;
 
+    // =========================================================
+    // NetworkVariable
+    // =========================================================
+
     private readonly NetworkVariable<double> _endTime =
         new NetworkVariable<double>(
             0d,
@@ -67,13 +81,22 @@ public class CS_TimerController : NetworkBehaviour
             NetworkVariableWritePermission.Server
         );
 
+    // =========================================================
+    // 内部フィールド
+    // =========================================================
+
     private CS_UITimerModel _timerModel;
     private CS_SceneTransitioner _sceneTransitioner;
 
     private bool _isFinished;
+    private bool _hasSavedResults;
     private double _offlineEndTime;
     private float _previousRemainTime;
     private int _previousCountdownSecond = -1;
+
+    // =========================================================
+    // 初期化
+    // =========================================================
 
     private void Awake()
     {
@@ -117,6 +140,7 @@ public class CS_TimerController : NetworkBehaviour
         if (IsServer)
             _endTime.Value = NetworkManager.ServerTime.Time + _maxTime;
 
+        // RPC保存が基本だが、既存のSceneEvent保存も予備として残す。
         if (NetworkManager != null &&
             NetworkManager.SceneManager != null)
         {
@@ -124,6 +148,7 @@ public class CS_TimerController : NetworkBehaviour
         }
 
         _previousRemainTime = _maxTime;
+        _hasSavedResults = false;
         ResetNotifications();
     }
 
@@ -132,6 +157,10 @@ public class CS_TimerController : NetworkBehaviour
         UnsubscribeSceneEvent();
         base.OnNetworkDespawn();
     }
+
+    // =========================================================
+    // Update
+    // =========================================================
 
     private void Update()
     {
@@ -151,19 +180,65 @@ public class CS_TimerController : NetworkBehaviour
             _isFinished = true;
             _notificationController?.HideCountdown();
 
-            // オフラインではNetworkManager.SceneManager.OnSceneEventが
-            // 発生しないため、通常のシーン遷移より先に保存する。
-            if (!IsOnline())
+            if (IsOnline())
             {
-                CS_ResultDataStore.Save(
-                    CS_PlayerResultDataHolder.CollectResults()
-                );
+                // オンラインではサーバーが全端末へ保存を指示し、
+                // RPCを処理する猶予を作ってからネットワークシーン遷移する。
+                if (IsServer)
+                    StartCoroutine(SaveAndTransitionOnline());
             }
+            else
+            {
+                // オフラインではSceneEventもRPCも発生しないため、
+                // 通常のシーン遷移より先に直接保存する。
+                SaveResultsLocal();
 
-            if (_sceneTransitioner != null)
-                _sceneTransitioner.StartTransition();
+                if (_sceneTransitioner != null)
+                    _sceneTransitioner.StartTransition();
+            }
         }
     }
+
+    // =========================================================
+    // オンライン保存・遷移
+    // =========================================================
+
+    private IEnumerator SaveAndTransitionOnline()
+    {
+        // ホストを含む全クライアントで、それぞれのstatic Storeへ保存する。
+        SaveResultsRpc();
+
+        // RPCを送信・実行するための猶予を1フレーム作る。
+        yield return null;
+
+        if (_sceneTransitioner != null)
+            _sceneTransitioner.StartTransition();
+    }
+
+    [Rpc(SendTo.ClientsAndHost)]
+    private void SaveResultsRpc()
+    {
+        SaveResultsLocal();
+    }
+
+    private void SaveResultsLocal()
+    {
+        if (_hasSavedResults)
+            return;
+
+        _hasSavedResults = true;
+
+        var results = CS_PlayerResultDataHolder.CollectResults();
+        CS_ResultDataStore.Save(results);
+
+        Debug.Log(
+            "[CS_TimerController] リザルトデータを保存しました。"
+        );
+    }
+
+    // =========================================================
+    // 通常の残り時間通知
+    // =========================================================
 
     private void UpdateTimeNotifications(float remainTime)
     {
@@ -186,6 +261,10 @@ public class CS_TimerController : NetworkBehaviour
             _notificationController.ShowTimeAlert(setting.message);
         }
     }
+
+    // =========================================================
+    // 終了カウントダウン通知
+    // =========================================================
 
     private void UpdateCountdownNotification(float remainTime)
     {
@@ -210,6 +289,7 @@ public class CS_TimerController : NetworkBehaviour
             return;
 
         _previousCountdownSecond = countdownSecond;
+
         _notificationController.ShowCountdown(
             countdownSecond.ToString()
         );
@@ -222,6 +302,10 @@ public class CS_TimerController : NetworkBehaviour
 
         _previousCountdownSecond = -1;
     }
+
+    // =========================================================
+    // 外部API
+    // =========================================================
 
     public float GetRemainTime()
     {
@@ -236,6 +320,10 @@ public class CS_TimerController : NetworkBehaviour
             _maxTime
         );
     }
+
+    // =========================================================
+    // 時刻計算
+    // =========================================================
 
     private float GetRemainTimeInternal()
     {
@@ -267,18 +355,20 @@ public class CS_TimerController : NetworkBehaviour
         return !IsOnline() || IsServer;
     }
 
+    // =========================================================
+    // 既存のSceneEvent保存（予備）
+    // =========================================================
+
     /// <summary>
-    /// NetworkManager.SceneManagerによるオンラインシーン移動時に、
-    /// 各クライアントが自分のResultDataStoreへ保存する。
+    /// RPC保存が基本。
+    /// SceneEventは既存処理を残した予備経路で、二重保存はフラグで防ぐ。
     /// </summary>
     private void HandleSceneEvent(SceneEvent sceneEvent)
     {
         if (sceneEvent.SceneEventType != SceneEventType.Load)
             return;
 
-        CS_ResultDataStore.Save(
-            CS_PlayerResultDataHolder.CollectResults()
-        );
+        SaveResultsLocal();
     }
 
     private void UnsubscribeSceneEvent()
@@ -289,6 +379,10 @@ public class CS_TimerController : NetworkBehaviour
             NetworkManager.SceneManager.OnSceneEvent -= HandleSceneEvent;
         }
     }
+
+    // =========================================================
+    // OnDestroy
+    // =========================================================
 
     public override void OnDestroy()
     {

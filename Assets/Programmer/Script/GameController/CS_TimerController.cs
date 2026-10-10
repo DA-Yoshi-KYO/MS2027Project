@@ -6,225 +6,294 @@
  * 2026-09-25 | 初回作成
  * ================================================ */
 
+using System;
+using System.Collections.Generic;
 using Unity.Netcode;
 using UnityEngine;
 
 /// <summary>
-/// タイマーを管理するコントローラー
-/// ・サーバーが終了時刻を NetworkVariable で同期する
-/// ・各クライアントは ServerTime から残り時間を計算する（自分で減らさない）
-/// ・オフライン（NetworkManager が動いていないテストシーン）でも単体で動く
-/// ・経過時間・残り時間を外部から取得できる API を持つ
-/// ・時間切れの判定はサーバーだけが行う
+/// サーバー時刻を基準に残り時間を管理するController。
+/// ・Inspectorから通常の残り時間通知を追加できる
+/// ・最後の数秒は1つの通知を5、4、3、2、1と更新できる
+/// ・オフラインでは通常シーン遷移の直前にリザルトを保存する
 /// </summary>
 public class CS_TimerController : NetworkBehaviour
 {
-    // =========================================================
-    // Inspector
-    // =========================================================
+    [Serializable]
+    private class TimeNotificationSetting
+    {
+        [Min(0f)]
+        [SerializeField] private float _remainingSeconds = 60f;
+
+        [SerializeField] private string _message = "残り1分！";
+
+        [NonSerialized] private bool _hasNotified;
+
+        public float remainingSeconds => _remainingSeconds;
+        public string message => _message;
+        public bool hasNotified => _hasNotified;
+
+        public void MarkAsNotified()
+        {
+            _hasNotified = true;
+        }
+
+        public void ResetNotification()
+        {
+            _hasNotified = false;
+        }
+    }
 
     [Header("タイマーの最大時間（秒）")]
-    [SerializeField] private float _maxTime = 300f; // 5分（調整可能）
+    [Min(1f)]
+    [SerializeField] private float _maxTime = 300f;
 
-    // =========================================================
-    // NetworkVariable（サーバーが書き込み・全員に同期）
-    // =========================================================
+    [Header("通知Controller")]
+    [SerializeField] private CS_NotificationController _notificationController;
 
-    // ゲームの終了時刻（ServerTime.Time ベース）
-    // サーバーが OnNetworkSpawn で設定する
-    private readonly NetworkVariable<double> _endTime = new NetworkVariable<double>(
-        0,
-        NetworkVariableReadPermission.Everyone,
-        NetworkVariableWritePermission.Server
-    );
+    [Header("通常の残り時間通知（＋で追加可能）")]
+    [SerializeField] private List<TimeNotificationSetting> _timeNotifications = new();
 
-    // =========================================================
-    // 内部フィールド
-    // =========================================================
+    [Header("終了カウントダウン")]
+    [SerializeField] private bool _enableCountdown = true;
 
-    // タイマーのModel（UIはPresenterが自動で拾う）
+    [Min(1)]
+    [SerializeField] private int _countdownStartSeconds = 5;
+
+    private readonly NetworkVariable<double> _endTime =
+        new NetworkVariable<double>(
+            0d,
+            NetworkVariableReadPermission.Everyone,
+            NetworkVariableWritePermission.Server
+        );
+
     private CS_UITimerModel _timerModel;
-
-    // シーン遷移担当（同じオブジェクトに付ける前提）
     private CS_SceneTransitioner _sceneTransitioner;
 
-    // 終了フラグ（毎フレームシーン移動しないようにする）
     private bool _isFinished;
+    private double _offlineEndTime;
+    private float _previousRemainTime;
+    private int _previousCountdownSecond = -1;
 
-    // オフライン時の残り時間（NetworkManager が動いていない場合に使う）
-    private float _offlineRemainTime;
-
-    // =========================================================
-    // 初期化
-    // =========================================================
-
-    void Awake()
+    private void Awake()
     {
-        // タイマーModel生成
         _timerModel = new CS_UITimerModel(_maxTime);
         _timerModel.SetTime(_maxTime);
 
-        // オフライン用の残り時間を初期化
-        _offlineRemainTime = _maxTime;
+        _offlineEndTime = Time.timeAsDouble + _maxTime;
+        _previousRemainTime = _maxTime;
 
-        // 同じオブジェクトに付いている SceneTransitioner を取得
         _sceneTransitioner = GetComponent<CS_SceneTransitioner>();
 
         if (_sceneTransitioner == null)
         {
-            Debug.LogError("[CS_TimerController] 同じオブジェクトに CS_SceneTransitioner が付いていません！");
+            Debug.LogError(
+                "[CS_TimerController] " +
+                "同じGameObjectにCS_SceneTransitionerがありません。"
+            );
+        }
+
+        ResetNotifications();
+    }
+
+    private void Start()
+    {
+        if (_notificationController == null)
+        {
+#if UNITY_2023_1_OR_NEWER
+            _notificationController =
+                FindFirstObjectByType<CS_NotificationController>();
+#else
+            _notificationController =
+                FindObjectOfType<CS_NotificationController>();
+#endif
         }
     }
 
-    /// <summary>
-    /// NetworkBehaviour の OnNetworkSpawn
-    /// サーバーだけ終了時刻を設定する
-    /// </summary>
     public override void OnNetworkSpawn()
     {
         base.OnNetworkSpawn();
 
         if (IsServer)
+            _endTime.Value = NetworkManager.ServerTime.Time + _maxTime;
+
+        if (NetworkManager != null &&
+            NetworkManager.SceneManager != null)
         {
-            // サーバーが終了時刻を設定（全員に同期される）
-            _endTime.Value = GetCurrentTime() + _maxTime;
-            Debug.Log($"[CS_TimerController] 終了時刻をセット : {_endTime.Value}");
+            NetworkManager.SceneManager.OnSceneEvent += HandleSceneEvent;
         }
 
-        // 各クライアントがシーン移動イベントで保存する
-        NetworkManager.SceneManager.OnSceneEvent += HandleSceneEvent;
+        _previousRemainTime = _maxTime;
+        ResetNotifications();
     }
 
     public override void OnNetworkDespawn()
     {
+        UnsubscribeSceneEvent();
         base.OnNetworkDespawn();
-
-        // A案：購読解除
-        NetworkManager.SceneManager.OnSceneEvent -= HandleSceneEvent;
     }
 
-    // =========================================================
-    // シーン移動イベント
-    // =========================================================
-
-    private void HandleSceneEvent(SceneEvent sceneEvent)
+    private void Update()
     {
-        // シーン移動開始前（プレイヤーが消える前）に保存する
-        if (sceneEvent.SceneEventType == SceneEventType.Load)
-        {
-            CS_ResultDataStore.Save(CS_PlayerResultDataHolder.CollectResults());
-        }
-    }
+        if (_isFinished)
+            return;
 
-    // =========================================================
-    // Update
-    // =========================================================
+        float remainTime = GetRemainTimeInternal();
 
-    void Update()
-    {
-        // 終了済みなら何もしない
-        if (_isFinished) return;
+        _timerModel.SetTime(remainTime);
+        UpdateTimeNotifications(remainTime);
+        UpdateCountdownNotification(remainTime);
 
-        // 残り時間を計算
-        float remain = CalcRemainTime();
+        _previousRemainTime = remainTime;
 
-        // Model に反映（UI に届く）
-        _timerModel.SetTime(remain);
-
-        // 時間切れ判定（サーバーだけ or オフライン時）
-        if (ShouldCheckFinish() && remain <= 0f)
+        if (ShouldCheckFinish() && remainTime <= 0f)
         {
             _isFinished = true;
+            _notificationController?.HideCountdown();
 
-            // オフライン時はここで保存してシーン移動
+            // オフラインではNetworkManager.SceneManager.OnSceneEventが
+            // 発生しないため、通常のシーン遷移より先に保存する。
             if (!IsOnline())
             {
-                // オフライン：その場で保存してシーン移動
-                CS_ResultDataStore.Save(CS_PlayerResultDataHolder.CollectResults());
-                _sceneTransitioner.StartTransition();
-            }
-            else
-            {
-                // オンライン（サーバー）：全員をまとめてシーン移動
-                // 各クライアントは OnSceneEvent で保存するので
-                // ここでは Save() を呼ばない
-                _sceneTransitioner.StartTransition();
+                CS_ResultDataStore.Save(
+                    CS_PlayerResultDataHolder.CollectResults()
+                );
             }
 
-            _sceneTransitioner.StartTransition();
+            if (_sceneTransitioner != null)
+                _sceneTransitioner.StartTransition();
         }
     }
 
-    // =========================================================
-    // 外部 API（経過時間・残り時間を他のシステムから取得できる）
-    // =========================================================
+    private void UpdateTimeNotifications(float remainTime)
+    {
+        if (_notificationController == null)
+            return;
 
-    /// <summary>残り時間を取得する（ランダムイベント・悪人の時間経過で使う）</summary>
-    public float GetRemainTime() => Mathf.Max(0f, CalcRemainTime());
+        foreach (TimeNotificationSetting setting in _timeNotifications)
+        {
+            if (setting == null || setting.hasNotified)
+                continue;
 
-    /// <summary>経過時間を取得する</summary>
-    public float GetElapsedTime() => Mathf.Max(0f, _maxTime - CalcRemainTime());
+            bool crossedThreshold =
+                _previousRemainTime > setting.remainingSeconds &&
+                remainTime <= setting.remainingSeconds;
 
-    // =========================================================
-    // 内部処理
-    // =========================================================
+            if (!crossedThreshold)
+                continue;
 
-    /// <summary>
-    /// 残り時間を計算する
-    /// ・オンライン : ServerTime から計算（自分で減らさない）
-    /// ・オフライン : Time.deltaTime で減らす
-    /// </summary>
-    private float CalcRemainTime()
+            setting.MarkAsNotified();
+            _notificationController.ShowTimeAlert(setting.message);
+        }
+    }
+
+    private void UpdateCountdownNotification(float remainTime)
+    {
+        if (!_enableCountdown || _notificationController == null)
+            return;
+
+        int countdownSecond = Mathf.CeilToInt(remainTime);
+
+        if (countdownSecond <= 0)
+        {
+            if (_previousCountdownSecond != 0)
+                _notificationController.HideCountdown();
+
+            _previousCountdownSecond = 0;
+            return;
+        }
+
+        if (countdownSecond > _countdownStartSeconds)
+            return;
+
+        if (countdownSecond == _previousCountdownSecond)
+            return;
+
+        _previousCountdownSecond = countdownSecond;
+        _notificationController.ShowCountdown(
+            countdownSecond.ToString()
+        );
+    }
+
+    private void ResetNotifications()
+    {
+        foreach (TimeNotificationSetting setting in _timeNotifications)
+            setting?.ResetNotification();
+
+        _previousCountdownSecond = -1;
+    }
+
+    public float GetRemainTime()
+    {
+        return Mathf.Max(0f, GetRemainTimeInternal());
+    }
+
+    public float GetElapsedTime()
+    {
+        return Mathf.Clamp(
+            _maxTime - GetRemainTimeInternal(),
+            0f,
+            _maxTime
+        );
+    }
+
+    private float GetRemainTimeInternal()
     {
         if (IsOnline())
         {
-            // オンライン：ServerTime から残り時間を計算
-            return (float)(_endTime.Value - GetCurrentTime());
+            if (_endTime.Value <= 0d)
+                return _maxTime;
+
+            return Mathf.Max(
+                0f,
+                (float)(_endTime.Value - NetworkManager.ServerTime.Time)
+            );
         }
-        else
-        {
-            // オフライン：Time.deltaTime で減らす
-            _offlineRemainTime -= Time.deltaTime;
-            return _offlineRemainTime;
-        }
+
+        return Mathf.Max(
+            0f,
+            (float)(_offlineEndTime - Time.timeAsDouble)
+        );
     }
 
-    /// <summary>
-    /// 時間切れ判定を行うべきか
-    /// ・オンライン : サーバーだけ判定する
-    /// ・オフライン : 常に判定する
-    /// </summary>
+    private bool IsOnline()
+    {
+        return NetworkManager != null &&
+               NetworkManager.IsListening;
+    }
+
     private bool ShouldCheckFinish()
     {
         return !IsOnline() || IsServer;
     }
 
     /// <summary>
-    /// 現在時刻を取得する
-    /// ・オンライン : ServerTime（全員で揃う）
-    /// ・オフライン : Time.timeAsDouble
-    /// CS_PlayerTransformation の GetCurrentTime() と同じ方式
+    /// NetworkManager.SceneManagerによるオンラインシーン移動時に、
+    /// 各クライアントが自分のResultDataStoreへ保存する。
     /// </summary>
-    private double GetCurrentTime()
+    private void HandleSceneEvent(SceneEvent sceneEvent)
     {
-        return IsOnline() ? NetworkManager.ServerTime.Time : Time.timeAsDouble;
+        if (sceneEvent.SceneEventType != SceneEventType.Load)
+            return;
+
+        CS_ResultDataStore.Save(
+            CS_PlayerResultDataHolder.CollectResults()
+        );
     }
 
-    /// <summary>
-    /// NetworkManager がオンラインで動いているか
-    /// </summary>
-    private bool IsOnline()
+    private void UnsubscribeSceneEvent()
     {
-        return NetworkManager != null && NetworkManager.IsListening;
+        if (NetworkManager != null &&
+            NetworkManager.SceneManager != null)
+        {
+            NetworkManager.SceneManager.OnSceneEvent -= HandleSceneEvent;
+        }
     }
-
-    // =========================================================
-    // OnDestroy
-    // =========================================================
 
     public override void OnDestroy()
     {
-        base.OnDestroy();
+        UnsubscribeSceneEvent();
         _timerModel?.Dispose();
+        base.OnDestroy();
     }
 }

@@ -66,8 +66,6 @@ public class CS_ResultController : MonoBehaviour
 
         _presenter.BindModel(_model);
 
-        Debug.Log("[CS_ResultController] 初期化完了！");
-
         // ---- 実データがあれば表示・なければデバッグ表示 ----
         if (CS_ResultDataStore.hasData)
         {
@@ -75,7 +73,6 @@ public class CS_ResultController : MonoBehaviour
         }
         else
         {
-            Debug.Log("[CS_ResultController] 実データなし → デバッグ表示");
             ShowDebugResult();
         }
     }

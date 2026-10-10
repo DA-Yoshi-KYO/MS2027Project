@@ -70676,6 +70676,17 @@ Transform:
   - {fileID: 1565315748}
   m_Father: {fileID: 1686986565}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1929710459 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 7397181281233464942, guid: 29368471a063cc5408cd40d308b7515e, type: 3}
+  m_PrefabInstance: {fileID: 593828811}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ef5d87d7dcca29f409c05846aa24597d, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CS_UINotificationRootView
 --- !u!1 &1930352678
 GameObject:
   m_ObjectHideFlags: 0
@@ -77040,10 +77051,6 @@ PrefabInstance:
       propertyPath: m_Name
       value: GameControllerManager
       objectReference: {fileID: 0}
-    - target: {fileID: 4991146684625455718, guid: c31aec72227231d4d9902b790fdef737, type: 3}
-      propertyPath: _view
-      value: 
-      objectReference: {fileID: 0}
     - target: {fileID: 5584508223773170545, guid: c31aec72227231d4d9902b790fdef737, type: 3}
       propertyPath: m_InScenePlaced
       value: 1
@@ -77096,6 +77103,10 @@ PrefabInstance:
       propertyPath: _miniMapView
       value: 
       objectReference: {fileID: 1752797576}
+    - target: {fileID: 9201942720854417754, guid: c31aec72227231d4d9902b790fdef737, type: 3}
+      propertyPath: _rootView
+      value: 
+      objectReference: {fileID: 1929710459}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []

@@ -7,8 +7,10 @@
  * ================================================ */
 
 using System.Collections.Generic;
+using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.AI;
+using UnityEngine.SceneManagement;
 
 /// <summary>
 /// プレイヤーの手配度に応じて、警察(増援)を出現・削除するクラス(シーンに1つ置く)
@@ -41,6 +43,14 @@ public class CS_PoliceWantedManager : MonoBehaviour
 
     // 次に人数を確認するまでの残り時間
     private float _refreshTimer = 0.0f;
+
+    // ネットワークのシーン遷移(Singleモード)が始まったか
+    // 始まると警察はNetcodeに破棄されるが、このクラスはシーンが切り替わるまで残る。
+    // その間に「足りない」と補充すると、補充した警察が次のシーンへ引き継がれてしまうので、何もしなくする
+    private bool _isSceneChanging = false;
+
+    // シーン遷移のイベントを購読済みか
+    private bool _isSceneEventSubscribed = false;
 
     [Header("＝＝＝ 増援 ＝＝＝")]
     [SerializeField]
@@ -124,12 +134,18 @@ public class CS_PoliceWantedManager : MonoBehaviour
 
     private void OnDestroy()
     {
+        UnsubscribeSceneEvent();
+
         if (_instance == this) _instance = null;
     }
 
     private void Update()
     {
         if (CS_PoliceSquad.IsNetworkClientOnly()) return;
+
+        // ネットワークが始まってからシーン遷移のイベントを購読する(このクラスが先に動き始めることがあるため、毎フレーム確認する)
+        SubscribeSceneEvent();
+        if (_isSceneChanging) return;
 
         _refreshTimer -= Time.deltaTime;
         if (_refreshTimer > 0.0f) return;
@@ -162,6 +178,47 @@ public class CS_PoliceWantedManager : MonoBehaviour
     }
 
     /// <summary>
+    /// ネットワークのシーン遷移のイベントを購読するメソッド(購読済みなら何もしない)
+    /// </summary>
+    private void SubscribeSceneEvent()
+    {
+        if (_isSceneEventSubscribed) return;
+
+        NetworkManager manager = NetworkManager.Singleton;
+        if (manager == null || manager.SceneManager == null) return;
+
+        manager.SceneManager.OnSceneEvent += HandleSceneEvent;
+        _isSceneEventSubscribed = true;
+    }
+
+    /// <summary>
+    /// シーン遷移のイベントの購読を解除するメソッド
+    /// </summary>
+    private void UnsubscribeSceneEvent()
+    {
+        if (!_isSceneEventSubscribed) return;
+
+        _isSceneEventSubscribed = false;
+
+        // ネットワークが先に終了している場合は、解除するものが無い
+        NetworkManager manager = NetworkManager.Singleton;
+        if (manager == null || manager.SceneManager == null) return;
+
+        manager.SceneManager.OnSceneEvent -= HandleSceneEvent;
+    }
+
+    /// <summary>
+    /// シーン遷移のイベントを受け取り、現在のシーンを置き換える読み込み(Single)が始まったら、増援の補充を止めるメソッド
+    /// </summary>
+    /// <param name="sceneEvent">シーン遷移のイベント</param>
+    private void HandleSceneEvent(SceneEvent sceneEvent)
+    {
+        if (sceneEvent.SceneEventType != SceneEventType.Load || sceneEvent.LoadSceneMode != LoadSceneMode.Single) return;
+
+        _isSceneChanging = true;
+    }
+
+    /// <summary>
     /// シーンに置かれている管理クラスを取得するメソッド
     /// </summary>
     /// <param name="manager">管理クラス</param>
@@ -187,7 +244,7 @@ public class CS_PoliceWantedManager : MonoBehaviour
     /// <param name="level">変わった後の手配度</param>
     private void ChangeWantedLevel(CS_PlayerHealth player, int level)
     {
-        if (player == null || !IsSettingValid()) return;
+        if (player == null || _isSceneChanging || !IsSettingValid()) return;
 
         if (!_groups.TryGetValue(player, out CS_PoliceWantedGroup group))
         {

@@ -10,19 +10,12 @@ public class CS_MayaPreviewGuides : MonoBehaviour
     private GameObject _grid;
     private Mesh _mesh;
     private Material[] _materials;
-    private Camera _camera;
-    private GUIStyle _label;
-    private readonly Vector3[] _axes = { Vector3.right, Vector3.up, Vector3.forward };
     private readonly Color[] _colors = {
         new Color(1f, 0.25f, 0.25f), new Color(0.35f, 1f, 0.35f), new Color(0.3f, 0.6f, 1f)
     };
-    private readonly string[] _names = { "X", "Y", "Z" };
-    private readonly int[] _order = { 0, 1, 2 };
-    private readonly Vector3[] _directions = new Vector3[3];
 
     private void Awake()
     {
-        _camera = GetComponent<Camera>();
         if (gridMaterial == null) return;
         var vertices = new List<Vector3>();
         var triangles = new List<int>[4];
@@ -48,6 +41,7 @@ public class CS_MayaPreviewGuides : MonoBehaviour
             _materials[i].SetColor("_UnlitColor", colors[i]);
         }
         _grid = new GameObject("Maya Preview Grid (100m)");
+        _grid.AddComponent<CS_MayaPreviewInternal>();
         _grid.AddComponent<MeshFilter>().sharedMesh = _mesh;
         var renderer = _grid.AddComponent<MeshRenderer>();
         renderer.sharedMaterials = _materials;
@@ -69,45 +63,6 @@ public class CS_MayaPreviewGuides : MonoBehaviour
 
     private void OnEnable() { if (_grid != null) _grid.SetActive(true); }
     private void OnDisable() { if (_grid != null) _grid.SetActive(false); }
-
-    private void OnGUI()
-    {
-        if (!_camera.enabled || Event.current.type != EventType.Repaint) return;
-        if (_label == null) _label = new GUIStyle(GUI.skin.label) {
-            alignment = TextAnchor.MiddleCenter, fontSize = 10, fontStyle = FontStyle.Bold
-        };
-        Rect viewport = _camera.pixelRect;
-        Vector2 centre = new Vector2(viewport.xMax - 32, Screen.height - viewport.yMax + 32);
-        Color previous = GUI.color;
-        GUI.color = new Color(0.08f, 0.08f, 0.08f, 0.8f);
-        GUI.DrawTexture(new Rect(centre.x - 22, centre.y - 22, 44, 44), Texture2D.whiteTexture);
-        for (int i = 0; i < 3; i++) _directions[i] = transform.InverseTransformDirection(_axes[i]);
-        // Draw farther axes first so front-facing axes remain visible.
-        for (int i = 0; i < 2; i++)
-            for (int j = i + 1; j < 3; j++)
-                if (_directions[_order[i]].z < _directions[_order[j]].z)
-                { int swap = _order[i]; _order[i] = _order[j]; _order[j] = swap; }
-        foreach (int i in _order)
-        {
-            Vector2 direction = new Vector2(_directions[i].x, -_directions[i].y);
-            GUI.color = _colors[i] * new Color(0.45f, 0.45f, 0.45f, 1f);
-            DrawLine(centre, centre - direction * 12, 1);
-            GUI.color = _colors[i];
-            DrawLine(centre, centre + direction * 13, 1.5f);
-            Vector2 label = centre + direction * 17;
-            GUI.Label(new Rect(label.x - 6, label.y - 7, 12, 14), _names[i], _label);
-        }
-        GUI.color = previous;
-    }
-
-    private static void DrawLine(Vector2 start, Vector2 end, float width)
-    {
-        Matrix4x4 previous = GUI.matrix;
-        Vector2 delta = end - start;
-        GUIUtility.RotateAroundPivot(Mathf.Atan2(delta.y, delta.x) * Mathf.Rad2Deg, start);
-        GUI.DrawTexture(new Rect(start.x, start.y - width * 0.5f, delta.magnitude, width), Texture2D.whiteTexture);
-        GUI.matrix = previous;
-    }
 
     private void OnDestroy()
     {

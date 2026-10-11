@@ -1,372 +1,436 @@
 using System.Collections.Generic;
-using System.Globalization;
 using UnityEngine;
-using UnityEngine.Rendering.HighDefinition;
+using UnityEngine.InputSystem;
+using UnityEngine.Rendering;
 
-public class CS_MayaPreviewInspector : MonoBehaviour
+/*
++=====================================
+ File   : CS_MayaPreviewInspector
+ Summary: Runtime GUI of the Maya preview player (Unity editor dark look).
+          Toolbar  left : [Hierarchy] [View] [Export]   right : [Outline] [Material] [Inspector]
+                   (Outline: yellow outline of the selected objects on / off)
+          Panels   left : Hierarchy > View > Export, packed to the left in that order
+                   right: Inspector at the top right, Material below it
+                          (Material alone goes to the top right).
+          - The Inspector lists the materials of the selection; Edit shows one of them in the
+            Material panel (the Material panel is empty until a material is picked).
+          - Type icons in the view for lights, cameras, volumes, audio and probes.
+          - Ctrl+Z / Ctrl+Y (Ctrl+Shift+Z) undo / redo, Ctrl+D duplicate, Delete delete
+            (.Edit), Tab hides every panel.
+          - The whole GUI scales with the window (GUI.matrix).
+          Split into partial files: .Hierarchy / .Properties / .Export / .Fields / .Edit
+ History: 2026/10/11 Material panel, export, icons, undo, new hierarchy
+          2026/10/11 Outline on/off button, Ctrl+D duplicate, Delete
+=====================================+
+*/
+public partial class CS_MayaPreviewInspector : MonoBehaviour
 {
+    // =========================================================
+    // References / state
+    // =========================================================
+
     private CS_MayaPreviewSelection _selection;
+    private CS_MayaPreviewWindow _window;
+    private CS_MayaPreviewCameraController _controller;
+    private CS_MayaPreviewTransformTool _tool;
+    private CS_MayaPreviewGuides _guides;
     private Camera _view;
-    private Light[] _lights;
-    private Camera[] _cameras;
-    private float _nextScan;
-    private GameObject _editing;
-    private readonly Dictionary<string, string> _fields = new Dictionary<string, string>();
-    private readonly List<Rect> _iconRects = new List<Rect>();
-    private bool _typing;
-    private bool _inspectorOpen = true;
-    private Rect InspectorButton => new Rect(Mathf.Max(0, Screen.width - 330), 24, 140, 28);
-    private Vector2 _scroll;
+
     private bool _hierarchyOpen = true;
-    private Vector2 _hierarchyScroll;
-    private readonly HashSet<Transform> _visible = new HashSet<Transform>();
-    private readonly List<Transform> _roots = new List<Transform>();
-    private readonly HashSet<int> _collapsed = new HashSet<int>();
-    private readonly Dictionary<Renderer, Material[]> _originalMaterials = new Dictionary<Renderer, Material[]>();
-    private readonly List<Material> _ownedMaterials = new List<Material>();
-    private string _fieldScope = "";
-    private GUIStyle _hierarchyRowStyle;
-    private const float HierarchyPadding = 12f;
-    private const float HierarchyRowGap = 6f;
-    private Rect HierarchyPanel => new Rect(12, 12, 250, Mathf.Max(100, Screen.height - 24));
-    private Rect HierarchyButton => new Rect(24, 24, 130, 28);
-    private Rect Panel => new Rect(Mathf.Max(0, Screen.width - 330), 66, 320, Mathf.Max(100, Screen.height - 76));
+    private bool _viewOpen;
+    private bool _exportOpen;
+    private bool _materialOpen = true;
+    private bool _inspectorOpen = true;
+    private bool _uiHidden;
+    private bool _iconsVisible = true;
+    private bool _typing;
+    private string _tooltip;
+
+    public bool UiHidden => _uiHidden;
+    public bool Typing => _typing;
+
+
+    // =========================================================
+    // Layout (virtual GUI units; GUI.matrix scales them to the window)
+    // =========================================================
+
+    private const float RefWidth = 1280f;
+    private const float RefHeight = 720f;
+    private const float MinScale = 0.6f;
+    private const float MaxScale = 1.25f;
+    private const float Margin = 6f;
+    private const float ButtonHeight = 22f;
+    private const float ButtonGap = 2f;
+    private const float PanelGap = 4f;
+    private const float HeaderHeight = 22f;
+    private const float RowHeight = 18f;
+    private const float HierarchyWidth = 260f;
+    private const float ViewWidth = 230f;
+    private const float ExportWidth = 300f;
+    private const float RightWidth = 420f;
+
+    private float _scale = 1f;
+    private float VW => Screen.width / _scale;
+    private float VH => Screen.height / _scale;
+
+    private Rect _hierarchyButton, _viewButton, _exportButton, _outlineButton, _materialButton, _inspectorButton;
+    private Rect _hierarchyRect, _viewRect, _exportRect, _materialRect, _inspectorRect;
+    private float _inspectorContentHeight = 120f;
+    private readonly List<Rect> _iconRects = new List<Rect>();
+
+    private void Layout()
+    {
+        float top = Margin;
+        _hierarchyButton = new Rect(Margin, top, 104f, ButtonHeight);
+        _viewButton = new Rect(_hierarchyButton.xMax + ButtonGap, top, 74f, ButtonHeight);
+        _exportButton = new Rect(_viewButton.xMax + ButtonGap, top, 84f, ButtonHeight);
+        _inspectorButton = new Rect(VW - Margin - 104f, top, 104f, ButtonHeight);
+        _materialButton = new Rect(_inspectorButton.x - ButtonGap - 98f, top, 98f, ButtonHeight);
+        _outlineButton = new Rect(_materialButton.x - ButtonGap - 92f, top, 92f, ButtonHeight);
+
+        float panelTop = top + ButtonHeight + PanelGap;
+        float full = Mathf.Max(60f, VH - Margin - panelTop);
+        float rightWidth = Mathf.Min(RightWidth, VW * 0.42f);
+        float rightX = VW - Margin - rightWidth;
+
+        // Left: Hierarchy > View > Export, each packed against the previous open one.
+        float x = Margin;
+        _hierarchyRect = _viewRect = _exportRect = Rect.zero;
+        if (_hierarchyOpen) { _hierarchyRect = new Rect(x, panelTop, Mathf.Min(HierarchyWidth, VW * 0.3f), full); x = _hierarchyRect.xMax + PanelGap; }
+        if (_viewOpen) { _viewRect = new Rect(x, panelTop, ViewWidth, Mathf.Min(full, HeaderHeight + 214f)); x = _viewRect.xMax + PanelGap; }
+        if (_exportOpen) { _exportRect = new Rect(x, panelTop, ExportWidth, full); }
+
+        // Right: Inspector on top, Material below.
+        _inspectorRect = _materialRect = Rect.zero;
+        bool selected = _selection != null && _selection.Count > 0;
+        float inspectorHeight = selected ? _inspectorContentHeight + HeaderHeight + 30f : HeaderHeight + 34f;
+        if (_inspectorOpen && _materialOpen)
+        {
+            // Nothing picked for the Material panel: the Inspector may use almost all the height.
+            float inspectorMax = _activeMaterialKey != null ? full * 0.5f : full - 60f - PanelGap;
+            inspectorHeight = Mathf.Clamp(inspectorHeight, HeaderHeight + 34f, Mathf.Max(HeaderHeight + 34f, inspectorMax));
+            _inspectorRect = new Rect(rightX, panelTop, rightWidth, inspectorHeight);
+            float materialTop = _inspectorRect.yMax + PanelGap;
+            _materialRect = new Rect(rightX, materialTop, rightWidth, Mathf.Max(60f, VH - Margin - materialTop));
+        }
+        else if (_inspectorOpen) _inspectorRect = new Rect(rightX, panelTop, rightWidth, Mathf.Min(full, Mathf.Max(inspectorHeight, selected ? full : 0f)));
+        else if (_materialOpen) _materialRect = new Rect(rightX, panelTop, rightWidth, full);
+    }
+
+    private bool OverPanel(Vector2 point)
+    {
+        if (_hierarchyButton.Contains(point) || _viewButton.Contains(point) || _exportButton.Contains(point)
+            || _outlineButton.Contains(point) || _materialButton.Contains(point) || _inspectorButton.Contains(point)) return true;
+        if (_hierarchyOpen && _hierarchyRect.Contains(point)) return true;
+        if (_viewOpen && _viewRect.Contains(point)) return true;
+        if (_exportOpen && _exportRect.Contains(point)) return true;
+        if (_inspectorOpen && _inspectorRect.Contains(point)) return true;
+        if (_materialOpen && _materialRect.Contains(point)) return true;
+        return false;
+    }
+
+    private bool OverlapsPanel(Rect rect)
+    {
+        if (_hierarchyButton.Overlaps(rect) || _viewButton.Overlaps(rect) || _exportButton.Overlaps(rect)
+            || _outlineButton.Overlaps(rect) || _materialButton.Overlaps(rect) || _inspectorButton.Overlaps(rect)) return true;
+        if (_hierarchyOpen && _hierarchyRect.Overlaps(rect)) return true;
+        if (_viewOpen && _viewRect.Overlaps(rect)) return true;
+        if (_exportOpen && _exportRect.Overlaps(rect)) return true;
+        if (_inspectorOpen && _inspectorRect.Overlaps(rect)) return true;
+        if (_materialOpen && _materialRect.Overlaps(rect)) return true;
+        return false;
+    }
+
+    // Camera / transform tools ask this before using the mouse (screen position, y up).
+    public bool BlocksInput(Vector2 screenPosition)
+    {
+        if (_uiHidden) return false;
+        if (_typing || _drag != null || _previewDragging) return true;
+        Vector2 point = new Vector2(screenPosition.x, Screen.height - screenPosition.y) / _scale;
+        if (OverPanel(point)) return true;
+        foreach (Rect rect in _iconRects) if (rect.Contains(point)) return true;
+        return false;
+    }
+
+
+    // =========================================================
+    // Unity
+    // =========================================================
 
     private void Awake()
     {
         _selection = GetComponent<CS_MayaPreviewSelection>();
         _view = GetComponent<Camera>();
+        _controller = GetComponent<CS_MayaPreviewCameraController>();
+        _tool = GetComponent<CS_MayaPreviewTransformTool>();
+        _guides = GetComponent<CS_MayaPreviewGuides>();
+        _window = GetComponent<CS_MayaPreviewWindow>();
+        if (_window == null) _window = gameObject.AddComponent<CS_MayaPreviewWindow>();
+        _selection.Changed += OnSelectionChanged;
+        CS_MayaPreviewUndo.Applied += ClearFields;
         Scan();
-    }
-
-    private void Scan()
-    {
-        _lights = FindObjectsByType<Light>(FindObjectsSortMode.None);
-        _cameras = FindObjectsByType<Camera>(FindObjectsSortMode.None);
-        _visible.Clear(); _roots.Clear();
-        foreach (var light in _lights) AddToHierarchy(light.transform);
-        foreach (var camera in _cameras) AddToHierarchy(camera.transform);
-        foreach (var filter in FindObjectsByType<MeshFilter>(FindObjectsSortMode.None))
-            if (filter.sharedMesh != null && filter.GetComponent<MeshRenderer>() != null
-                && filter.name != "Selection Edges" && filter.name != "Maya Preview Grid (100m)")
-                AddToHierarchy(filter.transform);
-        _nextScan = Time.unscaledTime + 1;
-    }
-
-    private void Update() { if (Time.unscaledTime >= _nextScan) Scan(); }
-
-    public bool BlocksInput(Vector2 screenPosition)
-    {
-        Vector2 point = new Vector2(screenPosition.x, Screen.height - screenPosition.y);
-        if (HierarchyButton.Contains(point) || (_hierarchyOpen && HierarchyPanel.Contains(point))) return true;
-        if (InspectorButton.Contains(point) || _typing || (_inspectorOpen && _selection.SelectedObject != null && Panel.Contains(point))) return true;
-        foreach (Rect rect in _iconRects) if (rect.Contains(point)) return true;
-        return false;
-    }
-
-    private void OnGUI()
-    {
-        _iconRects.Clear();
-        DrawHierarchy();
-        if (GUI.Button(InspectorButton, _inspectorOpen ? "Inspector  -" : "Inspector  +"))
-        { _inspectorOpen = !_inspectorOpen; GUI.FocusControl(null); _typing = false; }
-        foreach (var light in _lights) if (light != null) WorldIcon(light.gameObject, true);
-        foreach (var camera in _cameras) if (camera != null && camera != _view) WorldIcon(camera.gameObject, false);
-
-        GameObject target = _selection.SelectedObject;
-        if (_editing != target)
-        {
-            _editing = target; _fields.Clear(); _scroll = Vector2.zero;
-            GUI.FocusControl(null); _typing = false;
-        }
-        if (target == null || !_inspectorOpen) return;
-        DrawPanel(Panel);
-        GUILayout.BeginArea(Panel);
-        GUILayout.BeginHorizontal();
-        GUILayout.Label("Inspector - " + target.name);
-        GUILayout.EndHorizontal();
-        _scroll = GUILayout.BeginScrollView(_scroll);
-        Transform t = target.transform;
-        bool live = target.name.StartsWith("MayaLive_") && t.parent != null && t.parent.name == "Maya_Model_Root";
-        GUILayout.Label(live ? "Maya + Unity offset" : "Transform");
-        if (live) GUILayout.Label("Displayed position = Maya + Position below");
-        Vector3 position = VectorField("Position", t.localPosition);
-        Vector3 rotation = VectorField("Rotation", t.localEulerAngles);
-        Vector3 scale = VectorField("Scale", t.localScale);
-        bool moved = position != t.localPosition || rotation != t.localEulerAngles;
-        if (position != t.localPosition) t.localPosition = position;
-        if (rotation != t.localEulerAngles) t.localEulerAngles = rotation;
-        if (scale != t.localScale) t.localScale = scale;
-        if (moved)
-        {
-            var controller = target.GetComponent<CS_MayaPreviewCameraController>();
-            if (controller != null) controller.SynchronizeView();
-        }
-        var lightComponent = target.GetComponent<Light>();
-        if (lightComponent != null)
-        {
-            GUILayout.Space(10); GUILayout.Label("Light - " + lightComponent.type);
-            lightComponent.enabled = GUILayout.Toggle(lightComponent.enabled, "Enabled");
-            lightComponent.intensity = Mathf.Max(0, Number("Intensity", lightComponent.intensity));
-            lightComponent.color = ColorField("Light color", lightComponent.color);
-            lightComponent.useColorTemperature = GUILayout.Toggle(lightComponent.useColorTemperature, "Use color temperature");
-            if (lightComponent.useColorTemperature)
-                lightComponent.colorTemperature = Mathf.Clamp(Number("Kelvin", lightComponent.colorTemperature), 1000, 20000);
-            lightComponent.bounceIntensity = Mathf.Max(0, Number("Bounce light", lightComponent.bounceIntensity));
-            if (lightComponent.type != LightType.Directional)
-                lightComponent.range = Mathf.Max(0.01f, Number("Range", lightComponent.range));
-            if (lightComponent.type == LightType.Spot)
-            {
-                lightComponent.spotAngle = Mathf.Clamp(Number("Spot angle", lightComponent.spotAngle), 1, 179);
-                lightComponent.innerSpotAngle = Mathf.Clamp(Number("Inner angle", lightComponent.innerSpotAngle), 0, lightComponent.spotAngle);
-            }
-            bool shadows = GUILayout.Toggle(lightComponent.shadows != LightShadows.None, "Cast shadows");
-            lightComponent.shadows = shadows ? LightShadows.Soft : LightShadows.None;
-            var hd = target.GetComponent<HDAdditionalLightData>();
-            if (hd != null)
-            {
-                hd.lightDimmer = Mathf.Clamp01(Number("Light multiplier", hd.lightDimmer));
-                hd.affectDiffuse = GUILayout.Toggle(hd.affectDiffuse, "Affect diffuse");
-                hd.affectSpecular = GUILayout.Toggle(hd.affectSpecular, "Affect reflections");
-                hd.volumetricDimmer = Mathf.Clamp01(Number("Fog lighting", hd.volumetricDimmer));
-                if (lightComponent.type == LightType.Directional)
-                    hd.angularDiameter = Mathf.Clamp(Number("Sun diameter", hd.angularDiameter), 0, 90);
-                else hd.shapeRadius = Mathf.Max(0, Number("Source radius", hd.shapeRadius));
-                if (shadows)
-                {
-                    hd.shadowDimmer = Mathf.Clamp01(Number("Shadow strength", hd.shadowDimmer));
-                    hd.normalBias = Mathf.Max(0, Number("Normal bias", hd.normalBias));
-                    hd.slopeBias = Mathf.Max(0, Number("Slope bias", hd.slopeBias));
-                    hd.shadowNearPlane = Mathf.Max(0.001f, Number("Shadow near", hd.shadowNearPlane));
-                }
-            }
-        }
-        var meshRenderer = target.GetComponent<MeshRenderer>();
-        if (meshRenderer != null) DrawMaterials(meshRenderer);
-        var cameraComponent = target.GetComponent<Camera>();
-        if (cameraComponent != null)
-        {
-            GUILayout.Space(10); GUILayout.Label("Camera");
-            if (cameraComponent.orthographic)
-                cameraComponent.orthographicSize = Mathf.Max(0.01f, Number("Ortho size", cameraComponent.orthographicSize));
-            else cameraComponent.fieldOfView = Mathf.Clamp(Number("Field of view", cameraComponent.fieldOfView), 1, 179);
-            cameraComponent.nearClipPlane = Mathf.Max(0.001f, Number("Near clip", cameraComponent.nearClipPlane));
-            cameraComponent.farClipPlane = Mathf.Max(cameraComponent.nearClipPlane + 0.01f, Number("Far clip", cameraComponent.farClipPlane));
-        }
-        GUILayout.Space(10);
-        GUILayout.Label("Changes apply during this run.");
-        GUILayout.EndScrollView(); GUILayout.EndArea();
-        _typing = GUI.GetNameOfFocusedControl().StartsWith("Inspector.");
-        if (Event.current.type == EventType.MouseDown && !Panel.Contains(Event.current.mousePosition))
-        { GUI.FocusControl(null); _typing = false; }
-    }
-
-    private void AddToHierarchy(Transform node)
-    {
-        while (node != null)
-        {
-            if (!_visible.Add(node)) break;
-            if (node.parent == null) _roots.Add(node);
-            node = node.parent;
-        }
-    }
-
-    private static void DrawPanel(Rect rect)
-    {
-        Color previous = GUI.color;
-        GUI.color = new Color(0.08f, 0.1f, 0.13f, 0.78f);
-        GUI.DrawTexture(rect, Texture2D.whiteTexture);
-        GUI.color = previous;
-    }
-
-    private void DrawHierarchy()
-    {
-        if (_hierarchyOpen) DrawPanel(HierarchyPanel);
-        if (GUI.Button(HierarchyButton, _hierarchyOpen ? "Hierarchy  -" : "Hierarchy  +"))
-        { _hierarchyOpen = !_hierarchyOpen; GUI.FocusControl(null); _typing = false; }
-        if (!_hierarchyOpen) return;
-        if (_hierarchyRowStyle == null)
-            _hierarchyRowStyle = new GUIStyle(GUI.skin.button) { margin = new RectOffset(0, 0, 0, 0) };
-        Rect panel = HierarchyPanel;
-        float contentTop = HierarchyButton.yMax + HierarchyPadding;
-        GUILayout.BeginArea(new Rect(panel.x + HierarchyPadding, contentTop,
-            panel.width - HierarchyPadding * 2, Mathf.Max(1, panel.yMax - HierarchyPadding - contentTop)));
-        _hierarchyScroll = GUILayout.BeginScrollView(_hierarchyScroll);
-        foreach (var root in _roots) if (root != null) DrawNode(root, 0);
-        GUILayout.EndScrollView(); GUILayout.EndArea();
-    }
-
-    private void DrawNode(Transform node, int depth)
-    {
-        bool children = false;
-        foreach (Transform child in node) if (_visible.Contains(child)) { children = true; break; }
-        int id = node.GetInstanceID();
-        GUILayout.BeginHorizontal(); GUILayout.Space(depth * 12);
-        if (children)
-        {
-            if (GUILayout.Button(_collapsed.Contains(id) ? ">" : "v", _hierarchyRowStyle, GUILayout.Width(22), GUILayout.Height(26)))
-            { if (!_collapsed.Add(id)) _collapsed.Remove(id); }
-            GUILayout.Space(HierarchyRowGap);
-        }
-        else GUILayout.Space(22 + HierarchyRowGap);
-        Color previous = GUI.backgroundColor;
-        if (_selection.SelectedObject == node.gameObject) GUI.backgroundColor = new Color(1, 0.8f, 0.2f);
-        string kind = node.GetComponent<Light>() != null ? "Light" : node.GetComponent<Camera>() != null ? "Camera" : "";
-        string name = node.name.StartsWith("MayaLive_") ? node.name.Substring(9) : node.name;
-        if (GUILayout.Button(string.IsNullOrEmpty(kind) ? name : name + "  (" + kind + ")", _hierarchyRowStyle, GUILayout.Height(26)))
-        { GUI.FocusControl(null); _typing = false; _selection.SelectObject(node.gameObject); }
-        GUI.backgroundColor = previous;
-        GUILayout.EndHorizontal();
-        GUILayout.Space(HierarchyRowGap);
-        if (children && !_collapsed.Contains(id))
-            foreach (Transform child in node) if (_visible.Contains(child)) DrawNode(child, depth + 1);
-    }
-
-    private Color ColorField(string label, Color value)
-    {
-        GUILayout.Label(label);
-        Rect swatch = GUILayoutUtility.GetRect(20, 14, GUILayout.ExpandWidth(true));
-        Color previous = GUI.color;
-        GUI.color = new Color(value.r, value.g, value.b, 1);
-        GUI.DrawTexture(swatch, Texture2D.whiteTexture); GUI.color = previous;
-        string scope = _fieldScope;
-        _fieldScope += label + ".";
-        value.r = Slider("Red", value.r, 0, 1);
-        value.g = Slider("Green", value.g, 0, 1);
-        value.b = Slider("Blue", value.b, 0, 1);
-        _fieldScope = scope;
-        return value;
-    }
-
-    private float Slider(string label, float value, float min, float max)
-    {
-        value = Mathf.Clamp(Number(label, value), min, max);
-        return GUILayout.HorizontalSlider(value, min, max);
-    }
-
-    private void DrawMaterials(MeshRenderer renderer)
-    {
-        GUILayout.Space(12); GUILayout.Label("Material");
-        // Clone only when a value changes; never edit the shared source material.
-        Material[] materials = renderer.sharedMaterials;
-        for (int i = 0; i < materials.Length; i++)
-        {
-            Material source = materials[i];
-            if (source == null) continue;
-            _fieldScope = "Material." + i + ".";
-            GUILayout.Label((i + 1) + ": " + source.name.Replace(" (Instance)", ""));
-            string colorProperty = source.HasProperty("_BaseColor") ? "_BaseColor" : source.HasProperty("_Color") ? "_Color" : null;
-            Color oldColor = colorProperty != null ? source.GetColor(colorProperty) : Color.white;
-            Color newColor = colorProperty != null ? ColorField("Base color", oldColor) : oldColor;
-            float oldMetal = source.HasProperty("_Metallic") ? source.GetFloat("_Metallic") : 0;
-            float metal = source.HasProperty("_Metallic") ? Slider("Metallic", oldMetal, 0, 1) : oldMetal;
-            float oldSmooth = source.HasProperty("_Smoothness") ? source.GetFloat("_Smoothness") : 0;
-            float smooth = source.HasProperty("_Smoothness") ? Slider("Smoothness", oldSmooth, 0, 1) : oldSmooth;
-            bool changed = newColor != oldColor || metal != oldMetal || smooth != oldSmooth;
-            if (changed)
-            {
-                if (!_originalMaterials.ContainsKey(renderer))
-                {
-                    _originalMaterials[renderer] = (Material[])materials.Clone();
-                    for (int j = 0; j < materials.Length; j++)
-                        if (materials[j] != null)
-                        {
-                            materials[j] = new Material(materials[j]) { name = materials[j].name };
-                            _ownedMaterials.Add(materials[j]);
-                        }
-                    renderer.sharedMaterials = materials;
-                }
-                Material material = materials[i];
-                if (colorProperty != null) material.SetColor(colorProperty, newColor);
-                if (material.HasProperty("_Metallic")) material.SetFloat("_Metallic", metal);
-                if (material.HasProperty("_Smoothness")) material.SetFloat("_Smoothness", smooth);
-            }
-        }
-        _fieldScope = "";
     }
 
     private void OnDestroy()
     {
-        foreach (var entry in _originalMaterials) if (entry.Key != null) entry.Key.sharedMaterials = entry.Value;
-        foreach (var material in _ownedMaterials) if (material != null) Destroy(material);
+        if (_selection != null) _selection.Changed -= OnSelectionChanged;
+        CS_MayaPreviewUndo.Applied -= ClearFields;
+        foreach (var asset in _owned) if (asset != null) Destroy(asset);
+        foreach (var copy in _sceneOriginals.Values) if (copy != null) Destroy(copy);
+        if (_preview != null) Destroy(_preview.gameObject);
     }
 
-    private Vector3 VectorField(string title, Vector3 value)
+    private void Update()
     {
-        GUILayout.Space(6); GUILayout.Label(title);
-        value.x = Number(title + " X", value.x);
-        value.y = Number(title + " Y", value.y);
-        value.z = Number(title + " Z", value.z);
-        return value;
+        if (_tool == null) _tool = GetComponent<CS_MayaPreviewTransformTool>();
+        if (_controller == null) _controller = GetComponent<CS_MayaPreviewCameraController>();
+        if (Time.unscaledTime >= _nextScan) Scan();
+        _selection.Prune();
+
+        var mouse = Mouse.current;
+        bool held = mouse != null && (mouse.leftButton.isPressed || mouse.rightButton.isPressed || mouse.middleButton.isPressed);
+        CS_MayaPreviewUndo.Tick(held);
+        if (_drag != null && mouse != null && !mouse.leftButton.isPressed) _drag = null;
+        if (_previewDragging && mouse != null && !mouse.leftButton.isPressed) _previewDragging = false;
+
+        var keyboard = Keyboard.current;
+        if (keyboard == null || _typing) return;
+        if (keyboard.tabKey.wasPressedThisFrame) _uiHidden = !_uiHidden;
     }
 
-    private float Number(string label, float value)
+    // Ctrl+Z / Ctrl+Y / Ctrl+Shift+Z / Ctrl+D / Delete from GUI key events: they carry the
+    // modifier state of the key press itself (a fast Ctrl+Y can be released before the next
+    // frame polls it). Not while a text field has the focus.
+    private void HandleShortcuts()
     {
-        string id = "Inspector." + _fieldScope + label;
-        if (!_fields.ContainsKey(id) || GUI.GetNameOfFocusedControl() != id)
-            _fields[id] = value.ToString("G7", CultureInfo.InvariantCulture);
+        Event e = Event.current;
+        if (e.type != EventType.KeyDown || _typing) return;
+        bool control = e.control || e.command;
+        if (control && e.keyCode == KeyCode.Z) { if (e.shift) Redo(); else Undo(); e.Use(); }
+        else if (control && e.keyCode == KeyCode.Y) { Redo(); e.Use(); }
+        else if (control && e.keyCode == KeyCode.D) { DuplicateSelection(); e.Use(); }
+        else if (!control && !e.alt && e.keyCode == KeyCode.Delete) { DeleteSelection(); e.Use(); }
+    }
+
+    private void Undo()
+    {
+        string label = CS_MayaPreviewUndo.NextUndoLabel;
+        if (CS_MayaPreviewUndo.Undo()) Flash("Undo: " + label);
+    }
+
+    private void Redo()
+    {
+        string label = CS_MayaPreviewUndo.NextRedoLabel;
+        if (CS_MayaPreviewUndo.Redo()) Flash("Redo: " + label);
+    }
+
+    private string _flash;
+    private float _flashUntil;
+    private void Flash(string text) { _flash = text; _flashUntil = Time.unscaledTime + 1.6f; }
+
+    private void OnSelectionChanged()
+    {
+        ClearFields();
+        _inspectorScroll = Vector2.zero;
+        ValidateActiveMaterial();
+    }
+
+
+    // =========================================================
+    // OnGUI
+    // =========================================================
+
+    private void OnGUI()
+    {
+        if (Event.current.type == EventType.Layout) _iconRects.Clear();
+        HandleShortcuts();
+        if (_uiHidden) return;
+
+        EnsureSkin();
+        GUISkin previousSkin = GUI.skin;
+        Matrix4x4 previousMatrix = GUI.matrix;
+        _scale = Mathf.Clamp(Mathf.Min(Screen.width / RefWidth, Screen.height / RefHeight), MinScale, MaxScale);
+        GUI.skin = _skin;
+        GUI.matrix = Matrix4x4.Scale(new Vector3(_scale, _scale, 1f));
+        _tooltip = null;
+        if (_dropFocus) { GUI.FocusControl(null); _dropFocus = false; }
+
+        Layout();
+        HandleDrag();
+        if (_iconsVisible) DrawWorldIcons();
+        DrawToolbar();
+        if (_hierarchyOpen) DrawHierarchy();
+        if (_viewOpen) DrawView();
+        if (_exportOpen) DrawExport();
+        if (_inspectorOpen) DrawInspector();
+        if (_materialOpen) DrawMaterialPanel();
+        DrawDragGhost();
+        DrawFlash();
+        DrawTooltip();
+
+        _typing = GUI.GetNameOfFocusedControl().StartsWith("F.");
+        if (Event.current.type == EventType.MouseDown && !OverPanel(Event.current.mousePosition))
+        { GUI.FocusControl(null); _typing = false; }
+
+        GUI.matrix = previousMatrix;
+        GUI.skin = previousSkin;
+    }
+
+    private void DrawToolbar()
+    {
+        if (ToolbarButton(_hierarchyButton, "Hierarchy", _hierarchyOpen)) _hierarchyOpen = !_hierarchyOpen;
+        if (ToolbarButton(_viewButton, "View", _viewOpen)) _viewOpen = !_viewOpen;
+        if (ToolbarButton(_exportButton, "Export", _exportOpen)) _exportOpen = !_exportOpen;
+        if (ToolbarToggle(_outlineButton, "Outline", _selection.ShowOutlines, "Yellow outline of the selected objects: on / off"))
+            _selection.ShowOutlines = !_selection.ShowOutlines;
+        if (ToolbarButton(_materialButton, "Material", _materialOpen)) _materialOpen = !_materialOpen;
+        if (ToolbarButton(_inspectorButton, "Inspector", _inspectorOpen)) _inspectorOpen = !_inspectorOpen;
+    }
+
+    private bool ToolbarButton(Rect rect, string text, bool open)
+    {
+        bool clicked = GUI.Button(rect, GUIContent.none, open ? _toolbarOn : _toolbar);
+        Texture2D arrow = open ? CS_MayaPreviewIcons.ArrowDown : CS_MayaPreviewIcons.ArrowRight;
+        DrawTinted(new Rect(rect.x + 8, rect.y + 6, 10, 10), arrow, open ? Color.white : DimColor);
+        GUI.Label(new Rect(rect.x + 22, rect.y, rect.width - 26, rect.height), text, open ? _toolbarLabelOn : _toolbarLabel);
+        if (clicked) { GUI.FocusControl(null); _typing = false; }
+        return clicked;
+    }
+
+    // On / off button for a display setting (check box instead of the panel arrow).
+    private static readonly Color OutlineYellow = new Color(1f, 0.85f, 0f, 1f);
+    private bool ToolbarToggle(Rect rect, string text, bool on, string tooltip)
+    {
+        bool clicked = GUI.Button(rect, GUIContent.none, on ? _toolbarOn : _toolbar);
+        Rect box = new Rect(rect.x + 7, rect.y + 5, 12, 12);
+        Fill(box, on ? OutlineYellow : DimColor);
+        Fill(new Rect(box.x + 1, box.y + 1, box.width - 2, box.height - 2), FieldColor);
+        if (on) Fill(new Rect(box.x + 3, box.y + 3, box.width - 6, box.height - 6), OutlineYellow);
+        GUI.Label(new Rect(rect.x + 24, rect.y, rect.width - 28, rect.height), text, on ? _toolbarLabelOn : _toolbarLabel);
+        if (rect.Contains(Event.current.mousePosition)) _tooltip = tooltip;
+        if (clicked) { GUI.FocusControl(null); _typing = false; }
+        return clicked;
+    }
+
+    // Panel background + title bar. Returns the content rect.
+    private Rect DrawWindow(Rect rect, string title, string note = null)
+    {
+        Fill(new Rect(rect.x - 1, rect.y - 1, rect.width + 2, rect.height + 2), BorderColor);
+        Fill(rect, PanelColor);
+        Rect header = new Rect(rect.x, rect.y, rect.width, HeaderHeight);
+        Fill(header, HeaderColor);
+        Fill(new Rect(rect.x, header.yMax - 1, rect.width, 1), BorderColor);
+        GUI.Label(new Rect(header.x + 8, header.y, header.width - 16, header.height), title, _title);
+        if (!string.IsNullOrEmpty(note))
+            GUI.Label(new Rect(header.x + 8, header.y, header.width - 16, header.height), note, _dimRight);
+        // Clicks on an empty part of a panel must not reach the view.
+        if (Event.current.type == EventType.MouseDown && rect.Contains(Event.current.mousePosition))
+        { GUI.FocusControl(null); }
+        return new Rect(rect.x + 2, header.yMax + 2, rect.width - 4, rect.height - HeaderHeight - 4);
+    }
+
+    private void DrawFlash()
+    {
+        if (string.IsNullOrEmpty(_flash) || Time.unscaledTime > _flashUntil) return;
+        Vector2 size = _bold.CalcSize(new GUIContent(_flash));
+        Rect rect = new Rect((VW - size.x) * 0.5f - 10, VH - 40, size.x + 20, 24);
+        Fill(rect, new Color(0.1f, 0.1f, 0.1f, 0.85f));
+        GUI.Label(rect, _flash, _center);
+    }
+
+    private void DrawTooltip()
+    {
+        if (string.IsNullOrEmpty(_tooltip) || Event.current.type != EventType.Repaint) return;
+        Vector2 mouse = Event.current.mousePosition;
+        Vector2 size = _small.CalcSize(new GUIContent(_tooltip));
+        size.x = Mathf.Min(size.x + 12, 420);
+        Rect rect = new Rect(mouse.x + 14, mouse.y + 16, size.x, 20);
+        if (rect.xMax > VW - 4) rect.x = VW - 4 - rect.width;
+        if (rect.yMax > VH - 4) rect.y = mouse.y - 24;
+        Fill(new Rect(rect.x - 1, rect.y - 1, rect.width + 2, rect.height + 2), BorderColor);
+        Fill(rect, new Color(0.13f, 0.13f, 0.13f, 0.98f));
+        GUI.Label(new Rect(rect.x + 6, rect.y, rect.width - 8, rect.height), _tooltip, _small);
+    }
+
+
+    // =========================================================
+    // View panel (aspect ratio / window size / display)
+    // =========================================================
+
+    private void DrawView()
+    {
+        Rect content = DrawWindow(_viewRect, "View");
+        GUILayout.BeginArea(new Rect(content.x + 6, content.y + 4, content.width - 12, content.height - 6));
+        GUILayout.Label("Aspect ratio", _dim);
         GUILayout.BeginHorizontal();
-        GUILayout.Label(label, GUILayout.Width(110));
-        GUI.SetNextControlName(id);
-        string text = GUILayout.TextField(_fields[id]);
-        bool changed = text != _fields[id];
-        _fields[id] = text;
+        for (int i = 0; i < CS_MayaPreviewWindow.AspectNames.Length; i++)
+            if (GUILayout.Button(CS_MayaPreviewWindow.AspectNames[i], _window.AspectIndex == i ? _buttonOn : _button, GUILayout.Height(RowHeight + 2)))
+                _window.SetAspect(i);
         GUILayout.EndHorizontal();
-        if (changed && float.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out float parsed)
-            && !float.IsNaN(parsed) && !float.IsInfinity(parsed)) return parsed;
-        return value;
+        GUILayout.Space(4);
+        if (GUILayout.Button("Reset ratio", _button, GUILayout.Height(RowHeight + 2))) _window.ResetRatio();
+        GUILayout.Space(6);
+        GUILayout.Label("Window width", _dim);
+        GUILayout.BeginHorizontal();
+        foreach (int width in CS_MayaPreviewWindow.WidthPresets)
+            if (GUILayout.Button(width.ToString(), Screen.width == width ? _buttonOn : _button, GUILayout.Height(RowHeight + 2)))
+                _window.SetClientWidth(width);
+        GUILayout.EndHorizontal();
+        GUILayout.Space(6);
+        GUILayout.Label("Display", _dim);
+        GUILayout.BeginHorizontal();
+        if (GUILayout.Button("Icons", _iconsVisible ? _buttonOn : _button, GUILayout.Height(RowHeight + 2))) _iconsVisible = !_iconsVisible;
+        bool grid = _guides != null && _guides.enabled;
+        if (_guides != null && GUILayout.Button("Grid", grid ? _buttonOn : _button, GUILayout.Height(RowHeight + 2))) _guides.enabled = !grid;
+        GUILayout.EndHorizontal();
+        GUILayout.Space(6);
+        GUILayout.Label("Tab: hide UI   Ctrl+Z / Ctrl+Y: undo / redo   Ctrl+D: duplicate   Delete: delete   F: frame   A: frame all", _wrapDim);
+        GUILayout.EndArea();
     }
 
-    private void WorldIcon(GameObject target, bool sun)
-    {
-        Vector3 point = _view.WorldToScreenPoint(target.transform.position);
-        if (point.z <= _view.nearClipPlane || !_view.pixelRect.Contains(point)) return;
-        Rect rect = new Rect(point.x - 16, Screen.height - point.y - 16, 32, 32);
-        if ((_inspectorOpen && _selection.SelectedObject != null && Panel.Overlaps(rect)) || InspectorButton.Overlaps(rect)) return;
-        if ((_hierarchyOpen && HierarchyPanel.Overlaps(rect)) || HierarchyButton.Overlaps(rect)
-            || (rect.x > Screen.width - 54 && rect.y < 54)) return;
-        Icon(target, sun, rect);
-    }
 
-    private void Icon(GameObject target, bool sun, Rect rect)
+    // =========================================================
+    // Type icons in the view (lights, cameras, volumes, audio, probes)
+    // =========================================================
+
+    private void DrawWorldIcons()
     {
-        _iconRects.Add(rect);
-        Color previous = GUI.backgroundColor;
-        if (_selection.SelectedObject == target) GUI.backgroundColor = Color.yellow;
-        if (GUI.Button(rect, rect.width > 40 ? "       " + target.name : ""))
-        { GUI.FocusControl(null); _typing = false; _selection.SelectObject(target); }
-        GUI.backgroundColor = previous;
-        if (Event.current.type != EventType.Repaint) return;
-        Color color = GUI.color;
-        GUI.color = sun ? new Color(1, 0.8f, 0.1f) : new Color(0.4f, 0.8f, 1);
-        Vector2 centre = new Vector2(rect.x + 16, rect.y + 16);
-        if (sun)
+        foreach (Transform target in _markers)
         {
-            for (int i = 0; i < 16; i++)
+            if (target == null || target == _view.transform || !target.gameObject.activeInHierarchy) continue;
+            Vector3 point = _view.WorldToScreenPoint(target.position);
+            if (point.z <= _view.nearClipPlane || !_view.pixelRect.Contains(point)) continue;
+            Vector2 gui = new Vector2(point.x, Screen.height - point.y) / _scale;
+            Rect rect = new Rect(gui.x - 13, gui.y - 13, 26, 26);
+            if (OverlapsPanel(rect)) continue;
+            _iconRects.Add(rect);
+            CS_MayaPreviewKind kind = CS_MayaPreviewIcons.KindOf(target);
+            bool selected = _selection.IsSelected(target.gameObject);
+            bool enabled = IsEnabled(target);
+
+            if (GUI.Button(rect, GUIContent.none, GUIStyle.none))
             {
-                float angle = i * Mathf.PI / 8;
-                Vector2 a = new Vector2(Mathf.Cos(angle), Mathf.Sin(angle));
-                float next = (i + 1) * Mathf.PI / 8;
-                Line(centre + a * 5, centre + new Vector2(Mathf.Cos(next), Mathf.Sin(next)) * 5);
-                if (i % 2 == 0) Line(centre + a * 8, centre + a * 12);
+                GUI.FocusControl(null);
+                var keyboard = Keyboard.current;
+                if (keyboard != null && (keyboard.shiftKey.isPressed || keyboard.ctrlKey.isPressed)) _selection.Toggle(target.gameObject);
+                else _selection.SelectObject(target.gameObject);
             }
+            if (rect.Contains(Event.current.mousePosition)) _tooltip = target.name + "  (" + CS_MayaPreviewIcons.Label(kind) + ")";
+            if (Event.current.type != EventType.Repaint) continue;
+            DrawTinted(rect, CS_MayaPreviewIcons.Disc, selected ? new Color(0.12f, 0.26f, 0.42f, 0.92f) : new Color(0.08f, 0.08f, 0.08f, 0.72f));
+            if (selected) DrawTinted(rect, CS_MayaPreviewIcons.Ring, new Color(1f, 0.85f, 0f, 1f));
+            Color tint = CS_MayaPreviewIcons.Tint(kind);
+            if (!enabled) tint = Color.Lerp(tint, Color.gray, 0.6f);
+            DrawTinted(new Rect(rect.x + 4, rect.y + 4, rect.width - 8, rect.height - 8), CS_MayaPreviewIcons.Get(kind), tint);
         }
-        else
-        {
-            GUI.DrawTexture(new Rect(centre.x - 10, centre.y - 6, 13, 12), Texture2D.whiteTexture);
-            Line(centre + new Vector2(3, -3), centre + new Vector2(10, -7));
-            Line(centre + new Vector2(10, -7), centre + new Vector2(10, 7));
-            Line(centre + new Vector2(10, 7), centre + new Vector2(3, 3));
-        }
-        GUI.color = color;
     }
 
-    private static void Line(Vector2 a, Vector2 b)
+    private static bool IsEnabled(Transform t)
     {
-        Matrix4x4 matrix = GUI.matrix;
-        Vector2 delta = b - a;
-        GUIUtility.RotateAroundPivot(Mathf.Atan2(delta.y, delta.x) * Mathf.Rad2Deg, a);
-        GUI.DrawTexture(new Rect(a.x, a.y - 1, delta.magnitude, 2), Texture2D.whiteTexture);
-        GUI.matrix = matrix;
+        if (t.TryGetComponent(out Light light)) return light.enabled;
+        if (t.TryGetComponent(out Volume volume)) return volume.enabled;
+        if (t.TryGetComponent(out AudioSource audio)) return audio.enabled && !audio.mute;
+        if (t.TryGetComponent(out Camera camera)) return camera.enabled;
+        return true;
     }
 }

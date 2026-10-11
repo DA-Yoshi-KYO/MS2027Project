@@ -17,6 +17,9 @@
         },
         {
             "m_Id": "12dd655954914976a1ae0d0b8325ca97"
+        },
+        {
+            "m_Id": "cb5fcb7dd67d47b7bd2247bccf61e842"
         }
     ],
     "m_Keywords": [],
@@ -89,6 +92,12 @@
         },
         {
             "m_Id": "9f8b2efef2a6413db853638f43cfeb26"
+        },
+        {
+            "m_Id": "315f6bc605ce496c9e99bc2705f0d3d4"
+        },
+        {
+            "m_Id": "ff455d1539b24764bb052ca3256aaf21"
         }
     ],
     "m_GroupDatas": [],
@@ -148,20 +157,6 @@
                     "m_Id": "ad83eef3f68741e4b6b6f420c46f762f"
                 },
                 "m_SlotId": 1
-            }
-        },
-        {
-            "m_OutputSlot": {
-                "m_Node": {
-                    "m_Id": "ad83eef3f68741e4b6b6f420c46f762f"
-                },
-                "m_SlotId": 2
-            },
-            "m_InputSlot": {
-                "m_Node": {
-                    "m_Id": "ee0959d98c4445b3b37afe73b87e8876"
-                },
-                "m_SlotId": 0
             }
         },
         {
@@ -286,6 +281,62 @@
             "m_InputSlot": {
                 "m_Node": {
                     "m_Id": "a62a4e3ee52d49f1bc4f4a0ffeb8f633"
+                },
+                "m_SlotId": 0
+            }
+        },
+        {
+            "m_OutputSlot": {
+                "m_Node": {
+                    "m_Id": "ad83eef3f68741e4b6b6f420c46f762f"
+                },
+                "m_SlotId": 2
+            },
+            "m_InputSlot": {
+                "m_Node": {
+                    "m_Id": "ff455d1539b24764bb052ca3256aaf21"
+                },
+                "m_SlotId": 0
+            }
+        },
+        {
+            "m_OutputSlot": {
+                "m_Node": {
+                    "m_Id": "f83fe8a75650470ab0a1c0d2354fbadb"
+                },
+                "m_SlotId": 2
+            },
+            "m_InputSlot": {
+                "m_Node": {
+                    "m_Id": "ff455d1539b24764bb052ca3256aaf21"
+                },
+                "m_SlotId": 1
+            }
+        },
+        {
+            "m_OutputSlot": {
+                "m_Node": {
+                    "m_Id": "315f6bc605ce496c9e99bc2705f0d3d4"
+                },
+                "m_SlotId": 0
+            },
+            "m_InputSlot": {
+                "m_Node": {
+                    "m_Id": "ff455d1539b24764bb052ca3256aaf21"
+                },
+                "m_SlotId": 2
+            }
+        },
+        {
+            "m_OutputSlot": {
+                "m_Node": {
+                    "m_Id": "ff455d1539b24764bb052ca3256aaf21"
+                },
+                "m_SlotId": 3
+            },
+            "m_InputSlot": {
+                "m_Node": {
+                    "m_Id": "ee0959d98c4445b3b37afe73b87e8876"
                 },
                 "m_SlotId": 0
             }
@@ -616,6 +667,9 @@
         },
         {
             "m_Id": "12dd655954914976a1ae0d0b8325ca97"
+        },
+        {
+            "m_Id": "cb5fcb7dd67d47b7bd2247bccf61e842"
         }
     ]
 }
@@ -2389,5 +2443,236 @@
     "m_FunctionSource": "",
     "m_FunctionSourceUsePragmas": true,
     "m_FunctionBody": "// Outline takes the colour of the surface it surrounds (darkened), so it blends into the fill instead of a hard black line.\nColor = lerp(OutlineColor.rgb, Tex.rgb * Darken, saturate(Blend));"
+}
+
+{
+    "m_SGVersion": 1,
+    "m_Type": "UnityEditor.ShaderGraph.Internal.Vector1ShaderProperty",
+    "m_ObjectId": "cb5fcb7dd67d47b7bd2247bccf61e842",
+    "m_Guid": {
+        "m_GuidSerialized": "d43cc950-4e58-44b6-b2b0-ea455df79614"
+    },
+    "promotedFromAssetID": "",
+    "promotedFromCategoryName": "",
+    "promotedOrdering": -1,
+    "m_Name": "へこみの線を隠す (口の中など / 0 = なし)",
+    "m_DefaultRefNameVersion": 1,
+    "m_RefNameGeneratedByDisplayName": "OutlineDepthPush",
+    "m_DefaultReferenceName": "_OutlineDepthPush",
+    "m_OverrideReferenceName": "_OutlineDepthPush",
+    "m_GeneratePropertyBlock": true,
+    "m_UseCustomSlotLabel": false,
+    "m_CustomSlotLabel": "",
+    "m_DismissedVersion": 0,
+    "m_Precision": 0,
+    "overrideHLSLDeclaration": false,
+    "hlslDeclarationOverride": 0,
+    "m_Hidden": false,
+    "m_PerRendererData": false,
+    "m_customAttributes": [],
+    "m_Value": 0.0,
+    "m_FloatType": 1,
+    "m_LiteralFloatMode": false,
+    "m_RangeValues": {
+        "x": 0.0,
+        "y": 8.0
+    },
+    "m_SliderType": 0,
+    "m_SliderPower": 3.0,
+    "m_EnumType": 0,
+    "m_CSharpEnumString": "",
+    "m_EnumNames": [
+        "Default"
+    ],
+    "m_EnumValues": [
+        0
+    ]
+}
+
+{
+    "m_SGVersion": 0,
+    "m_Type": "UnityEditor.ShaderGraph.Vector1MaterialSlot",
+    "m_ObjectId": "9a4f73a295a54c8b98b7f436ef200032",
+    "m_Id": 0,
+    "m_DisplayName": "へこみの線を隠す (口の中など / 0 = なし)",
+    "m_SlotType": 1,
+    "m_Hidden": false,
+    "m_ShaderOutputName": "Out",
+    "m_StageCapability": 3,
+    "m_Value": 0.0,
+    "m_DefaultValue": 0.0,
+    "m_Labels": [],
+    "m_LiteralMode": false
+}
+
+{
+    "m_SGVersion": 0,
+    "m_Type": "UnityEditor.ShaderGraph.PropertyNode",
+    "m_ObjectId": "315f6bc605ce496c9e99bc2705f0d3d4",
+    "m_Group": {
+        "m_Id": ""
+    },
+    "m_Name": "Property",
+    "m_DrawState": {
+        "m_Expanded": true,
+        "m_Position": {
+            "serializedVersion": "2",
+            "x": -904.0,
+            "y": 720.9997863769531,
+            "width": 220.0,
+            "height": 100.0
+        }
+    },
+    "m_Slots": [
+        {
+            "m_Id": "9a4f73a295a54c8b98b7f436ef200032"
+        }
+    ],
+    "synonyms": [],
+    "m_Precision": 0,
+    "m_PreviewExpanded": true,
+    "m_DismissedVersion": 0,
+    "m_PreviewMode": 0,
+    "m_CustomColors": {
+        "m_SerializableColors": []
+    },
+    "m_Property": {
+        "m_Id": "cb5fcb7dd67d47b7bd2247bccf61e842"
+    }
+}
+
+{
+    "m_SGVersion": 0,
+    "m_Type": "UnityEditor.ShaderGraph.Vector3MaterialSlot",
+    "m_ObjectId": "b787ac4040ba47bb9b98ec16664951d3",
+    "m_Id": 0,
+    "m_DisplayName": "PositionOS",
+    "m_SlotType": 0,
+    "m_Hidden": false,
+    "m_ShaderOutputName": "PositionOS",
+    "m_StageCapability": 3,
+    "m_Value": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+    },
+    "m_DefaultValue": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+    },
+    "m_Labels": [],
+    "m_LiteralMode": false
+}
+
+{
+    "m_SGVersion": 0,
+    "m_Type": "UnityEditor.ShaderGraph.Vector3MaterialSlot",
+    "m_ObjectId": "c96de893871445d88d2d3796602cd6f5",
+    "m_Id": 1,
+    "m_DisplayName": "ExtrudeOS",
+    "m_SlotType": 0,
+    "m_Hidden": false,
+    "m_ShaderOutputName": "ExtrudeOS",
+    "m_StageCapability": 3,
+    "m_Value": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+    },
+    "m_DefaultValue": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+    },
+    "m_Labels": [],
+    "m_LiteralMode": false
+}
+
+{
+    "m_SGVersion": 0,
+    "m_Type": "UnityEditor.ShaderGraph.Vector1MaterialSlot",
+    "m_ObjectId": "6ac625c213c34d27b08000a2bdade727",
+    "m_Id": 2,
+    "m_DisplayName": "Push",
+    "m_SlotType": 0,
+    "m_Hidden": false,
+    "m_ShaderOutputName": "Push",
+    "m_StageCapability": 3,
+    "m_Value": 0.0,
+    "m_DefaultValue": 0.0,
+    "m_Labels": [],
+    "m_LiteralMode": false
+}
+
+{
+    "m_SGVersion": 0,
+    "m_Type": "UnityEditor.ShaderGraph.Vector3MaterialSlot",
+    "m_ObjectId": "ebe10aab278e4d3ebcf3ee8e4bca2653",
+    "m_Id": 3,
+    "m_DisplayName": "Position",
+    "m_SlotType": 1,
+    "m_Hidden": false,
+    "m_ShaderOutputName": "Position",
+    "m_StageCapability": 3,
+    "m_Value": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+    },
+    "m_DefaultValue": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+    },
+    "m_Labels": [],
+    "m_LiteralMode": false
+}
+
+{
+    "m_SGVersion": 1,
+    "m_Type": "UnityEditor.ShaderGraph.CustomFunctionNode",
+    "m_ObjectId": "ff455d1539b24764bb052ca3256aaf21",
+    "m_Group": {
+        "m_Id": ""
+    },
+    "m_Name": "NTE_OutlinePush (Custom Function)",
+    "m_DrawState": {
+        "m_Expanded": true,
+        "m_Position": {
+            "serializedVersion": "2",
+            "x": -566.0,
+            "y": 0.9999207258224487,
+            "width": 220.0,
+            "height": 100.0
+        }
+    },
+    "m_Slots": [
+        {
+            "m_Id": "b787ac4040ba47bb9b98ec16664951d3"
+        },
+        {
+            "m_Id": "c96de893871445d88d2d3796602cd6f5"
+        },
+        {
+            "m_Id": "6ac625c213c34d27b08000a2bdade727"
+        },
+        {
+            "m_Id": "ebe10aab278e4d3ebcf3ee8e4bca2653"
+        }
+    ],
+    "synonyms": [],
+    "m_Precision": 0,
+    "m_PreviewExpanded": true,
+    "m_DismissedVersion": 0,
+    "m_PreviewMode": 0,
+    "m_CustomColors": {
+        "m_SerializableColors": []
+    },
+    "m_SourceType": 1,
+    "m_FunctionName": "NTE_OutlinePush",
+    "m_FunctionSource": "",
+    "m_FunctionSourceUsePragmas": true,
+    "m_FunctionBody": "// Pushes the outline back along the camera ray by Push x line width. A line that only shows through a small dent\n// (the closed mouth slit and its corners) ends up behind the face; silhouettes keep their line (what is behind\n// them is far away). Push 0 = off (exactly as before).\nPosition = PositionOS;\n#if !defined(SHADERGRAPH_PREVIEW)\nif (Push > 0.0)\n{\n    float3 positionWS = TransformObjectToWorld(PositionOS);\n    float width = length(mul((float3x3)GetObjectToWorldMatrix(), (float3)ExtrudeOS));\n    positionWS -= GetWorldSpaceNormalizeViewDir(positionWS) * ((float)Push * width);\n    Position = TransformWorldToObject(positionWS);\n}\n#endif"
 }
 

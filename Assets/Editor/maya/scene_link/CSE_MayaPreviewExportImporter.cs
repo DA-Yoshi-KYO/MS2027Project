@@ -8,18 +8,20 @@ using UnityEngine.Rendering.HighDefinition;
 /*
 +=====================================
  File   : CSE_MayaPreviewExportImporter
- Summary: Builds Unity assets from a Maya preview export (CS_MayaPreviewExport).
-          - Copy / drop the export folder anywhere under Assets: when export.mpx.json is
-            imported, <folder>/Generated (meshes, materials) and <folder>/<name>.prefab are made.
-          - Tools > Maya Preview > Import Export Folder... copies a folder from disk into
-            Assets/MayaPreviewImports/<name> and builds it.
-          - Rebuilding keeps the same assets (references in scenes stay valid).
+ Summary: Finishes a Maya preview export inside the project by itself (no menu).
+          MS2027.exe writes <Folder>/Mesh/<name>.fbx, <Folder>/Texture/* and
+          <Folder>/MayaPreview/Exports/<name>.mpx.json into Assets (default Assets/Designer).
+          When the editor imports the .mpx.json:
+          - Texture/* get their import settings (normal map / linear data),
+          - <Folder>/Material/MT_*.mat are made or updated (shader + every value + textures),
+          - the FBX gets those materials (material remap in its import settings).
+          Right click a .mpx.json > Maya Preview > Rebuild From Export runs it again.
  History: 2026/10/11 New
+          2026/10/11 FBX + Designer folders, automatic (no Import menu, no prefab)
 =====================================+
 */
 public class CSE_MayaPreviewExportImporter : AssetPostprocessor
 {
-    private const string ImportRoot = "Assets/MayaPreviewImports";
     private static readonly HashSet<string> s_pending = new HashSet<string>();
 
 
@@ -35,95 +37,65 @@ public class CSE_MayaPreviewExportImporter : AssetPostprocessor
 
     private static void Check(string path)
     {
-        if (!path.EndsWith("/" + CS_MayaPreviewExport.ManifestFile, StringComparison.OrdinalIgnoreCase)) return;
-        string folder = Path.GetDirectoryName(path).Replace('\\', '/');
-        if (s_pending.Add(folder) && s_pending.Count == 1) EditorApplication.delayCall += Flush;
+        if (!path.EndsWith(CS_MayaPreviewExport.ManifestExtension, StringComparison.OrdinalIgnoreCase)) return;
+        if (s_pending.Add(path) && s_pending.Count == 1) EditorApplication.delayCall += Flush;
     }
 
     private static void Flush()
     {
-        var folders = new List<string>(s_pending);
+        var paths = new List<string>(s_pending);
         s_pending.Clear();
-        foreach (string folder in folders)
+        foreach (string path in paths)
         {
-            try { Build(folder); }
+            try { Build(path); }
             catch (Exception exception) { Debug.LogException(exception); }
         }
     }
 
 
     // =========================================================
-    // Menus
+    // Menu
     // =========================================================
 
-    [MenuItem("Tools/Maya Preview/Import Export Folder...")]
-    private static void ImportFolder()
-    {
-        string source = EditorUtility.OpenFolderPanel("Maya Preview export folder", "", "");
-        if (string.IsNullOrEmpty(source)) return;
-        if (!File.Exists(Path.Combine(source, CS_MayaPreviewExport.ManifestFile)))
-        {
-            EditorUtility.DisplayDialog("Maya Preview", CS_MayaPreviewExport.ManifestFile + " was not found in\n" + source, "OK");
-            return;
-        }
-        string name = Path.GetFileName(source.TrimEnd('/', '\\'));
-        string target = ImportRoot + "/" + name;
-        string full = Path.GetFullPath(target);
-        if (Directory.Exists(full) && !EditorUtility.DisplayDialog("Maya Preview", target + " exists. Update it?", "Update", "Cancel")) return;
-        CopyFolder(source, full);
-        AssetDatabase.Refresh();
-        Build(target);
-    }
-
-    [MenuItem("Assets/Maya Preview/Rebuild Prefab From Export", true)]
+    [MenuItem("Assets/Maya Preview/Rebuild From Export", true)]
     private static bool RebuildValidate()
     {
-        string folder = SelectedFolder();
-        return folder != null && File.Exists(Path.Combine(folder, CS_MayaPreviewExport.ManifestFile));
-    }
-
-    [MenuItem("Assets/Maya Preview/Rebuild Prefab From Export")]
-    private static void Rebuild()
-    {
-        string folder = SelectedFolder();
-        if (folder != null) Build(folder);
-    }
-
-    private static string SelectedFolder()
-    {
         string path = AssetDatabase.GetAssetPath(Selection.activeObject);
-        if (string.IsNullOrEmpty(path)) return null;
-        if (!AssetDatabase.IsValidFolder(path)) path = Path.GetDirectoryName(path).Replace('\\', '/');
-        return path;
+        return !string.IsNullOrEmpty(path) && path.EndsWith(CS_MayaPreviewExport.ManifestExtension, StringComparison.OrdinalIgnoreCase);
     }
 
-    private static void CopyFolder(string source, string target)
-    {
-        Directory.CreateDirectory(target);
-        foreach (string file in Directory.GetFiles(source))
-            File.Copy(file, Path.Combine(target, Path.GetFileName(file)), true);
-        foreach (string directory in Directory.GetDirectories(source))
-        {
-            string name = Path.GetFileName(directory);
-            if (name == "Generated") continue;
-            CopyFolder(directory, Path.Combine(target, name));
-        }
-    }
+    [MenuItem("Assets/Maya Preview/Rebuild From Export")]
+    private static void Rebuild() => Build(AssetDatabase.GetAssetPath(Selection.activeObject));
 
 
     // =========================================================
     // Build
     // =========================================================
 
-    public static void Build(string folder)
+    // <Folder>/MayaPreview/Exports/<name>.mpx.json -> <Folder>
+    private static string RootOf(string manifestPath)
     {
-        string manifestPath = folder + "/" + CS_MayaPreviewExport.ManifestFile;
-        var manifest = JsonUtility.FromJson<CS_MayaPreviewExportManifest>(File.ReadAllText(manifestPath));
-        if (manifest == null || manifest.nodes == null) { Debug.LogError("Maya Preview Import : invalid " + manifestPath); return; }
+        string folder = Path.GetDirectoryName(manifestPath).Replace('\\', '/');
+        string suffix = "/" + CS_MayaPreviewExport.ManifestFolder;
+        if (folder.EndsWith(suffix, StringComparison.OrdinalIgnoreCase)) return folder.Substring(0, folder.Length - suffix.Length);
+        return Path.GetDirectoryName(folder).Replace('\\', '/');
+    }
 
-        string generated = folder + "/Generated";
-        EnsureFolder(generated + "/Meshes");
-        EnsureFolder(generated + "/Materials");
+    public static void Build(string manifestPath)
+    {
+        CS_MayaPreviewExportManifest manifest;
+        try { manifest = JsonUtility.FromJson<CS_MayaPreviewExportManifest>(File.ReadAllText(manifestPath)); }
+        catch (Exception exception)
+        {
+            Debug.LogWarning("Maya Preview Import : could not read " + manifestPath + "\n" + exception.Message);
+            return;
+        }
+        if (manifest == null || string.IsNullOrEmpty(manifest.fbx)) return;   // old export format (no FBX)
+
+        string root = RootOf(manifestPath);
+        string fbxPath = root + "/" + manifest.fbx;
+        string materialFolder = root + "/" + CS_MayaPreviewExport.MaterialFolder;
+        EnsureFolder(materialFolder);
 
         // Textures: import settings first (normal maps / linear data).
         if (manifest.materials != null)
@@ -132,56 +104,20 @@ public class CSE_MayaPreviewExportImporter : AssetPostprocessor
             {
                 if (material?.textures == null) continue;
                 foreach (CS_MayaPreviewExportTexture texture in material.textures)
-                    if (!string.IsNullOrEmpty(texture.file)) SetupTexture(folder + "/" + texture.file, texture.normal, texture.linear);
+                    if (!string.IsNullOrEmpty(texture.file)) SetupTexture(root + "/" + texture.file, texture.normal, texture.linear);
             }
         }
 
-        // Materials
         var materials = new List<Material>();
         if (manifest.materials != null)
             foreach (CS_MayaPreviewExportMaterial data in manifest.materials)
-                materials.Add(data != null ? BuildMaterial(folder, generated, data) : null);
+                materials.Add(data != null ? BuildMaterial(root, materialFolder, data) : null);
+        AssetDatabase.SaveAssets();
 
-        // Hierarchy + meshes
-        string prefabName = CS_MayaPreviewExport.SafeName(manifest.name);
-        var root = new GameObject(prefabName);
-        try
-        {
-            var objects = new GameObject[manifest.nodes.Length];
-            var usedMeshNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-            for (int i = 0; i < manifest.nodes.Length; i++)
-            {
-                CS_MayaPreviewExportNode node = manifest.nodes[i];
-                var go = new GameObject(node.name);
-                Transform parent = node.parent >= 0 && node.parent < i ? objects[node.parent].transform : root.transform;
-                go.transform.SetParent(parent, false);
-                go.transform.localPosition = node.position;
-                go.transform.localRotation = node.rotation;
-                go.transform.localScale = node.scale;
-                objects[i] = go;
-
-                if (string.IsNullOrEmpty(node.mesh)) continue;
-                string meshFile = folder + "/" + node.mesh;
-                if (!File.Exists(meshFile)) { Debug.LogWarning("Maya Preview Import : missing " + meshFile); continue; }
-                string meshName = CS_MayaPreviewExport.SafeName(Path.GetFileNameWithoutExtension(node.mesh));
-                for (int n = 2; !usedMeshNames.Add(meshName); n++) meshName = meshName + "_" + n;
-                Mesh mesh = SaveMesh(CS_MayaPreviewMeshIO.Read(meshFile), generated + "/Meshes/" + meshName + ".asset");
-                go.AddComponent<MeshFilter>().sharedMesh = mesh;
-                var renderer = go.AddComponent<MeshRenderer>();
-                var slots = new Material[node.materials != null ? node.materials.Length : 0];
-                for (int s = 0; s < slots.Length; s++)
-                    slots[s] = node.materials[s] >= 0 && node.materials[s] < materials.Count ? materials[node.materials[s]] : null;
-                renderer.sharedMaterials = slots;
-            }
-
-            string prefabPath = folder + "/" + prefabName + ".prefab";
-            GameObject prefab = PrefabUtility.SaveAsPrefabAsset(root, prefabPath);
-            AssetDatabase.SaveAssets();
-            Debug.Log("Maya Preview Import : built " + prefabPath + " (" + manifest.nodes.Length + " objects, " +
-                      materials.Count + " materials)", prefab);
-            EditorGUIUtility.PingObject(prefab);
-        }
-        finally { UnityEngine.Object.DestroyImmediate(root); }
+        RemapModel(fbxPath, manifest.materials, materials);
+        var model = AssetDatabase.LoadAssetAtPath<GameObject>(fbxPath);
+        Debug.Log("Maya Preview Import : " + fbxPath + "  (" + materials.Count + " materials in " + materialFolder + ")", model);
+        if (model != null) EditorGUIUtility.PingObject(model);
     }
 
     private static void EnsureFolder(string path)
@@ -192,18 +128,37 @@ public class CSE_MayaPreviewExportImporter : AssetPostprocessor
         AssetDatabase.CreateFolder(parent, Path.GetFileName(path));
     }
 
-    private static Mesh SaveMesh(Mesh mesh, string path)
+    // The FBX uses the MT_ materials (same names as its own materials).
+    private static void RemapModel(string fbxPath, CS_MayaPreviewExportMaterial[] data, List<Material> materials)
     {
-        var existing = AssetDatabase.LoadAssetAtPath<Mesh>(path);
-        if (existing != null)
+        var importer = AssetImporter.GetAtPath(fbxPath) as ModelImporter;
+        if (importer == null)
         {
-            EditorUtility.CopySerialized(mesh, existing);
-            UnityEngine.Object.DestroyImmediate(mesh);
-            EditorUtility.SetDirty(existing);
-            return existing;
+            Debug.LogWarning("Maya Preview Import : FBX not found (" + fbxPath + ")");
+            return;
         }
-        AssetDatabase.CreateAsset(mesh, path);
-        return mesh;
+        bool changed = false;
+        if (importer.importCameras) { importer.importCameras = false; changed = true; }
+        if (importer.importLights) { importer.importLights = false; changed = true; }
+        if (importer.importAnimation) { importer.importAnimation = false; changed = true; }
+        if (importer.animationType != ModelImporterAnimationType.None) { importer.animationType = ModelImporterAnimationType.None; changed = true; }
+        if (!importer.preserveHierarchy) { importer.preserveHierarchy = true; changed = true; }
+        if (importer.materialImportMode == ModelImporterMaterialImportMode.None)
+        {
+            importer.materialImportMode = ModelImporterMaterialImportMode.ImportViaMaterialDescription;
+            changed = true;
+        }
+
+        Dictionary<AssetImporter.SourceAssetIdentifier, UnityEngine.Object> map = importer.GetExternalObjectMap();
+        for (int i = 0; i < materials.Count && data != null && i < data.Length; i++)
+        {
+            if (materials[i] == null || data[i] == null || string.IsNullOrEmpty(data[i].asset)) continue;
+            var id = new AssetImporter.SourceAssetIdentifier(typeof(Material), data[i].asset);
+            if (map.TryGetValue(id, out UnityEngine.Object current) && current == materials[i]) continue;
+            importer.AddRemap(id, materials[i]);
+            changed = true;
+        }
+        if (changed) importer.SaveAndReimport();
     }
 
     private static void SetupTexture(string path, bool normal, bool linear)
@@ -216,7 +171,8 @@ public class CSE_MayaPreviewExportImporter : AssetPostprocessor
         if (changed) importer.SaveAndReimport();
     }
 
-    private static Material BuildMaterial(string folder, string generated, CS_MayaPreviewExportMaterial data)
+    // <Folder>/Material/MT_xxx.mat: made, or updated in place (references stay valid).
+    private static Material BuildMaterial(string root, string materialFolder, CS_MayaPreviewExportMaterial data)
     {
         Shader shader = Shader.Find(data.shader);
         if (shader == null)
@@ -224,7 +180,8 @@ public class CSE_MayaPreviewExportImporter : AssetPostprocessor
             Debug.LogWarning("Maya Preview Import : shader \"" + data.shader + "\" not found, using HDRP/Lit (" + data.name + ")");
             shader = Shader.Find("HDRP/Lit");
         }
-        var material = new Material(shader) { name = data.name };
+        string assetName = !string.IsNullOrEmpty(data.asset) ? data.asset : CS_MayaPreviewExport.MaterialAssetName(data.name);
+        var material = new Material(shader) { name = assetName };
         if (data.floats != null) foreach (var v in data.floats) if (material.HasProperty(v.prop)) material.SetFloat(v.prop, v.value);
         if (data.ints != null) foreach (var v in data.ints) if (material.HasProperty(v.prop)) material.SetInteger(v.prop, Mathf.RoundToInt(v.value));
         if (data.colors != null) foreach (var v in data.colors) if (material.HasProperty(v.prop)) material.SetColor(v.prop, v.value);
@@ -235,9 +192,13 @@ public class CSE_MayaPreviewExportImporter : AssetPostprocessor
             {
                 if (!material.HasProperty(t.prop)) continue;
                 Texture texture = !string.IsNullOrEmpty(t.file)
-                    ? AssetDatabase.LoadAssetAtPath<Texture>(folder + "/" + t.file)
+                    ? AssetDatabase.LoadAssetAtPath<Texture>(root + "/" + t.file)
                     : FindProjectTexture(t.textureName);
-                if (texture == null) { Debug.LogWarning("Maya Preview Import : texture not found " + (t.file ?? t.textureName)); continue; }
+                if (texture == null)
+                {
+                    Debug.LogWarning("Maya Preview Import : texture not found " + (string.IsNullOrEmpty(t.file) ? t.textureName : t.file) + " (" + assetName + ")");
+                    continue;
+                }
                 material.SetTexture(t.prop, texture);
                 material.SetTextureScale(t.prop, t.scale);
                 material.SetTextureOffset(t.prop, t.offset);
@@ -246,7 +207,7 @@ public class CSE_MayaPreviewExportImporter : AssetPostprocessor
         if (data.keywords != null) material.shaderKeywords = data.keywords;
         try { HDMaterial.ValidateMaterial(material); } catch (Exception) { /* not an HDRP shader */ }
 
-        string path = generated + "/Materials/" + CS_MayaPreviewExport.SafeName(data.name) + ".mat";
+        string path = materialFolder + "/" + CS_MayaPreviewExport.SafeName(assetName) + ".mat";
         var existing = AssetDatabase.LoadAssetAtPath<Material>(path);
         if (existing != null)
         {

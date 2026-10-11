@@ -94,6 +94,7 @@ Material:
     - _EyeHighlightStrength: 0
     - _EyeIrisGradient: 0
     - _EyeIrisSaturation: 0.25
+    - _EyeReflection: 0.5
     - _MaterialID: 1
     - _MaterialTypeMask: 2
     - _OpaqueCullMode: 2
@@ -134,5 +135,7 @@ Material:
     - _BaseColor: {r: 1, g: 1, b: 1, a: 1}
     - _DoubleSidedConstants: {r: 1, g: 1, b: -1, a: 0}
     - _EmissionColor: {r: 1, g: 1, b: 1, a: 1}
+    - _EyeCenters: {r: 0.2895, g: 0.755, b: 0.7105, a: 0.755}
+    - _EyeSize: {r: 0.2015, g: 0.235, b: 0, a: 0}
   m_BuildTextureStacks: []
   m_AllowLocking: 1

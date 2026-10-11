@@ -25,6 +25,7 @@ public static class MutouCompareSetup
     const string GraphDir = ToonRoot + "/Shader/Graph";
     const string OutlineTplDir = ToonRoot + "/Materiar";
     const float OutlineWidthScale = 2.5f;   // Teto より線を太く (分かりやすさ優先)
+    const float SkinOutlineDepthPush = 4f;  // 肌の線を線の太さ 4 本分だけ奥へ (口の切れ込みから線が透けないように)
 
     enum Part { Skin, Hair, Eye, Clothes, Gun }
 
@@ -151,6 +152,8 @@ public static class MutouCompareSetup
         m.SetTexture("_BaseMap", BaseTex(p));
         if (template.HasProperty("_OutlineWidth"))
             m.SetFloat("_OutlineWidth", template.GetFloat("_OutlineWidth") / modelScale * OutlineWidthScale);
+        if (p == Part.Skin && m.HasProperty("_OutlineDepthPush"))
+            m.SetFloat("_OutlineDepthPush", SkinOutlineDepthPush);
         EditorUtility.SetDirty(m);
         return m;
     }

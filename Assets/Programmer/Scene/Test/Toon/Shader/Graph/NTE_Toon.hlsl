@@ -140,16 +140,51 @@ float NTE_FabricGrain(float2 uv, float scale)
     #endif
 #endif
 
+// Shadow maps see the real (faceted) mesh, the shading sees smooth normals: right at the light / shade edge the
+// mesh shadows itself in polygon-shaped blocks. Faded only there (N.L -0.02 .. 0.10), so surfaces lit at a
+// grazing angle (legs under an overhead light) keep the shadows cast on them (skirt -> thighs).
+float NTE_SelfShadowFade(float ndl) { return smoothstep(-0.02, 0.10, ndl); }
+
+#ifdef NTE_HDRP_LIGHTS
+// Spot / point light shadow with a fixed, smooth 7x7 tent filter (16 taps). Same shadow map, position and bias
+// as HDRP's own lookup, but no per-pixel noise (HDRP "High" uses noisy PCSS): the edge is a clean soft line
+// instead of stair-steps and dots, whatever the quality setting. Cheaper than PCSS too.
+float NTE_PunctualShadowTent(HDShadowContext shadowContext, float3 positionWS, float3 normalWS, int shadowIndex,
+    float3 L, float L_dist, bool pointLight)
+{
+    normalWS *= FastSign(dot(normalWS, L));
+    HDShadowData sd = shadowContext.shadowDatas[shadowIndex];
+    if (pointLight)
+    {
+        const int face = CubeMapFaceID(-L);
+        sd.rot0 = shadowContext.shadowDatas[shadowIndex + face].rot0;
+        sd.rot1 = shadowContext.shadowDatas[shadowIndex + face].rot1;
+        sd.rot2 = shadowContext.shadowDatas[shadowIndex + face].rot2;
+        sd.atlasOffset = shadowContext.shadowDatas[shadowIndex + face].atlasOffset;
+    }
+    bool cached = sd.isInCachedAtlas > 0;
+    float4 atlas = cached ? _CachedShadowAtlasSize : _ShadowAtlasSize;
+    float3 normalBias = EvalShadow_NormalBiasProj(sd.worldTexelSize, sd.normalBias, normalWS, L_dist);
+    float3 posTC;
+    if (!EvalShadow_PositionTC(sd, atlas.zw, positionWS, normalBias, true, posTC))
+        return 1.0;
+    return cached
+        ? SampleShadow_PCF_Tent_7x7(atlas.zwxy, posTC, _CachedShadowmapAtlas, s_linear_clamp_compare_sampler, FIXED_UNIFORM_BIAS)
+        : SampleShadow_PCF_Tent_7x7(atlas.zwxy, posTC, _ShadowmapAtlas, s_linear_clamp_compare_sampler, FIXED_UNIFORM_BIAS);
+}
+#endif
+
 // Sharpness (0..1): 0 = soft photographic edge, 1 = hard cel edge. The light term and the shadow-map term
 // are each pushed through a step + feather (as in Unity Toon Shader's "Step / Feather"), after a small blur
 // that removes shadow-map stair-steps - so the edge is crisp like anime, but never jagged.
-float3 NTE_PunctualLights(NTEToonInput i, float3 posAbsWS, float faceSign, float sharpness)
+// skin = 1: the shadow is looked up 2 cm+ off the skin, so the limb's own small bumps (knee cap over the
+// shin, calf) never shadow it - only real overhangs do (skirt, sleeves, hair volume, chin over the neck).
+float3 NTE_PunctualLightsCore(NTEToonInput i, float3 posAbsWS, float faceSign, float sharpness, float skin)
 {
     float3 sum = 0.0;
     float feather = lerp(0.35, 0.03, saturate(sharpness));
 #ifdef NTE_HDRP_LIGHTS
     float3 posRWS = GetCameraRelativePositionWS(posAbsWS);
-    float2 posSS = ComputeNormalizedDeviceCoordinates(posRWS, UNITY_MATRIX_VP) * _ScreenSize.xy;
     HDShadowContext shadowContext = InitShadowContext();
     uint count = _PunctualLightCount;
     uint used = 0;
@@ -181,17 +216,17 @@ float3 NTE_PunctualLights(NTEToonInput i, float3 posAbsWS, float faceSign, float
         float shadow = 1.0;
         if (light.shadowIndex >= 0 && light.shadowDimmer > 0.0)
         {
-            float3 t1 = normalize(cross(L, abs(L.y) < 0.99 ? float3(0, 1, 0) : float3(1, 0, 0)));
-            float3 t2 = cross(L, t1);
-            float r = 0.004 * distances.x + 0.003;                       // ~2.3 cm at 5 m
-            bool isPoint = light.lightType == GPULIGHTTYPE_POINT;
-            float acc = GetPunctualShadowAttenuation(shadowContext, posSS, posRWS, i.N, light.shadowIndex, L, distances.x, isPoint, true);
-            acc += GetPunctualShadowAttenuation(shadowContext, posSS, posRWS + (t1 * 0.92 + t2 * 0.38) * r, i.N, light.shadowIndex, L, distances.x, isPoint, true);
-            acc += GetPunctualShadowAttenuation(shadowContext, posSS, posRWS + (-t1 * 0.38 + t2 * 0.92) * r, i.N, light.shadowIndex, L, distances.x, isPoint, true);
-            acc += GetPunctualShadowAttenuation(shadowContext, posSS, posRWS + (-t1 * 0.92 - t2 * 0.38) * r, i.N, light.shadowIndex, L, distances.x, isPoint, true);
-            acc += GetPunctualShadowAttenuation(shadowContext, posSS, posRWS + (t1 * 0.38 - t2 * 0.92) * r, i.N, light.shadowIndex, L, distances.x, isPoint, true);
-            shadow = smoothstep(0.5 - feather, 0.5 + feather, acc * 0.2);
-            shadow = lerp(1.0, shadow, light.shadowDimmer);
+            // Looked up a little off the surface (along the normal) so the faceted mesh does not shadow itself.
+            float lift = skin > 0.5 ? 0.02 + 0.001 * distances.x : 0.003 + 0.0008 * distances.x;
+            float3 p = posRWS + i.N * lift;
+            float s = NTE_PunctualShadowTent(shadowContext, p, i.N, light.shadowIndex, L, distances.x,
+                                             light.lightType == GPULIGHTTYPE_POINT);
+            shadow = smoothstep(0.5 - feather - 0.1, 0.5 + feather + 0.1, s);
+            // Where the surface turns away from the light the shading above already darkens it smoothly:
+            // the shadow map is faded out there, so it cannot draw blotches along the light / shade edge.
+            // (Skin needs no fade: the large offset already keeps the edge clean, and the shadow stays
+            //  even on surfaces lit at a grazing angle.)
+            shadow = lerp(1.0, shadow, light.shadowDimmer * (skin > 0.5 ? 1.0 : NTE_SelfShadowFade(ndl)));
         }
         sum += light.color * (att * diff * shadow * light.diffuseDimmer);
     }
@@ -199,6 +234,50 @@ float3 NTE_PunctualLights(NTEToonInput i, float3 posAbsWS, float faceSign, float
 #endif
     // Divided by the material brightness: final = base * Brightness + light (light keeps HDRP strength).
     return i.albedo * sum * lerp(0.15, 1.0, saturate(faceSign)) / max(i.brightness, 0.05);   // inside of skirts stays dark
+}
+float3 NTE_PunctualLights(NTEToonInput i, float3 posAbsWS, float faceSign, float sharpness)
+{
+    return NTE_PunctualLightsCore(i, posAbsWS, faceSign, sharpness, 0.0);
+}
+
+// Skin and the moon: how much of the moon-side shade a skin pixel gets, by N.L only.
+// Legs, knees, lips etc. tilt only a little (N.L about -0.3 .. 0.25 under an overhead moon) and must not
+// split into light / dark patches: that whole range gets the same light tone (0.15). The shade only grows
+// where the skin clearly turns away (under the chin, N.L below -0.4), and the moon's cast shadow (Shadow
+// Matte, graph node NTE_CastShadowTint) only lands where the skin clearly faces the moon (N.L above 0.3).
+float NTE_SkinMoonMatte(float ndl) { return smoothstep(0.30, 0.60, ndl); }
+float NTE_SkinMoonShade(float ndl) { return (1.0 - NTE_SkinMoonMatte(ndl)) * lerp(0.15, 1.0, smoothstep(-0.40, -0.80, ndl)); }
+
+// ---------------- Moon shadow (HDRP Shadow Matte) without blocks at the light / shade edge ----------------
+// HDRP darkens shadowed pixels towards the ShadowTint colour (graph node NTE_CastShadowTint). That node fades
+// its strength out where the surface turns away from the moon (NTE_SelfShadowFade), and this function puts
+// exactly that darkening back by N.L instead: same colour, same depth, but a smooth edge that follows the
+// shape, not the polygons of the shadow map. Shadows cast onto lit surfaces (hair -> face) are unchanged.
+// skin = 1: the skin shadow colour (warm), else the plain one; both match the ShadowTint node formulas.
+float3 NTE_SmoothSelfShadow(float3 color, float3 albedo, float3 tint, float3 normalWS, float strength, float skin)
+{
+#ifdef NTE_HDRP_LIGHTS
+    if (_DirectionalShadowIndex >= 0 && (asuint(_ShadowMatteFilter) & LIGHTFEATUREFLAGS_DIRECTIONAL) != 0)
+    {
+        DirectionalLightData light = _DirectionalLightDatas[_DirectionalShadowIndex];
+        if (light.lightDimmer > 0.0 && light.shadowDimmer > 0.0)
+        {
+            float3 N = normalWS * rsqrt(max(dot(normalWS, normalWS), 1e-6));
+            float ndl = dot(N, -light.forward);
+            // Skin: one even tone over the small tilts (knees, calves), see NTE_SkinMoonShade.
+            float away = skin > 0.5 ? NTE_SkinMoonShade(ndl) : 1.0 - NTE_SelfShadowFade(ndl);
+            float3 a = max(albedo, 0.0);
+            float3 shade = a * saturate(tint) * 0.5;
+            if (skin > 0.5)
+            {
+                float3 warm = a * a / max(max(a.r, max(a.g, a.b)), 1e-4);
+                shade = lerp(a, warm, 0.3) * float3(1.05, 0.90, 0.86) * saturate(tint) * 0.55;
+            }
+            color = lerp(color, shade, saturate(strength) * light.shadowDimmer * away);
+        }
+    }
+#endif
+    return color;
 }
 
 // View-space normal (for matcap-style reflections that follow the camera)
@@ -311,7 +390,10 @@ void NTE_Skin_float(NTE_ARGS)
     // Absorption: the lit side never goes chalky white, the deep side keeps a faint warm glow from inside.
     col *= lerp(1.0, lerp(0.93, 1.0, 1.0 - lit), absorb);
     col += i.albedo * float3(0.03, 0.006, 0.0) * (1.0 - lit) * absorb;
-    NTE_ENV(col, lit);
+    // Spot / point lights on skin get a softer edge as well (same "light sinks in" idea), so they do not
+    // draw hard lit / unlit patches on the bumps of knees and calves.
+    col = NTE_Environment(i, col, lit, FaceSign, SkyLight, BottomShade, BackFaceShade)
+        + NTE_PunctualLightsCore(i, PositionWS, FaceSign, LightSharpness * (1.0 - 0.7 * absorb), 1.0);
     col = NTE_SkinScatter(i, col, FabricSheen);
     // Very soft, velvety sheen (fine hair on the skin) instead of a plastic edge.
     col += i.albedo * pow(NTE_Fresnel(i), 4.0) * 0.08 * absorb * lit;
@@ -373,6 +455,34 @@ void NTE_Metal_float(NTE_ARGS)
 }
 NTE_HALF_FORWARD(NTE_Metal)
 
+// ---------------- Same functions + moon shadow strength (smooth light / shade edge) ----------------
+#define NTE_ARGS_C float4 Tex, float4 BaseColor, float3 ShadowColor, float3 NormalWS, float3 ViewWS, float3 TangentWS, float3 MainLightDirection, \
+    float ShadowThreshold, float ShadowSoftness, float ShadowSaturation, float3 RimColor, float RimStrength, float RimWidth, \
+    float ShadowStrength, float Brightness, float3 SpecColor, float SpecStrength, float SpecSize, \
+    float FaceSign, float4 UV, float SkyLight, float BottomShade, float BackFaceShade, float DetailScale, float DetailStrength, \
+    float3 PositionWS, float FabricSheen, float LightSharpness, float CastShadowStrength, out float3 Color
+#define NTE_HALF_ARGS_C half4 Tex, half4 BaseColor, half3 ShadowColor, half3 NormalWS, half3 ViewWS, half3 TangentWS, half3 MainLightDirection, \
+    half ShadowThreshold, half ShadowSoftness, half ShadowSaturation, half3 RimColor, half RimStrength, half RimWidth, \
+    half ShadowStrength, half Brightness, half3 SpecColor, half SpecStrength, half SpecSize, \
+    half FaceSign, half4 UV, half SkyLight, half BottomShade, half BackFaceShade, half DetailScale, half DetailStrength, \
+    float3 PositionWS, half FabricSheen, half LightSharpness, half CastShadowStrength, out half3 Color
+#define NTE_PASS_ARGS Tex, BaseColor, ShadowColor, NormalWS, ViewWS, TangentWS, MainLightDirection, ShadowThreshold, ShadowSoftness, \
+    ShadowSaturation, RimColor, RimStrength, RimWidth, ShadowStrength, Brightness, SpecColor, SpecStrength, SpecSize, FaceSign, UV, \
+    SkyLight, BottomShade, BackFaceShade, DetailScale, DetailStrength, PositionWS, FabricSheen, LightSharpness
+#define NTE_SMOOTH_SHADOW(name, skin) \
+void name##_float(NTE_ARGS_C) \
+{ \
+    float3 c; name##_float(NTE_PASS_ARGS, c); \
+    Color = NTE_SmoothSelfShadow(c, Tex.rgb * BaseColor.rgb, ShadowColor, NormalWS, CastShadowStrength, skin); \
+} \
+void name##_half(NTE_HALF_ARGS_C) { float3 c; name##_float(NTE_PASS_ARGS, (float)CastShadowStrength, c); Color = c; }
+
+NTE_SMOOTH_SHADOW(NTE_Skin, 1.0)
+NTE_SMOOTH_SHADOW(NTE_Cloth, 0.0)
+NTE_SMOOTH_SHADOW(NTE_Hair, 0.0)
+NTE_SMOOTH_SHADOW(NTE_Leather, 0.0)
+NTE_SMOOTH_SHADOW(NTE_Metal, 0.0)
+
 // ---------------- Eye (transparent iris) ----------------
 // Mask (35_EyeHighlightMask): R = highlight shapes, G = lower-iris glow, B = upper-iris eyelid shade.
 void NTE_Eye_float(float4 Tex, float4 BaseColor, float4 Mask, float3 NormalWS, float Brightness,
@@ -393,5 +503,123 @@ void NTE_Eye_half(half4 Tex, half4 BaseColor, half4 Mask, half3 NormalWS, half B
     half IrisSaturation, half HighlightStrength, half IrisGradient, out half3 Color)
 {
     float3 c; NTE_Eye_float(Tex, BaseColor, Mask, NormalWS, Brightness, HighlightBoost, IrisSaturation, HighlightStrength, IrisGradient, c); Color = c;
+}
+
+// ---------------- Eye: one texture, glowing highlights and a cornea that mirrors lights and sky ----------------
+// SHG_NTE_Eye (HDRP Lit, transparent). The eye mesh is flat, so the cornea (a dome) is made from the position on
+// the texture: EyeCenters = centre of each eye on the texture (xy = 1st eye, zw = 2nd eye; the same twice when
+// both eyes use one picture), EyeSize = half width / half height of one eye on the texture.
+// Inside that dome:
+//   - painted white highlights glow on their own (HDR, they bloom), whatever the scene lighting
+//   - a catchlight fixed to the camera (upper left) and one small sharp glint per light where the cornea mirrors
+//     it: they slide over the eye when the head, the camera or the light moves
+//   - the HDRP sky is mirrored on the cornea, more towards its edge (Reflection = how much)
+// Outside it (other parts painted on the same texture, e.g. shoes) only the plain texture is drawn.
+#if defined(SHADERPASS) && !defined(SHADERGRAPH_PREVIEW)
+    #if SHADERPASS == SHADERPASS_FORWARD
+        #define NTE_EYE_LIGHTS 1
+    #endif
+#endif
+
+#define NTE_EYE_BULGE 1.5   // how round the cornea is
+
+// Sharp glint (+ a soft sheen around it) where the cornea mirrors a light. radiance = as seen on screen.
+float3 NTE_EyeGlint(float3 Nd, float3 V, float3 L, float3 radiance, float sheen)
+{
+    float nh = dot(Nd, normalize(L + V));
+    float g = smoothstep(0.9965, 0.998, nh) + smoothstep(0.95, 0.995, nh) * 0.2 * sheen;
+    float m = max(radiance.r, max(radiance.g, radiance.b));
+    float3 tint = lerp(1.0.xxx, radiance / max(m, 1e-6), 0.5);
+    return g * tint * (1.0 - exp(-2.0 * m));          // bright light -> full glint, dim light -> faint
+}
+
+void NTE_EyeLit_float(float4 Tex, float4 BaseColor, float4 UV, float3 NormalWS, float3 PositionWS,
+    float Brightness, float IrisSaturation, float IrisGradient, float HighlightGlow, float Reflection,
+    float4 EyeCenters, float4 EyeSize, out float3 Albedo, out float3 Emission)
+{
+    // Position inside the nearer eye: -1..1 across it.
+    float2 size = max(EyeSize.xy, 1e-4);
+    float2 d0 = (UV.xy - EyeCenters.xy) / size;
+    float2 d1 = (UV.xy - EyeCenters.zw) / size;
+    float2 e = dot(d0, d0) <= dot(d1, d1) ? d0 : d1;
+    float inside = 1.0 - smoothstep(1.0, 1.15, length(e));
+
+    // Iris colour (as before); eyelid shade at the top and glowing lower iris come from the position in the eye.
+    float3 c = Tex.rgb * BaseColor.rgb;
+    float l = dot(c, float3(0.2126, 0.7152, 0.0722));
+    c = max(lerp(l.xxx, c, 1.0 + IrisSaturation), 0.0);
+    float grad = IrisGradient * inside;
+    c *= lerp(1.0, 0.55, smoothstep(0.05, 0.85, e.y) * grad * 2.0);
+    float glow = smoothstep(-0.1, -0.85, e.y) * grad;
+    c += c * glow * 2.5 + glow * 0.15;
+    Albedo = c * Brightness;
+
+    // Highlights in screen brightness (above 1 = blooms).
+    float highlight = smoothstep(0.75, 0.95, min(Tex.r, min(Tex.g, Tex.b)));     // painted white highlight
+    float3 screen = highlight.xxx;
+    float3 sky = 0.0;
+#ifdef NTE_EYE_LIGHTS
+    float3 N = normalize(NormalWS);
+    float3 posRWS = GetCameraRelativePositionWS(PositionWS);
+    float3 V = GetWorldSpaceNormalizeViewDir(posRWS);
+    // Directions of the texture's x / y on the surface (screen derivatives, no mesh tangents needed).
+    float3 dp1 = ddx(posRWS), dp2 = ddy(posRWS);
+    float2 du1 = ddx(UV.xy), du2 = ddy(UV.xy);
+    float3 p2 = cross(dp2, N), p1 = cross(N, dp1);
+    float3 T = p2 * du1.x + p1 * du2.x;
+    float3 B = p2 * du1.y + p1 * du2.y;
+    T *= rsqrt(max(dot(T, T), 1e-20));
+    B *= rsqrt(max(dot(B, B), 1e-20));
+    float3 Nd = normalize(N + (e.x * T + e.y * B) * NTE_EYE_BULGE);           // the cornea
+    float exposure = GetCurrentExposureMultiplier();
+
+    // Catchlight fixed to the camera (upper left, like a drawn highlight).
+    float3 key = normalize(V - UNITY_MATRIX_V[0].xyz * 0.5 + UNITY_MATRIX_V[1].xyz * 0.4);
+    screen += smoothstep(0.9945, 0.9955, dot(Nd, normalize(key + V)));
+
+    // One glint per light (sun / moon, spot, point).
+    for (uint k = 0; k < _DirectionalLightCount; k++)
+    {
+        DirectionalLightData dl = _DirectionalLightDatas[k];
+        if (dl.lightDimmer <= 0.0 || dl.specularDimmer <= 0.0)
+            continue;
+        screen += NTE_EyeGlint(Nd, V, -dl.forward, dl.color * (dl.specularDimmer * exposure), Reflection);
+    }
+    uint used = 0;
+    [loop] for (uint j = 0; j < _PunctualLightCount && used < 4; j++)
+    {
+        LightData light = FetchLight(j);
+        if (light.lightType != GPULIGHTTYPE_POINT && light.lightType != GPULIGHTTYPE_SPOT && light.lightType != GPULIGHTTYPE_PROJECTOR_PYRAMID)
+            continue;
+        if (light.specularDimmer <= 0.0)
+            continue;
+        float3 L; float4 distances;
+        GetPunctualLightVectors(posRWS, light, L, distances);
+        if (distances.x >= light.range)
+            continue;
+        float att = PunctualLightAttenuation(distances, light.rangeAttenuationScale, light.rangeAttenuationBias,
+                                             light.angleScale, light.angleOffset);
+        if (att <= 1e-4)
+            continue;
+        used++;
+        screen += NTE_EyeGlint(Nd, V, L, light.color * (att * light.specularDimmer * exposure), Reflection);
+    }
+
+    // HDRP sky mirrored on the cornea, more towards its edge.
+    float3 R = reflect(-V, Nd);
+    float fresnel = lerp(0.35, 1.0, pow(1.0 - saturate(dot(Nd, V)), 2.0));
+    sky = SampleSkyTexture(R, 2.0, 0).rgb * (Reflection * fresnel);             // HDRP applies the exposure
+    screen *= GetInverseCurrentExposureMultiplier();                              // screen brightness -> emission
+#endif
+    Emission = (screen * HighlightGlow + sky) * (inside * Tex.a);
+}
+void NTE_EyeLit_half(half4 Tex, half4 BaseColor, half4 UV, half3 NormalWS, float3 PositionWS,
+    half Brightness, half IrisSaturation, half IrisGradient, half HighlightGlow, half Reflection,
+    half4 EyeCenters, half4 EyeSize, out half3 Albedo, out half3 Emission)
+{
+    float3 a, em;
+    NTE_EyeLit_float(Tex, BaseColor, UV, NormalWS, PositionWS, Brightness, IrisSaturation, IrisGradient,
+                     HighlightGlow, Reflection, EyeCenters, EyeSize, a, em);
+    Albedo = a; Emission = em;
 }
 #endif

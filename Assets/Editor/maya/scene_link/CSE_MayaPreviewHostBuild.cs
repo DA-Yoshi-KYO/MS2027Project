@@ -14,7 +14,11 @@ using UnityEngine;
                       -executeMethod CSE_MayaPreviewHostBuild.BuildFromCommandLine
                       [-mpOutput <folder>] -logFile <log>
           Default output: <Desktop>/Unity_Maya_PreviewHost/MS2027.exe
+          The project's Assets path is written next to the player
+          (MS2027_Data/StreamingAssets/MayaPreviewProject.txt): the player's Export writes
+          into <project>/Assets/Designer by default.
  History: 2026/10/11 New
+          2026/10/11 Project path for the export
 =====================================+
 */
 public static class CSE_MayaPreviewHostBuild
@@ -55,6 +59,16 @@ public static class CSE_MayaPreviewHostBuild
             options = BuildOptions.None
         };
         BuildReport report = BuildPipeline.BuildPlayer(options);
+        if (report.summary.result == BuildResult.Succeeded)
+        {
+            try
+            {
+                string streaming = Path.Combine(folder, "MS2027_Data", "StreamingAssets");
+                Directory.CreateDirectory(streaming);
+                File.WriteAllText(Path.Combine(streaming, CS_MayaPreviewExport.ProjectFile), Application.dataPath);
+            }
+            catch (Exception exception) { Debug.LogWarning("Maya Preview Host build: could not write the project path. " + exception.Message); }
+        }
         Debug.Log("Maya Preview Host build: " + report.summary.result + "  errors " + report.summary.totalErrors +
                   "  " + options.locationPathName);
         return report;

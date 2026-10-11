@@ -8,10 +8,12 @@ using UnityEngine;
  File   : CS_MayaPreviewInspector.Export
  Summary: Export panel (next to View, or packed left when View is closed).
           - Drag objects / Maya groups from the Hierarchy into the list (or "Add selected").
-          - Export writes meshes, materials (shader + every value), textures and transforms
-            to <Maya project>/unityPreview/exports/<name>/ for the Unity importer.
+          - Export writes straight into the Unity project (default Assets/Designer):
+            Mesh/<name>.fbx, Texture/*, MayaPreview/Exports/<name>.mpx.json; the Unity editor
+            makes Material/MT_*.mat from it by itself (no menu).
           - Saved exports can be loaded back to continue the shader work from them.
  History: 2026/10/11 New
+          2026/10/11 FBX into the project folder, folder remembered
 =====================================+
 */
 public partial class CS_MayaPreviewInspector
@@ -75,10 +77,23 @@ public partial class CS_MayaPreviewInspector
         BeginRow("Name");
         _exportName = TextBox("name", _exportName, 0, "Export name");
         EndRow();
-        BeginRow("Folder", "Exports are written to <folder>/<name>/");
+        BeginRow("Folder", "FBX: <folder>/Mesh, textures: <folder>/Texture, materials: <folder>/Material");
         string root = TextBox("root", _exportRoot, 0);
         if (root != _exportRoot) { _exportRoot = root; _nextExportScan = 0f; }
         EndRow();
+        string project = CS_MayaPreviewExport.ProjectFolder();
+        if (project != null && CS_MayaPreviewExport.Normalize(_exportRoot) != project)
+        {
+            GUILayout.BeginHorizontal();
+            GUILayout.Space(_labelWidth + 4);
+            if (GUILayout.Button(new GUIContent("Use Assets/Designer", project), _button, GUILayout.Height(RowHeight + 2)))
+            {
+                _exportRoot = project;
+                _nextExportScan = 0f;
+                ClearFields();
+            }
+            GUILayout.EndHorizontal();
+        }
 
         GUILayout.Space(4);
         GUI.enabled = _exportItems.Count > 0;
@@ -86,17 +101,19 @@ public partial class CS_MayaPreviewInspector
         {
             string name = string.IsNullOrWhiteSpace(_exportName) && _exportItems.Count > 0 ? _exportItems[0].label : _exportName;
             _exportName = CS_MayaPreviewExport.SafeName(name);
+            _exportRoot = CS_MayaPreviewExport.Normalize(_exportRoot);
+            CS_MayaPreviewExport.RememberRoot(_exportRoot);
             _exportStatus = CS_MayaPreviewExport.Export(_exportItems, _exportName, _exportRoot);
             _nextExportScan = 0f;
         }
         GUI.enabled = true;
         GUILayout.BeginHorizontal();
-        if (GUILayout.Button("Open folder", _button, GUILayout.Height(RowHeight + 2))) OpenFolder(Path.Combine(_exportRoot, CS_MayaPreviewExport.SafeName(_exportName)));
-        if (GUILayout.Button("Open root", _button, GUILayout.Height(RowHeight + 2))) OpenFolder(_exportRoot);
+        if (GUILayout.Button("Open folder", _button, GUILayout.Height(RowHeight + 2))) OpenFolder(_exportRoot);
+        if (GUILayout.Button("Open Mesh", _button, GUILayout.Height(RowHeight + 2))) OpenFolder(_exportRoot + "/" + CS_MayaPreviewExport.MeshFolder);
         GUILayout.EndHorizontal();
         if (!string.IsNullOrEmpty(_exportStatus)) GUILayout.Label(_exportStatus, _wrapDim);
-        GUILayout.Label("Unity: drop the export folder into Assets (or Tools > Maya Preview > Import Export Folder). " +
-                        "A prefab with meshes, materials and textures is built automatically.", _wrapDim);
+        GUILayout.Label("FBX goes to Mesh/, textures to Texture/. Material names get \"MT_\". " +
+                        "Unity makes Material/MT_*.mat and sets them on the FBX by itself when the editor gets focus.", _wrapDim);
 
         GUILayout.Space(10);
         Fill(GUILayoutUtility.GetRect(10, 1, GUILayout.ExpandWidth(true)), BorderColor);
@@ -112,11 +129,12 @@ public partial class CS_MayaPreviewInspector
             GUI.Label(label, saved.time.ToString("MM/dd HH:mm"), _smallRight);
             if (GUILayout.Button("Load", _button, GUILayout.Width(46), GUILayout.Height(RowHeight + 2)))
             {
-                _exportStatus = CS_MayaPreviewExport.Load(saved.folder, _exportItems);
+                _exportStatus = CS_MayaPreviewExport.Load(saved.file, _exportItems);
                 _exportName = saved.name;
                 ClearFields();
             }
-            if (GUILayout.Button("Open", _button, GUILayout.Width(46), GUILayout.Height(RowHeight + 2))) OpenFolder(saved.folder);
+            if (GUILayout.Button("Open", _button, GUILayout.Width(46), GUILayout.Height(RowHeight + 2)))
+                OpenFolder(_exportRoot + "/" + CS_MayaPreviewExport.MeshFolder);
             GUILayout.EndHorizontal();
         }
 

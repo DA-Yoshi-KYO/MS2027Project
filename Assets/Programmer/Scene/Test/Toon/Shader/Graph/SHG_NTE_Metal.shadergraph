@@ -1064,6 +1064,20 @@
                 },
                 "m_SlotId": 28
             }
+        },
+        {
+            "m_OutputSlot": {
+                "m_Node": {
+                    "m_Id": "811754b4b2064586bd347844418ecb18"
+                },
+                "m_SlotId": 0
+            },
+            "m_InputSlot": {
+                "m_Node": {
+                    "m_Id": "03c660c14b494b47bae82cd3b4d2fd21"
+                },
+                "m_SlotId": 29
+            }
         }
     ],
     "m_VertexContext": {
@@ -3885,7 +3899,7 @@
     "m_FunctionName": "NTE_CastShadowTint",
     "m_FunctionSource": "",
     "m_FunctionSourceUsePragmas": true,
-    "m_FunctionBody": "// Cast shadow colour = texture colour x ShadowColor. Faded out on faces already turned away from the light\n// (the cel band shades those) so self-shadow acne at the terminator does not show as dirty blotches.\nfloat ndl = dot(NormalWS * rsqrt(max(dot(NormalWS, NormalWS), 1e-6)), LightDir * rsqrt(max(dot(LightDir, LightDir), 1e-6)));\nfloat fade = 1.0; // (ndl kept for reference) shadows from every light must show, e.g. skirt -> thighs under the spot\nShadowTint = $precision4(max(Albedo * BaseColor, 0.0) * saturate(Tint) * 0.5, saturate(Strength) * fade);"
+    "m_FunctionBody": "// Cast shadow colour = texture colour x ShadowColor. Faded out on faces already turned away from the light\n// (the cel band shades those) so self-shadow acne at the terminator does not show as dirty blotches.\n// Moon direction straight from HDRP (the light that draws this shadow).\nfloat3 L = LightDir;\n#if defined(SHADERPASS) && defined(SHADERPASS_FORWARD_UNLIT) && defined(_ENABLE_SHADOW_MATTE) && !defined(SHADERGRAPH_PREVIEW)\n#if SHADERPASS == SHADERPASS_FORWARD_UNLIT\nif (_DirectionalShadowIndex >= 0) L = -_DirectionalLightDatas[_DirectionalShadowIndex].forward;\n#endif\n#endif\nfloat ndl = dot(NormalWS * rsqrt(max(dot(NormalWS, NormalWS), 1e-6)), L * rsqrt(max(dot(L, L), 1e-6)));\n// Faded out where the surface turns away from the moon: the toon function shades that part by N.L with the\n// same colour and depth (NTE_SmoothSelfShadow), so the polygon-shaped self shadow never shows at the edge.\nfloat fade = smoothstep(-0.02, 0.10, ndl);   // only right at the light / shade edge (grazing surfaces keep cast shadows)\nShadowTint = $precision4(max(Albedo * BaseColor, 0.0) * saturate(Tint) * 0.5, saturate(Strength) * fade);"
 }
 
 {
@@ -5112,6 +5126,9 @@
         },
         {
             "m_Id": "87ca2c1a30b747ed9429613ee318b270"
+        },
+        {
+            "m_Id": "400b8ea98e5d4ed9a902f6cf7e39a867"
         },
         {
             "m_Id": "5991105e731b4e07b8b3b733c41007c5"
@@ -7110,6 +7127,22 @@
     "m_StageCapability": 3,
     "m_Value": 0.0,
     "m_DefaultValue": 0.0,
+    "m_Labels": [],
+    "m_LiteralMode": false
+}
+
+{
+    "m_SGVersion": 0,
+    "m_Type": "UnityEditor.ShaderGraph.Vector1MaterialSlot",
+    "m_ObjectId": "400b8ea98e5d4ed9a902f6cf7e39a867",
+    "m_Id": 29,
+    "m_DisplayName": "CastShadowStrength",
+    "m_SlotType": 0,
+    "m_Hidden": false,
+    "m_ShaderOutputName": "CastShadowStrength",
+    "m_StageCapability": 3,
+    "m_Value": 0.8,
+    "m_DefaultValue": 0.8,
     "m_Labels": [],
     "m_LiteralMode": false
 }

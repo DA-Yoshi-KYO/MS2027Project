@@ -9,29 +9,32 @@ using UnityEngine.Rendering;
 /*
 +=====================================
  File   : CS_MayaPreviewExport
- Summary: Export from the preview player, for import into the Unity project.
-          <root>/<name>/
-            export.mpx.json   manifest: hierarchy, transforms, materials (shader + every value)
-            meshes/*.mpxmesh  meshes (binary, Unity space, metres)
-            textures/*        texture files used by the materials (copied)
+ Summary: Export from the preview player straight into the Unity project.
+          <Folder>  (default: <project>/Assets/Designer, set once in the Export panel)
+            Mesh/<name>.fbx                       hierarchy + meshes (FBX, Maya convention)
+            Texture/*                             texture files of the Maya materials (copied)
+            Material/MT_*.mat                     made by the Unity editor when it gets focus
+                                                  (CSE_MayaPreviewExportImporter)
+            MayaPreview/Exports/<name>.mpx.json   materials (shader + every value), offsets, list
+          - Material names always start with "MT_" ("Skin" -> "MT_Skin").
           - Maya meshes are already frozen (world space vertices); the Unity side offset
             moved in the preview is kept as the object's transform.
           - Scene objects keep their Unity transforms; skinned meshes are baked (static).
           - Load() reads an export back: Maya material settings and offsets are restored,
             so shader work can continue from that export.
-          The Editor importer (CSE_MayaPreviewExportImporter) turns the folder into
-          meshes, materials and a prefab.
  History: 2026/10/11 New
+          2026/10/11 FBX, written into the project (Assets/Designer), MT_ material names
 =====================================+
 */
 
 [Serializable]
 public class CS_MayaPreviewExportManifest
 {
-    public int version = 1;
+    public int version = 2;
     public string name;
     public string exportedAt;
-    public string units = "1 unit = 1 m (Maya cm x 0.01)";
+    public string units = "FBX: centimetres, Y up (Maya). Transforms below: Unity metres";
+    public string fbx;           // "Mesh/<name>.fbx", relative to the export folder
     public CS_MayaPreviewExportNode[] nodes;
     public CS_MayaPreviewExportMaterial[] materials;
     public CS_MayaPreviewExportEntry[] entries;
@@ -45,7 +48,7 @@ public class CS_MayaPreviewExportNode
     public Vector3 position;
     public Quaternion rotation = Quaternion.identity;
     public Vector3 scale = Vector3.one;
-    public string mesh;          // meshes/xxx.mpxmesh ("" = no mesh)
+    public string mesh;          // mesh name in the FBX ("" = empty object)
     public int[] materials;      // indices into manifest.materials, one per submesh
     public string mayaPath;      // Maya shape path for Maya meshes ("" for scene objects)
 }
@@ -53,7 +56,8 @@ public class CS_MayaPreviewExportNode
 [Serializable]
 public class CS_MayaPreviewExportMaterial
 {
-    public string name;
+    public string name;          // name in the preview (Maya material name for Maya materials)
+    public string asset;         // material asset / FBX material name ("MT_...")
     public string shader;
     public bool maya;
     public string mayaSettings;  // preview settings (shader + changed values) for Load()
@@ -74,8 +78,8 @@ public class CS_MayaPreviewExportMaterial
 public class CS_MayaPreviewExportTexture
 {
     public string prop;
-    public string file;          // textures/xxx.png ("" = not copied, see textureName)
-    public string textureName;   // texture asset name (the importer can look it up in the project)
+    public string file;          // "Texture/xxx.png" relative to the export folder ("" = use textureName)
+    public string textureName;   // texture asset name (looked up in the project when not copied)
     public string source;        // original file path
     public bool normal;
     public bool linear;
@@ -94,132 +98,19 @@ public class CS_MayaPreviewExportEntry
 
 
 // =========================================================
-// Mesh file (.mpxmesh)
-// =========================================================
-
-public static class CS_MayaPreviewMeshIO
-{
-    private const int Version = 1;
-    private const int HasNormals = 1, HasTangents = 2, HasUv0 = 4, HasUv1 = 8, HasColors = 16;
-
-    public static void Write(Mesh mesh, string path, Matrix4x4 transform, string name = null)
-    {
-        bool identity = transform == Matrix4x4.identity;
-        Vector3[] vertices = mesh.vertices;
-        Vector3[] normals = mesh.normals;
-        Vector4[] tangents = mesh.tangents;
-        Vector2[] uv0 = mesh.uv, uv1 = mesh.uv2;
-        Color[] colors = mesh.colors;
-        int count = vertices.Length;
-        if (!identity)
-        {
-            Matrix4x4 normalMatrix = transform.inverse.transpose;
-            for (int i = 0; i < count; i++) vertices[i] = transform.MultiplyPoint3x4(vertices[i]);
-            if (normals.Length == count)
-                for (int i = 0; i < count; i++) normals[i] = normalMatrix.MultiplyVector(normals[i]).normalized;
-            if (tangents.Length == count)
-                for (int i = 0; i < count; i++)
-                {
-                    Vector3 t = transform.MultiplyVector(tangents[i]).normalized;
-                    tangents[i] = new Vector4(t.x, t.y, t.z, tangents[i].w);
-                }
-        }
-        int flags = (normals.Length == count ? HasNormals : 0) | (tangents.Length == count ? HasTangents : 0)
-            | (uv0.Length == count ? HasUv0 : 0) | (uv1.Length == count ? HasUv1 : 0) | (colors.Length == count ? HasColors : 0);
-
-        Directory.CreateDirectory(Path.GetDirectoryName(path));
-        using (var writer = new BinaryWriter(File.Create(path)))
-        {
-            writer.Write(Encoding.ASCII.GetBytes("MPXM"));
-            writer.Write(Version);
-            writer.Write(name ?? mesh.name ?? "");
-            writer.Write(count);
-            writer.Write(flags);
-            foreach (Vector3 v in vertices) { writer.Write(v.x); writer.Write(v.y); writer.Write(v.z); }
-            if ((flags & HasNormals) != 0) foreach (Vector3 v in normals) { writer.Write(v.x); writer.Write(v.y); writer.Write(v.z); }
-            if ((flags & HasTangents) != 0) foreach (Vector4 v in tangents) { writer.Write(v.x); writer.Write(v.y); writer.Write(v.z); writer.Write(v.w); }
-            if ((flags & HasUv0) != 0) foreach (Vector2 v in uv0) { writer.Write(v.x); writer.Write(v.y); }
-            if ((flags & HasUv1) != 0) foreach (Vector2 v in uv1) { writer.Write(v.x); writer.Write(v.y); }
-            if ((flags & HasColors) != 0) foreach (Color v in colors) { writer.Write(v.r); writer.Write(v.g); writer.Write(v.b); writer.Write(v.a); }
-            writer.Write(mesh.subMeshCount);
-            for (int s = 0; s < mesh.subMeshCount; s++)
-            {
-                int[] indices = mesh.GetIndices(s);
-                writer.Write((int)mesh.GetTopology(s));
-                writer.Write(indices.Length);
-                foreach (int index in indices) writer.Write(index);
-            }
-        }
-    }
-
-    public static Mesh Read(string path)
-    {
-        using (var reader = new BinaryReader(File.OpenRead(path)))
-        {
-            if (Encoding.ASCII.GetString(reader.ReadBytes(4)) != "MPXM") throw new InvalidDataException("Not a .mpxmesh file: " + path);
-            int version = reader.ReadInt32();
-            if (version > Version) throw new InvalidDataException("Newer .mpxmesh version " + version);
-            var mesh = new Mesh { name = reader.ReadString() };
-            int count = reader.ReadInt32();
-            int flags = reader.ReadInt32();
-            mesh.indexFormat = count > 65535 ? IndexFormat.UInt32 : IndexFormat.UInt16;
-            var vertices = new Vector3[count];
-            for (int i = 0; i < count; i++) vertices[i] = new Vector3(reader.ReadSingle(), reader.ReadSingle(), reader.ReadSingle());
-            mesh.vertices = vertices;
-            if ((flags & HasNormals) != 0)
-            {
-                var normals = new Vector3[count];
-                for (int i = 0; i < count; i++) normals[i] = new Vector3(reader.ReadSingle(), reader.ReadSingle(), reader.ReadSingle());
-                mesh.normals = normals;
-            }
-            if ((flags & HasTangents) != 0)
-            {
-                var tangents = new Vector4[count];
-                for (int i = 0; i < count; i++) tangents[i] = new Vector4(reader.ReadSingle(), reader.ReadSingle(), reader.ReadSingle(), reader.ReadSingle());
-                mesh.tangents = tangents;
-            }
-            if ((flags & HasUv0) != 0)
-            {
-                var uv = new Vector2[count];
-                for (int i = 0; i < count; i++) uv[i] = new Vector2(reader.ReadSingle(), reader.ReadSingle());
-                mesh.uv = uv;
-            }
-            if ((flags & HasUv1) != 0)
-            {
-                var uv = new Vector2[count];
-                for (int i = 0; i < count; i++) uv[i] = new Vector2(reader.ReadSingle(), reader.ReadSingle());
-                mesh.uv2 = uv;
-            }
-            if ((flags & HasColors) != 0)
-            {
-                var colors = new Color[count];
-                for (int i = 0; i < count; i++) colors[i] = new Color(reader.ReadSingle(), reader.ReadSingle(), reader.ReadSingle(), reader.ReadSingle());
-                mesh.colors = colors;
-            }
-            int subMeshCount = reader.ReadInt32();
-            mesh.subMeshCount = subMeshCount;
-            for (int s = 0; s < subMeshCount; s++)
-            {
-                var topology = (MeshTopology)reader.ReadInt32();
-                int length = reader.ReadInt32();
-                var indices = new int[length];
-                for (int i = 0; i < length; i++) indices[i] = reader.ReadInt32();
-                mesh.SetIndices(indices, topology, s, false);
-            }
-            mesh.RecalculateBounds();
-            return mesh;
-        }
-    }
-}
-
-
-// =========================================================
 // Export / load
 // =========================================================
 
 public static class CS_MayaPreviewExport
 {
-    public const string ManifestFile = "export.mpx.json";
+    public const string ManifestFolder = "MayaPreview/Exports";
+    public const string ManifestExtension = ".mpx.json";
+    public const string MeshFolder = "Mesh";
+    public const string MaterialFolder = "Material";
+    public const string TextureFolder = "Texture";
+    public const string MaterialPrefix = "MT_";
+    public const string ProjectFile = "MayaPreviewProject.txt";   // written next to the player by the build
+    private const string FolderPrefsKey = "MayaPreview.ExportFolder";
     private const string LivePrefix = "MayaLive_";
     private const string ModelRootName = "Maya_Model_Root";
 
@@ -237,7 +128,7 @@ public static class CS_MayaPreviewExport
 
     public struct Saved
     {
-        public string folder;
+        public string file;        // manifest path
         public string name;
         public DateTime time;
     }
@@ -247,16 +138,62 @@ public static class CS_MayaPreviewExport
     // Paths
     // =========================================================
 
-    // <Maya project>/unityPreview/exports, or Exports beside the exe without a Maya session.
+    // The Unity project's Assets folder (the build of the player records it).
+    public static string ProjectAssets()
+    {
+        if (Application.isEditor) return Normalize(Application.dataPath);
+        try
+        {
+            string file = Path.Combine(Application.streamingAssetsPath, ProjectFile);
+            if (File.Exists(file))
+            {
+                string path = File.ReadAllText(file).Trim();
+                if (Directory.Exists(path)) return Normalize(path);
+            }
+        }
+        catch (Exception exception) { Debug.LogWarning("Maya Preview Export : " + exception.Message); }
+        return null;
+    }
+
+    // <project>/Assets/Designer
+    public static string ProjectFolder()
+    {
+        string assets = ProjectAssets();
+        return assets != null ? assets + "/Designer" : null;
+    }
+
+    // The last folder used, else <project>/Assets/Designer.
     public static string DefaultRoot()
     {
+        string saved = PlayerPrefs.GetString(FolderPrefsKey, "");
+        if (!string.IsNullOrWhiteSpace(saved)) return Normalize(saved);
+        string project = ProjectFolder();
+        if (project != null) return project;
         var library = CS_MayaPreviewMaterialLibrary.Current;
         if (library != null && !string.IsNullOrEmpty(library.Folder))
         {
             string parent = Path.GetDirectoryName(library.Folder.TrimEnd('/', '\\'));
-            if (!string.IsNullOrEmpty(parent)) return (parent + "/exports").Replace('\\', '/');
+            if (!string.IsNullOrEmpty(parent)) return Normalize(parent + "/exports");
         }
-        return Path.GetFullPath(Path.Combine(Application.dataPath, "..", "Exports")).Replace('\\', '/');
+        return Normalize(Path.GetFullPath(Path.Combine(Application.dataPath, "..", "Exports")));
+    }
+
+    public static void RememberRoot(string root)
+    {
+        if (string.IsNullOrWhiteSpace(root)) return;
+        PlayerPrefs.SetString(FolderPrefsKey, Normalize(root));
+        PlayerPrefs.Save();
+    }
+
+    public static string Normalize(string path) => (path ?? "").Trim().Replace('\\', '/').TrimEnd('/');
+
+    public static string ManifestPath(string root, string name) =>
+        Normalize(root) + "/" + ManifestFolder + "/" + SafeName(name) + ManifestExtension;
+
+    public static bool InsideAssets(string root)
+    {
+        string path = Normalize(root) + "/";
+        return path.IndexOf("/Assets/", StringComparison.OrdinalIgnoreCase) >= 0;
     }
 
     public static List<Saved> FindExports(string root)
@@ -264,16 +201,16 @@ public static class CS_MayaPreviewExport
         var result = new List<Saved>();
         try
         {
-            if (!Directory.Exists(root)) return result;
-            foreach (string folder in Directory.GetDirectories(root))
+            string folder = Normalize(root) + "/" + ManifestFolder;
+            if (!Directory.Exists(folder)) return result;
+            foreach (string file in Directory.GetFiles(folder, "*" + ManifestExtension))
             {
-                string manifest = Path.Combine(folder, ManifestFile);
-                if (!File.Exists(manifest)) continue;
+                string name = Path.GetFileName(file);
                 result.Add(new Saved
                 {
-                    folder = folder.Replace('\\', '/'),
-                    name = Path.GetFileName(folder),
-                    time = File.GetLastWriteTime(manifest)
+                    file = file.Replace('\\', '/'),
+                    name = name.Substring(0, name.Length - ManifestExtension.Length),
+                    time = File.GetLastWriteTime(file)
                 });
             }
         }
@@ -287,6 +224,14 @@ public static class CS_MayaPreviewExport
         if (string.IsNullOrWhiteSpace(name)) name = "Export";
         foreach (char c in Path.GetInvalidFileNameChars()) name = name.Replace(c, '_');
         return name.Trim().Replace(' ', '_');
+    }
+
+    // "Skin" -> "MT_Skin", "mt_Skin" -> "MT_Skin", "MT_Skin" stays.
+    public static string MaterialAssetName(string name)
+    {
+        name = SafeName((name ?? "").Replace(" (Instance)", ""));
+        if (name.StartsWith(MaterialPrefix, StringComparison.OrdinalIgnoreCase)) return MaterialPrefix + name.Substring(MaterialPrefix.Length);
+        return MaterialPrefix + name;
     }
 
 
@@ -353,10 +298,14 @@ public static class CS_MayaPreviewExport
 
     private class Writer
     {
-        public string folder;
+        public string root;
         public readonly List<CS_MayaPreviewExportNode> nodes = new List<CS_MayaPreviewExportNode>();
+        public readonly List<CS_MayaPreviewFbxNode> fbx = new List<CS_MayaPreviewFbxNode>();
         public readonly List<CS_MayaPreviewExportMaterial> materials = new List<CS_MayaPreviewExportMaterial>();
+        public readonly List<Color> materialColors = new List<Color>();
         public readonly Dictionary<Material, int> materialIndex = new Dictionary<Material, int>();
+        public readonly HashSet<string> materialAssets = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        public readonly List<string> renamed = new List<string>();
         public readonly Dictionary<string, string> copiedTextures = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         public readonly HashSet<string> usedFiles = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         public readonly List<string> warnings = new List<string>();
@@ -366,14 +315,13 @@ public static class CS_MayaPreviewExport
     public static string Export(IList<Item> items, string name, string root)
     {
         if (items == null || items.Count == 0) return "Nothing to export: drag objects from the Hierarchy first.";
+        if (string.IsNullOrWhiteSpace(root)) return "Set the export folder first.";
         name = SafeName(name);
-        string folder = Path.Combine(root, name).Replace('\\', '/');
-        var w = new Writer { folder = folder };
+        root = Normalize(root);
+        var w = new Writer { root = root };
+        string fbxFile = MeshFolder + "/" + name + ".fbx";
         try
         {
-            Directory.CreateDirectory(folder);
-            ClearFolder(Path.Combine(folder, "meshes"));
-            ClearFolder(Path.Combine(folder, "textures"));
             var entries = new List<CS_MayaPreviewExportEntry>();
             foreach (Item item in items)
             {
@@ -393,16 +341,25 @@ public static class CS_MayaPreviewExport
                     entries.Add(new CS_MayaPreviewExportEntry { label = item.label, scenePath = ScenePath(item.target.transform) });
                 }
             }
+            if (w.meshCount == 0)
+                return "Nothing to export: no readable meshes." + (w.warnings.Count > 0 ? "\n" + string.Join("\n", w.warnings) : "");
+
+            var materialNames = new List<string>();
+            foreach (CS_MayaPreviewExportMaterial material in w.materials) materialNames.Add(material.asset);
+            CS_MayaPreviewFbx.Write(root + "/" + fbxFile, w.fbx, materialNames, w.materialColors, "MS2027 Maya Preview");
 
             var manifest = new CS_MayaPreviewExportManifest
             {
                 name = name,
                 exportedAt = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture),
+                fbx = fbxFile,
                 nodes = w.nodes.ToArray(),
                 materials = w.materials.ToArray(),
                 entries = entries.ToArray()
             };
-            File.WriteAllText(Path.Combine(folder, ManifestFile), JsonUtility.ToJson(manifest, true), new UTF8Encoding(false));
+            string manifestPath = ManifestPath(root, name);
+            Directory.CreateDirectory(Path.GetDirectoryName(manifestPath));
+            File.WriteAllText(manifestPath, JsonUtility.ToJson(manifest, true), new UTF8Encoding(false));
         }
         catch (Exception exception)
         {
@@ -410,17 +367,15 @@ public static class CS_MayaPreviewExport
             return "Export failed: " + exception.Message;
         }
 
-        string message = "Exported " + w.nodes.Count + " objects, " + w.meshCount + " meshes, " + w.materials.Count +
-                         " materials, " + w.copiedTextures.Count + " textures\n" + folder;
+        string message = "Exported " + name + ": " + w.meshCount + " meshes, " + w.materials.Count + " materials, " +
+                         w.copiedTextures.Count + " textures\n" + root + "/" + fbxFile;
+        if (w.renamed.Count > 0) message += "\nRenamed (MT_): " + string.Join(", ", w.renamed);
+        message += InsideAssets(root)
+            ? "\nUnity makes the materials in " + MaterialFolder + "/ when the editor gets focus."
+            : "\nThis folder is not inside a Unity project's Assets: no materials are made.";
         if (w.warnings.Count > 0) message += "\n" + string.Join("\n", w.warnings);
         Debug.Log("Maya Preview Export : " + message);
         return message;
-    }
-
-    private static void ClearFolder(string folder)
-    {
-        if (!Directory.Exists(folder)) return;
-        foreach (string file in Directory.GetFiles(folder)) File.Delete(file);
     }
 
     private static int AddNode(Writer w, string name, int parent, Vector3 position, Quaternion rotation, Vector3 scale)
@@ -430,6 +385,7 @@ public static class CS_MayaPreviewExport
             name = name, parent = parent, position = position, rotation = rotation, scale = scale,
             mesh = "", materials = new int[0], mayaPath = ""
         });
+        w.fbx.Add(new CS_MayaPreviewFbxNode { name = name, parent = parent, position = position, rotation = rotation, scale = scale });
         return w.nodes.Count - 1;
     }
 
@@ -532,16 +488,16 @@ public static class CS_MayaPreviewExport
         {
             if (mesh == null) return;
             if (!mesh.isReadable) { w.warnings.Add("Mesh is not readable (enable Read/Write on the model): " + o.name); return; }
-            string file = UniqueFile(w, "meshes", SafeName(o.name.StartsWith(LivePrefix) ? node.name : o.name), ".mpxmesh");
-            CS_MayaPreviewMeshIO.Write(mesh, Path.Combine(w.folder, file), toNode, Path.GetFileNameWithoutExtension(file));
-            node.mesh = file;
-            w.meshCount++;
-
+            CS_MayaPreviewFbxMesh data = CS_MayaPreviewFbxMesh.From(mesh, toNode, node.name);
             Material[] shared = renderer.sharedMaterials;
             var indices = new int[Mathf.Max(1, mesh.subMeshCount)];
             for (int i = 0; i < indices.Length; i++)
                 indices[i] = AddMaterial(w, shared.Length > 0 ? shared[Mathf.Min(i, shared.Length - 1)] : null);
+            data.materials = indices;
+            w.fbx[index].mesh = data;
+            node.mesh = node.name;
             node.materials = indices;
+            w.meshCount++;
         }
         finally { if (baked != null) UnityEngine.Object.Destroy(baked); }
     }
@@ -580,6 +536,14 @@ public static class CS_MayaPreviewExport
             renderQueue = material.renderQueue,
             keywords = material.shaderKeywords
         };
+
+        // Asset name: always "MT_...", unique in this export.
+        string asset = MaterialAssetName(data.name);
+        string unique = asset;
+        for (int n = 2; !w.materialAssets.Add(unique); n++) unique = asset + "_" + n;
+        data.asset = unique;
+        if (unique != data.name) w.renamed.Add(data.name + " -> " + unique);
+
         var floats = new List<CS_MayaPreviewExportFloat>();
         var ints = new List<CS_MayaPreviewExportFloat>();
         var colors = new List<CS_MayaPreviewExportColor>();
@@ -627,37 +591,40 @@ public static class CS_MayaPreviewExport
         data.vectors = vectors.ToArray();
         data.textures = textures.ToArray();
         w.materials.Add(data);
+        w.materialColors.Add(material.HasProperty("_BaseColor") ? material.GetColor("_BaseColor")
+            : material.HasProperty("_Color") ? material.GetColor("_Color") : Color.white);
         index = w.materials.Count - 1;
         w.materialIndex[material] = index;
         return index;
     }
 
+    // Texture files of Maya materials go to <Folder>/Texture. Textures that are already in the
+    // project (scene materials) are found by name in the editor and not copied.
     private static string CopyTexture(Writer w, string source, Texture texture)
     {
         try
         {
-            if (!string.IsNullOrEmpty(source) && File.Exists(source))
-            {
-                if (w.copiedTextures.TryGetValue(source, out string done)) return done;
-                string file = UniqueFile(w, "textures", SafeName(Path.GetFileNameWithoutExtension(source)), Path.GetExtension(source).ToLowerInvariant());
-                Directory.CreateDirectory(Path.Combine(w.folder, "textures"));
-                File.Copy(source, Path.Combine(w.folder, file), true);
-                w.copiedTextures[source] = file;
-                return file;
-            }
-            if (texture is Texture2D texture2D && texture2D.isReadable)
-            {
-                string key = "#" + texture.GetInstanceID();
-                if (w.copiedTextures.TryGetValue(key, out string done)) return done;
-                string file = UniqueFile(w, "textures", SafeName(texture.name), ".png");
-                Directory.CreateDirectory(Path.Combine(w.folder, "textures"));
-                File.WriteAllBytes(Path.Combine(w.folder, file), texture2D.EncodeToPNG());
-                w.copiedTextures[key] = file;
-                return file;
-            }
+            if (string.IsNullOrEmpty(source) || !File.Exists(source)) return "";
+            if (w.copiedTextures.TryGetValue(source, out string done)) return done;
+            string file = UniqueFile(w, TextureFolder, SafeName(Path.GetFileNameWithoutExtension(source)), Path.GetExtension(source).ToLowerInvariant());
+            string target = w.root + "/" + file;
+            Directory.CreateDirectory(Path.GetDirectoryName(target));
+            if (!SameFile(source, target)) File.Copy(source, target, true);
+            w.copiedTextures[source] = file;
+            return file;
         }
-        catch (Exception exception) { w.warnings.Add("Texture " + texture.name + ": " + exception.Message); }
-        return "";   // the importer looks the texture up in the project by name
+        catch (Exception exception) { w.warnings.Add("Texture " + (texture != null ? texture.name : source) + ": " + exception.Message); }
+        return "";
+    }
+
+    // Unchanged copies are skipped (no reimport in Unity).
+    private static bool SameFile(string source, string target)
+    {
+        if (!File.Exists(target)) return false;
+        if (string.Equals(Path.GetFullPath(source), Path.GetFullPath(target), StringComparison.OrdinalIgnoreCase)) return true;
+        var a = new FileInfo(source);
+        var b = new FileInfo(target);
+        return a.Length == b.Length && a.LastWriteTimeUtc == b.LastWriteTimeUtc;
     }
 
 
@@ -665,9 +632,10 @@ public static class CS_MayaPreviewExport
     // Load (continue shader work from an export)
     // =========================================================
 
-    public static string Load(string folder, List<Item> items)
+    // file: a .mpx.json manifest (an old export folder also works).
+    public static string Load(string file, List<Item> items)
     {
-        string path = Path.Combine(folder, ManifestFile);
+        string path = Directory.Exists(file) ? Path.Combine(file, "export.mpx.json") : file;
         CS_MayaPreviewExportManifest manifest;
         try { manifest = JsonUtility.FromJson<CS_MayaPreviewExportManifest>(File.ReadAllText(path)); }
         catch (Exception exception) { return "Could not read " + path + "\n" + exception.Message; }

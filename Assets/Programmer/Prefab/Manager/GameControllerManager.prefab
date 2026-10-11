@@ -13,6 +13,7 @@ GameObject:
   - component: {fileID: 5762222973496154845}
   - component: {fileID: 8389588009085528967}
   - component: {fileID: 8511819665858936338}
+  - component: {fileID: 9201942720854417754}
   m_Layer: 0
   m_Name: GameControllerManager
   m_TagString: Untagged
@@ -76,6 +77,14 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::CS_TimerController
   ShowTopMostFoldoutHeaderGroup: 1
   _maxTime: 300
+  _notificationController: {fileID: 0}
+  _timeNotifications:
+  - _remainingSeconds: 60
+    _message: "\u6B8B\u308A1\u5206\uFF01"
+  - _remainingSeconds: 30
+    _message: "\u6B8B\u308A30\u79D2\uFF01"
+  _enableCountdown: 1
+  _countdownStartSeconds: 5
 --- !u!114 &8389588009085528967
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -106,3 +115,17 @@ MonoBehaviour:
   _mapRadius: 50
   _mapWorldSize: 240
   _rotateWithPlayer: 1
+--- !u!114 &9201942720854417754
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1579610649312813586}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6bbb0d4349de46f48968ca47a49d7b2e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CS_NotificationController
+  _rootView: {fileID: 0}
+  _enableDebugInput: 0

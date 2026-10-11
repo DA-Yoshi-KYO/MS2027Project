@@ -46,7 +46,6 @@ public class CS_UIPlayerHpModel : CS_BaseModel
     public static void SetLocalPlayerNumber(int playerNumber)
     {
         _localPlayerNumber = playerNumber;
-        Debug.Log($"[CS_UIPlayerHpModel] LocalPlayerNumber = {playerNumber}");
     }
 
     /// <summary>ローカルプレイヤーの番号を取得する</summary>

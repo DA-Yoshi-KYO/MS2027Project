@@ -14,6 +14,7 @@ using UnityEngine.UI;
 /// <summary>
 /// マルチプレイヤーの頭上に現在順位を画像で表示するUI。
 /// ・CS_UIScoreModelのランキング更新を購読する
+/// ・同点は同順位として扱う
 /// ・順位に対応するSpriteへ切り替える
 /// ・World Space UIをカメラ方向へ向け続ける
 /// </summary>
@@ -32,6 +33,9 @@ public class CS_UIPlayerRankOverhead : NetworkBehaviour
 
     [Header("配列範囲外の順位で使用する画像（任意）")]
     [SerializeField] private Sprite _defaultRankSprite;
+
+    [Header("全員0点の間は順位を非表示にする")]
+    [SerializeField] private bool _hideWhenAllScoresAreZero;
 
     [Header("ビルボード設定")]
     [SerializeField] private bool _lookAtCamera = true;
@@ -54,9 +58,7 @@ public class CS_UIPlayerRankOverhead : NetworkBehaviour
     private void Awake()
     {
         _mainCamera = Camera.main;
-
-        if (_rankRoot != null)
-            _rankRoot.SetActive(false);
+        SetRankVisible(false);
     }
 
     public override void OnNetworkSpawn()
@@ -75,12 +77,14 @@ public class CS_UIPlayerRankOverhead : NetworkBehaviour
     /// このUIが表示するプレイヤー番号を設定する。
     /// プレイヤー番号の確定後、全プレイヤーで呼ぶ。
     /// </summary>
-    public void Bind(int playerNumber)
+    public void Bind(int playerNumber, Camera camera)
     {
         Unbind();
 
         _playerNumber = playerNumber;
         _isBound = true;
+
+        _mainCamera = camera;
 
         CS_UIScoreModel.OnRankingUpdated += HandleRankingUpdated;
         HandleRankingUpdated();
@@ -96,8 +100,7 @@ public class CS_UIPlayerRankOverhead : NetworkBehaviour
         _playerNumber = -1;
         _isBound = false;
 
-        if (_rankRoot != null)
-            _rankRoot.SetActive(false);
+        SetRankVisible(false);
     }
 
     // =========================================================
@@ -112,7 +115,13 @@ public class CS_UIPlayerRankOverhead : NetworkBehaviour
         List<(int playerNumber, int score)> ranking =
             CS_UIScoreModel.GetRanking();
 
-        int rank = FindRank(ranking, _playerNumber);
+        if (_hideWhenAllScoresAreZero && AreAllScoresZero(ranking))
+        {
+            SetRankVisible(false);
+            return;
+        }
+
+        int rank = FindCompetitionRank(ranking, _playerNumber);
 
         if (rank <= 0)
         {
@@ -130,21 +139,60 @@ public class CS_UIPlayerRankOverhead : NetworkBehaviour
 
         _rankImage.sprite = rankSprite;
         _rankImage.preserveAspect = true;
+        _rankImage.raycastTarget = false;
 
         SetRankVisible(ShouldShow());
     }
 
-    private int FindRank(
+    /// <summary>
+    /// 同点を同順位にする。
+    /// 順位 = 自分よりスコアが高いプレイヤー数 + 1。
+    /// 例：100、100、50点なら、1位・1位・3位。
+    /// </summary>
+    private int FindCompetitionRank(
         List<(int playerNumber, int score)> ranking,
         int playerNumber)
     {
-        for (int i = 0; i < ranking.Count; i++)
+        int myScore = int.MinValue;
+        bool found = false;
+
+        foreach (var result in ranking)
         {
-            if (ranking[i].playerNumber == playerNumber)
-                return i + 1;
+            if (result.playerNumber != playerNumber)
+                continue;
+
+            myScore = result.score;
+            found = true;
+            break;
         }
 
-        return -1;
+        if (!found)
+            return -1;
+
+        int higherScorePlayerCount = 0;
+
+        foreach (var result in ranking)
+        {
+            if (result.score > myScore)
+                higherScorePlayerCount++;
+        }
+
+        return higherScorePlayerCount + 1;
+    }
+
+    private bool AreAllScoresZero(
+        List<(int playerNumber, int score)> ranking)
+    {
+        if (ranking == null || ranking.Count == 0)
+            return true;
+
+        foreach (var result in ranking)
+        {
+            if (result.score != 0)
+                return false;
+        }
+
+        return true;
     }
 
     private Sprite GetRankSprite(int rank)
@@ -170,9 +218,12 @@ public class CS_UIPlayerRankOverhead : NetworkBehaviour
 
     private bool ShouldShow()
     {
+        // オフラインでは表示する。
         if (!IsSpawned)
             return true;
 
+        // 順位UI自身にNetworkObjectを付けず、Playerルートの
+        // NetworkObjectに関連付けることでIsOwnerがPlayer所有者を示す。
         return _showLocalPlayer || !IsOwner;
     }
 

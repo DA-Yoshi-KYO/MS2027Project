@@ -9,8 +9,8 @@
 
 ## 現状
 
-`CS_UIPlayerRankOverhead` は `Bind(playerNumber)` が呼ばれるまで何も表示しません。
-今は Bind を呼んでいる場所がないため、順位は常に非表示です。
+`CS_UIPlayerRankOverhead` は `Bind(playerNumber, camera)` が呼ばれるまで何も表示しません。
+`PlayerRank.prefab` はすでに `Player.prefab` のルート直下に置かれているので、あとは Bind を呼ぶだけです。
 
 ## 使い方
 
@@ -18,43 +18,84 @@
 
 | メソッド | 説明 |
 | --- | --- |
-| `Bind(int playerNumber)` | このUIが表示するプレイヤー番号を設定する。以後 `CS_UIScoreModel.OnRankingUpdated` を購読し、順位が変わるたびに画像を切り替える。2回呼んでも内部で一度 Unbind するので安全。 |
+| `Bind(int playerNumber, Camera camera)` | このUIが表示するプレイヤー番号と、UIを向けるカメラを設定する。以後 `CS_UIScoreModel.OnRankingUpdated` を購読し、順位が変わるたびに画像を切り替える。2回呼んでも内部で一度 Unbind するので安全。 |
 | `Unbind()` | 購読をやめて非表示にする。`OnNetworkDespawn` / `OnDestroy` で自動的に呼ばれるので、通常は呼ばなくてよい。 |
+
+### 引数
+
+| 引数 | 渡すもの |
+| --- | --- |
+| `playerNumber` | **このUIが乗っているプレイヤー**の番号（`CS_Player.playerNumber`）。 |
+| `camera` | **画面を見ている自分（ローカルプレイヤー）のカメラ**。このUIが乗っているプレイヤーのカメラではない。 |
+
+### カメラについての注意（重要）
+
+- 頭上の順位画像は、`camera` の方向を向き続けます（ビルボード）。
+- 他人のプレイヤーのカメラは `CS_Player.SetupAsRemotePlayer()` で無効化されます。他人のプレイヤーの UI に**そのプレイヤー自身のカメラ**を渡すと、無効化されたカメラの方を向いてしまい、自分の画面からは正しく見えません。
+- なので、**どのプレイヤーの UI にも、ローカルプレイヤーのカメラを渡してください。**
+- `camera` に null を渡した場合は、`LateUpdate` で `Camera.main` を取り直します。ただし `Awake` で取得した `Camera.main` は他人のカメラを拾っている可能性があるので、null に頼らず必ずローカルのカメラを渡すこと。
 
 ### 呼ぶタイミング
 
-- **全クライアントで**呼ぶ（他プレイヤーの頭上に出すUIなので、Owner だけでは足りない）。
+- **全クライアントで、全プレイヤー分**呼ぶ（他プレイヤーの頭上に出すUIなので、Owner だけでは足りない）。
 - `CS_Player.playerNumber` が確定してから呼ぶ。`CS_PlayerSpawner` がスポーン前に割り当て、NetworkVariable でスポーン時に同期されるので、`OnNetworkSpawn` の中なら確定済み。
-- `CS_PlayerResultDataHolder.Initialize()` と同じタイミング・同じ考え方でOK。スコアModelの Bind と順番が前後しても、Model 側の Bind で `OnRankingUpdated` が飛ぶので表示は追従します。
+- ローカルプレイヤーのカメラが用意できてから呼ぶ。他人のプレイヤーの方が先にスポーンする（後から参加したクライアントなど）と、その時点ではまだローカルのカメラがありません。ローカルプレイヤーのスポーン後に、全プレイヤー分の Bind をやり直してください。
+- スコアModelの Bind と順番が前後しても、Model 側の Bind で `OnRankingUpdated` が飛ぶので表示は追従します。
 
 ### 組み込み例
 
-`PlayerRank.prefab` をプレイヤープレハブの子に置いた前提です（下の「前提」参照）。
+ローカルプレイヤーのカメラを static に持っておき、そろった時点で全員分 Bind する例です。
 
 ```csharp
-// 例：CS_PlayerResultDataHolder.Initialize() の末尾、または専用の小さなコンポーネントで
+// 例：CS_Player 側（または専用の小さなコンポーネント）
+private static readonly List<CS_Player> _players = new List<CS_Player>();
+private static Camera _localCamera;   // 自分（ローカルプレイヤー）のカメラ
+
 private CS_UIPlayerRankOverhead _rankOverhead;
 
 private void Awake()
 {
-    _player = GetComponent<CS_Player>();
     _rankOverhead = GetComponentInChildren<CS_UIPlayerRankOverhead>(true);
 }
 
 public override void OnNetworkSpawn()
 {
-    // playerNumber はここで確定済み
-    _rankOverhead?.Bind(_player.playerNumber);
+    _players.Add(this);
+
+    if (IsOwner)
+    {
+        // 自分のプレイヤーのカメラ（_cameraTransform に付いている Camera）
+        _localCamera = _cameraTransform.GetComponent<Camera>();
+
+        // 先にスポーンしていた他プレイヤーの分も、ローカルのカメラで Bind し直す
+        foreach (CS_Player player in _players)
+            player.BindRankOverhead();
+        return;
+    }
+
+    BindRankOverhead();
+}
+
+public override void OnNetworkDespawn()
+{
+    _players.Remove(this);
+}
+
+private void BindRankOverhead()
+{
+    if (_rankOverhead == null || _localCamera == null) return;
+
+    // playerNumber は「このプレイヤー」、カメラは「ローカルプレイヤー」のもの
+    _rankOverhead.Bind(playerNumber, _localCamera);
 }
 ```
 
+static を使う場合は、ほかのクラスと同様に `[RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]` で `_players` と `_localCamera` をリセットしてください（Domain Reload オフ対策）。
+
 オフラインのテストシーン（NetworkManager なし）では `playerNumber` が全員 0 になるため、複数人置くと順位が正しく出ません。1人だけ置くテストなら問題ありません。
 
-## 前提（元浪さん側の修正）
+## 設定済みの項目（元浪さん側、PR #213 で対応済み）
 
-Bind を組み込む前に、PR #213 で次の2点を直してもらう必要があります。
-
-1. `PlayerRank.prefab` のルートにある `NetworkObject` を削除し、プレハブをプレイヤープレハブの**子として事前に配置**する（実行時に Instantiate して子にするのは不可。NetworkBehaviour の対応がずれるため）。
-2. 自分のプレイヤーの頭上を隠す判定を、プレイヤーの Owner 基準にする。1 を直せば `IsOwner` が自動でプレイヤーの所有者を指すようになるので、実質 1 と同時に解決します。
-
-`Bind` の処理自体（購読・解除・順位計算）はPRの実装のままで問題ありません。
+- `PlayerRank.prefab` の `NetworkObject` は削除済み。`Player.prefab` のルート直下に事前配置済み（実行時に Instantiate して子にするのは不可）。
+- 自分のプレイヤーの頭上は自動で隠れる（`IsOwner` がプレイヤーの所有者を指すため）。自分にも出したい場合は `_showLocalPlayer` をオンにする。
+- 同点は同順位。`_hideWhenAllScoresAreZero` がオンなので、全員 0 点の間は非表示。

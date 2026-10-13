@@ -170,7 +170,9 @@ public class CS_PoliceSquad : MonoBehaviour, IPoliceGroup
 
     private void Update()
     {
-        if (_members.Count == 0) return;
+        // マルチのシーン遷移では、警察(NetworkObject)が先に破棄され、このグループはシーンが切り替わるまで数フレーム残る
+        // 破棄された警察を触らないよう、先頭が破棄されていたら何もしない
+        if (_members.Count == 0 || _members[0] == null) return;
 
         // 一番後ろの警察がたどる距離の分だけ、先頭の道筋を記録しておく
         _formation.RecordLeaderPosition(_members[0].transform.position, _formationSpacing * (_members.Count - 1));
@@ -231,6 +233,9 @@ public class CS_PoliceSquad : MonoBehaviour, IPoliceGroup
         int slot = _members.IndexOf(member);
         if (slot > 0)
         {
+            // 先頭が破棄されている(シーン遷移中など)間は、その場で待つ
+            if (_members[0] == null) return member.transform.position;
+
             // 道筋がまだ短い(出現直後など)場合は、先頭が十分進むまでその場で待つ
             bool hasPosition = _formation.TryGetPositionBehind(_members[0].transform.position, _formationSpacing * slot, out Vector3 formationPosition);
             return hasPosition ? formationPosition : member.transform.position;

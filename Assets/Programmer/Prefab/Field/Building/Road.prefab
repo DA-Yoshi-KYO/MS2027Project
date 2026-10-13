@@ -12,7 +12,6 @@ GameObject:
   - component: {fileID: 4896407949322874655}
   - component: {fileID: 4066880211733260649}
   - component: {fileID: 218882853370926754}
-  - component: {fileID: 1829231719630366890}
   m_Layer: 0
   m_Name: Road
   m_TagString: Untagged
@@ -113,20 +112,3 @@ BoxCollider:
   serializedVersion: 3
   m_Size: {x: 1, y: 1, z: 1}
   m_Center: {x: 0, y: 0, z: 0}
---- !u!114 &1829231719630366890
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 6926510422017116430}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 35e95dc5ff2b64380880dd7ac5922847, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Unity.AI.Navigation::Unity.AI.Navigation.NavMeshModifierVolume
-  m_SerializedVersion: 0
-  m_Size: {x: 1, y: 40, z: 1}
-  m_Center: {x: 0, y: 0, z: 0}
-  m_Area: 3
-  m_AffectedAgents: ffffffff

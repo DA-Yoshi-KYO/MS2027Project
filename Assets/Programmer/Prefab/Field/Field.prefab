@@ -29,6 +29,7 @@ Transform:
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
+  - {fileID: 4966095561946099027}
   - {fileID: 4985833699732599282}
   - {fileID: 9008152557107399826}
   - {fileID: 5666063188262295482}
@@ -1162,6 +1163,70 @@ Transform:
   - {fileID: 8400301442155069707}
   m_Father: {fileID: 4603303896222153390}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!1 &3900476489573290713
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 4966095561946099027}
+  - component: {fileID: 2222565381043452904}
+  m_Layer: 0
+  m_Name: NavMesh
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &4966095561946099027
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3900476489573290713}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 916253786267178671}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &2222565381043452904
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3900476489573290713}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7a5ac11cc976e418e8d13136b07e1f52, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Unity.AI.Navigation::Unity.AI.Navigation.NavMeshSurface
+  m_SerializedVersion: 0
+  m_AgentTypeID: 0
+  m_CollectObjects: 0
+  m_Size: {x: 10, y: 10, z: 10}
+  m_Center: {x: 0, y: 2, z: 0}
+  m_LayerMask:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  m_UseGeometry: 0
+  m_DefaultArea: 0
+  m_GenerateLinks: 0
+  m_IgnoreNavMeshAgent: 1
+  m_IgnoreNavMeshObstacle: 1
+  m_OverrideTileSize: 0
+  m_TileSize: 256
+  m_OverrideVoxelSize: 0
+  m_VoxelSize: 0.16666667
+  m_MinRegionArea: 2
+  m_NavMeshData: {fileID: 23800000, guid: 3a62a3196bf23ef45ae1e754b344024e, type: 2}
+  m_BuildHeightMesh: 0
 --- !u!1 &4425302123164464702
 GameObject:
   m_ObjectHideFlags: 0
@@ -22450,7 +22515,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 6128565554217803248, guid: 9f7d9a4cb1aaeba47bbf9df04089b09e, type: 3}
       propertyPath: GlobalObjectIdHash
-      value: 2748891757
+      value: 2817086887
       objectReference: {fileID: 0}
     - target: {fileID: 8693866589027035088, guid: 9f7d9a4cb1aaeba47bbf9df04089b09e, type: 3}
       propertyPath: m_LocalPosition.x
@@ -33282,7 +33347,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 6128565554217803248, guid: 9f7d9a4cb1aaeba47bbf9df04089b09e, type: 3}
       propertyPath: GlobalObjectIdHash
-      value: 2900549862
+      value: 3830256185
       objectReference: {fileID: 0}
     - target: {fileID: 8693866589027035088, guid: 9f7d9a4cb1aaeba47bbf9df04089b09e, type: 3}
       propertyPath: m_LocalPosition.x
@@ -36444,7 +36509,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 6128565554217803248, guid: 9f7d9a4cb1aaeba47bbf9df04089b09e, type: 3}
       propertyPath: GlobalObjectIdHash
-      value: 3068232796
+      value: 2970265031
       objectReference: {fileID: 0}
     - target: {fileID: 8693866589027035088, guid: 9f7d9a4cb1aaeba47bbf9df04089b09e, type: 3}
       propertyPath: m_LocalPosition.x
@@ -39388,7 +39453,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 6128565554217803248, guid: 9f7d9a4cb1aaeba47bbf9df04089b09e, type: 3}
       propertyPath: GlobalObjectIdHash
-      value: 3975001295
+      value: 3577713026
       objectReference: {fileID: 0}
     - target: {fileID: 8693866589027035088, guid: 9f7d9a4cb1aaeba47bbf9df04089b09e, type: 3}
       propertyPath: m_LocalPosition.x
@@ -49414,7 +49479,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 6128565554217803248, guid: 9f7d9a4cb1aaeba47bbf9df04089b09e, type: 3}
       propertyPath: GlobalObjectIdHash
-      value: 690226233
+      value: 3043230878
       objectReference: {fileID: 0}
     - target: {fileID: 8693866589027035088, guid: 9f7d9a4cb1aaeba47bbf9df04089b09e, type: 3}
       propertyPath: m_LocalPosition.x

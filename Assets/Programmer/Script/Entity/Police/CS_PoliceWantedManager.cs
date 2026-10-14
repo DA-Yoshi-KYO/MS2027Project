@@ -458,7 +458,8 @@ public class CS_PoliceWantedManager : MonoBehaviour
     private void ApplyAbility(CS_PoliceBrain member, int level)
     {
         // 手配度0(消えるのを待っている間)は、データのある一番低い手配度の強さにする
-        member.ChangeAbility(CreateSpeedTable(level), _levelData.GetLevel(level).viewDistance);
+        CSO_PoliceWantedLevelData.LevelData data = _levelData.GetLevel(level);
+        member.ChangeAbility(CreateSpeedTable(level), data.viewDistance, data.attackChargeTime);
     }
 
     /// <summary>

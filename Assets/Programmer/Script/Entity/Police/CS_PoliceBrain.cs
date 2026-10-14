@@ -205,14 +205,16 @@ public class CS_PoliceBrain : MonoBehaviour
     }
 
     /// <summary>
-    /// 移動速度と視野距離を変更するメソッド(手配度の変化など)
+    /// 移動速度・視野距離・攻撃の溜め時間を変更するメソッド(手配度の変化など)
     /// </summary>
     /// <param name="speedTable">警察の移動状態に応じた速度を格納した辞書</param>
     /// <param name="viewDistance">視野距離</param>
-    public void ChangeAbility(Dictionary<CSE_PoliceMoveState, float> speedTable, float viewDistance)
+    /// <param name="chargeTime">攻撃の溜め時間(秒)。0以下なら、警察のステータスの溜め時間のまま</param>
+    public void ChangeAbility(Dictionary<CSE_PoliceMoveState, float> speedTable, float viewDistance, float chargeTime)
     {
         _move.ChangeSpeedTable(speedTable);
         _vision.ChangeViewDistance(viewDistance);
+        _attack.ChangeChargeTime(chargeTime);
     }
 
     /// <summary>

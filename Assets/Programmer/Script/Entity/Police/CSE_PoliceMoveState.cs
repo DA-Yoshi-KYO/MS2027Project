@@ -33,7 +33,7 @@ public enum CSE_PoliceMoveState
     Search,
 
     /// <summary>
-    /// 待機状態(手配度で出現した警察が、標的を見失った場所で止まっている)
+    /// 待機状態(手配度で出現した警察が、標的を見失って探し終えたあと、その付近を少し歩き回っている)
     /// </summary>
     Wait
 }

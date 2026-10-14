@@ -50,6 +50,25 @@ public class CS_PoliceBrain : MonoBehaviour
     private object _searchKey = null;
     private Vector3 _searchCenter = Vector3.zero;
 
+    // 待機中に歩き回っているか・歩き回る中心・今の行き先(無ければ立ち止まっている)
+    private bool _isWandering = false;
+    private Vector3 _wanderCenter = Vector3.zero;
+    private Vector3 _wanderTarget = Vector3.zero;
+    private bool _hasWanderTarget = false;
+
+    // 次の行き先を選ぶまでの立ち止まる残り時間・今の行き先へ歩き始めてからの時間
+    private float _wanderPauseTimer = 0.0f;
+    private float _wanderWalkTimer = 0.0f;
+
+    // 歩き回る行き先が、今の位置から歩いて行けるかを調べる際に使い回す経路
+    private NavMeshPath _wanderPath = null;
+
+    // 歩き回る行き先を探す回数
+    private const int _wanderPickAttempts = 5;
+
+    // 歩き回る時の、今の位置から行き先までの最小の距離(少しは歩くようにする)
+    private const float _wanderMinStep = 1.5f;
+
     // 今加わっている「中心の周りの別々の位置を割り当てる円」と、その目印・種類(加わっていなければnull)
     private CS_PoliceSlotRing _ring = null;
     private object _ringKey = null;
@@ -100,6 +119,23 @@ public class CS_PoliceBrain : MonoBehaviour
     [Tooltip("標的を追う時に囲む半径を決める、攻撃の射程に対する割合(射程の内側に収まるようにする)")]
     private float _chaseRadiusRatio = 0.9f;
 
+    [Header("＝＝＝ 待機中の歩き回り ＝＝＝")]
+    [SerializeField, Min(0.5f)]
+    [Tooltip("待機中(標的を見失って探し終えたあと)に、探していた場所を中心として歩き回る範囲の半径(m)")]
+    private float _wanderRadius = 4.0f;
+
+    [SerializeField, Min(0f)]
+    [Tooltip("行き先に着いてから、次の行き先を選ぶまでに立ち止まる時間の最小(秒)")]
+    private float _wanderPauseMin = 1.0f;
+
+    [SerializeField, Min(0f)]
+    [Tooltip("行き先に着いてから、次の行き先を選ぶまでに立ち止まる時間の最大(秒)")]
+    private float _wanderPauseMax = 3.0f;
+
+    [SerializeField, Min(1f)]
+    [Tooltip("1つの行き先へ歩き始めてから、この時間が経っても着かない(詰まった・遠回りしている)時は、行き先を選び直す(秒)")]
+    private float _wanderMaxWalkTime = 8.0f;
+
     // 現在の行動状態
     public CSE_PoliceMoveState state => _state;
 
@@ -112,6 +148,7 @@ public class CS_PoliceBrain : MonoBehaviour
         _move = GetComponent<CS_PoliceMove>();
         _vision = GetComponent<CS_PoliceVision>();
         _attack = GetComponent<CS_PoliceAttack>();
+        _wanderPath = new NavMeshPath();
 
         // 判断と移動はサーバーだけで行う。クライアントでは位置をNetworkTransformの同期に任せる
         if (CS_PoliceSquad.IsNetworkClientOnly())
@@ -277,6 +314,7 @@ public class CS_PoliceBrain : MonoBehaviour
         // 標的を見つけた時点で、駆け付けの指示は済んだものとする
         _hasRushRequest = false;
         _rushPlayer = null;
+        _isWandering = false;
 
         // 全員が標的の一点に押し合わないよう、標的を囲む位置(攻撃の射程の内側)を目指す
         float chaseRadius = _attack.attackRange * _chaseRadiusRatio;
@@ -303,6 +341,7 @@ public class CS_PoliceBrain : MonoBehaviour
         UpdateRushTarget();
 
         _state = CSE_PoliceMoveState.Rush;
+        _isWandering = false;
 
         // 現場の一点ではなく、現場の周りの自分の位置を目指す(着いても、全員が中心に押し合わない)
         _move.SetDestination(GetGatherDestination(_rushKey, _rushCenter), CSE_PoliceMoveState.Rush);
@@ -339,6 +378,7 @@ public class CS_PoliceBrain : MonoBehaviour
     private void StartSearch(object key, Vector3 center)
     {
         _state = CSE_PoliceMoveState.Search;
+        _isWandering = false;
         _searchTimer = _searchDuration;
         _searchKey = key;
         _searchCenter = center;
@@ -362,14 +402,101 @@ public class CS_PoliceBrain : MonoBehaviour
     }
 
     /// <summary>
-    /// 所属先に合わせて巡回・待機するメソッド(巡回するグループなら巡回ルート、増援ならその場で待機)
+    /// 所属先に合わせて巡回・待機するメソッド(巡回するグループなら巡回ルート、増援なら探していた場所の付近を歩き回る)
     /// </summary>
     private void MoveIdle()
     {
         _state = _group.MoveIdle(this, _move);
 
         // 巡回に戻る時は、現場・標的の周りの割り当てから外れる(待機の時は、割り当てられた位置のまま残る)
-        if (_state == CSE_PoliceMoveState.Patrol) LeaveRing();
+        if (_state == CSE_PoliceMoveState.Patrol)
+        {
+            LeaveRing();
+            _isWandering = false;
+            return;
+        }
+
+        if (_state == CSE_PoliceMoveState.Wait) UpdateWander();
+    }
+
+    /// <summary>
+    /// 待機中に、探していた場所の付近を少し歩き回るメソッド
+    /// 行き先に着いたら少し立ち止まり、また付近の別の行き先へ歩く(立ち止まったままにならないようにする)
+    /// </summary>
+    private void UpdateWander()
+    {
+        // 待機に入った最初に、歩き回る中心を決める(探していた場所。無ければ今の位置)
+        if (!_isWandering)
+        {
+            _isWandering = true;
+            _wanderCenter = _searchKey != null ? _searchCenter : transform.position;
+            _hasWanderTarget = false;
+            _wanderPauseTimer = 0.0f;
+        }
+
+        // 行き先へ歩いている間
+        if (_hasWanderTarget)
+        {
+            _wanderWalkTimer += _thinkInterval;
+            _move.SetDestination(_wanderTarget, CSE_PoliceMoveState.Wait);
+
+            // 着いたか、なかなか着けない時は、少し立ち止まって次の行き先を選ぶ
+            if (!_move.IsNearDestination(_arriveDistance) && _wanderWalkTimer < _wanderMaxWalkTime) return;
+
+            _hasWanderTarget = false;
+            _wanderPauseTimer = Random.Range(_wanderPauseMin, Mathf.Max(_wanderPauseMin, _wanderPauseMax));
+            return;
+        }
+
+        // 立ち止まっている間
+        _wanderPauseTimer -= _thinkInterval;
+        if (_wanderPauseTimer > 0.0f) return;
+
+        // 次の行き先を選んで歩き出す(選べなければ、もう少し立ち止まってからやり直す)
+        if (!TryPickWanderPoint(out Vector3 point))
+        {
+            _wanderPauseTimer = _wanderPauseMin;
+            return;
+        }
+
+        _wanderTarget = point;
+        _hasWanderTarget = true;
+        _wanderWalkTimer = 0.0f;
+        _move.SetDestination(point, CSE_PoliceMoveState.Wait);
+    }
+
+    /// <summary>
+    /// 歩き回る範囲の中から、歩いて行ける次の行き先をランダムに選ぶメソッド
+    /// </summary>
+    /// <param name="point">選んだ行き先</param>
+    /// <returns>選べたらtrue</returns>
+    private bool TryPickWanderPoint(out Vector3 point)
+    {
+        point = transform.position;
+
+        // 経路の計算は、足元のNavMesh上の位置から行う(警察の位置は、NavMeshから少し浮いているため)
+        if (!NavMesh.SamplePosition(transform.position, out NavMeshHit startHit, _slotSampleDistance, NavMesh.AllAreas)) return false;
+
+        for (int i = 0; i < _wanderPickAttempts; i++)
+        {
+            Vector2 offset = Random.insideUnitCircle * _wanderRadius;
+            Vector3 candidate = _wanderCenter + new Vector3(offset.x, 0.0f, offset.y);
+            if (!NavMesh.SamplePosition(candidate, out NavMeshHit hit, _slotSampleDistance, NavMesh.AllAreas)) continue;
+
+            // 少しは歩くよう、今の位置に近すぎる行き先は選ばない
+            Vector3 step = hit.position - startHit.position;
+            step.y = 0.0f;
+            if (step.sqrMagnitude < _wanderMinStep * _wanderMinStep) continue;
+
+            // 壁の向こうなど、歩いて行けない行き先は選ばない(詰まりと判定されないようにする)
+            if (!NavMesh.CalculatePath(startHit.position, hit.position, NavMesh.AllAreas, _wanderPath)) continue;
+            if (_wanderPath.status != NavMeshPathStatus.PathComplete) continue;
+
+            point = hit.position;
+            return true;
+        }
+
+        return false;
     }
 
     /// <summary>

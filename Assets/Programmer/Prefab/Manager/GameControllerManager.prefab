@@ -14,6 +14,7 @@ GameObject:
   - component: {fileID: 8389588009085528967}
   - component: {fileID: 8511819665858936338}
   - component: {fileID: 9201942720854417754}
+  - component: {fileID: 2995087399300262541}
   m_Layer: 0
   m_Name: GameControllerManager
   m_TagString: Untagged
@@ -129,3 +130,20 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::CS_NotificationController
   _rootView: {fileID: 0}
   _enableDebugInput: 0
+--- !u!114 &2995087399300262541
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1579610649312813586}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 40716dd54df40aa4eb9ed95017170e13, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CS_PoliceDirectionController
+  _presenter: {fileID: 0}
+  _enableDebugMode: 0
+  _debugPlayerTransform: {fileID: 0}
+  _debugPoliceDistance: 15
+  _debugRotateSpeed: 30

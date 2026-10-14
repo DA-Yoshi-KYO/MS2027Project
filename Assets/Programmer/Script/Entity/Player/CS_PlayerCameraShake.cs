@@ -21,7 +21,7 @@ using UnityEngine;
  * ・揺れ方(長さ・形)はこのオブジェクトのCinemachineImpulseSourceのImpulse Definitionで決める
  *   カメラ側はCinemachineCameraに付いているCinemachineImpulseListenerが受け取る(Gainで全体の強さを一括調整できる)
  * ・揺れるのは自分のカメラだけ。攻撃のイベントは操作しているクライアントでしか発生せず、
- *   被弾は自分が操作しているプレイヤー(CS_Player.isControlled)の時だけ揺らす
+ *   被弾・攻撃とも、自分の画面のプレイヤー(CS_Player.isLocalPlayer)の時だけ揺らす(NPCはホストで動くため)
  *   (他人のプレイヤーのCinemachineCameraは無効化されている)
  * ・見た目の演出用なので通信はしない
  */
@@ -100,7 +100,7 @@ public class CS_PlayerCameraShake : MonoBehaviour
         bool isDamaged = current < _lastHp;
         _lastHp = current;
 
-        if (!isDamaged || !_player.isControlled) return;
+        if (!isDamaged) return;
 
         Shake(_damagedShakeForce);
     }
@@ -119,6 +119,8 @@ public class CS_PlayerCameraShake : MonoBehaviour
     private void Shake(float force)
     {
         if (force <= 0f) return;
+        // 揺らすのは自分の画面のプレイヤーだけ(NPCはホストで動くため、NPCの攻撃でホストのカメラが揺れないようにする)
+        if (!_player.isLocalPlayer) return;
 
         _impulseSource.GenerateImpulseWithForce(force);
     }

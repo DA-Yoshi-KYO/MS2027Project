@@ -21,14 +21,17 @@ using UnityEngine;
  */
 // ========================================
 
+[RequireComponent(typeof(CS_Player))]
 [RequireComponent(typeof(CS_PlayerItemSlot))]
 public class CS_PlayerItemSlotUI : NetworkBehaviour
 {
+    private CS_Player _player;
     private CS_PlayerItemSlot _itemSlot;
     private CS_UIItemSlotModel _itemModel;
 
     private void Awake()
     {
+        _player = GetComponent<CS_Player>();
         _itemSlot = GetComponent<CS_PlayerItemSlot>();
     }
 
@@ -38,12 +41,14 @@ public class CS_PlayerItemSlotUI : NetworkBehaviour
         if (IsSpawned) return;
         if (NetworkManager.Singleton != null && NetworkManager.Singleton.IsListening) return;
 
+        if (!_player.isLocalPlayer) return;   // NPCはスロットUIに出さない
+
         BindItemSlotUI();
     }
 
     public override void OnNetworkSpawn()
     {
-        if (!IsOwner) return;
+        if (!_player.isLocalPlayer) return;   // NPCはホストでIsOwnerになるため、isLocalPlayerで判定する
 
         BindItemSlotUI();
     }

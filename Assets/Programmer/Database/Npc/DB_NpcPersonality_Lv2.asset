@@ -1,0 +1,39 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6615e4a01dbee1156162f4a67e56067b, type: 3}
+  m_Name: DB_NpcPersonality_Lv2
+  m_EditorClassIdentifier: Assembly-CSharp::CSO_NpcPersonality
+  _displayName: "\u307C\u30FC\u304C\u3044"
+  _level: 2
+  _decisionInterval: 0.5
+  _reactionDelay: 0.25
+  _senseRange: 30
+  _fleeRange: 10
+  _villainWeight: 0.6
+  _itemWeight: 0.8
+  _eventWeight: 0.5
+  _harassWeight: 1.2
+  _fleeWeight: 1
+  _wanderWeight: 0.1
+  _harassRange: 20
+  _attackInterval: 0.4
+  _attackMissChance: 0.1
+  _fleeHpRatio: 0.3
+  _skipsLateCrimes: 0
+  _usesSprint: 1
+  _transformDistance: 12
+  _untransformIdleTime: 8
+  _maxWantedLevel: 4
+  _specialMinTargets: 3
+  _savesSpecialForPlayers: 1
+  _itemUseChance: 0.7
+  _usesItemsOnPlayers: 1

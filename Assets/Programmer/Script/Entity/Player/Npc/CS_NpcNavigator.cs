@@ -25,7 +25,7 @@ public class CS_NpcNavigator
     private const float _cornerReachDistance = 0.6f;  // 曲がり角に着いたとみなす距離(m)
     private const float _sampleDistance = 4f;       // NavMesh上の点を探す範囲(m)
 
-    private readonly NavMeshPath _path = new NavMeshPath();
+    private readonly NavMeshPath _path = new NavMeshPath();   // ※ このクラスはMonoBehaviourのフィールド初期化で作らないこと(NavMeshPathはAwake以降でしか作れない)
     private Vector3 _destination;
     private int _cornerIndex;
     private bool _hasPath;

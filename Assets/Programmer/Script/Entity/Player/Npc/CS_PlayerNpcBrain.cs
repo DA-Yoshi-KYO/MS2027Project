@@ -70,7 +70,7 @@ public class CS_PlayerNpcBrain : NetworkBehaviour
     private CS_PlayerSpecialAttack _special;
     private CS_PlayerStats _stats;
     private CSO_NpcPersonality _personality;
-    private readonly CS_NpcNavigator _navigator = new CS_NpcNavigator();
+    private CS_NpcNavigator _navigator;    // NavMeshPathはフィールドの初期化では作れない(Unityの制限)ため、Awakeで作る
 
     // 今の行動
     private GoalType _goalType;
@@ -108,6 +108,14 @@ public class CS_PlayerNpcBrain : NetworkBehaviour
         _attack = GetComponent<CS_PlayerAttack>();
         _special = GetComponent<CS_PlayerSpecialAttack>();
         _stats = GetComponent<CS_PlayerStats>();
+        _navigator = new CS_NpcNavigator();
+
+        // 同じプレイヤーに2つ付いていると、お互いの入力を打ち消し合って動けなくなるため、2つ目以降は止める
+        if (GetComponents<CS_PlayerNpcBrain>()[0] != this)
+        {
+            Debug.LogWarning($"CS_PlayerNpcBrain: {name} に2つ以上付いています。1つだけにしてください(2つ目以降は無効にします)", this);
+            enabled = false;
+        }
     }
 
     // 性格を決める(CS_PlayerSpawnerが、スポーンする前に呼ぶ)

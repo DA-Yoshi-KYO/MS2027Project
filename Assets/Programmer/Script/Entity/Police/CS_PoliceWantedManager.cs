@@ -18,7 +18,7 @@ using UnityEngine.SceneManagement;
 /// ・手配度が下がったら、そのプレイヤーの増援の中からランダムに選んで消す(追跡中・戦闘中の警察は、落ち着くまで待つ)
 /// ・増援の速度・視野距離は、持ち主のプレイヤーの今の手配度に合わせる(誰を追っていても持ち主の手配度のまま)
 /// ・持ち主のプレイヤーが出した信号の場所へ、増援を駆け付けさせる
-/// 手配度の値そのものはプレイヤー側が管理し、SetWantedLevelで知らせてもらう
+/// 手配度の値そのものはプレイヤー側(CS_PlayerWantedLevel)が管理し、その変化を警察側から購読して受け取る
 /// 出現・削除はサーバー(またはオフライン)だけで行う
 /// </summary>
 public class CS_PoliceWantedManager : MonoBehaviour
@@ -43,6 +43,9 @@ public class CS_PoliceWantedManager : MonoBehaviour
 
     // 次に人数を確認するまでの残り時間
     private float _refreshTimer = 0.0f;
+
+    // プレイヤーの手配度の変化の購読
+    private CS_PoliceWantedLevelWatcher _levelWatcher = null;
 
     // ネットワークのシーン遷移(Singleモード)が始まったか
     // 始まると警察はNetcodeに破棄されるが、このクラスはシーンが切り替わるまで残る。
@@ -93,6 +96,7 @@ public class CS_PoliceWantedManager : MonoBehaviour
 
     /// <summary>
     /// プレイヤーの手配度が変わったことを知らせるメソッド(サーバーで呼ぶこと)
+    /// ※CS_PlayerWantedLevelの手配度は自動で購読しているので、通常は呼ばなくてよい(手で試したい時などに使う)
     /// </summary>
     /// <param name="player">手配度が変わったプレイヤー</param>
     /// <param name="level">変わった後の手配度(0〜最大)</param>
@@ -130,10 +134,22 @@ public class CS_PoliceWantedManager : MonoBehaviour
 
         _instance = this;
         _reachablePath = new NavMeshPath();
+        _levelWatcher = new CS_PoliceWantedLevelWatcher(HandleLevelChanged);
+    }
+
+    private void Start()
+    {
+        // 後から置かれた(使われない)管理クラスは購読しない
+        if (_levelWatcher == null) return;
+
+        // すでに出現しているプレイヤーと、あとから出現するプレイヤーの手配度の変化を購読する
+        _levelWatcher.Start();
     }
 
     private void OnDestroy()
     {
+        // プレイヤーは管理クラスより長く残ることがあるので、破棄される前に必ず購読を解除する
+        _levelWatcher?.Stop();
         UnsubscribeSceneEvent();
 
         if (_instance == this) _instance = null;
@@ -163,6 +179,19 @@ public class CS_PoliceWantedManager : MonoBehaviour
             _groups.Remove(owner);
         }
         _leftOwnerBuffer.Clear();
+    }
+
+    /// <summary>
+    /// プレイヤーの手配度が変わった時に呼ばれ、増援の強さと人数を合わせるメソッド
+    /// 全クライアントで呼ばれるが、増援の出現・削除はサーバー(またはオフライン)だけで行う
+    /// </summary>
+    /// <param name="player">手配度が変わったプレイヤー</param>
+    /// <param name="level">変わった後の手配度</param>
+    private void HandleLevelChanged(CS_PlayerHealth player, int level)
+    {
+        if (CS_PoliceSquad.IsNetworkClientOnly()) return;
+
+        ChangeWantedLevel(player, level);
     }
 
     /// <summary>

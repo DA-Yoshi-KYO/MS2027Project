@@ -417,6 +417,12 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::CS_PlayerSpawner
   _playerPrefab: {fileID: 5961151079834445413, guid: a3d33539c8b81ef4f9ca1dc5f3ba2719, type: 3}
+  _fillWithNpc: 1
+  _fillWithNpcOffline: 0
+  _npcPersonalities:
+  - {fileID: 11400000, guid: 938cd1fed441a043c28c30cbe07a7d8c, type: 2}
+  - {fileID: 11400000, guid: 1b60a14c75e505aa064826349dc2f9e1, type: 2}
+  - {fileID: 11400000, guid: fcf1feaf1ddcee607ffb88588ee1dbeb, type: 2}
 --- !u!1 &1572714410914630766
 GameObject:
   m_ObjectHideFlags: 0

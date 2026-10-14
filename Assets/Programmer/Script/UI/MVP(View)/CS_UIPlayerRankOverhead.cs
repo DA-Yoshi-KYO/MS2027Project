@@ -4,6 +4,7 @@
  * 制作者：元浪梨緒
  * ------------------------------------------------
  * 2026-10-12 | 初回作成
+ * 2026-10-14 | 自分の画面のプレイヤーかをBindで受け取れるようにした(NPCはホストでIsOwnerになるため。秋野)
  * ================================================ */
 
 using System.Collections.Generic;
@@ -50,6 +51,7 @@ public class CS_UIPlayerRankOverhead : NetworkBehaviour
     private Camera _mainCamera;
     private int _playerNumber = -1;
     private bool _isBound;
+    private bool? _isLocalPlayer;   // Bindで渡された「自分の画面のプレイヤーか」(nullならIsOwnerで判定する)
 
     // =========================================================
     // 初期化
@@ -77,7 +79,8 @@ public class CS_UIPlayerRankOverhead : NetworkBehaviour
     /// このUIが表示するプレイヤー番号を設定する。
     /// プレイヤー番号の確定後、全プレイヤーで呼ぶ。
     /// </summary>
-    public void Bind(int playerNumber, Camera camera)
+    /// <param name="isLocalPlayer">自分の画面のプレイヤーか(省略時はIsOwnerで判定。NPCはホストでIsOwnerになるため、プレイヤー側から渡す)</param>
+    public void Bind(int playerNumber, Camera camera, bool? isLocalPlayer = null)
     {
         Unbind();
 
@@ -85,6 +88,7 @@ public class CS_UIPlayerRankOverhead : NetworkBehaviour
         _isBound = true;
 
         _mainCamera = camera;
+        _isLocalPlayer = isLocalPlayer;
 
         CS_UIScoreModel.OnRankingUpdated += HandleRankingUpdated;
         HandleRankingUpdated();
@@ -224,7 +228,8 @@ public class CS_UIPlayerRankOverhead : NetworkBehaviour
 
         // 順位UI自身にNetworkObjectを付けず、Playerルートの
         // NetworkObjectに関連付けることでIsOwnerがPlayer所有者を示す。
-        return _showLocalPlayer || !IsOwner;
+        bool isLocal = _isLocalPlayer ?? IsOwner;
+        return _showLocalPlayer || !isLocal;
     }
 
     // =========================================================

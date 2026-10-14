@@ -55,12 +55,12 @@ public class CS_PlayerRankOverheadUI : NetworkBehaviour
         if (IsSpawned) return;
         if (NetworkManager.Singleton != null && NetworkManager.Singleton.IsListening) return;
 
-        Register(true);
+        Register(_player.isLocalPlayer);
     }
 
     public override void OnNetworkSpawn()
     {
-        Register(IsOwner);
+        Register(_player.isLocalPlayer);   // NPCはホストでIsOwnerになるため、isLocalPlayerで判定する
     }
 
     public override void OnNetworkDespawn()
@@ -112,6 +112,7 @@ public class CS_PlayerRankOverheadUI : NetworkBehaviour
         if (_rankOverhead == null) return;
         if (_localCamera == null) return;   // ローカルプレイヤーのスポーン時にまとめてBindされる
 
-        _rankOverhead.Bind(_player.playerNumber, _localCamera);
+        // 自分の頭上は隠す。NPCはホストでIsOwnerになるため、自分かどうかもプレイヤー側から渡す
+        _rankOverhead.Bind(_player.playerNumber, _localCamera, _player.isLocalPlayer);
     }
 }

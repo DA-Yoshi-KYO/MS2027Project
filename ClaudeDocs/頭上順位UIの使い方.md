@@ -12,6 +12,9 @@
 `CS_UIPlayerRankOverhead` は `Bind(playerNumber, camera)` が呼ばれるまで何も表示しません。
 `PlayerRank.prefab` はすでに `Player.prefab` のルート直下に置かれているので、あとは Bind を呼ぶだけです。
 
+**→ 対応済み（秋野）**：`Player.prefab` に付けた `CS_PlayerRankOverheadUI`（`Assets/Programmer/Script/Entity/Player/CS_PlayerRankOverheadUI.cs`）が、下の「組み込み例」と同じ考え方で Bind しています。
+ローカルプレイヤーのカメラは `CS_Player.playerCamera` から取っています。詳細は `ClaudeUsers/プレイヤー仕様.md` の「HUD」を参照。
+
 ## 使い方
 
 ### API

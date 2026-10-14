@@ -125,10 +125,7 @@ public class CS_PoliceSquad : MonoBehaviour, IPoliceGroup
     /// <param name="position">事件の現場</param>
     public static void NotifyIncident(Vector3 position)
     {
-        foreach (CS_PoliceSquad squad in _activeSquads)
-        {
-            squad.ReceiveIncident(position);
-        }
+        NotifySquads(new CS_PoliceGatherPoint(position));
     }
 
     /// <summary>
@@ -139,8 +136,22 @@ public class CS_PoliceSquad : MonoBehaviour, IPoliceGroup
     /// <param name="source">信号を出したプレイヤー</param>
     public static void NotifyIncident(Vector3 position, CS_PlayerHealth source)
     {
-        NotifyIncident(position);
-        CS_PoliceWantedManager.ReceiveSignal(source, position);
+        // 巡回グループと増援には同じ現場を渡し、全員が現場の周りの別々の位置へ向かうようにする
+        CS_PoliceGatherPoint point = new CS_PoliceGatherPoint(position);
+        NotifySquads(point);
+        CS_PoliceWantedManager.ReceiveSignal(source, point);
+    }
+
+    /// <summary>
+    /// 事件が起きたことを全グループに知らせるメソッド(警備エリア内のグループだけが駆け付ける)
+    /// </summary>
+    /// <param name="point">事件の現場</param>
+    private static void NotifySquads(CS_PoliceGatherPoint point)
+    {
+        foreach (CS_PoliceSquad squad in _activeSquads)
+        {
+            squad.ReceiveIncident(point);
+        }
     }
 
     private void Start()
@@ -182,7 +193,7 @@ public class CS_PoliceSquad : MonoBehaviour, IPoliceGroup
         _transformationWatcher.Update(Time.deltaTime, _guardArea, _transformedPositions);
         foreach (Vector3 position in _transformedPositions)
         {
-            ReceiveIncident(position);
+            ReceiveIncident(new CS_PoliceGatherPoint(position));
         }
     }
 
@@ -295,14 +306,14 @@ public class CS_PoliceSquad : MonoBehaviour, IPoliceGroup
     /// <summary>
     /// 事件の通知を受け取り、警備エリア内ならメンバーを駆け付けさせるメソッド
     /// </summary>
-    /// <param name="position">事件の現場</param>
-    private void ReceiveIncident(Vector3 position)
+    /// <param name="point">事件の現場</param>
+    private void ReceiveIncident(CS_PoliceGatherPoint point)
     {
-        if (_guardArea == null || !CS_PoliceTransformationWatcher.IsInsideArea(_guardArea, position)) return;
+        if (_guardArea == null || !CS_PoliceTransformationWatcher.IsInsideArea(_guardArea, point.position)) return;
 
         foreach (CS_PoliceBrain member in _members)
         {
-            member.RequestRush(position);
+            member.RequestRush(point);
         }
     }
 

@@ -51,6 +51,14 @@ using UnityEngine.InputSystem;
  * ・playerNumber(0〜3)
  *   CS_PlayerSpawnerが、スポーンする直前にAssignPlayerNumber()で割り当てる(NetworkVariableなのでスポーン時に全員へ同期される)
  *   HP UI(CS_PlayerHpUI)など、「何番目のプレイヤーか」で表示先を決める仕組みが使う
+ * ・NPC(4人に満たない枠を埋める、人の代わりのプレイヤー。仕様書「NPC(他プレイヤー)」)
+ *   CS_PlayerSpawnerが、スポーンする直前にMarkAsNpc()で印を付ける(NetworkVariableなので全員へ同期される)
+ *   NPCはサーバーが所有・操作する(_isControlledはサーバーでだけtrue)。入力は人のInputActionの代わりに
+ *   CS_PlayerNpcInput(判断はCS_PlayerNpcBrain)から読む。カメラは使わない
+ *   ※ NPCはサーバーが所有するため、ホストではIsOwnerがtrueになる
+ *     「自分の画面のプレイヤーか」(HUD・ミニマップの中心など)は、IsOwnerではなくisLocalPlayerで判定すること
+ * ・ボタン(攻撃・必殺技など)はCS_PlayerButtonで公開する。人かNPCかに関わらず、各部品は
+ *   WasPressedThisFrame() / IsPressed() で読むだけでよい
  */
 // ========================================
 
@@ -86,6 +94,8 @@ public class CS_Player : NetworkBehaviour
 
     // 書き込みはサーバーのみ(NetworkVariableのデフォルト)。CS_PlayerSpawnerがスポーン前に割り当てる
     private readonly NetworkVariable<int> _playerNumber = new NetworkVariable<int>();
+    // 書き込みはサーバーのみ。CS_PlayerSpawnerがスポーン前に印を付ける
+    private readonly NetworkVariable<bool> _isNpc = new NetworkVariable<bool>();
 
     private Rigidbody _rigidbody;
     private CapsuleCollider _collider;
@@ -95,15 +105,17 @@ public class CS_Player : NetworkBehaviour
     private InputAction _moveAction;
     private InputAction _mouseLookAction;
     private InputAction _stickLookAction;
-    private InputAction _attackAction;
-    private InputAction _jumpAction;
-    private InputAction _specialAction;
     private InputAction _specialModifierAction;  // 必殺技のゲームパッド用コード(RT+LT)のLT側。攻撃(RT)との同時押しを判別するために使う
-    private InputAction _dashAction;    // ダッシュボタン
-    private InputAction _useItemAction; // アイテム使用ボタン(CS_PlayerItemSlotが使う)
-    private InputAction _transformationAction;  // 変身ボタン(CS_PlayerTransformationが使う)
+    private CS_PlayerButton _attackButton;
+    private CS_PlayerButton _jumpButton;
+    private CS_PlayerButton _specialButton;
+    private CS_PlayerButton _dashButton;        // ダッシュボタン
+    private CS_PlayerButton _useItemButton;     // アイテム使用ボタン(CS_PlayerItemSlotが使う)
+    private CS_PlayerButton _transformationButton;  // 変身ボタン(CS_PlayerTransformationが使う)
 
-    private bool _isControlled;     // このプレイヤーを自分が操作するか
+    private CS_PlayerNpcInput _npcInput;    // NPCの時の入力(人が操作する時はnull)
+
+    private bool _isControlled;     // このプレイヤーを自分(このマシン)が操作するか。NPCはサーバーが操作する
     private Vector2 _moveInput;
     private bool _jumpRequested;    // Updateで押下を検知し、FixedUpdateで消費する
     private float _yaw;
@@ -115,26 +127,25 @@ public class CS_Player : NetworkBehaviour
     private Vector3 _dashDirection;
     private bool _isSprinting;      // ダッシュ後、ダッシュボタンを押し続けている間か
 
-    private bool _hasAimFacing;     // エイムアシストで、攻撃する相手の方を向いている間か
-    private float _aimFacingYaw;
-    private Vector3 _lungeVelocity; // エイムアシストの踏み込みの速度
-    private float _lungeRemaining;  // 踏み込みの残り時間(秒)
-
-    public bool isControlled => _isControlled;          // このプレイヤーを自分が操作しているか
+    public bool isControlled => _isControlled;          // このプレイヤーを自分(このマシン)が操作しているか(NPCはサーバーでtrue)
     public bool canAct => _isControlled && !_health.isDead;   // 移動・攻撃してよいか(CS_PlayerAttackも参照)
-    public InputAction attackAction => _attackAction;   // 攻撃ボタン(CS_PlayerAttackが使う)
-    public InputAction specialAction => _specialAction; // 必殺技ボタン(CS_PlayerSpecialAttackが使う)
+    public bool isNpc => _isNpc.Value;                  // NPCか(全クライアントで分かる)
+    // 自分の画面のプレイヤー(このマシンで人が操作しているプレイヤー)か。HUD・ミニマップの中心などに使う
+    // NPCはホストではIsOwnerがtrueになるため、IsOwnerではなくこちらを使う
+    public bool isLocalPlayer => !_isNpc.Value && (IsSpawned ? IsOwner : !IsOnline());
+    public CS_PlayerNpcInput npcInput => _npcInput;     // NPCの入力(CS_PlayerNpcBrainが書き込む。NPCを操作するマシン以外ではnull)
+    public CS_PlayerButton attackAction => _attackButton;   // 攻撃ボタン(CS_PlayerAttackが使う)
+    public CS_PlayerButton specialAction => _specialButton; // 必殺技ボタン(CS_PlayerSpecialAttackが使う)
     // 必殺技コード(RT+LT)のLT側が押されているか(CS_PlayerAttackが、RT+LT同時押し時に攻撃を誤発動させないため参照する)
     public bool isSpecialModifierHeld => _specialModifierAction != null && _specialModifierAction.IsPressed();
-    public InputAction dashAction => _dashAction;       // ダッシュボタン
+    public CS_PlayerButton dashAction => _dashButton;       // ダッシュボタン
     public float dashDuration => _dashDuration;         // ダッシュが続く時間(秒、見た目のモーション速度合わせに使う)
-    public InputAction useItemAction => _useItemAction; // アイテム使用ボタン(CS_PlayerItemSlotが使う)
-    public InputAction transformationAction => _transformationAction;  // 変身ボタン(CS_PlayerTransformationが使う)
+    public CS_PlayerButton useItemAction => _useItemButton; // アイテム使用ボタン(CS_PlayerItemSlotが使う)
+    public CS_PlayerButton transformationAction => _transformationButton;  // 変身ボタン(CS_PlayerTransformationが使う)
     public bool isGrounded => IsGrounded();             // 接地しているか(全クライアントで判定できる。見た目用にも使う)
     public bool isSprinting => _isSprinting;            // ダッシュ後、ボタンを押し続けて速くなっているか(見た目用)
     public int playerNumber => _playerNumber.Value;     // 何番目のプレイヤーか(0〜3。HP UIなど画面上の表示先を決めるのに使う)
     public Camera playerCamera => _cameraTransform != null ? _cameraTransform.GetComponent<Camera>() : null;   // このプレイヤーのカメラ(他人のプレイヤーでは無効化されている)
-    public float viewYaw => _yaw;                       // カメラの左右の向き(度)。エイムアシストが「狙っている方向」として使う
 
     // 何番目のプレイヤーかを割り当てる(CS_PlayerSpawnerが、スポーンする前に呼ぶ)
     public void AssignPlayerNumber(int number)
@@ -142,6 +153,14 @@ public class CS_Player : NetworkBehaviour
         if (IsSpawned && !IsServer) return;
 
         _playerNumber.Value = number;
+    }
+
+    // NPCとして印を付ける(CS_PlayerSpawnerが、スポーンする前に呼ぶ。オフラインではStartより前に呼ぶ)
+    public void MarkAsNpc()
+    {
+        if (IsSpawned) return;
+
+        _isNpc.Value = true;
     }
 
     // 操作しているクライアントでだけ発生する。見た目(CS_PlayerVisual)など、ゲームロジックの外から購読する
@@ -164,13 +183,33 @@ public class CS_Player : NetworkBehaviour
     private void Start()
     {
         if (_isControlled || IsSpawned) return;
-        if (NetworkManager.Singleton != null && NetworkManager.Singleton.IsListening) return;
+        if (IsOnline()) return;
+
+        if (_isNpc.Value)
+        {
+            SetupAsNpc();
+            return;
+        }
 
         SetupAsLocalPlayer();
     }
 
     public override void OnNetworkSpawn()
     {
+        // NPCはサーバーが操作する。それ以外のクライアントでは他人のプレイヤーと同じ扱い
+        if (_isNpc.Value)
+        {
+            if (IsServer)
+            {
+                SetupAsNpc();
+            }
+            else
+            {
+                SetupAsRemotePlayer();
+            }
+            return;
+        }
+
         // 他人のプレイヤーは入力もカメラも不要
         if (!IsOwner)
         {
@@ -199,18 +238,18 @@ public class CS_Player : NetworkBehaviour
         ReadInput();
 
         // ジャンプ・ダッシュは死亡中に予約されても復帰後に発動しないよう、ここでもcanActを見る
-        if (canAct && _jumpAction.WasPressedThisFrame())
+        if (canAct && _jumpButton.WasPressedThisFrame())
         {
             _jumpRequested = true;
         }
 
-        if (canAct && !_isDashing && _dashCooldownRemaining <= 0f && _dashAction.WasPressedThisFrame())
+        if (canAct && !_isDashing && _dashCooldownRemaining <= 0f && _dashButton.WasPressedThisFrame())
         {
             StartDash();
         }
 
         // ダッシュ中でない間にダッシュボタンを押し続けていればスプリント(ZZZのような挙動。クールタイムとは無関係)
-        _isSprinting = canAct && !_isDashing && _dashAction.IsPressed();
+        _isSprinting = canAct && !_isDashing && _dashButton.IsPressed();
     }
 
     private void FixedUpdate()
@@ -222,7 +261,6 @@ public class CS_Player : NetworkBehaviour
         {
             _isDashing = false;
             _jumpRequested = false;
-            _lungeRemaining = 0f;
             StopHorizontalVelocity();
             return;
         }
@@ -241,10 +279,6 @@ public class CS_Player : NetworkBehaviour
         {
             UpdateDash();
         }
-        else if (_lungeRemaining > 0f)
-        {
-            UpdateLunge();
-        }
         else
         {
             Move();
@@ -252,55 +286,31 @@ public class CS_Player : NetworkBehaviour
         }
     }
 
-    // ========================================
-    // エイムアシスト(CS_PlayerAimAssist)から使う
-    // ========================================
-
-    // 体の向きをカメラではなく指定した向き(攻撃する相手の方)にする。その場ですぐに向きを変える
-    // ClearAimFacing()を呼ぶまで続き、その後はいつも通りカメラの向きへ回り戻る
-    public void SetAimFacing(float yaw)
-    {
-        _hasAimFacing = true;
-        _aimFacingYaw = yaw;
-
-        // 判定はこのフレーム中に出ることがあるため、物理の更新を待たずに向きを変えておく
-        Quaternion rotation = Quaternion.Euler(0f, yaw, 0f);
-        _rigidbody.rotation = rotation;
-        transform.rotation = rotation;
-    }
-
-    public void ClearAimFacing()
-    {
-        _hasAimFacing = false;
-    }
-
-    // 指定した方向へ短く踏み込む(攻撃が届く距離まで詰める)。ダッシュを始めると打ち切られる
-    public void Lunge(Vector3 direction, float distance, float duration)
-    {
-        direction.y = 0f;
-        if (direction.sqrMagnitude < 0.0001f || distance <= 0f || duration <= 0f) return;
-
-        _lungeVelocity = direction.normalized * (distance / duration);
-        _lungeRemaining = duration;
-    }
-
-    // 踏み込み中は、決めた速さで直進する(垂直速度はそのまま)
-    private void UpdateLunge()
-    {
-        _lungeRemaining -= Time.fixedDeltaTime;
-        _rigidbody.linearVelocity = new Vector3(_lungeVelocity.x, _rigidbody.linearVelocity.y, _lungeVelocity.z);
-
-        if (_lungeRemaining <= 0f)
-        {
-            StopHorizontalVelocity();
-        }
-    }
-
     private void LateUpdate()
     {
-        if (!_isControlled) return;
+        if (!_isControlled || _npcInput != null) return;   // NPCはカメラを使わない
 
         UpdateCameraTransform();
+    }
+
+    // NPCの初期化(サーバー、またはオフライン)。入力はCS_PlayerNpcInputから読み、カメラは使わない
+    private void SetupAsNpc()
+    {
+        _isControlled = true;
+
+        _npcInput = new CS_PlayerNpcInput();
+        _npcInput.yaw = transform.eulerAngles.y;
+        _yaw = _npcInput.yaw;
+
+        _attackButton = _npcInput.attack;
+        _jumpButton = _npcInput.jump;
+        _specialButton = _npcInput.special;
+        _dashButton = _npcInput.dash;
+        _useItemButton = _npcInput.useItem;
+        _transformationButton = _npcInput.transformation;
+
+        // 人のプレイヤーのカメラと取り合わないよう、カメラは消しておく(物理はこのマシンで動かす)
+        DisableCamera();
     }
 
     // 自分のプレイヤーの初期化(入力の取得、カーソル固定)
@@ -331,9 +341,14 @@ public class CS_Player : NetworkBehaviour
         _isDashing = false;
         _dashCooldownRemaining = 0f;
         _isSprinting = false;
-        _lungeRemaining = 0f;
-        _hasAimFacing = false;
         UnbindInputActions();
+
+        // NPCはカーソルを触っていない
+        if (_npcInput != null)
+        {
+            _npcInput = null;
+            return;
+        }
 
         Cursor.lockState = CursorLockMode.None;
         Cursor.visible = true;
@@ -345,8 +360,13 @@ public class CS_Player : NetworkBehaviour
         // 位置はNetworkTransformが更新するので、物理で動かさない
         _rigidbody.isKinematic = true;
 
-        // カメラとAudioListenerが複数有効になるのを防ぐ
-        // (CinemachineCameraも消す。残すと、自分のBrainが他人のCinemachineCameraを選んでしまう)
+        DisableCamera();
+    }
+
+    // カメラとAudioListenerが複数有効になるのを防ぐ
+    // (CinemachineCameraも消す。残すと、自分のBrainが他人のCinemachineCameraを選んでしまう)
+    private void DisableCamera()
+    {
         if (_cameraTransform != null)
         {
             _cameraTransform.gameObject.SetActive(false);
@@ -366,13 +386,13 @@ public class CS_Player : NetworkBehaviour
         _moveAction = player.Move;
         _mouseLookAction = player.Look;
         _stickLookAction = player.LookStick;
-        _attackAction = player.Attack;
-        _jumpAction = player.Jump;
-        _specialAction = player.Special;
         _specialModifierAction = player.SpecialModifier;
-        _dashAction = player.Dash;
-        _useItemAction = player.UseItem;
-        _transformationAction = player.Transformation;
+        _attackButton = new CS_PlayerButton(player.Attack);
+        _jumpButton = new CS_PlayerButton(player.Jump);
+        _specialButton = new CS_PlayerButton(player.Special);
+        _dashButton = new CS_PlayerButton(player.Dash);
+        _useItemButton = new CS_PlayerButton(player.UseItem);
+        _transformationButton = new CS_PlayerButton(player.Transformation);
     }
 
     // アクションへの参照を外す(アクション自体は共有のシングルトンが持ち続ける)
@@ -381,18 +401,26 @@ public class CS_Player : NetworkBehaviour
         _moveAction = null;
         _mouseLookAction = null;
         _stickLookAction = null;
-        _attackAction = null;
-        _jumpAction = null;
-        _specialAction = null;
         _specialModifierAction = null;
-        _dashAction = null;
-        _useItemAction = null;
-        _transformationAction = null;
+        _attackButton = null;
+        _jumpButton = null;
+        _specialButton = null;
+        _dashButton = null;
+        _useItemButton = null;
+        _transformationButton = null;
     }
 
     // 入力を読み取り、移動入力と視点(yaw/pitch)を更新する
     private void ReadInput()
     {
+        // NPCは判断(CS_PlayerNpcBrain)が書き込んだ値をそのまま使う
+        if (_npcInput != null)
+        {
+            _moveInput = Vector2.ClampMagnitude(_npcInput.move, 1f);
+            _yaw = _npcInput.yaw;
+            return;
+        }
+
         _moveInput = _moveAction.ReadValue<Vector2>();
 
         // マウスは「1フレームの移動量」なのでdeltaTimeを掛けない
@@ -406,15 +434,8 @@ public class CS_Player : NetworkBehaviour
     }
 
     // カメラの向き(yaw)へ徐々に回転する。移動入力の有無に関わらず、カメラを振れば体も追従する
-    // エイムアシスト中(SetAimFacing)は、カメラではなく攻撃する相手の方を向いたままにする
     private void RotateToCamera()
     {
-        if (_hasAimFacing)
-        {
-            _rigidbody.MoveRotation(Quaternion.Euler(0f, _aimFacingYaw, 0f));
-            return;
-        }
-
         Quaternion target = Quaternion.Euler(0f, _yaw, 0f);
         Quaternion next = Quaternion.RotateTowards(
             _rigidbody.rotation, target, _rotationSpeed * Time.fixedDeltaTime);
@@ -470,7 +491,6 @@ public class CS_Player : NetworkBehaviour
     private void StartDash()
     {
         _isDashing = true;
-        _lungeRemaining = 0f;   // ダッシュ(回避)を優先し、エイムアシストの踏み込みは打ち切る
         _dashElapsed = 0f;
         _dashCooldownRemaining = _dashCooldown;
         _dashDirection = CalculateDashDirection();
@@ -510,6 +530,12 @@ public class CS_Player : NetworkBehaviour
         Vector3 origin = _collider.bounds.center;
         float rayLength = _collider.bounds.extents.y + _groundCheckDistance;
         return Physics.Raycast(origin, Vector3.down, rayLength, _groundLayers, QueryTriggerInteraction.Ignore);
+    }
+
+    // NetworkManagerが動いているか(オフラインのテストシーンではfalse)
+    private static bool IsOnline()
+    {
+        return NetworkManager.Singleton != null && NetworkManager.Singleton.IsListening;
     }
 
     // カメラをプレイヤーの周りに配置する(プレイヤーの回転の影響を受けない)

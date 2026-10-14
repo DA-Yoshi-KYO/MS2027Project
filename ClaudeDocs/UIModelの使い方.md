@@ -271,7 +271,7 @@ void OnDestroy() => _itemModel?.Dispose();
 | `Dispose()` | 後片付け（Unbind も行う） |
 
 - `SetIcon` と `Bind` の順番はどちらが先でも OK
-- ⚠ 自分のプレイヤーの分だけ表示してください（オンライン時は `IsOwner` のプレイヤーだけで Bind する）
+- ⚠ 自分のプレイヤーの分だけ表示してください（`CS_Player.isLocalPlayer` のプレイヤーだけで Bind する。NPCはサーバーが所有するため、ホストでは NPC も `IsOwner` が true になる）
 - プレイヤーへの組み込みは `CS_PlayerItemSlotUI` で実装済み（`CS_PlayerItemSlot` の所持アイテムは同期済みのため、リモートのクライアントでも表示される）。
   HP・必殺技ゲージも同様に `CS_PlayerHpUI` / `CS_PlayerSpecialGaugeUI` で組み込み済み（詳細は `ClaudeUsers/プレイヤー仕様.md` の「HUD」）
 

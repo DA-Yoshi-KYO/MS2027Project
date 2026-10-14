@@ -13,12 +13,13 @@ using UnityEngine;
 /*
  * メモ
  * ・使い方はClaudeDocs/ミニマップの使い方.md参照。ここでは実際のプレイヤーへの組み込みのみ行う
- * ・自分のプレイヤー(IsOwner)   : RegisterLocalPlayer(ミニマップの中心になる。解除のAPIは無い)
- *   他人のプレイヤー(!IsOwner)  : RegisterAlly(味方アイコン。消える時にUnregisterAlly)
+ * ・自分のプレイヤー(CS_Player.isLocalPlayer)   : RegisterLocalPlayer(ミニマップの中心になる。解除のAPIは無い)
+ *   他人のプレイヤー・NPC                      : RegisterAlly(味方アイコン。消える時にUnregisterAlly)
  *   全クライアントがそれぞれ自分のミニマップに登録する(NetworkTransformで他人の位置が動く)
  * ・idは種類をまたいで重複させない(悪人・警察と混ざらないよう"Player_"を付ける)
  * ・シーンにCS_MiniMapControllerが無ければ何もしない(ミニマップの無いテストシーンでも動く)
- * ・オフライン(NetworkManagerが動いていない)のテストシーンでは、唯一のプレイヤーとして自分扱いで登録する
+ * ・NPCはサーバーが所有するためホストではIsOwnerがtrueになる。そのため自分かどうかはIsOwnerではなくisLocalPlayerで判定する
+ * ・オフライン(NetworkManagerが動いていない)のテストシーンでは、人のプレイヤーを自分扱いで登録する
  */
 // ========================================
 
@@ -34,12 +35,12 @@ public class CS_PlayerMiniMapIcon : NetworkBehaviour
         if (IsSpawned) return;
         if (NetworkManager.Singleton != null && NetworkManager.Singleton.IsListening) return;
 
-        Register(true, $"Player_{GetInstanceID()}");
+        Register(GetComponent<CS_Player>().isLocalPlayer, $"Player_{GetInstanceID()}");
     }
 
     public override void OnNetworkSpawn()
     {
-        Register(IsOwner, $"Player_{NetworkObjectId}");
+        Register(GetComponent<CS_Player>().isLocalPlayer, $"Player_{NetworkObjectId}");   // NPCはホストでIsOwnerになるため、isLocalPlayerで判定する
     }
 
     public override void OnNetworkDespawn()

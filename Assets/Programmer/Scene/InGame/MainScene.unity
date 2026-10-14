@@ -518,6 +518,17 @@ PrefabInstance:
     m_AddedGameObjects: []
     m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: 29368471a063cc5408cd40d308b7515e, type: 3}
+--- !u!114 &593828812 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 4046422726898638264, guid: 29368471a063cc5408cd40d308b7515e, type: 3}
+  m_PrefabInstance: {fileID: 593828811}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d0804bfc1db657b4a82f5e9dcc943dcf, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CS_UIPoliceDirectionPresenter
 --- !u!1 &698662339
 GameObject:
   m_ObjectHideFlags: 1
@@ -1411,6 +1422,10 @@ PrefabInstance:
       propertyPath: m_Name
       value: GameControllerManager
       objectReference: {fileID: 0}
+    - target: {fileID: 2995087399300262541, guid: c31aec72227231d4d9902b790fdef737, type: 3}
+      propertyPath: _presenter
+      value: 
+      objectReference: {fileID: 593828812}
     - target: {fileID: 5584508223773170545, guid: c31aec72227231d4d9902b790fdef737, type: 3}
       propertyPath: m_InScenePlaced
       value: 1

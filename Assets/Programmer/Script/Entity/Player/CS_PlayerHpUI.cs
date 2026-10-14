@@ -46,12 +46,12 @@ public class CS_PlayerHpUI : NetworkBehaviour
         if (IsSpawned) return;
         if (NetworkManager.Singleton != null && NetworkManager.Singleton.IsListening) return;
 
-        BindHpUI(true);
+        BindHpUI(_player.isLocalPlayer);
     }
 
     public override void OnNetworkSpawn()
     {
-        BindHpUI(IsOwner);
+        BindHpUI(_player.isLocalPlayer);   // NPCはホストでIsOwnerになるため、isLocalPlayerで判定する
     }
 
     public override void OnNetworkDespawn()

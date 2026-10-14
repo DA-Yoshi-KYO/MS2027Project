@@ -15,10 +15,11 @@ using UnityEngine;
  * ・上限(maxGauge)はCS_PlayerStatsが持つ(maxHpと同じ考え方)。ここでは現在値だけを持つ
  * ・ゲージが溜まる要因(数値はすべてInspectorで調整可能)
  *   1. 時間経過   : 毎秒 _gaugePerSecond ずつ自動で溜まる(既定1)
- *   2. 通常攻撃   : ヒットする度に、各段のGauge Gain分だけ溜まる
- *   3. 悪人の撃退 : 誰が倒したかに関わらず、悪人が1体倒されるたびに全プレイヤーが
- *      _villainDefeatGaugeGain分だけ溜まる(既定10。CS_VillainHealth.onAnyVillainDefeatedを購読)
- *      ※ 攻撃側に「誰が倒したか」を記録する仕組みが無いため、討伐者だけに加算する形にはしていない
+ *   2. 悪人の撃退 : 自分が悪人を1体倒すたびに _villainDefeatGaugeGain だけ溜まる(既定10)
+ *      誰が倒したかはCS_PlayerScoringが判定している(onVillainDefeatedを購読)
+ *      ※ スコアと同じく、通常攻撃・必殺技(CS_PlayerScoring.DealDamage経由)で倒した分だけが対象。アイテムで倒した分は溜まらない
+ *   ※ 仕様(必殺技ゲージは時間経過と悪人を倒すことで溜まる)に合わせ、通常攻撃のヒットでは溜めない
+ *     (CSO_AttackDataのGauge Gainは、プレイヤーの攻撃データでは0にしている)
  * ・値はNetworkVariableで持つ(書き込みはサーバーのみ、読み取りは全員可)
  * ・TryConsumeFull()は満タンの時だけ消費してtrueを返す。満タンでなければ何もせずfalseを返す
  *   (必殺技側は、発動判定と実際の消費を分けて、判定が通る瞬間に改めてこれを呼んでいる)
@@ -31,9 +32,10 @@ public class CS_PlayerSpecialGauge : NetworkBehaviour
 {
     [Header("自動回復・撃退報酬")]
     [SerializeField] private float _gaugePerSecond = 1f;            // 時間経過で毎秒溜まる量
-    [SerializeField] private float _villainDefeatGaugeGain = 10f;   // 悪人が1体倒されるたびに溜まる量(全プレイヤー共通)
+    [SerializeField] private float _villainDefeatGaugeGain = 10f;   // 自分が悪人を1体倒すたびに溜まる量
 
     private CS_PlayerStats _stats;
+    private CS_PlayerScoring _scoring;   // 誰が倒したかの判定元。付いていなければ撃退では溜まらない
 
     // 書き込みはサーバーのみ(NetworkVariableのデフォルト)。読み取りは全員可
     private readonly NetworkVariable<float> _currentGauge = new NetworkVariable<float>();
@@ -47,12 +49,13 @@ public class CS_PlayerSpecialGauge : NetworkBehaviour
     private void Awake()
     {
         _stats = GetComponent<CS_PlayerStats>();
-        CS_VillainHealth.onAnyVillainDefeated += HandleVillainDefeated;
+        _scoring = GetComponent<CS_PlayerScoring>();
+        if (_scoring != null) _scoring.onVillainDefeated += HandleVillainDefeated;
     }
 
     public override void OnDestroy()
     {
-        CS_VillainHealth.onAnyVillainDefeated -= HandleVillainDefeated;
+        if (_scoring != null) _scoring.onVillainDefeated -= HandleVillainDefeated;
         base.OnDestroy();
     }
 
@@ -74,7 +77,7 @@ public class CS_PlayerSpecialGauge : NetworkBehaviour
         Fill(_gaugePerSecond * Time.deltaTime);
     }
 
-    // 悪人が撃退される度に呼ばれる(誰が倒したかは問わず、全プレイヤーに加算する)
+    // 自分が悪人を倒す度に呼ばれる(サーバー、またはオフラインのみ)
     private void HandleVillainDefeated(CS_VillainHealth villain)
     {
         Fill(_villainDefeatGaugeGain);

@@ -24,10 +24,12 @@ using UnityEngine;
  *   2. サーバーが正面に球状の判定を出し、当たったIDamageableのTakeDamageを呼ぶ
  *   ※ オフライン(NetworkManagerが動いていない)のテストシーンでは、その場で判定する
  * ・入力(攻撃ボタン)はCS_Playerが持っているものを使う
+ *   攻撃ボタンはインタラクト(CS_PlayerInteractor)と共有。操作できるものの近く・操作中は攻撃を出さない
  * ・フレンドリーファイアは常に有効(チーム判定なし)。IDamageableを実装していれば
  *   プレイヤーだろうと敵だろうと関係なく当たる
  * ・実際のダメージ = CSO_AttackData.CalculateDamage() × CS_PlayerStats.attackPower(倍率)
  * ・ヒットする度に、各段のGauge Gain分だけCS_PlayerSpecialGaugeが溜まる
+ *   (仕様では通常攻撃のヒットでは溜まらないため、DB_PlayerAttack1〜3のGauge Gainは0にしている)
  * ・必殺技(CS_PlayerSpecialAttack)を行っている間は、通常攻撃を行わない(isAttacking/isPerformingSpecialで排他制御)
  * ・変身中(CS_PlayerTransformation.isTransformed)でないと発動できない
  *   変身完了中はCS_PlayerTransformation側で解除できないよう制御しているため、
@@ -57,6 +59,7 @@ public class CS_PlayerAttack : NetworkBehaviour
     private CS_PlayerSpecialAttack _specialAttack;
     private CS_PlayerTransformation _transformation;
     private CS_PlayerScoring _scoring;
+    private CS_PlayerInteractor _interactor;   // ケアパッケージなどの操作(攻撃と同じボタンを使う)。付いていなければnull
     private readonly Collider[] _hitBuffer = new Collider[_hitBufferSize];
     private readonly HashSet<IDamageable> _hitTargets = new HashSet<IDamageable>();
 
@@ -73,6 +76,7 @@ public class CS_PlayerAttack : NetworkBehaviour
     public event System.Action<int> onStepHitTiming;
     public int currentStep => _currentStep;               // 現在の段(0始まり、攻撃していなければ-1)
     public IReadOnlyList<CSO_AttackData> attackSteps => _attackSteps;
+    public LayerMask targetLayers => _targetLayers;       // ダメージを与える対象のレイヤー(カメラの揺れの当たり確認にも使う)
 
     private void Awake()
     {
@@ -82,6 +86,7 @@ public class CS_PlayerAttack : NetworkBehaviour
         _specialAttack = GetComponent<CS_PlayerSpecialAttack>();
         _transformation = GetComponent<CS_PlayerTransformation>();
         _scoring = GetComponent<CS_PlayerScoring>();
+        _interactor = GetComponent<CS_PlayerInteractor>();
 
         if (HasValidSteps()) return;
 
@@ -96,12 +101,21 @@ public class CS_PlayerAttack : NetworkBehaviour
 
         // ゲームパッドは攻撃(RT)と必殺技(RT+LT)が同じRTを共有するため、
         // LTを押しながらの場合は必殺技の合図とみなし、攻撃としては発動させない
-        if (_player.attackAction.WasPressedThisFrame() && !_player.isSpecialModifierHeld)
+        // 通常攻撃ボタンはインタラクトと共有のため、操作できるもの(ケアパッケージなど)の近く・操作中は攻撃しない
+        if (_player.attackAction.WasPressedThisFrame() && !_player.isSpecialModifierHeld && !IsInteractPriority())
         {
             OnAttackPressed();
         }
 
         UpdateCombo();
+    }
+
+    // インタラクトを攻撃より優先する状況か(操作できるものが近くにある、または操作の途中)
+    private bool IsInteractPriority()
+    {
+        if (_interactor == null) return false;
+
+        return _interactor.isInteracting || _interactor.hasInteractTarget;
     }
 
     // 攻撃ボタンが押されたときの処理

@@ -25,9 +25,7 @@ using UnityEngine;
  *   → 新しい携帯型アイテムを追加したら、_syncableItemsにも登録すること
  *      (未登録のアイテムはホスト・オフラインでは使えるが、リモートクライアントでは「持っていない」扱いになる)
  *   → onItemChangedは全クライアントで発生する(HUD表示用)。効果の発動はサーバーのみ
- * ・使用ボタンはケアパッケージなどの操作(CS_PlayerInteractor)と同じボタン。操作できるものの近くでは使用しない
- * ・使用ボタン(UseItem)はデザイナーからのキーバインド仕様に無かったため、
- *   暫定でF / コントローラーRBに割り当てている(要確認)
+ * ・使用ボタン(UseItem)は E / コントローラーRB(仕様書「プレイヤー」の操作表どおり)。インタラクトは通常攻撃ボタンなので、ここでは気にしない
  */
 // ========================================
 
@@ -40,7 +38,6 @@ public class CS_PlayerItemSlot : NetworkBehaviour, ICarriableItemHolder
     [SerializeField] private CSO_ItemDataCarriable[] _syncableItems;   // 持てるアイテムの一覧(この番号で所持アイテムを同期する)
 
     private CS_Player _player;
-    private CS_PlayerInteractor _interactor;   // ケアパッケージなどの操作(同じボタンを使う)。付いていなければnull
     private CSO_ItemDataCarriable _heldItem;    // サーバー(またはオフライン)が持つ本体
 
     // 書き込みはサーバーのみ。_syncableItemsの何番目を持っているか(-1 = 何も持っていない)
@@ -54,7 +51,6 @@ public class CS_PlayerItemSlot : NetworkBehaviour, ICarriableItemHolder
     private void Awake()
     {
         _player = GetComponent<CS_Player>();
-        _interactor = GetComponent<CS_PlayerInteractor>();
     }
 
     public override void OnNetworkSpawn()
@@ -72,7 +68,6 @@ public class CS_PlayerItemSlot : NetworkBehaviour, ICarriableItemHolder
         if (!_player.canAct) return;
         if (!hasItem) return;
         if (!_player.useItemAction.WasPressedThisFrame()) return;
-        if (_interactor != null && _interactor.hasInteractTarget) return;   // 操作できるもの(ケアパッケージなど)の近くでは、アイテムを使わず操作を優先する
 
         RequestUseItem();
     }

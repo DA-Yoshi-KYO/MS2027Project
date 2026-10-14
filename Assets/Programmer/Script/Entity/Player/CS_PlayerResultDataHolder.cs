@@ -115,7 +115,7 @@ public class CS_PlayerResultDataHolder : NetworkBehaviour
         Add(defeatVillainScore: point);
     }
 
-    // 警察に倒された時。pointはマイナスの点数
+    // 警察に見つかった時。pointはマイナスの点数
     public void AddFoundByPolice(int point)
     {
         Add(foundByPoliceScore: point, foundByPoliceCount: 1);

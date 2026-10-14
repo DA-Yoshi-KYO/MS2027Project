@@ -4872,6 +4872,7 @@ GameObject:
   - component: {fileID: 2849163057284619302}
   - component: {fileID: 201390582602146537}
   - component: {fileID: 5839164027731649215}
+  - component: {fileID: 5854182590809397507}
   m_Layer: 31
   m_Name: Player
   m_TagString: PlayerNoTransformation
@@ -4962,7 +4963,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Unity.Netcode.Runtime::Unity.Netcode.NetworkObject
-  GlobalObjectIdHash: 2789187359
+  GlobalObjectIdHash: 2681437817
   InScenePlacedSourceGlobalObjectIdHash: 0
   m_InScenePlacedDisabledByDefault: 0
   DeferredDespawnTick: 0
@@ -5431,10 +5432,29 @@ MonoBehaviour:
   _range: 10
   _angle: 75
   _anglePriority: 0.5
-  _targetPlayers: 0
+  _targetPlayers: 1
   _maxLungeDistance: 5
   _lungeTimeRate: 0.8
   _facingHoldTime: 0.1
+--- !u!114 &5854182590809397507
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1825699444668748530}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: cbcff52533ef80af7ee49cf566c2867d, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CS_PlayerNpcBrain
+  ShowTopMostFoldoutHeaderGroup: 1
+  _defaultPersonality: {fileID: 11400000, guid: 938cd1fed441a043c28c30cbe07a7d8c, type: 2}
+  _arriveDistance: 1
+  _sprintDistance: 8
+  _waitDistance: 3.5
+  _itemUseDistance: 8
+  _fleeDistance: 15
 --- !u!1 &3298430547158640491
 GameObject:
   m_ObjectHideFlags: 0

@@ -19,8 +19,9 @@
  *   4. 判定が出てから_facingHoldTime秒後に補正をやめ、いつも通りカメラの向きへ戻る
  * ・判定は、攻撃した本人の手元の位置・向きをサーバーへ送って行う(CS_PlayerAttack / CS_PlayerSpecialAttack)
  *   そのため、補正した向き・踏み込んだ位置のまま当たる(オンラインでもNetworkTransformの遅れでずれない)
- * ・補正する相手は悪人だけ(既定)。_targetPlayersをオンにすると、他のプレイヤーも補正の対象になる
- *   (フレンドリーファイアは常に有効だが、味方の方へ勝手に向くとストレスになるため既定はオフ)
+ * ・補正する相手は悪人を優先する。範囲内に悪人が1体でもいれば悪人の中から選び、悪人がいない時だけ他のプレイヤー(人・NPC)を補正する
+ *   (フレンドリーファイアは常に有効。悪人と戦っている最中に、近くの味方の方へ勝手に向かないようにするため)
+ *   _targetPlayersをオフにすると、プレイヤーは補正しない(悪人だけ)
  * ・警察は倒せない(IDamageableではない)ため、補正の対象にならない
  * ・補正中はカメラと体の向きがずれるため、補正が終わって体がカメラの向きに戻るまで(最大0.25秒ほど)移動が止まる
  */
@@ -36,7 +37,7 @@ public class CS_PlayerAimAssist : MonoBehaviour
     [SerializeField][Min(0f)] private float _range = 4f;            // 補正する相手を探す距離(m)
     [SerializeField][Range(0f, 180f)] private float _angle = 75f;   // 狙っている方向(カメラの向き)から左右何度以内の相手を補正するか
     [SerializeField][Min(0f)] private float _anglePriority = 0.5f;  // 相手を選ぶ時に、近さに比べて角度をどれだけ重視するか
-    [SerializeField] private bool _targetPlayers = false;           // 他のプレイヤーも補正の対象にするか
+    [SerializeField] private bool _targetPlayers = true;            // 他のプレイヤー(人・NPC)も補正の対象にするか(悪人がいない時だけ)
 
     [Header("踏み込み")]
     [SerializeField][Min(0f)] private float _maxLungeDistance = 1.5f;   // 踏み込む最大の距離(m。0で踏み込まない)
@@ -191,13 +192,14 @@ public class CS_PlayerAimAssist : MonoBehaviour
     }
 
     // _range以内・狙っている方向から_angle度以内で、一番狙いやすい相手を探す(近いほど・正面に近いほど優先)
+    // 悪人を優先する: 範囲内に悪人が1体でもいれば悪人の中から選び、悪人がいない時だけプレイヤーの中から選ぶ
     private Transform FindTarget()
     {
         Vector3 aim = Quaternion.Euler(0f, _player.viewYaw, 0f) * Vector3.forward;
         int count = Physics.OverlapSphereNonAlloc(transform.position, _range, _buffer, _attack.targetLayers, QueryTriggerInteraction.Ignore);
 
-        Transform best = null;
-        float bestScore = float.MaxValue;
+        Transform bestVillain = null, bestOther = null;
+        float bestVillainScore = float.MaxValue, bestOtherScore = float.MaxValue;
         for (int i = 0; i < count; i++)
         {
             if (_buffer[i].transform.IsChildOf(transform)) continue;   // 自分自身
@@ -211,16 +213,25 @@ public class CS_PlayerAimAssist : MonoBehaviour
 
             float score = HorizontalDistance(damageable.transform.position) / Mathf.Max(0.01f, _range)
                         + angle / Mathf.Max(0.01f, _angle) * _anglePriority;
-            if (score >= bestScore) continue;
 
-            best = damageable.transform;
-            bestScore = score;
+            if (damageable is CS_VillainHealth)
+            {
+                if (score >= bestVillainScore) continue;
+                bestVillain = damageable.transform;
+                bestVillainScore = score;
+            }
+            else
+            {
+                if (score >= bestOtherScore) continue;
+                bestOther = damageable.transform;
+                bestOtherScore = score;
+            }
         }
 
-        return best;
+        return bestVillain != null ? bestVillain : bestOther;
     }
 
-    // 補正してよい相手か(倒れていない悪人。_targetPlayersがオンなら倒れていないプレイヤーも)
+    // 補正してよい相手か(倒れていない悪人。_targetPlayersがオンなら倒れていないプレイヤー(人・NPC)も)
     private bool IsValidTarget(Transform target)
     {
         if (target == null) return false;

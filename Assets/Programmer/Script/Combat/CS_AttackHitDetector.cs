@@ -18,9 +18,34 @@ public static class CS_AttackHitDetector
         Transform origin, CSO_AttackData step, LayerMask targetLayers,
         Collider[] buffer, HashSet<IDamageable> results)
     {
+        FindTargets(origin, origin.position, origin.forward, step, targetLayers, buffer, results);
+    }
+
+    private const float _maxPoseError = 3f;   // 送られてきた位置が、サーバー上の位置からこれ以上離れていたら信用しない(m)
+
+    // 攻撃した本人から送られてきた位置・向きを確かめる(サーバーで使う)
+    // サーバー上の位置から大きく離れている時(不正・大きな遅延)は、サーバー上の位置・向きを使う。向きは水平にそろえる
+    public static void ResolvePose(Transform origin, ref Vector3 position, ref Vector3 forward)
+    {
+        if ((position - origin.position).sqrMagnitude > _maxPoseError * _maxPoseError)
+        {
+            position = origin.position;
+            forward = origin.forward;
+        }
+
+        forward.y = 0f;
+        forward = forward.sqrMagnitude > 0.0001f ? forward.normalized : origin.forward;
+    }
+
+    // 位置と向きを指定して判定する(originは自分自身を除くためだけに使う)
+    // プレイヤーの攻撃は、攻撃した本人の手元の位置・向き(エイムアシストで補正済み)をサーバーへ送って判定するため、こちらを使う
+    public static void FindTargets(
+        Transform origin, Vector3 position, Vector3 forward, CSO_AttackData step, LayerMask targetLayers,
+        Collider[] buffer, HashSet<IDamageable> results)
+    {
         results.Clear();
 
-        Vector3 center = origin.position + origin.forward * step.hitRange;
+        Vector3 center = position + forward * step.hitRange;
         int count = Physics.OverlapSphereNonAlloc(
             center, step.hitRadius, buffer, targetLayers, QueryTriggerInteraction.Ignore);
 

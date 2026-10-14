@@ -127,6 +127,11 @@ public class CS_Player : NetworkBehaviour
     private Vector3 _dashDirection;
     private bool _isSprinting;      // ダッシュ後、ダッシュボタンを押し続けている間か
 
+    private bool _hasAimFacing;     // エイムアシストで、攻撃する相手の方を向いている間か
+    private float _aimFacingYaw;
+    private Vector3 _lungeVelocity; // エイムアシストの踏み込みの速度
+    private float _lungeRemaining;  // 踏み込みの残り時間(秒)
+
     public bool isControlled => _isControlled;          // このプレイヤーを自分(このマシン)が操作しているか(NPCはサーバーでtrue)
     public bool canAct => _isControlled && !_health.isDead;   // 移動・攻撃してよいか(CS_PlayerAttackも参照)
     public bool isNpc => _isNpc.Value;                  // NPCか(全クライアントで分かる)
@@ -146,6 +151,7 @@ public class CS_Player : NetworkBehaviour
     public bool isSprinting => _isSprinting;            // ダッシュ後、ボタンを押し続けて速くなっているか(見た目用)
     public int playerNumber => _playerNumber.Value;     // 何番目のプレイヤーか(0〜3。HP UIなど画面上の表示先を決めるのに使う)
     public Camera playerCamera => _cameraTransform != null ? _cameraTransform.GetComponent<Camera>() : null;   // このプレイヤーのカメラ(他人のプレイヤーでは無効化されている)
+    public float viewYaw => _yaw;                       // カメラの左右の向き(度)。エイムアシストが「狙っている方向」として使う
 
     // 何番目のプレイヤーかを割り当てる(CS_PlayerSpawnerが、スポーンする前に呼ぶ)
     public void AssignPlayerNumber(int number)
@@ -261,6 +267,7 @@ public class CS_Player : NetworkBehaviour
         {
             _isDashing = false;
             _jumpRequested = false;
+            _lungeRemaining = 0f;
             StopHorizontalVelocity();
             return;
         }
@@ -279,10 +286,58 @@ public class CS_Player : NetworkBehaviour
         {
             UpdateDash();
         }
+        else if (_lungeRemaining > 0f)
+        {
+            UpdateLunge();
+        }
         else
         {
             Move();
             ApplyJump();
+        }
+    }
+
+    // ========================================
+    // エイムアシスト(CS_PlayerAimAssist)から使う
+    // ========================================
+
+    // 体の向きをカメラではなく指定した向き(攻撃する相手の方)にする。その場ですぐに向きを変える
+    // ClearAimFacing()を呼ぶまで続き、その後はいつも通りカメラの向きへ回り戻る
+    public void SetAimFacing(float yaw)
+    {
+        _hasAimFacing = true;
+        _aimFacingYaw = yaw;
+
+        // 判定はこのフレーム中に出ることがあるため、物理の更新を待たずに向きを変えておく
+        Quaternion rotation = Quaternion.Euler(0f, yaw, 0f);
+        _rigidbody.rotation = rotation;
+        transform.rotation = rotation;
+    }
+
+    public void ClearAimFacing()
+    {
+        _hasAimFacing = false;
+    }
+
+    // 指定した方向へ短く踏み込む(攻撃が届く距離まで詰める)。ダッシュを始めると打ち切られる
+    public void Lunge(Vector3 direction, float distance, float duration)
+    {
+        direction.y = 0f;
+        if (direction.sqrMagnitude < 0.0001f || distance <= 0f || duration <= 0f) return;
+
+        _lungeVelocity = direction.normalized * (distance / duration);
+        _lungeRemaining = duration;
+    }
+
+    // 踏み込み中は、決めた速さで直進する(垂直速度はそのまま)
+    private void UpdateLunge()
+    {
+        _lungeRemaining -= Time.fixedDeltaTime;
+        _rigidbody.linearVelocity = new Vector3(_lungeVelocity.x, _rigidbody.linearVelocity.y, _lungeVelocity.z);
+
+        if (_lungeRemaining <= 0f)
+        {
+            StopHorizontalVelocity();
         }
     }
 
@@ -341,6 +396,8 @@ public class CS_Player : NetworkBehaviour
         _isDashing = false;
         _dashCooldownRemaining = 0f;
         _isSprinting = false;
+        _lungeRemaining = 0f;
+        _hasAimFacing = false;
         UnbindInputActions();
 
         // NPCはカーソルを触っていない
@@ -434,8 +491,15 @@ public class CS_Player : NetworkBehaviour
     }
 
     // カメラの向き(yaw)へ徐々に回転する。移動入力の有無に関わらず、カメラを振れば体も追従する
+    // エイムアシスト中(SetAimFacing)は、カメラではなく攻撃する相手の方を向いたままにする
     private void RotateToCamera()
     {
+        if (_hasAimFacing)
+        {
+            _rigidbody.MoveRotation(Quaternion.Euler(0f, _aimFacingYaw, 0f));
+            return;
+        }
+
         Quaternion target = Quaternion.Euler(0f, _yaw, 0f);
         Quaternion next = Quaternion.RotateTowards(
             _rigidbody.rotation, target, _rotationSpeed * Time.fixedDeltaTime);
@@ -491,6 +555,7 @@ public class CS_Player : NetworkBehaviour
     private void StartDash()
     {
         _isDashing = true;
+        _lungeRemaining = 0f;   // ダッシュ(回避)を優先し、エイムアシストの踏み込みは打ち切る
         _dashElapsed = 0f;
         _dashCooldownRemaining = _dashCooldown;
         _dashDirection = CalculateDashDirection();

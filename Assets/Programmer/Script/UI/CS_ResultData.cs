@@ -15,7 +15,7 @@ using UnityEngine;
 /// ・Score は「加算済みの点数」と「回数」を両方持つ
 ///   → 点数はゲーム中に加算するたびに計算済みで入れる
 ///   → 暗躍ボーナス・悪人の種類による点数差も表現できる
-/// ・合計を0未満にしない処理は加算するたびに行う
+/// ・合計は0で止めない(減点が多ければマイナスになる)
 /// ・称号もここが持つ
 /// </summary>
 public class CS_ResultData
@@ -106,13 +106,13 @@ public class CS_ResultData
 
     /// <summary>
     /// 合計点（各項目の加算済みスコアを合計する）
-    /// 0未満にはならない
+    /// 減点が多ければマイナスにもなる(0で止めない)
     /// </summary>
-    public int totalScore => Mathf.Max(0,
+    public int totalScore =>
           _score.defeatVillainScore
         + _score.foundByPoliceScore
         + _score.crimeCompletedScore
-        + _score.defeatPlayerScore);
+        + _score.defeatPlayerScore;
 
     // =========================================================
     // コンストラクタ

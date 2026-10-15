@@ -798,6 +798,10 @@ PrefabInstance:
       propertyPath: GlobalObjectIdHash
       value: 145512799
       objectReference: {fileID: 0}
+    - target: {fileID: 2222565381043452904, guid: bbf6e83f68bd7e64187a689ee41058a5, type: 3}
+      propertyPath: m_NavMeshData
+      value: 
+      objectReference: {fileID: 23800000, guid: 126183c5f9a65484faf015ba6b2ba721, type: 2}
     - target: {fileID: 4523213479117314590, guid: bbf6e83f68bd7e64187a689ee41058a5, type: 3}
       propertyPath: m_InScenePlaced
       value: 1
@@ -815,7 +819,13 @@ PrefabInstance:
       value: 2292566931
       objectReference: {fileID: 0}
     m_RemovedComponents: []
-    m_RemovedGameObjects: []
+    m_RemovedGameObjects:
+    - {fileID: 8940148609663711828, guid: bbf6e83f68bd7e64187a689ee41058a5, type: 3}
+    - {fileID: 5049411610609502976, guid: bbf6e83f68bd7e64187a689ee41058a5, type: 3}
+    - {fileID: 6796048117238174500, guid: bbf6e83f68bd7e64187a689ee41058a5, type: 3}
+    - {fileID: 4805704377606715706, guid: bbf6e83f68bd7e64187a689ee41058a5, type: 3}
+    - {fileID: 4192029950584463210, guid: bbf6e83f68bd7e64187a689ee41058a5, type: 3}
+    - {fileID: 4574309155509631882, guid: bbf6e83f68bd7e64187a689ee41058a5, type: 3}
     m_AddedGameObjects: []
     m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: bbf6e83f68bd7e64187a689ee41058a5, type: 3}

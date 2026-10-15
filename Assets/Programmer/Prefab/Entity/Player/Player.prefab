@@ -4873,6 +4873,7 @@ GameObject:
   - component: {fileID: 201390582602146537}
   - component: {fileID: 5839164027731649215}
   - component: {fileID: 5854182590809397507}
+  - component: {fileID: 6182937450261938471}
   m_Layer: 31
   m_Name: Player
   m_TagString: PlayerNoTransformation
@@ -5454,6 +5455,22 @@ MonoBehaviour:
   _waitDistance: 3.5
   _itemUseDistance: 8
   _fleeDistance: 15
+--- !u!114 &6182937450261938471
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1825699444668748530}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: dacb31b2dabd31a945215388ea84d9ec, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CS_PlayerCameraFov
+  _dashFovAdd: 15
+  _widenSpeed: 20
+  _returnSpeed: 5
+  _minSprintSpeed: 0.5
 --- !u!1 &3298430547158640491
 GameObject:
   m_ObjectHideFlags: 0

@@ -35,7 +35,7 @@ RectTransform:
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
   m_AnchoredPosition: {x: 0, y: 0}
-  m_SizeDelta: {x: 100, y: 100}
+  m_SizeDelta: {x: 200, y: 200}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!222 &1799454963503689543
 CanvasRenderer:
@@ -85,6 +85,7 @@ GameObject:
   m_Component:
   - component: {fileID: 6224474525827248880}
   - component: {fileID: 9129986786179882692}
+  - component: {fileID: 8211388652041010643}
   - component: {fileID: 1798191605553763618}
   m_Layer: 5
   m_Name: PlayerRank
@@ -136,6 +137,33 @@ Canvas:
   m_SortingLayerID: 0
   m_SortingOrder: 10
   m_TargetDisplay: 0
+--- !u!114 &8211388652041010643
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 2162920972363354321}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Unity.Netcode.Runtime::Unity.Netcode.NetworkObject
+  GlobalObjectIdHash: 3064569956
+  InScenePlacedSourceGlobalObjectIdHash: 0
+  m_InScenePlacedDisabledByDefault: 0
+  DeferredDespawnTick: 0
+  Ownership: 1
+  AlwaysReplicateAsRoot: 0
+  SynchronizeTransform: 1
+  m_InScenePlaced: 0
+  ActiveSceneSynchronization: 0
+  SceneMigrationSynchronization: 1
+  SpawnWithObservers: 1
+  DontDestroyWithOwner: 0
+  AutoObjectParentSync: 1
+  SyncOwnerTransformWhenParented: 1
+  AllowOwnerToParent: 0
 --- !u!114 &1798191605553763618
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -152,10 +180,10 @@ MonoBehaviour:
   _rankRoot: {fileID: 4094859847789227741}
   _rankImage: {fileID: 4757270579210252983}
   _rankSprites:
-  - {fileID: -2613247888821195678, guid: 5fe18aaca60e765449249f51f9b3f738, type: 3}
-  - {fileID: -1162017668502996798, guid: e7ff31966c924e642868e8d125818226, type: 3}
-  - {fileID: 813132950109438085, guid: 1be2e3a31dc27f44db1949497e5aaff9, type: 3}
-  - {fileID: 10907, guid: 0000000000000000f000000000000000, type: 0}
+  - {fileID: 3635896052096531977, guid: ba9819f7f19eaac4f94ee0aca81def81, type: 3}
+  - {fileID: -6764560381244970214, guid: bbeb8930ca9f77a4dbed4c282d186d02, type: 3}
+  - {fileID: -4217495493287558108, guid: dfae3334254f9624a84b8e6ed5b11000, type: 3}
+  - {fileID: 4716983578401895832, guid: 7aba1577ab7262641a2de0f860241e56, type: 3}
   _defaultRankSprite: {fileID: 0}
   _hideWhenAllScoresAreZero: 1
   _lookAtCamera: 1

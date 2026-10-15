@@ -22,7 +22,11 @@ using UnityEngine.InputSystem;
  * ・他人のプレイヤーの位置は NetworkTransform(Authority Mode: Owner) が同期する
  * ・移動の流れ
  *   1. Update       : 入力を読み取り、視点(yaw/pitch)を更新する
- *   2. FixedUpdate  : カメラの向きへ回転し(移動入力が無くても回転する)、向き終わったら移動する
+ *   2. FixedUpdate  : 体の向きを更新し(UpdateFacing)、押した方向へ移動する
+ * ・体の向き(仕様書「カメラについて」は「カメラを左右に回すとキャラの向きも変わる」だったが、手触りの調整で変更)
+ *   カメラを回しただけでは体は回らない。移動キーを押している間だけ、進む方向(カメラから見た入力の方向)へ_rotationSpeedで回る
+ *   移動は押した方向へすぐ始まり、体の向きは回りながら追いつく(以前のように「向き終わるまで動かない」ことはない)
+ *   例外: エイムアシスト中は攻撃する相手の方、ダッシュ中はダッシュの方向、NPCは止まっている間も指定された向きへ回る
  *   3. LateUpdate   : カメラをプレイヤーの周りに配置する
  * ・カメラはプレイヤーの子だが、回転がプレイヤーに引っ張られないよう
  *   LateUpdateでワールド座標を直接指定している
@@ -69,8 +73,7 @@ using UnityEngine.InputSystem;
 public class CS_Player : NetworkBehaviour
 {
     [Header("移動")]
-    [SerializeField] private float _rotationSpeed = 720f;   // カメラの向きへ回る速さ(度/秒)
-    [SerializeField] private float _moveStartAngle = 30f;   // この角度以内まで向いたら移動を始める
+    [SerializeField] private float _rotationSpeed = 720f;   // 進む方向へ体が回る速さ(度/秒)
 
     [Header("ジャンプ")]
     [SerializeField] private LayerMask _groundLayers = ~0;      // 地面と判定するレイヤー
@@ -149,6 +152,7 @@ public class CS_Player : NetworkBehaviour
     public CS_PlayerButton transformationAction => _transformationButton;  // 変身ボタン(CS_PlayerTransformationが使う)
     public bool isGrounded => IsGrounded();             // 接地しているか(全クライアントで判定できる。見た目用にも使う)
     public bool isSprinting => _isSprinting;            // ダッシュ後、ボタンを押し続けて速くなっているか(見た目用)
+    public bool isDashing => _isDashing;                // ダッシュ(ブリンク)で高速移動している最中か(見た目用。操作しているマシンでだけ正しい)
     public int playerNumber => _playerNumber.Value;     // 何番目のプレイヤーか(0〜3。HP UIなど画面上の表示先を決めるのに使う)
     public Camera playerCamera => _cameraTransform != null ? _cameraTransform.GetComponent<Camera>() : null;   // このプレイヤーのカメラ(他人のプレイヤーでは無効化されている)
     public float viewYaw => _yaw;                       // カメラの左右の向き(度)。エイムアシストが「狙っている方向」として使う
@@ -181,7 +185,7 @@ public class CS_Player : NetworkBehaviour
         _stats = GetComponent<CS_PlayerStats>();
 
         // 壁などとの衝突で回転しないよう、物理による回転はすべて止める
-        // (向きはRotateToCameraのMoveRotationでのみ変える)
+        // (向きはUpdateFacingのMoveRotationでのみ変える)
         _rigidbody.freezeRotation = true;
     }
 
@@ -277,10 +281,8 @@ public class CS_Player : NetworkBehaviour
             _dashCooldownRemaining -= Time.fixedDeltaTime;
         }
 
-        // ダッシュ中も向きだけは更新する(移動方向自体はダッシュ開始時に固定した_dashDirectionを使うため影響しない)
-        // これをしないと、ダッシュ中にカメラを動かした分だけ体の向きとカメラの向きがずれ、
-        // ダッシュ終了直後にIsFacingCamera()がfalseになって、そのフレームだけ移動できず止まって見える
-        RotateToCamera();
+        // 体の向きを更新する(移動している方向へ向く。カメラを回しただけでは回らない)
+        UpdateFacing();
 
         if (_isDashing)
         {
@@ -302,7 +304,7 @@ public class CS_Player : NetworkBehaviour
     // ========================================
 
     // 体の向きをカメラではなく指定した向き(攻撃する相手の方)にする。その場ですぐに向きを変える
-    // ClearAimFacing()を呼ぶまで続き、その後はいつも通りカメラの向きへ回り戻る
+    // ClearAimFacing()を呼ぶまで続き、その後は移動キーを押した時に進む方向へ回る
     public void SetAimFacing(float yaw)
     {
         _hasAimFacing = true;
@@ -490,9 +492,13 @@ public class CS_Player : NetworkBehaviour
         _pitch = Mathf.Clamp(_pitch - look.y, _minPitch, _maxPitch);
     }
 
-    // カメラの向き(yaw)へ徐々に回転する。移動入力の有無に関わらず、カメラを振れば体も追従する
-    // エイムアシスト中(SetAimFacing)は、カメラではなく攻撃する相手の方を向いたままにする
-    private void RotateToCamera()
+    // 体の向きを更新する
+    // ・エイムアシスト中(SetAimFacing): 攻撃する相手の方を向いたまま
+    // ・ダッシュ中: ダッシュの方向へ
+    // ・移動入力がある間: 進む方向(カメラから見た入力の方向)へ徐々に回る
+    // ・移動入力が無い間: 人はそのまま(カメラを回しても体は回らない)。NPCは指定された向き(yaw)へ回る
+    //   (NPCは止まって相手の方を向く動きに、向きの指定を使っているため)
+    private void UpdateFacing()
     {
         if (_hasAimFacing)
         {
@@ -500,25 +506,50 @@ public class CS_Player : NetworkBehaviour
             return;
         }
 
-        Quaternion target = Quaternion.Euler(0f, _yaw, 0f);
+        Vector3 direction;
+        if (_isDashing)
+        {
+            direction = _dashDirection;
+        }
+        else if (_moveInput != Vector2.zero)
+        {
+            direction = GetMoveDirection();
+        }
+        else if (_npcInput != null)
+        {
+            direction = Quaternion.Euler(0f, _yaw, 0f) * Vector3.forward;
+        }
+        else
+        {
+            return;
+        }
+
+        if (direction.sqrMagnitude < 0.0001f) return;
+
+        Quaternion target = Quaternion.LookRotation(new Vector3(direction.x, 0f, direction.z));
         Quaternion next = Quaternion.RotateTowards(
             _rigidbody.rotation, target, _rotationSpeed * Time.fixedDeltaTime);
         _rigidbody.MoveRotation(next);
     }
 
-    // カメラの向き基準で移動する(向き終わるまでは移動しない)
+    // カメラから見た移動入力の方向(水平、長さは入力の強さ。最大1)
+    private Vector3 GetMoveDirection()
+    {
+        Quaternion cameraYaw = Quaternion.Euler(0f, _yaw, 0f);
+        return Vector3.ClampMagnitude(cameraYaw * new Vector3(_moveInput.x, 0f, _moveInput.y), 1f);
+    }
+
+    // カメラの向き基準で移動する。押した方向へすぐ動き出し、体の向きは回りながら追いつく(UpdateFacing)
     private void Move()
     {
-        // 入力なし、または向き切っていないときは水平方向を止める(落下は残す)
-        if (_moveInput == Vector2.zero || !IsFacingCamera())
+        // 入力なしのときは水平方向を止める(落下は残す)
+        if (_moveInput == Vector2.zero)
         {
             StopHorizontalVelocity();
             return;
         }
 
-        Quaternion cameraYaw = Quaternion.Euler(0f, _yaw, 0f);
-        Vector3 direction = cameraYaw * new Vector3(_moveInput.x, 0f, _moveInput.y);
-        direction = Vector3.ClampMagnitude(direction, 1f);
+        Vector3 direction = GetMoveDirection();
 
         float speed = _isSprinting ? _stats.sprintSpeed : _stats.moveSpeed;
         Vector3 horizontal = direction * speed;
@@ -529,13 +560,6 @@ public class CS_Player : NetworkBehaviour
     private void StopHorizontalVelocity()
     {
         _rigidbody.linearVelocity = new Vector3(0f, _rigidbody.linearVelocity.y, 0f);
-    }
-
-    // プレイヤーがカメラの向きに十分向いているか
-    private bool IsFacingCamera()
-    {
-        float angle = Mathf.DeltaAngle(_rigidbody.rotation.eulerAngles.y, _yaw);
-        return Mathf.Abs(angle) <= _moveStartAngle;
     }
 
     // ジャンプ予約を消費し、接地していれば真上に飛ばす

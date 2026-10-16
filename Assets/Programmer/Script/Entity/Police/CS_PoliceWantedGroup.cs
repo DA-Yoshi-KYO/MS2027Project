@@ -12,7 +12,7 @@ using UnityEngine;
 /// <summary>
 /// 1人のプレイヤーの手配度で出現した警察(増援)のまとまりを管理するクラス
 /// ・どのプレイヤーの手配度で出現したか(持ち主)と、そのプレイヤーの今の手配度を持つ
-/// ・増援は巡回ルートを持たないので、追う標的も指示も無い時はその場で待機する
+/// ・増援は巡回ルートを持たないので、追う標的も指示も無い時は、探していた場所の付近を歩き回る
 /// 増援の出現・削除はCS_PoliceWantedManagerが行う
 /// </summary>
 public class CS_PoliceWantedGroup : IPoliceGroup
@@ -110,14 +110,14 @@ public class CS_PoliceWantedGroup : IPoliceGroup
     }
 
     /// <summary>
-    /// 増援は巡回ルートを持たないので、その場(標的を見失って探し終えた場所)で待機させるメソッド
+    /// 増援は巡回ルートを持たないので、待機状態にするメソッド
+    /// 待機中の動き(探していた場所の付近を歩き回る)は、CS_PoliceBrainが行う
     /// </summary>
     /// <param name="member">待機させるメンバー</param>
     /// <param name="move">メンバーの移動</param>
     /// <returns>メンバーの状態(待機)</returns>
     public CSE_PoliceMoveState MoveIdle(CS_PoliceBrain member, CS_PoliceMove move)
     {
-        move.SetDestination(member.transform.position, CSE_PoliceMoveState.Wait);
         return CSE_PoliceMoveState.Wait;
     }
 

@@ -16,6 +16,8 @@ using UnityEngine;
  * ・点数と回数はNetworkVariable<CS_ResultData.Score>で持つ(書き込みはサーバーのみ、読み取りは全員可)
  *   各クライアントは値が届くたびに、自分の手元のCS_ResultDataとスコアUI(CS_UIScoreModel)へ反映する
  * ・Scoreは読み取り専用のstructなので、「取り出す → 足した新しいScoreを作る → 入れ直す」で更新する
+ * ・合計はマイナスにもなる(減点はそのまま引く。0で止めない)
+ *   以前は表示側で0未満を0にしていたため、減点が溜まると加点しても表示が0から動かなかった(Issue #224)
  * ・ゲーム中のスコアUIは全プレイヤー分を同じ画面に出す想定のため、Modelの生成・Bindは全クライアントで行う
  *   (表示先はCS_Player.playerNumber。CS_PlayerHpUIと同じ考え方)
  * ・ゲーム終了時は、CollectResults()で全プレイヤー分のCS_ResultDataを集めてCS_ResultDataStoreへ保存する想定
@@ -115,7 +117,7 @@ public class CS_PlayerResultDataHolder : NetworkBehaviour
         Add(defeatVillainScore: point);
     }
 
-    // 警察に倒された時。pointはマイナスの点数
+    // 警察に見つかった時。pointはマイナスの点数
     public void AddFoundByPolice(int point)
     {
         Add(foundByPoliceScore: point, foundByPoliceCount: 1);

@@ -15,8 +15,9 @@ using UnityEngine;
  *   悪人を倒した    : +その悪人の撃破スコア × 暗躍ボーナスの倍率
  *                     撃破スコアは相手のIDefeatScoreから読む(無ければ_defaultVillainScore。データ表: A 100 / B 150)
  *   犯罪を完遂された: -_crimeCompletedPenalty(既定20)。どの悪人グループの犯罪でも、全プレイヤーが減点される
- *   警察に倒された  : -_killedByPolicePenalty(既定50)
+ *   警察に見つかった: -_foundByPolicePenalty(既定50)。警察が新しく自分を標的にするたびに減点される
  *   他プレイヤーを倒した: +_defeatPlayerScore(仕様に点数が無いため既定0。回数は数える)
+ *   ※ 警察に倒されたこと自体では減点しない(仕様の減点は「見つかった数」のため)
  * ・誰が倒したかは、攻撃側(CS_PlayerAttack / CS_PlayerSpecialAttack)がDealDamage経由でダメージを与え、
  *   「当てる前は生きていた相手が、当てた後に倒れたか」で判定する(悪人側・警察側のコードは変えない)
  * ・暗躍ボーナス(仕様書「プレイヤー」)
@@ -24,10 +25,8 @@ using UnityEngine;
  *   (4人目まで×1、5人目×1.2、6人目×1.4…)
  *   次のどれかで連続撃破数を0に戻す(次の撃破が1人目になる)
  *     変身を解く(CS_PlayerTransformationの状態が通常に戻る) / HPが0になる / 警察に見つかる(ReportFoundByPolice)
- * ・警察に見つかったこと・警察に倒されたことは、警察側からの通知が必要
- *   見つかった: 警察側がReportFoundByPolice()を呼ぶ
- *   倒された  : 警察側が攻撃者付きのTakeDamage(damage, 警察のGameObject)でダメージを与える
- *              (CS_PlayerHealth.lastAttackerに警察(CS_PoliceBrainを持つもの)が入っていれば、警察に倒されたとみなす)
+ * ・警察に見つかったことは、警察側(CS_PoliceBrain)が新しく標的にした瞬間にReportFoundByPolice()で知らせてくれる
+ * ・悪人を倒した時は、onVillainDefeatedで知らせる(必殺ゲージ(CS_PlayerSpecialGauge)が、倒した本人の分だけ溜める)
  * ・スコアはサーバーだけが計算する(攻撃判定・悪人の処理がサーバーで行われるため)
  * ・オフライン(NetworkManagerが動いていない)のテストシーンでも単体で動く
  */
@@ -47,7 +46,7 @@ public class CS_PlayerScoring : NetworkBehaviour
 
     [Header("減点")]
     [SerializeField] private int _crimeCompletedPenalty = 20;   // 犯罪を完遂された時に減る点数
-    [SerializeField] private int _killedByPolicePenalty = 50;   // 警察に倒された時に減る点数
+    [SerializeField] private int _foundByPolicePenalty = 50;    // 警察に見つかった時に減る点数
 
     [Header("他プレイヤー撃破")]
     [SerializeField] private int _defeatPlayerScore = 0;        // 他プレイヤーを倒した時の点数(仕様未定のため既定0)
@@ -59,6 +58,9 @@ public class CS_PlayerScoring : NetworkBehaviour
     private int _streak;    // 暗躍ボーナスの連続撃破数(サーバー、またはオフラインでのみ意味を持つ)
 
     public int streak => _streak;
+
+    // 自分が悪人を倒した時に発生する(サーバー、またはオフラインのみ)
+    public event System.Action<CS_VillainHealth> onVillainDefeated;
 
     private void Awake()
     {
@@ -97,6 +99,7 @@ public class CS_PlayerScoring : NetworkBehaviour
         if (!CanScore()) return;
 
         ResetStreak();
+        _holder.AddFoundByPolice(-_foundByPolicePenalty);
     }
 
     // 相手を倒した時の加算
@@ -109,6 +112,7 @@ public class CS_PlayerScoring : NetworkBehaviour
             _streak++;
             int point = Mathf.RoundToInt(GetDefeatScore(villain) * GetBonusMultiplier(_streak));
             _holder.AddDefeatVillain(point);
+            onVillainDefeated?.Invoke(villain);
             return;
         }
 
@@ -134,18 +138,12 @@ public class CS_PlayerScoring : NetworkBehaviour
         return source != null ? source.defeatScore : _defaultVillainScore;
     }
 
-    // HPが0になったら連続撃破を途切れさせ、警察に倒された場合は減点する
+    // HPが0になったら連続撃破を途切れさせる
     private void HandleDeath()
     {
         if (!CanScore()) return;
 
         ResetStreak();
-
-        GameObject attacker = _health.lastAttacker;
-        if (attacker != null && attacker.GetComponentInParent<CS_PoliceBrain>() != null)
-        {
-            _holder.AddFoundByPolice(-_killedByPolicePenalty);
-        }
     }
 
     // 変身を解いたら(通常の状態に戻ったら)連続撃破を途切れさせる

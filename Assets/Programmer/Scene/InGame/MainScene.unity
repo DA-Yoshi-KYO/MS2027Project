@@ -518,6 +518,17 @@ PrefabInstance:
     m_AddedGameObjects: []
     m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: 29368471a063cc5408cd40d308b7515e, type: 3}
+--- !u!114 &593828812 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 4046422726898638264, guid: 29368471a063cc5408cd40d308b7515e, type: 3}
+  m_PrefabInstance: {fileID: 593828811}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d0804bfc1db657b4a82f5e9dcc943dcf, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CS_UIPoliceDirectionPresenter
 --- !u!1 &698662339
 GameObject:
   m_ObjectHideFlags: 1
@@ -787,6 +798,10 @@ PrefabInstance:
       propertyPath: GlobalObjectIdHash
       value: 145512799
       objectReference: {fileID: 0}
+    - target: {fileID: 2222565381043452904, guid: bbf6e83f68bd7e64187a689ee41058a5, type: 3}
+      propertyPath: m_NavMeshData
+      value: 
+      objectReference: {fileID: 23800000, guid: 126183c5f9a65484faf015ba6b2ba721, type: 2}
     - target: {fileID: 4523213479117314590, guid: bbf6e83f68bd7e64187a689ee41058a5, type: 3}
       propertyPath: m_InScenePlaced
       value: 1
@@ -804,7 +819,13 @@ PrefabInstance:
       value: 2292566931
       objectReference: {fileID: 0}
     m_RemovedComponents: []
-    m_RemovedGameObjects: []
+    m_RemovedGameObjects:
+    - {fileID: 8940148609663711828, guid: bbf6e83f68bd7e64187a689ee41058a5, type: 3}
+    - {fileID: 5049411610609502976, guid: bbf6e83f68bd7e64187a689ee41058a5, type: 3}
+    - {fileID: 6796048117238174500, guid: bbf6e83f68bd7e64187a689ee41058a5, type: 3}
+    - {fileID: 4805704377606715706, guid: bbf6e83f68bd7e64187a689ee41058a5, type: 3}
+    - {fileID: 4192029950584463210, guid: bbf6e83f68bd7e64187a689ee41058a5, type: 3}
+    - {fileID: 4574309155509631882, guid: bbf6e83f68bd7e64187a689ee41058a5, type: 3}
     m_AddedGameObjects: []
     m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: bbf6e83f68bd7e64187a689ee41058a5, type: 3}
@@ -1411,6 +1432,10 @@ PrefabInstance:
       propertyPath: m_Name
       value: GameControllerManager
       objectReference: {fileID: 0}
+    - target: {fileID: 2995087399300262541, guid: c31aec72227231d4d9902b790fdef737, type: 3}
+      propertyPath: _presenter
+      value: 
+      objectReference: {fileID: 593828812}
     - target: {fileID: 5584508223773170545, guid: c31aec72227231d4d9902b790fdef737, type: 3}
       propertyPath: m_InScenePlaced
       value: 1

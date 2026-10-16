@@ -61,19 +61,19 @@ public class CS_UIPlayerResultItemView : MonoBehaviour
         // 点数は加算済みスコアをそのまま表示
         if (_defeatVillainText != null)
             _defeatVillainText.text =
-                $"倒した悪人 : {s.defeatVillainCount}人 ({s.defeatVillainScore:+#;-#;0}点)";
+                $"倒した悪人 : {s.defeatVillainCount}人 \n ({s.defeatVillainScore:+#;-#;0}点)";
 
         if (_foundByPoliceText != null)
             _foundByPoliceText.text =
-                $"警察に発見 : {s.foundByPoliceCount}回 ({s.foundByPoliceScore:+#;-#;0}点)";
+                $"警察に発見 : {s.foundByPoliceCount}回 \n ({s.foundByPoliceScore:+#;-#;0}点)";
 
         if (_crimeCompletedText != null)
             _crimeCompletedText.text =
-                $"犯罪完遂 : {s.crimeCompletedCount}回 ({s.crimeCompletedScore:+#;-#;0}点)";
+                $"犯罪完遂 : {s.crimeCompletedCount}回 \n ({s.crimeCompletedScore:+#;-#;0}点)";
 
         if (_defeatPlayerText != null)
             _defeatPlayerText.text =
-                $"他P撃破 : {s.defeatPlayerCount}人 ({s.defeatPlayerScore:+#;-#;0}点)";
+                $"他P撃破 : {s.defeatPlayerCount}人 \n ({s.defeatPlayerScore:+#;-#;0}点)";
 
         // 総合スコア
         if (_totalScoreText != null)

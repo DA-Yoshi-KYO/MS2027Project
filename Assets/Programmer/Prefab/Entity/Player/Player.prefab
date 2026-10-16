@@ -4870,6 +4870,11 @@ GameObject:
   - component: {fileID: 345532491756338339}
   - component: {fileID: 7310482956127384501}
   - component: {fileID: 2849163057284619302}
+  - component: {fileID: 201390582602146537}
+  - component: {fileID: 5839164027731649215}
+  - component: {fileID: 5854182590809397507}
+  - component: {fileID: 6182937450261938471}
+  - component: {fileID: 3917264058213697542}
   m_Layer: 31
   m_Name: Player
   m_TagString: PlayerNoTransformation
@@ -4989,7 +4994,6 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::CS_Player
   ShowTopMostFoldoutHeaderGroup: 1
   _rotationSpeed: 720
-  _moveStartAngle: 30
   _groundLayers:
     serializedVersion: 2
     m_Bits: 4294967295
@@ -5278,6 +5282,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a58333c962869874d80f4984755a500c, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::CS_PlayerCameraShake
+  _damagedShakeForce: 0.3
 --- !u!114 &1551694478834558629
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -5321,7 +5326,7 @@ MonoBehaviour:
   _bonusStartCount: 5
   _bonusStep: 0.2
   _crimeCompletedPenalty: 20
-  _killedByPolicePenalty: 50
+  _foundByPolicePenalty: 50
   _defeatPlayerScore: 0
 --- !u!114 &-4510307253191130015
 MonoBehaviour:
@@ -5399,6 +5404,87 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::CS_PlayerItemSlotUI
   ShowTopMostFoldoutHeaderGroup: 1
+--- !u!114 &201390582602146537
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1825699444668748530}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 73d547207504a0be41137530d8026571, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CS_PlayerRankOverheadUI
+  ShowTopMostFoldoutHeaderGroup: 1
+--- !u!114 &5839164027731649215
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1825699444668748530}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 42c9fb7ae8e503f854c9608d7d2e72ce, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CS_PlayerAimAssist
+  _isAssistEnabled: 1
+  _range: 10
+  _angle: 75
+  _anglePriority: 0.5
+  _targetPlayers: 1
+  _maxLungeDistance: 5
+  _lungeTimeRate: 0.8
+  _facingHoldTime: 0.1
+--- !u!114 &5854182590809397507
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1825699444668748530}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: cbcff52533ef80af7ee49cf566c2867d, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CS_PlayerNpcBrain
+  ShowTopMostFoldoutHeaderGroup: 1
+  _defaultPersonality: {fileID: 11400000, guid: 938cd1fed441a043c28c30cbe07a7d8c, type: 2}
+  _arriveDistance: 1
+  _sprintDistance: 8
+  _waitDistance: 3.5
+  _itemUseDistance: 8
+  _fleeDistance: 15
+--- !u!114 &6182937450261938471
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1825699444668748530}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: dacb31b2dabd31a945215388ea84d9ec, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CS_PlayerCameraFov
+  _dashFovAdd: 15
+  _widenSpeed: 20
+  _returnSpeed: 5
+  _minSprintSpeed: 0.5
+--- !u!114 &3917264058213697542
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1825699444668748530}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6b3c3a9a53580251abd98683d5ac8d01, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CS_PlayerWantedLevelUI
+  ShowTopMostFoldoutHeaderGroup: 1
 --- !u!1 &3298430547158640491
 GameObject:
   m_ObjectHideFlags: 0
@@ -5427,7 +5513,7 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 3298430547158640491}
   serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
@@ -5763,7 +5849,7 @@ MonoBehaviour:
     AmplitudeGain: 1
     FrequencyGain: 1
     Duration: 1
-    m_NoiseOffsets: {x: 0, y: 0, z: 0}
+    m_NoiseOffsets: {x: 758.0521, y: -982.5502, z: -450.7185}
 --- !u!1001 &5992843266361855488
 PrefabInstance:
   m_ObjectHideFlags: 0

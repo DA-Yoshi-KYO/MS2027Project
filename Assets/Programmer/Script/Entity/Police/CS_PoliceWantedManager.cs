@@ -18,7 +18,7 @@ using UnityEngine.SceneManagement;
 /// ・手配度が下がったら、そのプレイヤーの増援の中からランダムに選んで消す(追跡中・戦闘中の警察は、落ち着くまで待つ)
 /// ・増援の速度・視野距離は、持ち主のプレイヤーの今の手配度に合わせる(誰を追っていても持ち主の手配度のまま)
 /// ・持ち主のプレイヤーが出した信号の場所へ、増援を駆け付けさせる
-/// 手配度の値そのものはプレイヤー側が管理し、SetWantedLevelで知らせてもらう
+/// 手配度の値そのものはプレイヤー側(CS_PlayerWantedLevel)が管理し、その変化を警察側から購読して受け取る
 /// 出現・削除はサーバー(またはオフライン)だけで行う
 /// </summary>
 public class CS_PoliceWantedManager : MonoBehaviour
@@ -43,6 +43,12 @@ public class CS_PoliceWantedManager : MonoBehaviour
 
     // 次に人数を確認するまでの残り時間
     private float _refreshTimer = 0.0f;
+
+    // 今までに出現させた増援の数(回避の優先度をずらして割り振るのに使う)
+    private int _spawnCount = 0;
+
+    // プレイヤーの手配度の変化の購読
+    private CS_PoliceWantedLevelWatcher _levelWatcher = null;
 
     // ネットワークのシーン遷移(Singleモード)が始まったか
     // 始まると警察はNetcodeに破棄されるが、このクラスはシーンが切り替わるまで残る。
@@ -91,8 +97,18 @@ public class CS_PoliceWantedManager : MonoBehaviour
     [Tooltip("増援が見つけた標的を、見えなくなってからも増援同士で共有し続ける時間(秒)")]
     private float _shareDuration = 0.5f;
 
+    [Header("＝＝＝ 回避 ＝＝＝")]
+    [SerializeField, Range(0, 99)]
+    [Tooltip("増援の回避の優先度の最小値(値が小さいほど優先される)。巡回グループは30〜32")]
+    private int _avoidancePriorityMin = 40;
+
+    [SerializeField, Min(1)]
+    [Tooltip("増援の回避の優先度の幅(最小値から、この数だけ順番にずらして割り振る)。全員が同じ優先度だと、ぶつかった時に譲り合いが決まらず詰まるため")]
+    private int _avoidancePriorityRange = 40;
+
     /// <summary>
     /// プレイヤーの手配度が変わったことを知らせるメソッド(サーバーで呼ぶこと)
+    /// ※CS_PlayerWantedLevelの手配度は自動で購読しているので、通常は呼ばなくてよい(手で試したい時などに使う)
     /// </summary>
     /// <param name="player">手配度が変わったプレイヤー</param>
     /// <param name="level">変わった後の手配度(0〜最大)</param>
@@ -108,15 +124,15 @@ public class CS_PoliceWantedManager : MonoBehaviour
     /// (CS_PoliceSquad.NotifyIncidentから呼ばれる)
     /// </summary>
     /// <param name="player">信号を出したプレイヤー</param>
-    /// <param name="position">信号を出した位置</param>
-    public static void ReceiveSignal(CS_PlayerHealth player, Vector3 position)
+    /// <param name="point">信号を出した位置(巡回グループにも同じインスタンスが渡される)</param>
+    public static void ReceiveSignal(CS_PlayerHealth player, CS_PoliceGatherPoint point)
     {
         if (player == null || _instance == null || CS_PoliceSquad.IsNetworkClientOnly()) return;
         if (!_instance._groups.TryGetValue(player, out CS_PoliceWantedGroup group)) return;
 
         foreach (CS_PoliceBrain member in group.members)
         {
-            if (member != null) member.RequestRush(position);
+            if (member != null) member.RequestRush(point);
         }
     }
 
@@ -130,10 +146,22 @@ public class CS_PoliceWantedManager : MonoBehaviour
 
         _instance = this;
         _reachablePath = new NavMeshPath();
+        _levelWatcher = new CS_PoliceWantedLevelWatcher(HandleLevelChanged);
+    }
+
+    private void Start()
+    {
+        // 後から置かれた(使われない)管理クラスは購読しない
+        if (_levelWatcher == null) return;
+
+        // すでに出現しているプレイヤーと、あとから出現するプレイヤーの手配度の変化を購読する
+        _levelWatcher.Start();
     }
 
     private void OnDestroy()
     {
+        // プレイヤーは管理クラスより長く残ることがあるので、破棄される前に必ず購読を解除する
+        _levelWatcher?.Stop();
         UnsubscribeSceneEvent();
 
         if (_instance == this) _instance = null;
@@ -163,6 +191,19 @@ public class CS_PoliceWantedManager : MonoBehaviour
             _groups.Remove(owner);
         }
         _leftOwnerBuffer.Clear();
+    }
+
+    /// <summary>
+    /// プレイヤーの手配度が変わった時に呼ばれ、増援の強さと人数を合わせるメソッド
+    /// 全クライアントで呼ばれるが、増援の出現・削除はサーバー(またはオフライン)だけで行う
+    /// </summary>
+    /// <param name="player">手配度が変わったプレイヤー</param>
+    /// <param name="level">変わった後の手配度</param>
+    private void HandleLevelChanged(CS_PlayerHealth player, int level)
+    {
+        if (CS_PoliceSquad.IsNetworkClientOnly()) return;
+
+        ChangeWantedLevel(player, level);
     }
 
     /// <summary>
@@ -313,6 +354,10 @@ public class CS_PoliceWantedManager : MonoBehaviour
         member.Setting(group, CreateSpeedTable(group.level), _status);
         ApplyAbility(member, group.level);
 
+        // 増援同士がぶつかった時に譲り合いが決まるよう、回避の優先度を1人ずつずらす
+        member.GetComponent<NavMeshAgent>().avoidancePriority = _avoidancePriorityMin + _spawnCount % _avoidancePriorityRange;
+        _spawnCount++;
+
         // 仕様: 増援は追跡状態から始まる(持ち主の位置を追いながら向かい、見つけたら追跡に切り替わる)
         member.RequestPursuit(group.owner);
 
@@ -413,7 +458,8 @@ public class CS_PoliceWantedManager : MonoBehaviour
     private void ApplyAbility(CS_PoliceBrain member, int level)
     {
         // 手配度0(消えるのを待っている間)は、データのある一番低い手配度の強さにする
-        member.ChangeAbility(CreateSpeedTable(level), _levelData.GetLevel(level).viewDistance);
+        CSO_PoliceWantedLevelData.LevelData data = _levelData.GetLevel(level);
+        member.ChangeAbility(CreateSpeedTable(level), data.viewDistance, data.attackChargeTime);
     }
 
     /// <summary>

@@ -94,23 +94,62 @@ public class CS_UIResultView : CS_BaseView<CS_UIResultPresenter>
 
     /// <summary>
     /// マルチ用：全プレイヤー分の結果を表示する
-    /// リストの順番 = 順位（Model でソート済み）
+    /// リストはModelでスコア降順にソート済み
+    /// 同じtotalScoreは同順位として表示する
     /// </summary>
     public void UpdateMultiResults(List<CS_ResultData> results)
     {
-        if (results == null || results.Count == 0) return;
+        if (results == null || results.Count == 0)
+            return;
 
         ClearPlayerResultItems();
 
         for (int i = 0; i < results.Count; i++)
         {
-            var item = Instantiate(_playerResultPrefab, _playerResultsRoot);
-            var itemView = item.GetComponent<CS_UIPlayerResultItemView>();
+            CS_ResultData result = results[i];
+
+            int rank = CalculateCompetitionRank(
+                results,
+                result.totalScore
+            );
+
+            GameObject item = Instantiate(
+                _playerResultPrefab,
+                _playerResultsRoot
+            );
+
+            CS_UIPlayerResultItemView itemView =
+                item.GetComponent<CS_UIPlayerResultItemView>();
+
             if (itemView != null)
-                itemView.UpdateView(results[i], rank: i + 1);
+            {
+                itemView.UpdateView(
+                    result,
+                    rank
+                );
+            }
 
             _playerResultItems.Add(item);
         }
+    }
+
+    /// <summary>
+    /// 同じスコアは同順位にする。
+    /// 順位 = 自分より高いスコアの人数 + 1。
+    /// </summary>
+    private int CalculateCompetitionRank(
+        List<CS_ResultData> results,
+        int targetScore)
+    {
+        int higherScorePlayerCount = 0;
+
+        foreach (CS_ResultData result in results)
+        {
+            if (result.totalScore > targetScore)
+                higherScorePlayerCount++;
+        }
+
+        return higherScorePlayerCount + 1;
     }
 
     // =========================================================

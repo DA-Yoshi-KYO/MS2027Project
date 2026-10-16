@@ -11,8 +11,9 @@ using UnityEngine;
 // ========================================
 /*
  * メモ
- * ・ボタンはアイテム使用ボタン(UseItem: E / RB)を使う
- *   操作できるものの近くで押した時は、アイテムは使わない(CS_PlayerItemSlotがhasInteractTargetを見て使用をやめる)
+ * ・ボタンは通常攻撃ボタン(Attack: 左クリック / RT)を使う(仕様書「プレイヤー」: 通常攻撃/インタラクト)
+ *   操作できるものの近く・操作中は、通常攻撃を出さない(CS_PlayerAttackがhasInteractTarget / isInteractingを見て攻撃をやめる)
+ *   ゲームパッドでLTを押しながら(必殺技の合図)の時は、操作を始めない
  * ・流れ(Ownerの手元)
  *   1. 操作できる範囲の中でボタンを押した瞬間に、一番近いものの操作を始める
  *   2. ボタンを離す・動けなくなる(倒れたなど)と、操作をやめる
@@ -34,8 +35,10 @@ public class CS_PlayerInteractor : NetworkBehaviour
     private bool _hasStarted;         // 相手側で操作が始まったのを確認したか(依頼がサーバーに届くまで少しかかる)
     private float _waitTime;          // 開始を依頼してからの時間
 
-    // 今ボタンを押したら操作が始まる相手がいるか(Ownerの手元。CS_PlayerItemSlotがアイテム使用をやめる判定に使う)
+    // 今ボタンを押したら操作が始まる相手がいるか(Ownerの手元。CS_PlayerAttackが攻撃をやめる判定に使う)
     public bool hasInteractTarget => FindTarget() != null;
+    // 操作している途中か(Ownerの手元。CS_PlayerAttackが攻撃をやめる判定に使う)
+    public bool isInteracting => _current != null;
 
     private void Awake()
     {
@@ -52,7 +55,8 @@ public class CS_PlayerInteractor : NetworkBehaviour
             return;
         }
 
-        if (!_player.canAct || !_player.useItemAction.WasPressedThisFrame()) return;
+        if (!_player.canAct || !_player.attackAction.WasPressedThisFrame()) return;
+        if (_player.isSpecialModifierHeld) return;   // LT+RTは必殺技の合図なので、操作は始めない
 
         IInteractable target = FindTarget();
         if (target == null) return;
@@ -77,7 +81,7 @@ public class CS_PlayerInteractor : NetworkBehaviour
             return;
         }
 
-        if (_player.canAct && _player.useItemAction.IsPressed()) return;
+        if (_player.canAct && _player.attackAction.IsPressed()) return;
 
         StopInteract();
     }

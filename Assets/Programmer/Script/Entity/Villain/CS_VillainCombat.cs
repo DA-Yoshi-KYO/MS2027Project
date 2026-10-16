@@ -171,6 +171,7 @@ public class CS_VillainCombat : NetworkBehaviour
     public bool isAttacking => _state == State.Attack;                           // 攻撃中か(溜め・攻撃判定)
     public CSE_VillainAttackPhase attackPhase => _attackPhase.Value;              // 攻撃の段階(全クライアントで参照可)
     public float chargeTime => _chargeTime;
+    public CS_VillainGroup group => _group;   // 所属するグループ(サーバーのみ。スポナーを通さず置いた悪人はnull)。NPC(CS_PlayerNpcBrain)が犯罪の進み具合を見るのに使う
     public Vector3 hitCenter => transform.position + transform.forward * _attackData.hitRange;   // 攻撃判定(球)の中心
     public CSO_AttackData attackData => _attackData;
     public float counterSearchRange => _counterSearchRange;

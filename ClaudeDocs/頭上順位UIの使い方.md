@@ -12,6 +12,9 @@
 `CS_UIPlayerRankOverhead` は `Bind(playerNumber, camera)` が呼ばれるまで何も表示しません。
 `PlayerRank.prefab` はすでに `Player.prefab` のルート直下に置かれているので、あとは Bind を呼ぶだけです。
 
+**→ 対応済み（秋野）**：`Player.prefab` に付けた `CS_PlayerRankOverheadUI`（`Assets/Programmer/Script/Entity/Player/CS_PlayerRankOverheadUI.cs`）が、下の「組み込み例」と同じ考え方で Bind しています。
+ローカルプレイヤーのカメラは `CS_Player.playerCamera` から取っています。詳細は `ClaudeUsers/プレイヤー仕様.md` の「HUD」を参照。
+
 ## 使い方
 
 ### API
@@ -98,4 +101,5 @@ static を使う場合は、ほかのクラスと同様に `[RuntimeInitializeOn
 
 - `PlayerRank.prefab` の `NetworkObject` は削除済み。`Player.prefab` のルート直下に事前配置済み（実行時に Instantiate して子にするのは不可）。
 - 自分のプレイヤーの頭上は自動で隠れる（`IsOwner` がプレイヤーの所有者を指すため）。自分にも出したい場合は `_showLocalPlayer` をオンにする。
+  - NPC はサーバーが所有するため、ホストでは NPC も `IsOwner` が true になる。そのためプレイヤー側(`CS_PlayerRankOverheadUI`)は `Bind(番号, カメラ, isLocalPlayer)` で「自分の画面のプレイヤーか」を渡している(省略時は従来どおり `IsOwner` で判定)
 - 同点は同順位。`_hideWhenAllScoresAreZero` がオンなので、全員 0 点の間は非表示。

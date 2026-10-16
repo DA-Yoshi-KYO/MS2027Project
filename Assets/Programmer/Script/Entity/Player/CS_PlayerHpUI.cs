@@ -21,23 +21,28 @@ using UnityEngine;
  *   (HPの実体はCS_PlayerHealth側のNetworkVariableにあり、ここは表示専用。数値の変更は一切行わない)
  * ・CS_PlayerHealthのオフライン初期化(Start)より後に現在HPを読む必要があるため、
  *   CS_PlayerVisualと同じ実行順(2)にしている
+ * ・HP上限だけが変わった時(アイテムによる強化など)はonHpChangedが来ないため、CS_PlayerStats.onMaxHpChangedも受け取って
+ *   ハートの数を追従させる(Issue #223)
  * ・オフライン(NetworkManagerが動いていない)のテストシーンでも単体で動く(playerNumberは既定値の0になる)
  */
 // ========================================
 
 [RequireComponent(typeof(CS_Player))]
 [RequireComponent(typeof(CS_PlayerHealth))]
+[RequireComponent(typeof(CS_PlayerStats))]
 [DefaultExecutionOrder(2)] // CS_PlayerHealth.Start(オフライン時のHP初期化)の後に、基準となるHPを読むため
 public class CS_PlayerHpUI : NetworkBehaviour
 {
     private CS_Player _player;
     private CS_PlayerHealth _health;
+    private CS_PlayerStats _stats;
     private CS_UIPlayerHpModel _hpModel;
 
     private void Awake()
     {
         _player = GetComponent<CS_Player>();
         _health = GetComponent<CS_PlayerHealth>();
+        _stats = GetComponent<CS_PlayerStats>();
     }
 
     // オフライン(NetworkManagerが動いていない)のテストシーン用
@@ -46,12 +51,12 @@ public class CS_PlayerHpUI : NetworkBehaviour
         if (IsSpawned) return;
         if (NetworkManager.Singleton != null && NetworkManager.Singleton.IsListening) return;
 
-        BindHpUI(true);
+        BindHpUI(_player.isLocalPlayer);
     }
 
     public override void OnNetworkSpawn()
     {
-        BindHpUI(IsOwner);
+        BindHpUI(_player.isLocalPlayer);   // NPCはホストでIsOwnerになるため、isLocalPlayerで判定する
     }
 
     public override void OnNetworkDespawn()
@@ -78,6 +83,7 @@ public class CS_PlayerHpUI : NetworkBehaviour
         _hpModel.Bind(_player.playerNumber);
 
         _health.onHpChanged += HandleHpChanged;
+        _stats.onMaxHpChanged += HandleMaxHpChanged;
     }
 
     private void UnbindHpUI()
@@ -85,6 +91,7 @@ public class CS_PlayerHpUI : NetworkBehaviour
         if (_hpModel == null) return;
 
         _health.onHpChanged -= HandleHpChanged;
+        _stats.onMaxHpChanged -= HandleMaxHpChanged;
         _hpModel.Dispose();
         _hpModel = null;
     }
@@ -94,5 +101,13 @@ public class CS_PlayerHpUI : NetworkBehaviour
     {
         _hpModel.SetMaxHp((int)max);
         _hpModel.SetHp((int)current);
+    }
+
+    // HP上限だけが変わった時(アイテムによる強化、スポーン直後に基準値が入った時など)もハートの数を追従させる(Issue #223)
+    // HP上限が変わってもHPが変わらなければonHpChangedは来ないため、こちらでも受け取る
+    private void HandleMaxHpChanged(float max)
+    {
+        _hpModel.SetMaxHp((int)max);
+        _hpModel.SetHp((int)_health.currentHp);
     }
 }

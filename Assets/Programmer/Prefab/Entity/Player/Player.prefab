@@ -4874,6 +4874,7 @@ GameObject:
   - component: {fileID: 5839164027731649215}
   - component: {fileID: 5854182590809397507}
   - component: {fileID: 6182937450261938471}
+  - component: {fileID: 3917264058213697542}
   m_Layer: 31
   m_Name: Player
   m_TagString: PlayerNoTransformation
@@ -5471,6 +5472,19 @@ MonoBehaviour:
   _widenSpeed: 20
   _returnSpeed: 5
   _minSprintSpeed: 0.5
+--- !u!114 &3917264058213697542
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1825699444668748530}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6b3c3a9a53580251abd98683d5ac8d01, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CS_PlayerWantedLevelUI
+  ShowTopMostFoldoutHeaderGroup: 1
 --- !u!1 &3298430547158640491
 GameObject:
   m_ObjectHideFlags: 0

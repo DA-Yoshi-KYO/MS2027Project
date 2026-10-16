@@ -13,7 +13,7 @@ using UnityEngine;
 using UnityEngine.AI;
 
 /// <summary>
-/// 警察のグループ(2〜3人)を管理するクラス
+/// 警察のグループ(1〜3人)を管理するクラス
 /// ・指定した位置に、メンバーごとのステータスで警察を出現させる
 /// ・巡回ルートと隊列(先頭がルートを進み、他の警察は先頭の通った道筋をたどる)を管理する
 /// ・メンバーが見つけた標的をグループ内で共有する
@@ -89,6 +89,10 @@ public class CS_PoliceSquad : MonoBehaviour, IPoliceGroup
 
     [Header("＝＝＝ 巡回ルートの表示(エディタのみ) ＝＝＝")]
     [SerializeField]
+    [Tooltip("オンにすると、巡回ルートをSceneビューに表示する")]
+    private bool _showRoute = false;
+
+    [SerializeField]
     [Tooltip("巡回ルートの線の色(始点のポイント→最後のポイント→始点に戻る、の順に変化する)")]
     private Gradient _routeGradient = CreateDefaultRouteGradient();
 
@@ -103,6 +107,7 @@ public class CS_PoliceSquad : MonoBehaviour, IPoliceGroup
 
     // 巡回ルートの表示用(CSED_PoliceSquadGizmoが参照する)
     public IReadOnlyList<Transform> patrolPoints => _patrolPoints;
+    public bool showRoute => _showRoute;
     public Gradient routeGradient => _routeGradient;
     public float routeLineThickness => _routeLineThickness;
 
@@ -164,9 +169,9 @@ public class CS_PoliceSquad : MonoBehaviour, IPoliceGroup
             return;
         }
 
-        if (_memberStatuses.Length < 2 || _memberStatuses.Length > 3)
+        if (_memberStatuses.Length < 1 || _memberStatuses.Length > 3)
         {
-            Debug.LogWarning($"CS_PoliceSquad: グループの人数は2〜3人の想定です(現在 {_memberStatuses.Length} 人)", this);
+            Debug.LogWarning($"CS_PoliceSquad: グループの人数は1〜3人の想定です(現在 {_memberStatuses.Length} 人)", this);
         }
 
         _sharedTarget = new CS_PoliceSharedTarget(_shareDuration);

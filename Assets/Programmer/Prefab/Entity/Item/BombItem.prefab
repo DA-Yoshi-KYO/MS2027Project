@@ -10,8 +10,9 @@ GameObject:
   m_Component:
   - component: {fileID: 4001100002}
   - component: {fileID: 13501100002}
-  - component: {fileID: 11401100002}
   - component: {fileID: 15401100002}
+  - component: {fileID: 11401100002}
+  - component: {fileID: -6804971359391559261}
   m_Layer: 0
   m_Name: BombItem
   m_TagString: Untagged
@@ -56,22 +57,6 @@ SphereCollider:
   serializedVersion: 3
   m_Radius: 0.5
   m_Center: {x: 0, y: 0, z: 0}
---- !u!114 &11401100002
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1001100002}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: a0579601169e83e4db8c0c041efc6e71, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
-  _itemData: {fileID: 11400000, guid: 0346968b69ed2ed384f4982f842d527a, type: 2}
-  _pickupLayers:
-    serializedVersion: 2
-    m_Bits: 1
 --- !u!114 &15401100002
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -82,9 +67,9 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
-  m_Name:
-  m_EditorClassIdentifier:
-  GlobalObjectIdHash: 0
+  m_Name: 
+  m_EditorClassIdentifier: 
+  GlobalObjectIdHash: 3483705557
   InScenePlacedSourceGlobalObjectIdHash: 0
   m_InScenePlacedDisabledByDefault: 0
   DeferredDespawnTick: 0
@@ -99,6 +84,33 @@ MonoBehaviour:
   AutoObjectParentSync: 1
   SyncOwnerTransformWhenParented: 1
   AllowOwnerToParent: 0
+--- !u!114 &11401100002
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1001100002}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a0579601169e83e4db8c0c041efc6e71, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  ShowTopMostFoldoutHeaderGroup: 1
+  _itemData: {fileID: 11400000, guid: 0346968b69ed2ed384f4982f842d527a, type: 2}
+--- !u!114 &-6804971359391559261
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1001100002}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c658b8758a2045d69211ab3cdd6df64a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CS_ItemMiniMapIcon
+  ShowTopMostFoldoutHeaderGroup: 1
 --- !u!1 &5963616917726307360
 GameObject:
   m_ObjectHideFlags: 0

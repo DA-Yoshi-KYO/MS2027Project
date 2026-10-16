@@ -9,10 +9,12 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 6506779480347543485}
+  - component: {fileID: 5584508223773170545}
   - component: {fileID: 5762222973496154845}
   - component: {fileID: 8389588009085528967}
   - component: {fileID: 8511819665858936338}
-  - component: {fileID: 4991146684625455718}
+  - component: {fileID: 9201942720854417754}
+  - component: {fileID: 2995087399300262541}
   m_Layer: 0
   m_Name: GameControllerManager
   m_TagString: Untagged
@@ -35,6 +37,33 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &5584508223773170545
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1579610649312813586}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Unity.Netcode.Runtime::Unity.Netcode.NetworkObject
+  GlobalObjectIdHash: 317949963
+  InScenePlacedSourceGlobalObjectIdHash: 3671484203
+  m_InScenePlacedDisabledByDefault: 0
+  DeferredDespawnTick: 0
+  Ownership: 1
+  AlwaysReplicateAsRoot: 0
+  SynchronizeTransform: 1
+  m_InScenePlaced: 1
+  ActiveSceneSynchronization: 0
+  SceneMigrationSynchronization: 0
+  SpawnWithObservers: 1
+  DontDestroyWithOwner: 0
+  AutoObjectParentSync: 1
+  SyncOwnerTransformWhenParented: 1
+  AllowOwnerToParent: 0
 --- !u!114 &5762222973496154845
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -47,7 +76,16 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 9a3f72fa4155ac742a125bb919e0b711, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::CS_TimerController
+  ShowTopMostFoldoutHeaderGroup: 1
   _maxTime: 300
+  _notificationController: {fileID: 0}
+  _timeNotifications:
+  - _remainingSeconds: 60
+    _message: "\u6B8B\u308A1\u5206\uFF01"
+  - _remainingSeconds: 30
+    _message: "\u6B8B\u308A30\u79D2\uFF01"
+  _enableCountdown: 1
+  _countdownStartSeconds: 5
 --- !u!114 &8389588009085528967
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -78,7 +116,7 @@ MonoBehaviour:
   _mapRadius: 50
   _mapWorldSize: 240
   _rotateWithPlayer: 1
---- !u!114 &4991146684625455718
+--- !u!114 &9201942720854417754
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -87,8 +125,25 @@ MonoBehaviour:
   m_GameObject: {fileID: 1579610649312813586}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 17a821fd016168a478bb98b556285d38, type: 3}
+  m_Script: {fileID: 11500000, guid: 6bbb0d4349de46f48968ca47a49d7b2e, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::CS_DefeatVillainCountController
-  _view: {fileID: 0}
-  _maxCount: 10
+  m_EditorClassIdentifier: Assembly-CSharp::CS_NotificationController
+  _rootView: {fileID: 0}
+  _enableDebugInput: 0
+--- !u!114 &2995087399300262541
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1579610649312813586}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 40716dd54df40aa4eb9ed95017170e13, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CS_PoliceDirectionController
+  _presenter: {fileID: 0}
+  _enableDebugMode: 0
+  _debugPlayerTransform: {fileID: 0}
+  _debugPoliceDistance: 15
+  _debugRotateSpeed: 30

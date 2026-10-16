@@ -56,6 +56,11 @@ public class CS_PoliceMove : MonoBehaviour
     [Tooltip("路地裏のNavMesh Area名。巡回中はこのAreaを通らない")]
     private string _alleyAreaName = "Alley";
 
+    [Header("＝＝＝ 目的地 ＝＝＝")]
+    [SerializeField, Min(0.01f)]
+    [Tooltip("目的地がこの距離より動かない限り、経路を作り直さない(動く標的を追う時に、毎回経路を計算しないため)")]
+    private float _repathDistance = 0.5f;
+
     [Header("＝＝＝ 到達判定 ＝＝＝")]
     [SerializeField, Min(0f)]
     [Tooltip("目的地に到達したとみなす距離")]
@@ -119,6 +124,20 @@ public class CS_PoliceMove : MonoBehaviour
         _isInitialized = true;
     }
 
+    /// <summary>
+    /// 移動状態はそのままで、移動状態に応じた速度だけを入れ替えるメソッド(手配度の変化など)
+    /// </summary>
+    /// <param name="speedTable">警察の移動状態に応じた速度を格納した辞書</param>
+    public void ChangeSpeedTable(Dictionary<CSE_PoliceMoveState, float> speedTable)
+    {
+        foreach (var kvp in speedTable)
+        {
+            _moveStateSpeeds[kvp.Key] = kvp.Value;
+        }
+
+        ApplyCurrentSpeed();
+    }
+
     private void Update()
     {
         if (!_isInitialized) return;
@@ -147,8 +166,8 @@ public class CS_PoliceMove : MonoBehaviour
         // 移動状態に応じて路地裏を通れるかを切り替える(切り替わった場合は元の目的地で経路を再計算する)
         UpdateAreaMask();
 
-        // 同じ目的地を何度も指示された場合は、経路の再計算をしない
-        if (_hasDestination && (_requestedDestination - position).sqrMagnitude < 0.01f) return;
+        // ほぼ同じ目的地を何度も指示された場合は、経路の再計算をしない
+        if (_hasDestination && (_requestedDestination - position).sqrMagnitude < _repathDistance * _repathDistance) return;
 
         _agent.SetDestination(position);
         _requestedDestination = position;

@@ -9,41 +9,21 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-/// <summary>
-/// ミニマップの Presenter
-/// ・UICanvas/MiniMap に CS_UIMiniMapView と一緒にアタッチする
-/// ・Model のデータを ViewData に変換して View へ渡す
-/// </summary>
+/// <summary>ModelのデータをViewDataへ変換してViewへ渡すPresenter。</summary>
 public class CS_UIMiniMapPresenter : CS_BasePresenter
 {
-    // =========================================================
-    // Inspector
-    // =========================================================
-
     [Header("ミニマップ設定")]
     [SerializeField] private bool _rotateWithPlayer = true;
 
-    [Header("マップ中心のワールド座標（地形の Position + サイズ / 2）")]
-    [SerializeField] private float _mapCenterX = 0f;
-    [SerializeField] private float _mapCenterZ = 0f;
-
-    // =========================================================
-    // バッキングフィールド
-    // =========================================================
+    [Header("マップ中心のワールド座標")]
+    [SerializeField] private float _mapCenterX;
+    [SerializeField] private float _mapCenterZ;
 
     private CS_UIMiniMapView _view;
-
-    // =========================================================
-    // プロパティ公開（読み取り専用）
-    // =========================================================
 
     public bool rotateWithPlayer => _rotateWithPlayer;
     public float mapCenterX => _mapCenterX;
     public float mapCenterZ => _mapCenterZ;
-
-    // =========================================================
-    // 初期化
-    // =========================================================
 
     public void SetView(CS_UIMiniMapView view)
     {
@@ -51,114 +31,150 @@ public class CS_UIMiniMapPresenter : CS_BasePresenter
         _view.SetPresenter(this);
     }
 
-    // =========================================================
-    // Controller から呼ばれる更新エントリポイント
-    // =========================================================
-
     public void OnModelUpdated(CS_UIMiniMapModel model)
     {
-        if (_view == null) return;
+        if (_view == null)
+            return;
 
-        var player = model.GetLocalPlayer();
-        if (player == null) return;
+        MiniMapEntityData player = model.GetLocalPlayer();
 
-        var viewData = BuildViewData(model, player);
-        _view.Render(viewData);
+        if (player == null)
+            return;
+
+        _view.Render(BuildViewData(model, player));
     }
 
-    // =========================================================
-    // ViewData 構築
-    // =========================================================
-
-    private MiniMapViewData BuildViewData(CS_UIMiniMapModel model, MiniMapEntityData player)
+    private MiniMapViewData BuildViewData(
+        CS_UIMiniMapModel model,
+        MiniMapEntityData player)
     {
         float mapRadius = model.miniMapRadius;
         float mapWorldSize = model.miniMapWorldSize;
-        float playerRot = _rotateWithPlayer ? player.entityRotation : 0f;
+        float playerRotation = _rotateWithPlayer ? player.entityRotation : 0f;
 
-        // ---- uvRect オフセット計算 ----
-        float uvX = (player.entityWorldPosition.x - _mapCenterX) / mapWorldSize + 0.5f;
-        float uvY = (player.entityWorldPosition.z - _mapCenterZ) / mapWorldSize + 0.5f;
+        float playerUvX =
+            (player.entityWorldPosition.x - _mapCenterX) / mapWorldSize + 0.5f;
 
-        // ---- アイコンリスト構築 ----
+        float playerUvY =
+            (player.entityWorldPosition.z - _mapCenterZ) / mapWorldSize + 0.5f;
+
         var icons = new List<MiniMapIconData>();
 
-        // 敵アイコン
-        foreach (var kv in model.GetEnemies())
-        {
-            if (!kv.Value.entityIsActive) continue;
-            icons.Add(WorldToMiniMapIcon(
-                player.entityWorldPosition, kv.Value,
-                mapRadius, playerRot, CSE_MiniMapEntityType.Enemy));
-        }
+        AddEntityIcons(
+            icons,
+            model.GetEnemies(),
+            player.entityWorldPosition,
+            mapRadius,
+            playerRotation,
+            CSE_MiniMapEntityType.Enemy
+        );
 
-        // マルチプレイヤー（アライ）アイコン
-        foreach (var kv in model.GetMultiplayerAllies())
-        {
-            if (!kv.Value.entityIsActive) continue;
-            icons.Add(WorldToMiniMapIcon(
-                player.entityWorldPosition, kv.Value,
-                mapRadius, playerRot, CSE_MiniMapEntityType.MultiplayerAlly));
-        }
+        AddEntityIcons(
+            icons,
+            model.GetMultiplayerAllies(),
+            player.entityWorldPosition,
+            mapRadius,
+            playerRotation,
+            CSE_MiniMapEntityType.MultiplayerAlly
+        );
 
-        // 警察アイコン ★ 追加
-        foreach (var kv in model.GetPolices())
-        {
-            if (!kv.Value.entityIsActive) continue;
-            icons.Add(WorldToMiniMapIcon(
-                player.entityWorldPosition, kv.Value,
-                mapRadius, playerRot, CSE_MiniMapEntityType.Police));
-        }
+        AddEntityIcons(
+            icons,
+            model.GetPolices(),
+            player.entityWorldPosition,
+            mapRadius,
+            playerRotation,
+            CSE_MiniMapEntityType.Police
+        );
+
+        AddEntityIcons(
+            icons,
+            model.GetItems(),
+            player.entityWorldPosition,
+            mapRadius,
+            playerRotation,
+            CSE_MiniMapEntityType.Item
+        );
 
         return new MiniMapViewData(
-            playerRotationY: player.entityRotation,
-            rotateWithPlayer: _rotateWithPlayer,
-            uvOffsetX: uvX - 0.5f,
-            uvOffsetY: uvY - 0.5f,
-            icons: icons
+            player.entityRotation,
+            _rotateWithPlayer,
+            playerUvX,
+            playerUvY,
+            mapRadius,
+            mapWorldSize,
+            icons
         );
     }
 
-    private MiniMapIconData WorldToMiniMapIcon(
-        Vector3 playerPos,
-        MiniMapEntityData entity,
+    private void AddEntityIcons(
+        List<MiniMapIconData> icons,
+        IReadOnlyDictionary<string, MiniMapEntityData> entities,
+        Vector3 playerPosition,
         float mapRadius,
-        float playerRotY,
+        float playerRotation,
         CSE_MiniMapEntityType type)
     {
-        Vector3 diff = entity.entityWorldPosition - playerPos;
-        float dx = diff.x;
-        float dz = diff.z;
+        foreach (var pair in entities)
+        {
+            if (!pair.Value.entityIsActive)
+                continue;
+
+            icons.Add(
+                WorldToMiniMapIcon(
+                    playerPosition,
+                    pair.Value,
+                    mapRadius,
+                    playerRotation,
+                    type
+                )
+            );
+        }
+    }
+
+    private MiniMapIconData WorldToMiniMapIcon(
+        Vector3 playerPosition,
+        MiniMapEntityData entity,
+        float mapRadius,
+        float playerRotation,
+        CSE_MiniMapEntityType type)
+    {
+        Vector3 difference = entity.entityWorldPosition - playerPosition;
+        float dx = difference.x;
+        float dz = difference.z;
 
         if (_rotateWithPlayer)
         {
-            float rad = -playerRotY * Mathf.Deg2Rad;
-            float cos = Mathf.Cos(rad);
-            float sin = Mathf.Sin(rad);
-            float rotX = dx * cos - dz * sin;
-            float rotZ = dx * sin + dz * cos;
-            dx = rotX;
-            dz = rotZ;
+            float radians = playerRotation * Mathf.Deg2Rad;
+            float cosine = Mathf.Cos(radians);
+            float sine = Mathf.Sin(radians);
+            float rotatedX = dx * cosine - dz * sine;
+            float rotatedZ = dx * sine + dz * cosine;
+            dx = rotatedX;
+            dz = rotatedZ;
         }
 
-        float normX = dx / mapRadius;
-        float normY = dz / mapRadius;
+        float normalizedX = dx / mapRadius;
+        float normalizedY = dz / mapRadius;
+        float distance = Mathf.Sqrt(
+            normalizedX * normalizedX + normalizedY * normalizedY
+        );
 
-        float dist = Mathf.Sqrt(normX * normX + normY * normY);
-        bool isClipped = dist > 1f;
+        bool isClipped = distance > 1f;
+
         if (isClipped)
         {
-            normX /= dist;
-            normY /= dist;
+            normalizedX /= distance;
+            normalizedY /= distance;
         }
 
         return new MiniMapIconData(
-            id: entity.entityId,
-            type: type,
-            normalizedX: normX,
-            normalizedY: normY,
-            rotation: entity.entityRotation - (_rotateWithPlayer ? playerRotY : 0f),
-            isEdgeClipped: isClipped
+            entity.entityId,
+            type,
+            normalizedX,
+            normalizedY,
+            entity.entityRotation - (_rotateWithPlayer ? playerRotation : 0f),
+            isClipped
         );
     }
 
@@ -168,35 +184,39 @@ public class CS_UIMiniMapPresenter : CS_BasePresenter
     }
 }
 
-// =========================================================
-// Presenter ↔ View 間のデータ受け渡し用クラス
-// =========================================================
-
 public class MiniMapViewData
 {
     private readonly float _playerRotationY;
     private readonly bool _rotateWithPlayer;
-    private readonly float _uvOffsetX;
-    private readonly float _uvOffsetY;
+    private readonly float _playerUvX;
+    private readonly float _playerUvY;
+    private readonly float _mapRadius;
+    private readonly float _mapWorldSize;
     private readonly List<MiniMapIconData> _icons;
 
     public float playerRotationY => _playerRotationY;
     public bool rotateWithPlayer => _rotateWithPlayer;
-    public float uvOffsetX => _uvOffsetX;
-    public float uvOffsetY => _uvOffsetY;
+    public float playerUvX => _playerUvX;
+    public float playerUvY => _playerUvY;
+    public float mapRadius => _mapRadius;
+    public float mapWorldSize => _mapWorldSize;
     public List<MiniMapIconData> icons => _icons;
 
     public MiniMapViewData(
         float playerRotationY,
         bool rotateWithPlayer,
-        float uvOffsetX,
-        float uvOffsetY,
+        float playerUvX,
+        float playerUvY,
+        float mapRadius,
+        float mapWorldSize,
         List<MiniMapIconData> icons)
     {
         _playerRotationY = playerRotationY;
         _rotateWithPlayer = rotateWithPlayer;
-        _uvOffsetX = uvOffsetX;
-        _uvOffsetY = uvOffsetY;
+        _playerUvX = playerUvX;
+        _playerUvY = playerUvY;
+        _mapRadius = mapRadius;
+        _mapWorldSize = mapWorldSize;
         _icons = icons;
     }
 }

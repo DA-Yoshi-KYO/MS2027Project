@@ -19,6 +19,7 @@ using UnityEngine;
  *   判定タイミングで改めて変身中かつゲージが満タンか確認してから消費するため、
  *   発動直後に状態が変化していた場合は不発(ダメージなし・ゲージ消費なし)になる
  * ・判定・ダメージの仕組みはCS_PlayerAttackと同じ(CS_AttackHitDetector、IDamageable、サーバー確定)
+ *   判定は使った本人の手元の位置・向きをサーバーへ送って行う(エイムアシストで踏み込んだ後の位置で当たるように)
  * ・必殺技自体はゲージを増やさない想定(Special Attack DataのGauge Gainは0を推奨)
  * ・ダメージ倍率はCS_PlayerStats.specialAttackPowerを使う(通常攻撃のattackPowerとは別枠)
  */
@@ -44,6 +45,7 @@ public class CS_PlayerSpecialAttack : NetworkBehaviour
     private CS_PlayerSpecialGauge _gauge;
     private CS_PlayerAttack _attack;
     private CS_PlayerTransformation _transformation;
+    private CS_PlayerScoring _scoring;
     private readonly Collider[] _hitBuffer = new Collider[_hitBufferSize];
     private readonly HashSet<IDamageable> _hitTargets = new HashSet<IDamageable>();
 
@@ -58,6 +60,7 @@ public class CS_PlayerSpecialAttack : NetworkBehaviour
     // 操作しているクライアントでだけ発生する。判定が出る瞬間に呼ばれる。カメラの揺れなどが購読する
     public event System.Action onSpecialHitTiming;
     public CSO_AttackData specialAttackData => _specialAttackData;
+    public LayerMask targetLayers => _targetLayers;     // ダメージを与える対象のレイヤー(カメラの揺れの当たり確認にも使う)
 
     private void Awake()
     {
@@ -66,6 +69,7 @@ public class CS_PlayerSpecialAttack : NetworkBehaviour
         _gauge = GetComponent<CS_PlayerSpecialGauge>();
         _attack = GetComponent<CS_PlayerAttack>();
         _transformation = GetComponent<CS_PlayerTransformation>();
+        _scoring = GetComponent<CS_PlayerScoring>();
 
         if (_specialAttackData != null) return;
 
@@ -118,39 +122,56 @@ public class CS_PlayerSpecialAttack : NetworkBehaviour
     // 必殺技の判定実行を依頼する(ゲージ消費の確定はサーバーで行う)
     private void RequestHit()
     {
+        // 判定は、使った本人の手元の位置・向き(エイムアシストで踏み込んだ後の位置)で行う(CS_PlayerAttackと同じ)
+        Vector3 position = transform.position;
+        Vector3 forward = transform.forward;
+
         // オフライン(テストシーン)では、その場で判定する
         if (!IsSpawned)
         {
-            ExecuteHit();
+            ExecuteHit(position, forward);
             return;
         }
 
-        HitRpc();
+        HitRpc(position, forward);
     }
 
     // Ownerからサーバーへ、判定の実行を依頼する
     [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Owner)]
-    private void HitRpc()
+    private void HitRpc(Vector3 position, Vector3 forward)
     {
-        ExecuteHit();
+        ExecuteHit(position, forward);
     }
 
     // 変身中か、ゲージが満タンかを再確認しつつ消費し、判定を行う(サーバー、またはオフラインで実行される)
-    private void ExecuteHit()
+    private void ExecuteHit(Vector3 position, Vector3 forward)
     {
         if (!_transformation.isTransformed) return;
         if (!_gauge.TryConsumeFull()) return;
 
         AttackContext context = new AttackContext(transform, _specialStepIndex);
-        CS_AttackHitDetector.FindTargets(transform, _specialAttackData, _targetLayers, _hitBuffer, _hitTargets);
+        CS_AttackHitDetector.ResolvePose(transform, ref position, ref forward);
+        CS_AttackHitDetector.FindTargets(transform, position, forward, _specialAttackData, _targetLayers, _hitBuffer, _hitTargets);
 
         foreach (IDamageable target in _hitTargets)
         {
             float damage = _specialAttackData.CalculateDamage(context, target) * _stats.specialAttackPower;
-            target.TakeDamage(damage);
-            CS_AttackHitDetector.TryKnockback(target, transform.position);   // 攻撃した位置から離れる方向へ下がる
+            DealDamage(target, damage);
+            CS_AttackHitDetector.TryKnockback(target, position);   // 攻撃した位置から離れる方向へ下がる
             _specialAttackData.OnHit(context, target);
         }
+    }
+
+    // ダメージを与える。スコア(CS_PlayerScoring)があればそれを通し、誰が倒したかをスコアに反映する
+    private void DealDamage(IDamageable target, float damage)
+    {
+        if (_scoring != null)
+        {
+            _scoring.DealDamage(target, damage);
+            return;
+        }
+
+        target.TakeDamage(damage, gameObject);
     }
 
     // 選択中に、判定範囲をシーンビューへ表示する(調整用)

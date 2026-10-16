@@ -6,6 +6,7 @@
  * 2026-09-25 | 初回作成
  * ================================================ */
 
+using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
@@ -25,7 +26,20 @@ public class CS_SceneTransitioner : MonoBehaviour
     /// </summary>
     public void StartTransition()
     {
-        //今は即シーン移動
-        SceneManager.LoadScene(_nextSceneName);
+        var manager = NetworkManager.Singleton;
+
+        if (manager != null && manager.IsListening)
+        {
+            //クライアントは呼ばない
+            if (!manager.IsServer)
+                return;
+
+            //今は即シーン移動
+            NetworkManager.Singleton.SceneManager.LoadScene(_nextSceneName, LoadSceneMode.Single);
+        }
+        else
+        {
+            SceneManager.LoadScene(_nextSceneName);
+        }
     }
 }

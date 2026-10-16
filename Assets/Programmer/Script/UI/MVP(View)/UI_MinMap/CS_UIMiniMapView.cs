@@ -10,18 +10,10 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 
-/// <summary>
-/// ミニマップの View
-/// ・UICanvas 配下の MiniMap GameObject にアタッチする
-/// ・静止画PNG + uvRect スクロール方式
-/// </summary>
+/// <summary>ミニマップのView。静止画PNG + uvRectスクロール方式。</summary>
 public class CS_UIMiniMapView : CS_BaseView<CS_UIMiniMapPresenter>
 {
-    // =========================================================
-    // Inspector
-    // =========================================================
-
-    [Header("背景（静止画PNG をセットした RawImage）")]
+    [Header("背景（静止画PNGをセットしたRawImage）")]
     [SerializeField] private RawImage _mapImage;
     [SerializeField] private RectTransform _mapRoot;
 
@@ -31,47 +23,47 @@ public class CS_UIMiniMapView : CS_BaseView<CS_UIMiniMapPresenter>
     [Header("プレイヤーアイコン（常に中央固定）")]
     [SerializeField] private RectTransform _playerIcon;
 
-    [Header("アイコン Prefab")]
+    [Header("アイコンPrefab")]
     [SerializeField] private GameObject _enemyIconPrefab;
     [SerializeField] private GameObject _allyIconPrefab;
     [SerializeField] private GameObject _policeIconPrefab;
+    [SerializeField] private GameObject _itemIconPrefab;
 
     [Header("表示設定")]
-    [SerializeField] private float _miniMapDisplayRadius = 75f;
+    [SerializeField] private float _miniMapDisplayRadius = 185f;
 
-    // =========================================================
-    // 内部フィールド
-    // =========================================================
+    [Header("確認用（変更不可・再生中に更新される）")]
+    [SerializeField, Min(0)] private float _debugPixelsPerMeter;
+    [SerializeField, Min(0)] private float _debugMetersPerPixel;
+    [SerializeField, Min(0)] private float _debugVisibleRange;
 
     private readonly Dictionary<string, MiniMapIconInstance> _iconPool = new();
-
-    // =========================================================
-    // CS_BaseView
-    // =========================================================
 
     public override void SetPresenter(CS_UIMiniMapPresenter presenter)
     {
         base.SetPresenter(presenter);
     }
 
-    // =========================================================
-    // 描画メイン（Presenter から呼ばれる）
-    // =========================================================
-
     public void Render(MiniMapViewData data)
     {
-        // ---- ① 背景スクロール ----
-        if (_mapImage != null)
+        if (_mapImage != null && data.mapRadius > 0f && _miniMapDisplayRadius > 0f)
         {
+            float imageWidth = _mapImage.rectTransform.rect.width;
+            float imageWorldSize = imageWidth * data.mapRadius / _miniMapDisplayRadius;
+            float uvSize = imageWorldSize / data.mapWorldSize;
+
             _mapImage.uvRect = new Rect(
-                data.uvOffsetX,
-                data.uvOffsetY,
-                1f,
-                1f
+                data.playerUvX - uvSize * 0.5f,
+                data.playerUvY - uvSize * 0.5f,
+                uvSize,
+                uvSize
             );
+
+            _debugPixelsPerMeter = _miniMapDisplayRadius / data.mapRadius;
+            _debugMetersPerPixel = data.mapRadius / _miniMapDisplayRadius;
+            _debugVisibleRange = imageWorldSize;
         }
 
-        // ---- ② 背景回転 ----
         if (_mapRoot != null)
         {
             _mapRoot.localRotation = data.rotateWithPlayer
@@ -79,64 +71,57 @@ public class CS_UIMiniMapView : CS_BaseView<CS_UIMiniMapPresenter>
                 : Quaternion.identity;
         }
 
-        // ---- ③ プレイヤーアイコンは常に中央・常に上向き ----
         if (_playerIcon != null)
         {
             _playerIcon.anchoredPosition = Vector2.zero;
             _playerIcon.localRotation = Quaternion.identity;
         }
 
-        // ---- ④ アクティブな ID セットを収集 ----
         var activeIds = new HashSet<string>();
-        foreach (var icon in data.icons)
+
+        foreach (MiniMapIconData icon in data.icons)
         {
             activeIds.Add(icon.id);
             RenderIcon(icon);
         }
 
-        // ---- ⑤ 使われなくなったアイコンを非アクティブ化 ----
-        foreach (var kv in _iconPool)
-        {
-            kv.Value.Root.gameObject.SetActive(activeIds.Contains(kv.Key));
-        }
+        foreach (var pair in _iconPool)
+            pair.Value.root.gameObject.SetActive(activeIds.Contains(pair.Key));
     }
-
-    // =========================================================
-    // 個別アイコン描画
-    // =========================================================
 
     private void RenderIcon(MiniMapIconData data)
     {
-        var instance = GetOrCreateIcon(data.id, data.type);
-        if (instance == null) return;
+        MiniMapIconInstance instance = GetOrCreateIcon(data.id, data.type);
 
-        instance.Root.gameObject.SetActive(true);
+        if (instance == null)
+            return;
 
-        instance.Root.anchoredPosition = new Vector2(
+        instance.root.gameObject.SetActive(true);
+        instance.root.anchoredPosition = new Vector2(
             data.normalizedX * _miniMapDisplayRadius,
-            data.normalizedY * _miniMapDisplayRadius);
+            data.normalizedY * _miniMapDisplayRadius
+        );
 
-        instance.Root.localRotation = Quaternion.Euler(0f, 0f, -data.rotation);
+        instance.root.localRotation =
+            Quaternion.Euler(0f, 0f, -data.rotation);
 
         if (data.isEdgeClipped)
         {
-            instance.Root.localScale = Vector3.one * 0.7f;
+            instance.root.localScale = Vector3.one * 0.7f;
             SetIconAlpha(instance, 0.6f);
         }
         else
         {
-            instance.Root.localScale = Vector3.one;
-            SetIconAlpha(instance, 1.0f);
+            instance.root.localScale = Vector3.one;
+            SetIconAlpha(instance, 1f);
         }
     }
 
-    // =========================================================
-    // アイコンプール管理
-    // =========================================================
-
-    private MiniMapIconInstance GetOrCreateIcon(string id, CSE_MiniMapEntityType type)
+    private MiniMapIconInstance GetOrCreateIcon(
+        string id,
+        CSE_MiniMapEntityType type)
     {
-        if (_iconPool.TryGetValue(id, out var existing))
+        if (_iconPool.TryGetValue(id, out MiniMapIconInstance existing))
             return existing;
 
         GameObject prefab = type switch
@@ -144,53 +129,59 @@ public class CS_UIMiniMapView : CS_BaseView<CS_UIMiniMapPresenter>
             CSE_MiniMapEntityType.Enemy => _enemyIconPrefab,
             CSE_MiniMapEntityType.MultiplayerAlly => _allyIconPrefab,
             CSE_MiniMapEntityType.Police => _policeIconPrefab,
+            CSE_MiniMapEntityType.Item => _itemIconPrefab,
             _ => null,
         };
 
-        if (prefab == null) return null;
+        if (prefab == null || _iconsRoot == null)
+            return null;
 
-        var go = Instantiate(prefab, _iconsRoot);
-        var rect = go.GetComponent<RectTransform>();
-        var image = go.GetComponent<Image>();
+        GameObject iconObject = Instantiate(prefab, _iconsRoot);
+        RectTransform iconRect = iconObject.GetComponent<RectTransform>();
+        Image iconImage = iconObject.GetComponentInChildren<Image>(true);
 
-        var instance = new MiniMapIconInstance(rect, image);
+        if (iconRect == null)
+        {
+            Destroy(iconObject);
+            return null;
+        }
+
+        if (iconImage != null)
+            iconImage.raycastTarget = false;
+
+        var instance = new MiniMapIconInstance(iconRect, iconImage);
         _iconPool[id] = instance;
         return instance;
     }
 
     private static void SetIconAlpha(MiniMapIconInstance instance, float alpha)
     {
-        if (instance.Image == null) return;
-        var c = instance.Image.color;
-        c.a = alpha;
-        instance.Image.color = c;
-    }
+        if (instance.image == null)
+            return;
 
-    // =========================================================
-    // クリーンアップ
-    // =========================================================
+        Color color = instance.image.color;
+        color.a = alpha;
+        instance.image.color = color;
+    }
 
     private void OnDestroy()
     {
-        foreach (var kv in _iconPool)
+        foreach (var pair in _iconPool)
         {
-            if (kv.Value.Root != null)
-                Destroy(kv.Value.Root.gameObject);
+            if (pair.Value.root != null)
+                Destroy(pair.Value.root.gameObject);
         }
+
         _iconPool.Clear();
     }
-
-    // =========================================================
-    // 内部クラス
-    // =========================================================
 
     private class MiniMapIconInstance
     {
         private readonly RectTransform _root;
         private readonly Image _image;
 
-        public RectTransform Root => _root;
-        public Image Image => _image;
+        public RectTransform root => _root;
+        public Image image => _image;
 
         public MiniMapIconInstance(RectTransform root, Image image)
         {

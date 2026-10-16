@@ -26,11 +26,20 @@ public class CS_PoliceAttack : MonoBehaviour
     private bool _isCharging = false;
     private float _chargeTimer = 0.0f;
 
+    // 今回のチャージにかける時間(溜め始めた時の溜め時間。途中で溜め時間が変わっても、進み具合が飛ばないよう覚えておく)
+    private float _chargingDuration = 1.0f;
+
+    // 次のチャージから使う溜め時間(手配度などで変わる)
+    private float _chargeTime = 0.0f;
+
     // チャージを始めた時に標的がいた位置(攻撃判定はこの位置に向かって出す)
     private Vector3 _chargeTargetPosition = Vector3.zero;
 
     // 初期化処理を行わずに攻撃するのを防ぐためのフラグ
     private bool _isInitialized = false;
+
+    // 溜め時間の下限(秒)。手配度で短くしても、攻撃を見てから避けられる時間を残す
+    private const float _minChargeTime = 0.3f;
 
     [Header("＝＝＝ 攻撃 ＝＝＝")]
     [SerializeField, Min(0f)]
@@ -42,7 +51,7 @@ public class CS_PoliceAttack : MonoBehaviour
     private float _attackInterval = 1.0f;
 
     [SerializeField, Min(1f)]
-    [Tooltip("攻撃をするまでの溜め時間(秒)")]
+    [Tooltip("攻撃をするまでの溜め時間(秒)。手配度で出現した増援は、手配度データの溜め時間を使う")]
     private float _attackChargeTime = 2.0f;
 
     [Header("＝＝＝ 攻撃判定 ＝＝＝")]
@@ -61,11 +70,14 @@ public class CS_PoliceAttack : MonoBehaviour
     // チャージを始める距離
     public float attackRange => _attackRange;
 
+    // 次のチャージから使う溜め時間(秒)
+    public float chargeTime => _chargeTime;
+
     // チャージ中か
     public bool isCharging => _isCharging;
 
     // チャージの進み具合(0:開始直後 〜 1:溜め終わり。チャージしていない時は0)
-    public float chargeProgress => _isCharging ? 1.0f - Mathf.Clamp01(_chargeTimer / _attackChargeTime) : 0.0f;
+    public float chargeProgress => _isCharging ? 1.0f - Mathf.Clamp01(_chargeTimer / _chargingDuration) : 0.0f;
 
     // チャージを始めた時に標的がいた位置
     public Vector3 chargeTargetPosition => _chargeTargetPosition;
@@ -77,7 +89,18 @@ public class CS_PoliceAttack : MonoBehaviour
     public void Setting(float attackPower)
     {
         _attackPower = attackPower;
+        _chargeTime = _attackChargeTime;
         _isInitialized = true;
+    }
+
+    /// <summary>
+    /// 次のチャージから使う溜め時間を変更するメソッド(手配度の変化など)
+    /// チャージ中の場合、その回の溜め時間は変わらない
+    /// </summary>
+    /// <param name="chargeTime">溜め時間(秒)。0以下なら、Inspectorの溜め時間に戻す</param>
+    public void ChangeChargeTime(float chargeTime)
+    {
+        _chargeTime = chargeTime > 0.0f ? Mathf.Max(_minChargeTime, chargeTime) : _attackChargeTime;
     }
 
     private void Update()
@@ -113,7 +136,8 @@ public class CS_PoliceAttack : MonoBehaviour
         if (!CS_PoliceLineOfSight.IsClear(transform.position, GetTargetCenter(target), target)) return false;
 
         _isCharging = true;
-        _chargeTimer = _attackChargeTime;
+        _chargingDuration = _chargeTime;
+        _chargeTimer = _chargingDuration;
         _chargeTargetPosition = target.position;
         return true;
     }
@@ -126,7 +150,8 @@ public class CS_PoliceAttack : MonoBehaviour
         Vector3 center = transform.position + GetAttackDirection() * _hitboxForwardOffset;
 
         // 攻撃判定には攻撃を出した位置(警察の中心)を渡し、そこから壁越しになる相手には当たらないようにする
-        CS_PoliceAttackHitbox.Create(center, transform.position, _attackPower, _hitboxRadius, _hitboxLifetime);
+        // 攻撃した警察(自分)も渡し、プレイヤー側が「警察に倒された」と判定できるようにする
+        CS_PoliceAttackHitbox.Create(center, transform.position, gameObject, _attackPower, _hitboxRadius, _hitboxLifetime);
     }
 
     /// <summary>

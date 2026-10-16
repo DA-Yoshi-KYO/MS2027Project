@@ -20,14 +20,17 @@ using UnityEngine;
  *   ・攻撃モーション中に押したボタンは「先行入力」として覚え、モーション終了と同時に派生する
  *   ・受付時間を過ぎる、または最終段が終わると待機に戻る
  * ・攻撃判定の流れ
- *   1. 操作しているプレイヤー(Owner)が、判定のタイミングでHitRpcを呼ぶ
- *   2. サーバーが正面に球状の判定を出し、当たったIDamageableのTakeDamageを呼ぶ
+ *   1. 操作しているプレイヤー(Owner)が、判定のタイミングでHitRpcを呼ぶ(手元の位置・向きも一緒に送る)
+ *   2. サーバーが、送られてきた位置・向きの正面に球状の判定を出し、当たったIDamageableのTakeDamageを呼ぶ
+ *      (手元の向きはエイムアシスト(CS_PlayerAimAssist)で補正済み。サーバー上の位置から大きく離れていれば使わない)
  *   ※ オフライン(NetworkManagerが動いていない)のテストシーンでは、その場で判定する
  * ・入力(攻撃ボタン)はCS_Playerが持っているものを使う
+ *   攻撃ボタンはインタラクト(CS_PlayerInteractor)と共有。操作できるものの近く・操作中は攻撃を出さない
  * ・フレンドリーファイアは常に有効(チーム判定なし)。IDamageableを実装していれば
  *   プレイヤーだろうと敵だろうと関係なく当たる
  * ・実際のダメージ = CSO_AttackData.CalculateDamage() × CS_PlayerStats.attackPower(倍率)
  * ・ヒットする度に、各段のGauge Gain分だけCS_PlayerSpecialGaugeが溜まる
+ *   (仕様では通常攻撃のヒットでは溜まらないため、DB_PlayerAttack1〜3のGauge Gainは0にしている)
  * ・必殺技(CS_PlayerSpecialAttack)を行っている間は、通常攻撃を行わない(isAttacking/isPerformingSpecialで排他制御)
  * ・変身中(CS_PlayerTransformation.isTransformed)でないと発動できない
  *   変身完了中はCS_PlayerTransformation側で解除できないよう制御しているため、
@@ -56,6 +59,8 @@ public class CS_PlayerAttack : NetworkBehaviour
     private CS_PlayerSpecialGauge _gauge;
     private CS_PlayerSpecialAttack _specialAttack;
     private CS_PlayerTransformation _transformation;
+    private CS_PlayerScoring _scoring;
+    private CS_PlayerInteractor _interactor;   // ケアパッケージなどの操作(攻撃と同じボタンを使う)。付いていなければnull
     private readonly Collider[] _hitBuffer = new Collider[_hitBufferSize];
     private readonly HashSet<IDamageable> _hitTargets = new HashSet<IDamageable>();
 
@@ -72,6 +77,7 @@ public class CS_PlayerAttack : NetworkBehaviour
     public event System.Action<int> onStepHitTiming;
     public int currentStep => _currentStep;               // 現在の段(0始まり、攻撃していなければ-1)
     public IReadOnlyList<CSO_AttackData> attackSteps => _attackSteps;
+    public LayerMask targetLayers => _targetLayers;       // ダメージを与える対象のレイヤー(カメラの揺れの当たり確認にも使う)
 
     private void Awake()
     {
@@ -80,6 +86,8 @@ public class CS_PlayerAttack : NetworkBehaviour
         _gauge = GetComponent<CS_PlayerSpecialGauge>();
         _specialAttack = GetComponent<CS_PlayerSpecialAttack>();
         _transformation = GetComponent<CS_PlayerTransformation>();
+        _scoring = GetComponent<CS_PlayerScoring>();
+        _interactor = GetComponent<CS_PlayerInteractor>();
 
         if (HasValidSteps()) return;
 
@@ -94,12 +102,21 @@ public class CS_PlayerAttack : NetworkBehaviour
 
         // ゲームパッドは攻撃(RT)と必殺技(RT+LT)が同じRTを共有するため、
         // LTを押しながらの場合は必殺技の合図とみなし、攻撃としては発動させない
-        if (_player.attackAction.WasPressedThisFrame() && !_player.isSpecialModifierHeld)
+        // 通常攻撃ボタンはインタラクトと共有のため、操作できるもの(ケアパッケージなど)の近く・操作中は攻撃しない
+        if (_player.attackAction.WasPressedThisFrame() && !_player.isSpecialModifierHeld && !IsInteractPriority())
         {
             OnAttackPressed();
         }
 
         UpdateCombo();
+    }
+
+    // インタラクトを攻撃より優先する状況か(操作できるものが近くにある、または操作の途中)
+    private bool IsInteractPriority()
+    {
+        if (_interactor == null) return false;
+
+        return _interactor.isInteracting || _interactor.hasInteractTarget;
     }
 
     // 攻撃ボタンが押されたときの処理
@@ -206,25 +223,30 @@ public class CS_PlayerAttack : NetworkBehaviour
     // 攻撃判定を依頼する(ダメージはサーバーで確定させる)
     private void RequestHit(int stepIndex)
     {
+        // 判定は、攻撃した本人の手元の位置・向き(エイムアシストで補正済み)で行う
+        // (サーバー上の位置・向きはNetworkTransformの同期で少し遅れるため、補正した向きがまだ届いていないことがある)
+        Vector3 position = transform.position;
+        Vector3 forward = transform.forward;
+
         // オフライン(テストシーン)では、その場で判定する
         if (!IsSpawned)
         {
-            ExecuteHit(stepIndex);
+            ExecuteHit(stepIndex, position, forward);
             return;
         }
 
-        HitRpc(stepIndex);
+        HitRpc(stepIndex, position, forward);
     }
 
     // Ownerからサーバーへ、判定の実行を依頼する
     [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Owner)]
-    private void HitRpc(int stepIndex)
+    private void HitRpc(int stepIndex, Vector3 position, Vector3 forward)
     {
-        ExecuteHit(stepIndex);
+        ExecuteHit(stepIndex, position, forward);
     }
 
     // 攻撃判定を行い、当たった相手のダメージ処理を呼ぶ(サーバー、またはオフラインで実行される)
-    private void ExecuteHit(int stepIndex)
+    private void ExecuteHit(int stepIndex, Vector3 position, Vector3 forward)
     {
         // 不正な段番号は無視する(クライアントからの値は信用しない)
         if (stepIndex < 0 || stepIndex >= _attackSteps.Length) return;
@@ -235,16 +257,30 @@ public class CS_PlayerAttack : NetworkBehaviour
         CSO_AttackData step = _attackSteps[stepIndex];
         AttackContext context = new AttackContext(transform, stepIndex);
 
-        CS_AttackHitDetector.FindTargets(transform, step, _targetLayers, _hitBuffer, _hitTargets);
+        // 送られてきた位置・向きが、サーバー上の位置から大きく離れていないか確かめてから使う
+        CS_AttackHitDetector.ResolvePose(transform, ref position, ref forward);
+        CS_AttackHitDetector.FindTargets(transform, position, forward, step, _targetLayers, _hitBuffer, _hitTargets);
 
         foreach (IDamageable target in _hitTargets)
         {
             float damage = step.CalculateDamage(context, target) * _stats.attackPower;
-            target.TakeDamage(damage);
-            CS_AttackHitDetector.TryKnockback(target, transform.position);   // 攻撃した位置から離れる方向へ下がる
+            DealDamage(target, damage);
+            CS_AttackHitDetector.TryKnockback(target, position);   // 攻撃した位置から離れる方向へ下がる
             step.OnHit(context, target);
             _gauge.Fill(step.gaugeGain);
         }
+    }
+
+    // ダメージを与える。スコア(CS_PlayerScoring)があればそれを通し、誰が倒したかをスコアに反映する
+    private void DealDamage(IDamageable target, float damage)
+    {
+        if (_scoring != null)
+        {
+            _scoring.DealDamage(target, damage);
+            return;
+        }
+
+        target.TakeDamage(damage, gameObject);
     }
 
     // 選択中に、各段の判定範囲をシーンビューへ表示する(調整用)

@@ -30,5 +30,10 @@ public enum CSE_PoliceMoveState
     /// <summary>
     /// 探索状態(標的を見失った場所・駆け付けた現場を探す)
     /// </summary>
-    Search
+    Search,
+
+    /// <summary>
+    /// 待機状態(手配度で出現した警察が、標的を見失って探し終えたあと、その付近を少し歩き回っている)
+    /// </summary>
+    Wait
 }

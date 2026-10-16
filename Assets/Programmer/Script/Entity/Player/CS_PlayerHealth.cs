@@ -16,6 +16,9 @@ using UnityEngine;
 /*
  * メモ
  * ・HP上限はCS_PlayerStats.maxHpを使う(実際の変更はCS_PlayerStats側で行う)
+ * ・現在HPは、HP上限が初めて有効な値になった時に満タンで始める(TryInitializeHp)
+ *   OnNetworkSpawnの呼ばれる順(Player.prefabのコンポーネントの並び順)によっては、CS_PlayerStatsがまだ基準値を入れておらず
+ *   HP上限が0のことがあるため、その時はHP上限が入った時(onMaxHpChanged)に初期化する(Issue #223)
  * ・現在HPと生死状態はNetworkVariableで持つ(書き込みはサーバーのみ、読み取りは全員可)
  *   → ダメージ処理は必ずサーバーで実行される(CS_PlayerAttack側の設計による)
  * ・フレンドリーファイアは常に有効。誰の攻撃でも当たる(このクラスでは区別しない)
@@ -26,6 +29,8 @@ using UnityEngine;
  *   ダメージ処理はサーバーだけで行うため、無敵の状態もサーバー(またはオフライン)だけが持つ
  * ・被弾すると(致死でなければ)、_postDamageInvincibleDuration秒(既定3秒、Inspectorで調整可能)だけ無敵になる
  *   (無敵中は上記の通りダメージを受けないため、この無敵は連続ヒットでは再スタートしない)
+ * ・最後にダメージを与えた相手(lastAttacker)を覚えておく。倒された時のスコア計算(CS_PlayerScoring)で使う
+ *   攻撃者付きのTakeDamage(damage, attacker)で受けた時だけ分かる(攻撃者無しで受けた場合はnullになる)
  * ・オフライン(NetworkManagerが動いていない)のテストシーンでも単体で動く
  */
 // ========================================
@@ -38,6 +43,7 @@ public class CS_PlayerHealth : NetworkBehaviour, IDamageable, IHealable
     [SerializeField] private float _postDamageInvincibleDuration = 3f;   // 被弾後、無敵になる秒数(0以下で無効)
 
     private CS_PlayerStats _stats;
+    private bool _isHpInitialized;   // 現在HPを満タンで初期化したか(サーバー、またはオフラインのみ)
 
     // 書き込みはサーバーのみ(NetworkVariableのデフォルト)。読み取りは全員可
     private readonly NetworkVariable<float> _currentHp = new NetworkVariable<float>();
@@ -46,11 +52,13 @@ public class CS_PlayerHealth : NetworkBehaviour, IDamageable, IHealable
     private readonly HashSet<object> _invincibleSources = new HashSet<object>();   // 無敵にしている要因(サーバー、またはオフラインでのみ意味を持つ)
     private readonly object _postDamageInvincibleSource = new object();          // 被弾後無敵の要因キー(このクラス専用)
     private Coroutine _postDamageInvincibleCoroutine;
+    private GameObject _lastAttacker;      // 最後にダメージを与えた相手(サーバー、またはオフラインでのみ意味を持つ)
 
     public float maxHp => _stats.maxHp;
     public float currentHp => _currentHp.Value;
     public bool isDead => _isDead.Value;
     public bool isInvincible => _invincibleSources.Count > 0;
+    public GameObject lastAttacker => _lastAttacker;    // 最後にダメージを与えた相手(分からなければnull)
 
     public event Action<float, float> onHpChanged;   // (current, max)
     public event Action onDeath;
@@ -66,7 +74,7 @@ public class CS_PlayerHealth : NetworkBehaviour, IDamageable, IHealable
         if (IsSpawned) return;
         if (NetworkManager.Singleton != null && NetworkManager.Singleton.IsListening) return;
 
-        _currentHp.Value = maxHp;
+        TryInitializeHp();
     }
 
     public override void OnNetworkSpawn()
@@ -75,14 +83,16 @@ public class CS_PlayerHealth : NetworkBehaviour, IDamageable, IHealable
         _isDead.OnValueChanged += HandleDeathChanged;
         _stats.onMaxHpChanged += HandleMaxHpChanged;
 
+        // HP上限(CS_PlayerStats)がまだ入っていなければ、入った時(HandleMaxHpChanged)に初期化する
         if (IsServer)
         {
-            _currentHp.Value = maxHp;
+            TryInitializeHp();
         }
     }
 
     public override void OnNetworkDespawn()
     {
+        _isHpInitialized = false;
         _currentHp.OnValueChanged -= HandleHpChanged;
         _isDead.OnValueChanged -= HandleDeathChanged;
         _stats.onMaxHpChanged -= HandleMaxHpChanged;
@@ -91,12 +101,19 @@ public class CS_PlayerHealth : NetworkBehaviour, IDamageable, IHealable
     // IDamageable実装。攻撃側から呼ばれる(サーバー、またはオフラインで実行される想定)
     public void TakeDamage(float damage)
     {
+        TakeDamage(damage, null);
+    }
+
+    // IDamageable実装(攻撃者付き)。攻撃者はlastAttackerとして覚えておく
+    public void TakeDamage(float damage, GameObject attacker)
+    {
         // ネットワーク時はサーバーのみが処理する(オフラインはそのまま通す)
         if (IsSpawned && !IsServer) return;
         if (_isDead.Value) return;
         if (isInvincible) return;
         if (damage <= 0f) return;
 
+        _lastAttacker = attacker;
         _currentHp.Value = Mathf.Max(0f, _currentHp.Value - damage);
 
         bool justDied = _currentHp.Value <= 0f;
@@ -207,8 +224,28 @@ public class CS_PlayerHealth : NetworkBehaviour, IDamageable, IHealable
     private void HandleMaxHpChanged(float newMaxHp)
     {
         if (IsSpawned && !IsServer) return;
+
+        // まだ初期化していなければ、HP上限が入ったこの時点で満タンにする(Issue #223)
+        if (!_isHpInitialized)
+        {
+            TryInitializeHp();
+            return;
+        }
+
         if (_currentHp.Value <= newMaxHp) return;
 
         _currentHp.Value = newMaxHp;
+    }
+
+    // HP上限が有効な値になっていれば、現在HPを満タンにする(最初の1回だけ。サーバー、またはオフラインのみ)
+    // CS_PlayerStats.ApplyBaseStats()より先に呼ばれるとHP上限が0のため、その時は何もせず、
+    // HP上限が入った時(HandleMaxHpChanged)にもう一度呼ばれる。Player.prefabのコンポーネントの並び順に依存しない
+    private void TryInitializeHp()
+    {
+        if (_isHpInitialized || maxHp <= 0f) return;
+
+        _isHpInitialized = true;
+        _currentHp.Value = maxHp;
+        NotifyOffline(false);
     }
 }

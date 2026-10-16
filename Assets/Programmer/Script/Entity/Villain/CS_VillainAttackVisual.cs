@@ -49,8 +49,8 @@ public class CS_VillainAttackVisual : MonoBehaviour
     private GameObject _warningEffectPrefab;
 
     [SerializeField]
-    [Tooltip("予告エフェクトを出す高さ(悪人の足元から m)")]
-    private float _warningEffectHeight = 2.2f;
+    [Tooltip("予告エフェクトを出す高さ(悪人の中心から m)")]
+    private float _warningEffectHeight = 1.6f;
 
     [Header("攻撃判定")]
     [SerializeField]

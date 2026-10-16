@@ -28,6 +28,7 @@ public class CS_UIResultView : CS_BaseView<CS_UIResultPresenter>
     [SerializeField] private TextMeshProUGUI _crimeCompletedText;   // 犯罪完遂
     [SerializeField] private TextMeshProUGUI _defeatPlayerText;     // 他P撃破
     [SerializeField] private TextMeshProUGUI _totalScoreText;       // 総合スコア
+    [SerializeField] private TextMeshProUGUI _playerNumberText;     //プレイヤーの番号
     [SerializeField] private TextMeshProUGUI _rankText;             // 順位（仮）
     [SerializeField] private TextMeshProUGUI _titleText;            // 称号（仮）
 
@@ -64,19 +65,22 @@ public class CS_UIResultView : CS_BaseView<CS_UIResultPresenter>
         // 点数は加算済みスコアをそのまま表示
         if (_defeatVillainText != null)
             _defeatVillainText.text =
-                $"倒した悪人 : {s.defeatVillainCount}人 ({s.defeatVillainScore:+#;-#;0}点)";
+                $"倒した悪人 : {s.defeatVillainCount}人 \n ({s.defeatVillainScore:+#;-#;0}点)";
 
         if (_foundByPoliceText != null)
             _foundByPoliceText.text =
-                $"警察に発見 : {s.foundByPoliceCount}回 ({s.foundByPoliceScore:+#;-#;0}点)";
+                $"警察に発見 : {s.foundByPoliceCount}回 \n ({s.foundByPoliceScore:+#;-#;0}点)";
 
         if (_crimeCompletedText != null)
             _crimeCompletedText.text =
-                $"犯罪完遂 : {s.crimeCompletedCount}回 ({s.crimeCompletedScore:+#;-#;0}点)";
+                $"犯罪完遂 : {s.crimeCompletedCount}回 \n ({s.crimeCompletedScore:+#;-#;0}点)";
 
         if (_defeatPlayerText != null)
             _defeatPlayerText.text =
-                $"他P撃破 : {s.defeatPlayerCount}人 ({s.defeatPlayerScore:+#;-#;0}点)";
+                $"他P撃破 : {s.defeatPlayerCount}人 \n ({s.defeatPlayerScore:+#;-#;0}点)";
+
+        if (_playerNumberText != null)
+            _playerNumberText.text = $"Player{data.playerNumber}";
 
         if (_totalScoreText != null)
             _totalScoreText.text = $"総合スコア : {data.totalScore}点";

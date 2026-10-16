@@ -4,7 +4,7 @@ using UnityEngine;
 using UnityEngine.Rendering.HighDefinition;
 
 /*
- * 悪人の攻撃の予告エフェクト(頭の上で赤くぴかっと光る)を作り、悪人に組み込むエディタ拡張
+ * 悪人の攻撃の予告エフェクト(こぶしで赤くぴかっと光る)を作り、悪人に組み込むエディタ拡張
  * Tools/Villain/攻撃予告エフェクトを作る から実行する(何度実行しても同じ結果になる)
  *
  * 制作者：　中出峻輔
@@ -19,7 +19,7 @@ using UnityEngine.Rendering.HighDefinition;
  *   3. プレハブ(VillainAttackWarning.prefab)を作る。Quad1枚 + CS_VillainAttackWarningEffect
  *   4. Villain.prefab・VillainBoss.prefabのCS_VillainAttackVisualのWarning Effect Prefabに設定する
  * ・光の色・明るさ・点滅の速さは、プレハブのCS_VillainAttackWarningEffectで変える
- *   大きさはプレハブ(Quad)のScale、高さはCS_VillainAttackVisualのWarning Effect Heightで変える
+ *   大きさはプレハブ(Quad)のScale、位置はCS_VillainAttackVisualのWarning Effect Bone・Offsetで変える
  */
 // ========================================
 

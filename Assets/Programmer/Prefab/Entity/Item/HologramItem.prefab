@@ -12,6 +12,7 @@ GameObject:
   - component: {fileID: 13501100002}
   - component: {fileID: 15401100002}
   - component: {fileID: 11401100002}
+  - component: {fileID: 5815378552632153182}
   m_Layer: 0
   m_Name: HologramItem
   m_TagString: Untagged
@@ -97,6 +98,19 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   ShowTopMostFoldoutHeaderGroup: 1
   _itemData: {fileID: 11400000, guid: 9d4f7b2e6a1c45d8b3e0a7c5f2d9b164, type: 2}
+--- !u!114 &5815378552632153182
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1001100002}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c658b8758a2045d69211ab3cdd6df64a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CS_ItemMiniMapIcon
+  ShowTopMostFoldoutHeaderGroup: 1
 --- !u!1 &5963616917726307360
 GameObject:
   m_ObjectHideFlags: 0

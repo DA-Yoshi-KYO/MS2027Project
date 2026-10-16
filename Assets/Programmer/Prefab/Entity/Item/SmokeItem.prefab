@@ -12,6 +12,7 @@ GameObject:
   - component: {fileID: 13501100002}
   - component: {fileID: 15401100002}
   - component: {fileID: 11401100002}
+  - component: {fileID: -4873385488429593331}
   m_Layer: 0
   m_Name: SmokeItem
   m_TagString: Untagged
@@ -97,6 +98,19 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   ShowTopMostFoldoutHeaderGroup: 1
   _itemData: {fileID: 11400000, guid: 5d1f8b3e7a2c49c6a8e4b0f2d9c7e351, type: 2}
+--- !u!114 &-4873385488429593331
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1001100002}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c658b8758a2045d69211ab3cdd6df64a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CS_ItemMiniMapIcon
+  ShowTopMostFoldoutHeaderGroup: 1
 --- !u!1 &5963616917726307360
 GameObject:
   m_ObjectHideFlags: 0

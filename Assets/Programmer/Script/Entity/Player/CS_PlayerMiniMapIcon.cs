@@ -14,6 +14,7 @@ using UnityEngine;
  * メモ
  * ・使い方はClaudeDocs/ミニマップの使い方.md参照。ここでは実際のプレイヤーへの組み込みのみ行う
  * ・自分のプレイヤー(CS_Player.isLocalPlayer)   : RegisterLocalPlayer(ミニマップの中心になる。解除のAPIは無い)
+ *   マップの回転の基準にはカメラ(CS_Player.viewTransform)を渡す(カメラが向いている方がマップの上になる)
  *   他人のプレイヤー・NPC                      : RegisterAlly(味方アイコン。消える時にUnregisterAlly)
  *   全クライアントがそれぞれ自分のミニマップに登録する(NetworkTransformで他人の位置が動く)
  * ・idは種類をまたいで重複させない(悪人・警察と混ざらないよう"Player_"を付ける)
@@ -61,7 +62,8 @@ public class CS_PlayerMiniMapIcon : NetworkBehaviour
 
         if (isLocal)
         {
-            _miniMap.RegisterLocalPlayer(transform);
+            // マップはカメラの向きで回す(体はカメラを回しても回らないため、体の向きで回すと画面と地図の向きがずれる)
+            _miniMap.RegisterLocalPlayer(transform, GetComponent<CS_Player>().viewTransform);
             return;
         }
 

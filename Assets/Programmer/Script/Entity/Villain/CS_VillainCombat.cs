@@ -24,8 +24,17 @@ using UnityEngine.AI;
  *   ただし帰還中に攻撃された場合は、反撃のため再び追跡する
  * ・グループの攻撃枠(CS_VillainGroup)
  *   追跡中は毎回攻撃枠を取りに行き、取れたら攻撃する
- *   取れなかったら、ターゲットから watchDistance 離れた位置を保って様子を見る(攻撃はしない)
+ *   取れなかったら、ターゲットを取り囲んで様子を見る(攻撃はしない。時代劇の殺陣のイメージ)
  *   攻撃枠は帰還する時・無効になる時(撃退・逃走)に空ける
+ * ・取り囲み(様子見)
+ *   様子見のメンバーの平均位置の方向を中心に、左右 surroundArcAngle 度の扇の上に、等間隔の角度で並べる
+ *   (プレイヤーの向きには合わせない。今いる側から広がるだけなので、カメラを振っても動き回らない)
+ *   → 並ぶ順番は、今ターゲットから見て左にいる人から順に割り当てる(移動中に互いの前を横切らないため)
+ *   → ターゲットから watchDistance の距離を保ったまま、円に沿って回り込む(1回に surroundStepAngle 度ずつ目的地を進める)
+ *     距離を変えないので、攻撃枠が空いて攻撃しに行くまでの時間は変わらない
+ *   → 回り込む間もターゲットの方を向いたまま、surroundSpeedMultiplier 倍の速さで横歩きする
+ *   → 並ぶ位置が壁の向こうなどNavMeshの外の時は、ターゲットとの間で壁に当たる手前に立つ(路地裏が狭い時)
+ *   → 決まった位置から surroundTolerance 以上ずれたら位置を直す(少しのずれでは動かない)
  *   スポナーを通さずシーンに直接置いた悪人はグループに属さないため、常に攻撃する
  * ・路地裏かどうかは、ターゲットの足元のNavMeshのAreaが alleyAreaName(既定: Alley)かで判定する
  *   ・プレイヤー側には何も必要ない。NavMeshのベイクと、Navigationの Areas に同名のAreaを追加しておくこと
@@ -35,8 +44,7 @@ using UnityEngine.AI;
  *   ・ランダムイベントで生成された悪人は、イベントの範囲(SetEventArea)の中も路地裏として扱う
  *   ・レイドのボス(SetEventAreaのconfineがtrue)は範囲の中に留まる
  *     範囲の中の標的に反応し、範囲の外の標的は見つけない。追いかける時も範囲の外へは出ない
- * ・isEngagedがtrueの間は犯罪の手を止める(犯罪の進行側から参照する想定)
- * ・攻撃の流れ
+ * ・isEngagedがtrueの間は犯罪の手を止める(犯罪の進行側から参照する想定) * ・攻撃の流れ
  *   ターゲットまで attackStartDistance 以内に近づくと攻撃を始める
  *   → 攻撃を始めた時にターゲットがいた位置へ向き、chargeTime 秒溜める(この間は当たらない)
  *   → hitActiveTime 秒間、正面に攻撃判定を出す(その間に入ったプレイヤーに1回ずつ当たる)
@@ -80,7 +88,8 @@ public class CS_VillainCombat : NetworkBehaviour
     private const float _arriveDistance = 0.3f;   // スポーン位置に着いたとみなす距離
     private const int _hitBufferSize = 16;        // 一度に判定できるコライダーの上限
     private const float _areaSampleRadius = 1f;   // ターゲットの足元のNavMeshを探す半径(m)
-    private const float _watchTolerance = 0.5f;   // 様子見中、watchDistanceからこれ以上ずれたら位置を直す(m)
+    private const float _surroundTolerance = 1f;  // 取り囲み中、決まった位置からこれ以上ずれたら位置を直す(m)
+    private const float _navMeshSampleRadius = 1f; // ターゲットの足元のNavMeshを探す半径(m)。取り囲む位置の計算に使う
     private const float _eyeHeight = 0.6f;        // 体の中心(transform.position)から目までの高さ(m)。煙幕の視線判定に使う
 
     private static bool _hasWarnedNoAlleyArea;    // 路地裏Areaが無い警告を出したか(全悪人で共有)
@@ -114,6 +123,19 @@ public class CS_VillainCombat : NetworkBehaviour
     [SerializeField, Min(0f)]
     [Tooltip("攻撃枠が空いていない時に、ターゲットとの間に保つ距離(m)")]
     private float _watchDistance = 3f;
+
+    [Header("取り囲み(攻撃枠が空いていない時)")]
+    [SerializeField, Range(0f, 180f)]
+    [Tooltip("様子見のメンバーの平均位置の方向から左右に、この角度(度)の範囲に並ぶ(60なら左右60度ずつ、全体で120度)")]
+    private float _surroundArcAngle = 60f;
+
+    [SerializeField, Range(1f, 180f)]
+    [Tooltip("回り込む時、1回に目的地を進める角度(度)。小さいほど円に沿って回る")]
+    private float _surroundStepAngle = 30f;
+
+    [SerializeField, Min(0f)]
+    [Tooltip("回り込む時の速さ(通常の移動速度に対する倍率)")]
+    private float _surroundSpeedMultiplier = 0.6f;
 
     [SerializeField]
     [Tooltip("プレイヤーを探す・攻撃するレイヤー")]
@@ -150,6 +172,7 @@ public class CS_VillainCombat : NetworkBehaviour
     private readonly NetworkVariable<CSE_VillainAttackPhase> _attackPhase = new NetworkVariable<CSE_VillainAttackPhase>();
 
     private State _state = State.Idle;
+    private bool _isSurrounding;             // 攻撃枠が無く、取り囲んで様子を見ているか
     private Transform _target;               // 標的(プレイヤー、または陽動ホログラム)
     private CS_PlayerHealth _targetPlayer;   // 標的がプレイヤーの時のHP(倒れたかの判定に使う)。ホログラムの時はnull
     private Vector3 _homePosition;        // スポーンした位置(犯罪を行う場所)
@@ -169,6 +192,8 @@ public class CS_VillainCombat : NetworkBehaviour
     public bool isEngaged => _state == State.Chase || _state == State.Attack;   // 臨戦態勢中か
     public bool isCommittingCrime => enabled && _state == State.Idle;             // スポーン位置で犯罪を進めているか
     public bool isAttacking => _state == State.Attack;                           // 攻撃中か(溜め・攻撃判定)
+    public bool isSurrounding => _state == State.Chase && _isSurrounding;         // 取り囲んで様子を見ているか(サーバーのみ)
+    public Transform target => _target;                                           // 標的(サーバーのみ)
     public CSE_VillainAttackPhase attackPhase => _attackPhase.Value;              // 攻撃の段階(全クライアントで参照可)
     public float chargeTime => _chargeTime;
     public CS_VillainGroup group => _group;   // 所属するグループ(サーバーのみ。スポナーを通さず置いた悪人はnull)。NPC(CS_PlayerNpcBrain)が犯罪の進み具合を見るのに使う
@@ -279,6 +304,8 @@ public class CS_VillainCombat : NetworkBehaviour
 
     private void UpdateChase()
     {
+        _isSurrounding = false;
+
         // 標的が倒れた・ホログラムが消えた時は、近くに別の標的がいればそちらを狙う
         if (!IsTargetValid() && TryEngageInRange(engageRange, true)) return;
 
@@ -296,7 +323,8 @@ public class CS_VillainCombat : NetworkBehaviour
         Vector3 toTarget = GetFlatDirection(_target.position);
         if (!TryAcquireAttackSlot())
         {
-            KeepWatchDistance(toTarget);
+            _isSurrounding = true;
+            Surround(toTarget);
             return;
         }
 
@@ -351,20 +379,53 @@ public class CS_VillainCombat : NetworkBehaviour
         _state = State.Idle;
     }
 
-    // 攻撃枠が無い間、ターゲットから watchDistance 離れた位置を保ち、ターゲットの方を向く
-    private void KeepWatchDistance(Vector3 toTarget)
+    // 攻撃枠が無い間、ターゲットを取り囲むように広がり、ターゲットの方を向いて様子を見る
+    private void Surround(Vector3 toTarget)
     {
-        float distance = toTarget.magnitude;
-        if (Mathf.Abs(distance - _watchDistance) <= _watchTolerance)
+        float slotAngle = GetSurroundSlotAngle(toTarget, out Vector3 front);
+
+        // 決まった位置の近くにいれば、止まってターゲットを見る
+        Vector3 slotPoint = GetSurroundPoint(front, slotAngle);
+        if (GetFlatDirection(slotPoint).magnitude <= _surroundTolerance)
         {
             _move.Stop();
             _move.FaceTowards(toTarget);
             return;
         }
 
-        // ターゲットから見て今いる方向に、watchDistance 離れた位置へ移動する(近すぎれば下がり、遠すぎれば近づく)
-        Vector3 fromTarget = distance > 0f ? -toTarget / distance : -transform.forward;
-        _move.MoveTo(_target.position + fromTarget * _watchDistance, moveSpeed);
+        // 円に沿って回り込むよう、今いる角度から surroundStepAngle 度だけ進めた円の上を目的地にする
+        Vector3 fromTarget = -toTarget;
+        float currentAngle = fromTarget.sqrMagnitude > 0f ? Vector3.SignedAngle(front, fromTarget, Vector3.up) : slotAngle;
+        float nextAngle = Mathf.MoveTowardsAngle(currentAngle, slotAngle, _surroundStepAngle);
+
+        Vector3 destination = ClampToEventArea(GetSurroundPoint(front, nextAngle));
+        _move.MoveToFacing(destination, moveSpeed * _surroundSpeedMultiplier, toTarget);
+    }
+
+    // 取り囲む時に並ぶ角度(扇の中心frontからの角度、右が+)
+    // 扇の中心は、ターゲットから見た取り囲んでいるメンバーの平均位置の方向(1人なら今いる方向)
+    // 同じターゲットを取り囲んでいるグループのメンバーを、左にいる人から順に扇の上へ等間隔に並べる
+    private float GetSurroundSlotAngle(Vector3 toTarget, out Vector3 front)
+    {
+        front = toTarget.sqrMagnitude > 0f ? -toTarget.normalized : -transform.forward;
+        if (_group == null) return 0f;
+
+        _group.GetSurroundOrder(this, _target, out front, out int index, out int count);
+        if (count <= 1) return 0f;
+
+        return Mathf.Lerp(-_surroundArcAngle, _surroundArcAngle, (float)index / (count - 1));
+    }
+
+    // 扇の中心(front)から angle 度の方向に、ターゲットから watchDistance 離れた位置
+    // 壁の向こうなど、ターゲットからまっすぐ行けない位置の時は、壁に当たる手前にする
+    private Vector3 GetSurroundPoint(Vector3 front, float angle)
+    {
+        Vector3 point = _target.position + Quaternion.Euler(0f, angle, 0f) * front * _watchDistance;
+
+        // ジャンプ中などでターゲットの足元にNavMeshが無い時は、そのままの位置にする(NavMeshAgentが近い所へ向かう)
+        if (!NavMesh.SamplePosition(_target.position, out NavMeshHit origin, _navMeshSampleRadius, NavMesh.AllAreas)) return point;
+
+        return NavMesh.Raycast(origin.position, point, out NavMeshHit hit, NavMesh.AllAreas) ? hit.position : point;
     }
 
     // グループに属していなければ、常に攻撃できる

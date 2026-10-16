@@ -5186,7 +5186,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::CS_PlayerTransformation
   ShowTopMostFoldoutHeaderGroup: 1
-  _transformDuration: 5
+  _transformDuration: 1
   _cooldown: 5
   _policeNotifyInterval: 10
   _policeNotifyShortenTime: 20
@@ -5570,8 +5570,8 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 3298430547158640491}
   serializedVersion: 2
-  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalRotation: {x: 0.09584575, y: -0, z: -0, w: 0.9953962}
+  m_LocalPosition: {x: 100, y: 3.560663, z: -106.87139}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -6117,7 +6117,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 8211388652041010643, guid: da07e20c2bfc65e4ca8fe6762518ce3a, type: 3}
       propertyPath: GlobalObjectIdHash
-      value: 4256807303
+      value: 2593234121
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []

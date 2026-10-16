@@ -89,6 +89,10 @@ public class CS_PoliceSquad : MonoBehaviour, IPoliceGroup
 
     [Header("＝＝＝ 巡回ルートの表示(エディタのみ) ＝＝＝")]
     [SerializeField]
+    [Tooltip("オンにすると、巡回ルートをSceneビューに表示する")]
+    private bool _showRoute = false;
+
+    [SerializeField]
     [Tooltip("巡回ルートの線の色(始点のポイント→最後のポイント→始点に戻る、の順に変化する)")]
     private Gradient _routeGradient = CreateDefaultRouteGradient();
 
@@ -103,6 +107,7 @@ public class CS_PoliceSquad : MonoBehaviour, IPoliceGroup
 
     // 巡回ルートの表示用(CSED_PoliceSquadGizmoが参照する)
     public IReadOnlyList<Transform> patrolPoints => _patrolPoints;
+    public bool showRoute => _showRoute;
     public Gradient routeGradient => _routeGradient;
     public float routeLineThickness => _routeLineThickness;
 

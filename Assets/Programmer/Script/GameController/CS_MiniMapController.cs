@@ -4,6 +4,7 @@
  * 制作者：元浪梨緒
  * ------------------------------------------------
  * 2026-09-28 | 初回作成
+ * 2026-10-16 | マップの回転の基準を、プレイヤー本体とは別に渡せるようにした(カメラの向きで回すため。秋野)
  * ================================================ */
 
 using System.Collections.Generic;
@@ -34,6 +35,8 @@ public class CS_MiniMapController : MonoBehaviour
     // =========================================================
     // 内部フィールド
     // =========================================================
+
+    private Transform _localRotationTransform;   // マップの回転の基準(nullならプレイヤー本体の向き)
 
     private CS_UIMiniMapModel _model;
     private CS_UIMiniMapPresenter _presenter;
@@ -96,9 +99,11 @@ public class CS_MiniMapController : MonoBehaviour
         // ローカルプレイヤー
         if (_localPlayerTransform != null)
         {
+            // 位置はプレイヤー本体、回転は基準(カメラなど)があればその向きを使う
+            Transform rotationSource = _localRotationTransform != null ? _localRotationTransform : _localPlayerTransform;
             _model.SetLocalPlayer(
                 _localPlayerTransform.position,
-                _localPlayerTransform.eulerAngles.y
+                rotationSource.eulerAngles.y
             );
         }
 
@@ -138,7 +143,8 @@ public class CS_MiniMapController : MonoBehaviour
     // =========================================================
 
     /// <summary>Player(Clone) 生成後に呼ぶ</summary>
-    public void RegisterLocalPlayer(Transform playerTransform)
+    /// <param name="rotationSource">マップの回転の基準(省略時はプレイヤー本体の向き)。カメラの向きで回したい時にカメラのTransformを渡す</param>
+    public void RegisterLocalPlayer(Transform playerTransform, Transform rotationSource = null)
     {
         if (playerTransform == null)
         {
@@ -146,6 +152,7 @@ public class CS_MiniMapController : MonoBehaviour
             return;
         }
         _localPlayerTransform = playerTransform;
+        _localRotationTransform = rotationSource;
     }
 
     /// <summary>敵をミニマップに登録する（スポーン時に呼ぶ）</summary>

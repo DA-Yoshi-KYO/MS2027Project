@@ -261,6 +261,9 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::CS_VillainAttackVisual
   _chargeColor: {r: 1, g: 0.5, b: 0, a: 1}
+  _warningLeadTime: 0.3
+  _warningColor: {r: 1, g: 0, b: 0, a: 1}
+  _warningEffectPrefab: {fileID: 1670149408417146658, guid: 8d1fbbdb91edce54385c9d2ace9c6a7f, type: 3}
   _showHitArea: 1
   _hitAreaMaterial: {fileID: 2100000, guid: 3d9867fd319368a40a143a64644529cb, type: 2}
 --- !u!114 &5853495017623006576
@@ -309,6 +312,9 @@ MonoBehaviour:
   _playerBaseStats: {fileID: 11400000, guid: 817504dae6f859c46802b52e2c8274fb, type: 2}
   _locomotionDamping: 0.08
   _maxTrackedSpeed: 40
+  _windupTime: 0.275
+  _strikeTime: 0.44166666
+  _strikeDuration: 0.08
 --- !u!114 &5997323292010348831
 MonoBehaviour:
   m_ObjectHideFlags: 0

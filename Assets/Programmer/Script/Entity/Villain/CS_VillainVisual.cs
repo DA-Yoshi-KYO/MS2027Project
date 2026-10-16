@@ -16,7 +16,15 @@ using UnityEngine;
  *   Animatorは全クライアントがローカルで動かす(NetworkAnimatorは使わない。プレイヤーと同じ)
  *   ・移動       : 座標の変化(NetworkTransformで同期済み)から自分で計算する
  *   ・溜め・攻撃 : 同期済みの攻撃の段階(CS_VillainCombat.attackPhase)から判定する
+ *                  経過時間は同期していないので、各クライアントが段階が変わったのを見た時刻から数える
  *   ・くらい     : 同期済みのノックバック回数(CS_VillainKnockback.knockbackCount)が増えたら再生する
+ *
+ * ■ 攻撃モーション(パンチ)の合わせ方
+ *   溜めと攻撃は同じパンチのモーションを使い、再生位置(AttackTime)をこのクラスが決める(StateのMotion Time)
+ *   ・溜め中   : 0 → windupTime(腕を引き切った位置)まで、溜め時間(chargeTime)をかけて進める
+ *   ・攻撃判定 : 出た瞬間から strikeDuration 秒で strikeTime(腕が伸び切った位置)まで進め、判定が出ている間は止める
+ *   → 溜め時間・攻撃判定の時間を変えても、腕を伸ばすタイミングは攻撃判定に合ったままになる
+ *   windupTime・strikeTimeはモーションによって違う。Tools/Villain/攻撃モーションを解析 で求めた値を設定する
  *
  * ■ 差し替え
  *   ・Animatorは自動で子オブジェクトから探す(_animatorが空のとき)。子のModelを差し替えるだけでよい
@@ -45,11 +53,26 @@ public class CS_VillainVisual : MonoBehaviour
     [Tooltip("これを超える座標の変化はテレポートとみなして無視する(m/秒)")]
     private float _maxTrackedSpeed = 40f;
 
+    [Header("攻撃モーション")]
+    [SerializeField, Range(0f, 1f)]
+    [Tooltip("攻撃モーションの中で、腕を引き切った位置(0〜1)。溜めの終わりにここで止まる")]
+    private float _windupTime = 0.3f;
+
+    [SerializeField, Range(0f, 1f)]
+    [Tooltip("攻撃モーションの中で、腕が伸び切った位置(0〜1)。攻撃判定が出ている間はここで止まる")]
+    private float _strikeTime = 0.5f;
+
+    [SerializeField, Min(0f)]
+    [Tooltip("攻撃判定が出てから、腕が伸び切るまでの時間(秒)")]
+    private float _strikeDuration = 0.08f;
+
     private CS_VillainCombat _combat;
     private CS_VillainKnockback _knockback;
     private readonly HashSet<int> _availableParams = new HashSet<int>();
     private Vector3 _lastPosition;
     private int _lastKnockbackCount;
+    private CSE_VillainAttackPhase _previousPhase;
+    private float _phaseStartTime;   // 今の攻撃の段階になったのを見た時刻
 
     private float referenceSpeed => _playerBaseStats != null && _playerBaseStats.moveSpeed > 0f ? _playerBaseStats.moveSpeed : 1f;
 
@@ -106,8 +129,32 @@ public class CS_VillainVisual : MonoBehaviour
     private void UpdateAttack()
     {
         CSE_VillainAttackPhase phase = _combat.enabled ? _combat.attackPhase : CSE_VillainAttackPhase.None;
+        if (phase != _previousPhase)
+        {
+            _previousPhase = phase;
+            _phaseStartTime = Time.time;
+        }
+
         SetBool(CS_VillainAnimatorParams.chargingHash, phase == CSE_VillainAttackPhase.Charge);
         SetBool(CS_VillainAnimatorParams.attackingHash, phase == CSE_VillainAttackPhase.Hit);
+        if (phase != CSE_VillainAttackPhase.None && Has(CS_VillainAnimatorParams.attackTimeHash))
+        {
+            _animator.SetFloat(CS_VillainAnimatorParams.attackTimeHash, GetAttackTime(phase, Time.time - _phaseStartTime));
+        }
+    }
+
+    // 攻撃モーションの再生位置(0〜1)。溜めで腕を引き、攻撃判定が出た瞬間に腕を伸ばす
+    private float GetAttackTime(CSE_VillainAttackPhase phase, float elapsed)
+    {
+        if (phase == CSE_VillainAttackPhase.Charge)
+        {
+            float chargeTime = _combat.chargeTime;
+            float progress = chargeTime > 0f ? Mathf.Clamp01(elapsed / chargeTime) : 1f;
+            return Mathf.Lerp(0f, _windupTime, progress);
+        }
+
+        float strikeProgress = _strikeDuration > 0f ? Mathf.Clamp01(elapsed / _strikeDuration) : 1f;
+        return Mathf.Lerp(_windupTime, _strikeTime, strikeProgress);
     }
 
     // ノックバック回数が増えたら、くらいモーションを再生する

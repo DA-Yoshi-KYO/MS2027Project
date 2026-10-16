@@ -37,7 +37,10 @@ using UnityEngine.AI;
  *     範囲の中の標的に反応し、範囲の外の標的は見つけない。追いかける時も範囲の外へは出ない
  * ・isEngagedがtrueの間は犯罪の手を止める(犯罪の進行側から参照する想定)
  * ・攻撃の流れ
- *   ターゲットまで attackStartDistance 以内に近づくと攻撃を始める
+ *   ターゲットまで attackStartDistance 以内に近づくと、その場で止まって攻撃を始める
+ *   (距離は中心同士。悪人・プレイヤーとも半径0.5mなので、1mだと体が接する。攻撃が届く範囲で少し離して止まる)
+ *   近づく時は、ターゲットの位置ではなく、ターゲットの手前(attackStartDistance - approachMargin)を目的地にする
+ *   (ターゲットそのものを目的地にすると、止まるまでの勢いで体を押し付けてしまうため)
  *   → 攻撃を始めた時にターゲットがいた位置へ向き、chargeTime 秒溜める(この間は当たらない)
  *   → hitActiveTime 秒間、正面に攻撃判定を出す(その間に入ったプレイヤーに1回ずつ当たる)
  *   → attackInterval 秒待ってから、次の攻撃ができる
@@ -82,6 +85,7 @@ public class CS_VillainCombat : NetworkBehaviour
     private const float _areaSampleRadius = 1f;   // ターゲットの足元のNavMeshを探す半径(m)
     private const float _watchTolerance = 0.5f;   // 様子見中、watchDistanceからこれ以上ずれたら位置を直す(m)
     private const float _eyeHeight = 0.6f;        // 体の中心(transform.position)から目までの高さ(m)。煙幕の視線判定に使う
+    private const float _approachMargin = 0.2f;   // 近づく時の目的地を、攻撃を始める距離よりどれだけ手前にするか(m)
 
     private static bool _hasWarnedNoAlleyArea;    // 路地裏Areaが無い警告を出したか(全悪人で共有)
 
@@ -96,8 +100,8 @@ public class CS_VillainCombat : NetworkBehaviour
     private CSO_AttackData _attackData;
 
     [SerializeField, Min(0f)]
-    [Tooltip("ターゲットにこの距離(m)まで近づいたら攻撃を始める")]
-    private float _attackStartDistance = 1f;
+    [Tooltip("ターゲットにこの距離(m、中心同士)まで近づいたら、止まって攻撃を始める。攻撃が届く距離にすること")]
+    private float _attackStartDistance = 1.6f;
 
     [SerializeField, Min(0f)]
     [Tooltip("攻撃を始めてから攻撃判定が出るまでの溜め時間(秒)")]
@@ -302,7 +306,7 @@ public class CS_VillainCombat : NetworkBehaviour
 
         if (toTarget.magnitude > _attackStartDistance)
         {
-            _move.MoveTo(ClampToEventArea(_target.position), moveSpeed);
+            _move.MoveTo(ClampToEventArea(GetApproachPoint(toTarget)), moveSpeed);
             return;
         }
 
@@ -365,6 +369,13 @@ public class CS_VillainCombat : NetworkBehaviour
         // ターゲットから見て今いる方向に、watchDistance 離れた位置へ移動する(近すぎれば下がり、遠すぎれば近づく)
         Vector3 fromTarget = distance > 0f ? -toTarget / distance : -transform.forward;
         _move.MoveTo(_target.position + fromTarget * _watchDistance, moveSpeed);
+    }
+
+    // 近づく時の目的地。ターゲットから見て自分がいる方向に、攻撃を始める距離より少し内側の位置
+    private Vector3 GetApproachPoint(Vector3 toTarget)
+    {
+        float distance = Mathf.Max(0f, _attackStartDistance - _approachMargin);
+        return _target.position - toTarget.normalized * distance;
     }
 
     // グループに属していなければ、常に攻撃できる

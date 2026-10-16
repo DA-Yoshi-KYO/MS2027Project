@@ -36,6 +36,11 @@ public class CSO_PoliceWantedLevelData : ScriptableObject
         [Tooltip("視野距離(警察のステータスの視野距離の代わりに使う)")]
         private float _viewDistance;
         public float viewDistance => _viewDistance;
+
+        [SerializeField, Min(0f)]
+        [Tooltip("攻撃の溜め時間(秒)。手配度が高いほど短くする。0なら、警察のステータスの溜め時間のまま")]
+        private float _attackChargeTime;
+        public float attackChargeTime => _attackChargeTime;
     }
 
     [SerializeField]

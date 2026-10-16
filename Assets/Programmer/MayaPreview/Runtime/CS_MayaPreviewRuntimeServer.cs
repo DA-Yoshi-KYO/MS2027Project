@@ -31,7 +31,7 @@ public class CS_MayaPreviewRuntimeServer : MonoBehaviour
     private const int PORT = 50001;
 
     // Mayaはcm、Unityはm。Mayaの実寸のまま表示する（Maya 170cm → Unity 1.7m、FBX取り込みと同じ）
-    private const float MAYA_TO_UNITY_SCALE = 0.01f;
+    private const float MAYA_TO_UNITY_SCALE = 1.0f;
 
     private const string MAYA_MODEL_ROOT_NAME =
         "Maya_Model_Root";

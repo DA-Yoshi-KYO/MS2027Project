@@ -31,6 +31,15 @@ MonoBehaviour:
   - name: MT_VillainAttackArea
     guid: 3d9867fd319368a40a143a64644529cb
     material: {fileID: 2100000, guid: 3d9867fd319368a40a143a64644529cb, type: 2}
+  - name: MT_PlayerMannequin
+    guid: 1ebfe4f753152d34188162aafda08c33
+    material: {fileID: 2100000, guid: 1ebfe4f753152d34188162aafda08c33, type: 2}
+  - name: MT_PlayerTransformingParticle
+    guid: c5f4ecd0e717ea64fbdffce669a6b984
+    material: {fileID: 2100000, guid: c5f4ecd0e717ea64fbdffce669a6b984, type: 2}
+  - name: MT_VillainMannequin
+    guid: 53438d18cc0d57f428ad0b5c65547da9
+    material: {fileID: 2100000, guid: 53438d18cc0d57f428ad0b5c65547da9, type: 2}
   - name: MT_Outline_N00_000_00_Body_00_SKIN
     guid: 41c3165385459724888305820ce18e80
     material: {fileID: 2100000, guid: 41c3165385459724888305820ce18e80, type: 2}
@@ -106,15 +115,6 @@ MonoBehaviour:
   - name: MT_Outline_Face
     guid: 209e97b4ebc8fb24f8759ea78e170dff
     material: {fileID: 2100000, guid: 209e97b4ebc8fb24f8759ea78e170dff, type: 2}
-  - name: MT_PlayerMannequin
-    guid: 1ebfe4f753152d34188162aafda08c33
-    material: {fileID: 2100000, guid: 1ebfe4f753152d34188162aafda08c33, type: 2}
-  - name: MT_PlayerTransformingParticle
-    guid: c5f4ecd0e717ea64fbdffce669a6b984
-    material: {fileID: 2100000, guid: c5f4ecd0e717ea64fbdffce669a6b984, type: 2}
-  - name: MT_VillainMannequin
-    guid: 53438d18cc0d57f428ad0b5c65547da9
-    material: {fileID: 2100000, guid: 53438d18cc0d57f428ad0b5c65547da9, type: 2}
   - name: MT_Mutou_HDRP_Clothes
     guid: a457bd4d7cf86274082cd610b5924822
     material: {fileID: 2100000, guid: a457bd4d7cf86274082cd610b5924822, type: 2}

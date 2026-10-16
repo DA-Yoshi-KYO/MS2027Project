@@ -31,6 +31,7 @@ using UnityEngine;
  * ・実際のダメージ = CSO_AttackData.CalculateDamage() × CS_PlayerStats.attackPower(倍率)
  * ・ヒットする度に、各段のGauge Gain分だけCS_PlayerSpecialGaugeが溜まる
  *   (仕様では通常攻撃のヒットでは溜まらないため、DB_PlayerAttack1〜3のGauge Gainは0にしている)
+ * ・動けなくなった(死亡・スタン)時はコンボを中断する
  * ・必殺技(CS_PlayerSpecialAttack)を行っている間は、通常攻撃を行わない(isAttacking/isPerformingSpecialで排他制御)
  * ・変身中(CS_PlayerTransformation.isTransformed)でないと発動できない
  *   変身完了中はCS_PlayerTransformation側で解除できないよう制御しているため、
@@ -97,8 +98,15 @@ public class CS_PlayerAttack : NetworkBehaviour
 
     private void Update()
     {
-        // 自分が操作していないプレイヤー、必殺技中、変身していない間は何もしない
-        if (!_player.canAct || _specialAttack.isPerformingSpecial || !_transformation.isTransformed) return;
+        // 動けなくなった(死亡・スタン)ら、コンボを中断する(止まっていた判定が、動けるようになった後に出ないように)
+        if (!_player.canAct)
+        {
+            if (isAttacking) ResetCombo();
+            return;
+        }
+
+        // 必殺技中、変身していない間は何もしない
+        if (_specialAttack.isPerformingSpecial || !_transformation.isTransformed) return;
 
         // ゲームパッドは攻撃(RT)と必殺技(RT+LT)が同じRTを共有するため、
         // LTを押しながらの場合は必殺技の合図とみなし、攻撃としては発動させない

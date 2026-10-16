@@ -104,6 +104,7 @@ public class CS_Player : NetworkBehaviour
     private CapsuleCollider _collider;
     private CS_PlayerHealth _health;
     private CS_PlayerStats _stats;
+    private CS_PlayerStun _stun;    // スタン(パリーされた時など)。付いていなければスタンしない
 
     private InputAction _moveAction;
     private InputAction _mouseLookAction;
@@ -136,7 +137,8 @@ public class CS_Player : NetworkBehaviour
     private float _lungeRemaining;  // 踏み込みの残り時間(秒)
 
     public bool isControlled => _isControlled;          // このプレイヤーを自分(このマシン)が操作しているか(NPCはサーバーでtrue)
-    public bool canAct => _isControlled && !_health.isDead;   // 移動・攻撃してよいか(CS_PlayerAttackも参照)
+    public bool canAct => _isControlled && !_health.isDead && !isStunned;   // 移動・攻撃してよいか(CS_PlayerAttackも参照)
+    public bool isStunned => _stun != null && _stun.isStunned;   // スタン中か(パリーされた時など。死亡中と同じく行動できない)
     public bool isNpc => _isNpc.Value;                  // NPCか(全クライアントで分かる)
     // 自分の画面のプレイヤー(このマシンで人が操作しているプレイヤー)か。HUD・ミニマップの中心などに使う
     // NPCはホストではIsOwnerがtrueになるため、IsOwnerではなくこちらを使う
@@ -185,6 +187,7 @@ public class CS_Player : NetworkBehaviour
         _collider = GetComponent<CapsuleCollider>();
         _health = GetComponent<CS_PlayerHealth>();
         _stats = GetComponent<CS_PlayerStats>();
+        _stun = GetComponent<CS_PlayerStun>();
 
         // 壁などとの衝突で回転しないよう、物理による回転はすべて止める
         // (向きはUpdateFacingのMoveRotationでのみ変える)
@@ -268,8 +271,8 @@ public class CS_Player : NetworkBehaviour
     {
         if (!_isControlled) return;
 
-        // 死亡中は操作を受け付けず、死亡時の勢いで滑り続けないよう水平方向を止める(落下は残す)
-        if (_health.isDead)
+        // 死亡中・スタン中は操作を受け付けず、その時の勢いで滑り続けないよう水平方向を止める(落下は残す)
+        if (_health.isDead || isStunned)
         {
             _isDashing = false;
             _jumpRequested = false;

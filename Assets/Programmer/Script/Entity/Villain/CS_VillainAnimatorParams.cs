@@ -27,6 +27,7 @@ public static class CS_VillainAnimatorParams
     // 攻撃(常時更新)
     public const string charging = "Charging";     // bool 攻撃の溜め中か
     public const string attacking = "Attacking";   // bool 攻撃判定が出ているか
+    public const string attackTime = "AttackTime"; // float 0〜1 攻撃モーションの再生位置(溜め・攻撃のStateのMotion Timeに使う)
 
     // 単発の動作(トリガー)
     public const string hit = "Hit";               // ノックバックした瞬間
@@ -36,5 +37,6 @@ public static class CS_VillainAnimatorParams
     public static readonly int moveZHash = Animator.StringToHash(moveZ);
     public static readonly int chargingHash = Animator.StringToHash(charging);
     public static readonly int attackingHash = Animator.StringToHash(attacking);
+    public static readonly int attackTimeHash = Animator.StringToHash(attackTime);
     public static readonly int hitHash = Animator.StringToHash(hit);
 }

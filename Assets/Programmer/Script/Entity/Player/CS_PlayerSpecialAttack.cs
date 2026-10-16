@@ -21,6 +21,7 @@ using UnityEngine;
  * ・判定・ダメージの仕組みはCS_PlayerAttackと同じ(CS_AttackHitDetector、IDamageable、サーバー確定)
  *   判定は使った本人の手元の位置・向きをサーバーへ送って行う(エイムアシストで踏み込んだ後の位置で当たるように)
  * ・必殺技自体はゲージを増やさない想定(Special Attack DataのGauge Gainは0を推奨)
+ * ・動けなくなった(死亡・スタン)時は必殺技を中断する
  * ・ダメージ倍率はCS_PlayerStats.specialAttackPowerを使う(通常攻撃のattackPowerとは別枠)
  */
 // ========================================
@@ -79,8 +80,15 @@ public class CS_PlayerSpecialAttack : NetworkBehaviour
 
     private void Update()
     {
-        // 自分が操作していないプレイヤー、コンボ攻撃中は何もしない
-        if (!_player.canAct || _attack.isAttacking) return;
+        // 動けなくなった(死亡・スタン)ら、必殺技を中断する(止まっていた判定が、動けるようになった後に出ないように)
+        if (!_player.canAct)
+        {
+            _isPerforming = false;
+            return;
+        }
+
+        // コンボ攻撃中は何もしない
+        if (_attack.isAttacking) return;
 
         if (!_isPerforming && _transformation.isTransformed && _gauge.isFull && _player.specialAction.WasPressedThisFrame())
         {

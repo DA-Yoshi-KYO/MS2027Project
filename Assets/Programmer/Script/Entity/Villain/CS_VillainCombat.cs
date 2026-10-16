@@ -44,7 +44,13 @@ using UnityEngine.AI;
  *   ・ランダムイベントで生成された悪人は、イベントの範囲(SetEventArea)の中も路地裏として扱う
  *   ・レイドのボス(SetEventAreaのconfineがtrue)は範囲の中に留まる
  *     範囲の中の標的に反応し、範囲の外の標的は見つけない。追いかける時も範囲の外へは出ない
- * ・isEngagedがtrueの間は犯罪の手を止める(犯罪の進行側から参照する想定) * ・攻撃の流れ
+ * ・isEngagedがtrueの間は犯罪の手を止める(犯罪の進行側から参照する想定)
+ * ・仲間への通知
+ *   犯罪中・帰還中から新しく臨戦態勢になった時(標的を見つけた・攻撃されて反撃する)、同じグループの仲間へ知らせる
+ *   知らされた仲間は、犯罪中なら同じ標的を追跡し始める(臨戦態勢範囲の外にいても、煙幕越しでも気付く)
+ *   帰還中の仲間は反応しない(スポーン位置に戻ってから、自分で見つけた時に反応する)
+ *   知らされて臨戦態勢になった仲間は、さらに知らせ直さない
+ * ・攻撃の流れ
  *   ターゲットまで attackStartDistance 以内に近づくと攻撃を始める
  *   → 攻撃を始めた時にターゲットがいた位置へ向き、chargeTime 秒溜める(この間は当たらない)
  *   → hitActiveTime 秒間、正面に攻撃判定を出す(その間に入ったプレイヤーに1回ずつ当たる)
@@ -531,8 +537,10 @@ public class CS_VillainCombat : NetworkBehaviour
     }
 
     // 標的を設定して追跡を始める(player: 標的がプレイヤーの時のHP。ホログラムの時はnull)
-    private void SetTarget(Transform target, CS_PlayerHealth player)
+    // notifyGroup: 臨戦態勢になった時に、同じグループの仲間へ知らせるか(仲間から知らされて臨戦態勢になる時はfalse)
+    private void SetTarget(Transform target, CS_PlayerHealth player, bool notifyGroup = true)
     {
+        bool wasEngaged = isEngaged;
         _target = target;
         _targetPlayer = player;
         _state = State.Chase;
@@ -540,6 +548,20 @@ public class CS_VillainCombat : NetworkBehaviour
         // 追跡を始めた時点では路地裏にいるものとして数え直す
         _isTargetInAlley = true;
         _outsideAlleyTime = 0f;
+
+        // 新しく臨戦態勢になった時だけ知らせる(追跡中に標的を切り替えた時は知らせない)
+        if (!wasEngaged && notifyGroup) _group?.NotifyEngaged(this, target, player);
+    }
+
+    // 同じグループの仲間が標的を見つけた時に呼ばれる(CS_VillainGroup.NotifyEngagedから。サーバーのみ)
+    // 犯罪中なら、仲間と同じ標的を追跡し始める(帰還中・既に臨戦態勢の時は何もしない)
+    public void OnAllyEngaged(Transform target, CS_PlayerHealth player)
+    {
+        if (!enabled || _state != State.Idle) return;
+        if (target == null || (player != null && !IsValidTarget(player))) return;
+        if (IsOutsideConfinedArea(target.position)) return;
+
+        SetTarget(target, player, false);
     }
 
     private void ClearTarget()

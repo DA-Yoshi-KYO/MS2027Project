@@ -79,6 +79,17 @@ public class CS_VillainGroup
         combat.SetGroup(this);
     }
 
+    // メンバーが新しく臨戦態勢になったことを、他のメンバーへ知らせる(サーバーのみ)
+    public void NotifyEngaged(CS_VillainCombat source, Transform target, CS_PlayerHealth player)
+    {
+        foreach (CS_VillainCombat combat in _combats)
+        {
+            if (combat == null || combat == source) continue;
+
+            combat.OnAllyEngaged(target, player);
+        }
+    }
+
     // 同じターゲットを取り囲んでいるメンバーの並び方を求める
     // center: ターゲットから見た、取り囲んでいるメンバーの平均位置の方向(並ぶ扇の中心)
     // index : selfが中心から見て左から何番目か / count: 全部で何人か

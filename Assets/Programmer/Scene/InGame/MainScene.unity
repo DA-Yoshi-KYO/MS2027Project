@@ -1202,7 +1202,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 3555441314568118903, guid: 2dd25abc65eb0984e82628a710faa9e1, type: 3}
       propertyPath: _initGenerateItemKinds.Array.size
-      value: 2
+      value: 4
       objectReference: {fileID: 0}
     - target: {fileID: 3555441314568118903, guid: 2dd25abc65eb0984e82628a710faa9e1, type: 3}
       propertyPath: '_initGenerateItemKinds.Array.data[0]'
@@ -1212,6 +1212,14 @@ PrefabInstance:
       propertyPath: '_initGenerateItemKinds.Array.data[1]'
       value: 
       objectReference: {fileID: 11401100002, guid: 5acf40e128491e4c86a9ef8475160a9a, type: 3}
+    - target: {fileID: 3555441314568118903, guid: 2dd25abc65eb0984e82628a710faa9e1, type: 3}
+      propertyPath: '_initGenerateItemKinds.Array.data[2]'
+      value: 
+      objectReference: {fileID: 11401100002, guid: 2e9d7b4c1a6f48e3b0c5d8a7f3e1c294, type: 3}
+    - target: {fileID: 3555441314568118903, guid: 2dd25abc65eb0984e82628a710faa9e1, type: 3}
+      propertyPath: '_initGenerateItemKinds.Array.data[3]'
+      value: 
+      objectReference: {fileID: 11401100002, guid: 4f8b2d6a1e9c47b3d5a0c8e2f6b1d934, type: 3}
     - target: {fileID: 7641094671570265366, guid: 2dd25abc65eb0984e82628a710faa9e1, type: 3}
       propertyPath: m_Name
       value: ItemManager

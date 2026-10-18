@@ -1,0 +1,542 @@
+/**
+* \brief This header include common processing of DepthOnly and DepthNormals pass.
+*/
+#ifndef NOVA_PARTICLESUBERDEPTHNORMALSCORE_INCLUDED
+#define NOVA_PARTICLESUBERDEPTHNORMALSCORE_INCLUDED
+
+
+// If defined _ALPHATEST_ENABLED or  _NORMAL_MAP_ENABLED, base map uv is enabled.
+// Also enabled if TintColor FlipBook or 3D features are used.
+#if defined( _ALPHATEST_ENABLED ) || defined(_NORMAL_MAP_ENABLED) || defined(_TINT_MAP_MODE_2D_ARRAY) || defined(_TINT_MAP_3D_ENABLED) || defined(_VERTEX_DEFORMATION_ENABLED)
+#define _USE_BASE_MAP_UV
+#endif
+
+#if !defined( _ALPHATEST_ENABLED )
+#undef _FLOW_MAP_TARGET_TINT
+#undef _FLOW_MAP_TARGET_EMISSION
+#undef _FLOW_MAP_TARGET_ALPHA_TRANSITION
+#endif
+
+#if defined( _ALPHATEST_ENABLED )
+#if defined(_FLOW_MAP_ENABLED) || defined(_FLOW_MAP_TARGET_BASE) || defined(_FLOW_MAP_TARGET_TINT) || defined(_FLOW_MAP_TARGET_EMISSION) || defined(_FLOW_MAP_TARGET_ALPHA_TRANSITION)
+        #define _USE_FLOW_MAP
+#endif
+#if defined(_FADE_TRANSITION_ENABLED) || defined(_DISSOLVE_TRANSITION_ENABLED)
+        #define _USE_TRANSITION_MAP
+#endif
+#elif defined(_USE_BASE_MAP_UV)
+#if defined(_FLOW_MAP_ENABLED)
+        #define _USE_FLOW_MAP
+#endif
+#endif
+
+#if defined( _ALPHATEST_ENABLED ) || defined(_USE_FLOW_MAP) || defined(_USE_BASE_MAP_UV)
+#define _USE_CUSTOM_COORD
+#endif
+
+
+#include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
+#include "ParticlesUberUnlit.hlsl"
+
+/**
+ * \brief Input attribute of vertex shader.
+ * \details This structure is used by DepthOnly pass and DepthNormalsPass.
+ */
+struct AttributesDrawDepth
+{
+    float4 positionOS : POSITION;
+    #if defined(FRAGMENT_USE_NORMAL_WS) || defined(_VERTEX_DEFORMATION_ENABLED)
+    float3 normalOS : NORMAL;
+    #ifdef _NORMAL_MAP_ENABLED
+    float4 tangentOS : TANGENT;
+    #endif
+    #endif
+    #ifdef _USE_BASE_MAP_UV
+    float2 texcoord : TEXCOORD0;
+    #endif
+    #ifndef NOVA_PARTICLE_INSTANCING_ENABLED
+    #ifdef _USE_CUSTOM_COORD
+    INPUT_CUSTOM_COORD(1, 2)
+    #endif
+    #endif
+    #ifdef _ALPHATEST_ENABLED // This attributes is not used for opaque objects.
+    float4 color : COLOR;
+
+    #endif
+    UNITY_VERTEX_INPUT_INSTANCE_ID
+};
+
+/**
+ * \brief Input data of the pixel shader and output data from the vertex shader.
+ * \brief This structure is used by DepthOnly pass and DepthNormalsPass.
+ */
+struct VaryingsDrawDepth
+{
+    float4 positionHCS : SV_POSITION;
+    #ifdef FRAGMENT_USE_NORMAL_WS
+    float3 normalWS : NORMAL;
+    #ifdef _NORMAL_MAP_ENABLED
+    float4 tangentWS : TANGENT;
+    float3 binormalWS : BINORMAL;
+    #endif
+    #endif
+
+    #ifdef _USE_CUSTOM_COORD
+    INPUT_CUSTOM_COORD(0, 1)
+    #endif
+
+    #ifdef _USE_BASE_MAP_UV
+    float4 baseMapUVAndProgresses : TEXCOORD2; // xy: BaseMap UV, z: Base Map Progress, w: Tint Map Progress
+    #endif
+    #if defined( _USE_FLOW_MAP ) || defined(_USE_TRANSITION_MAP)
+    float4 flowTransitionUVs : TEXCOORD3; // xy: FlowMap UV, zw: TransitionMap UV
+    #endif
+
+    #ifdef _ALPHATEST_ENABLED // This attributes is not used for opaque objects.
+    float4 color : COLOR;
+    #if defined(_TINT_MAP_ENABLED) || defined(_TINT_MAP_MODE_2D_ARRAY) || defined(_TINT_MAP_3D_ENABLED) || defined(_EMISSION_AREA_MAP) || defined(_EMISSION_MAP_MODE_2D) || defined(_EMISSION_MAP_MODE_2D_ARRAY) || defined(_EMISSION_MAP_MODE_3D)
+    float4 tintEmissionUV : TEXCOORD4; // xy: TintMap UV, zw: EmissionMap UV
+    #endif
+    float3 transitionEmissionProgresses : TEXCOORD5;
+    // x: TransitionMap Progress, y: EmissionMap Progress, z: Fog Factor
+    #ifdef FRAGMENT_USE_VIEW_DIR_WS
+    float3 viewDirWS : TEXCOORD6;
+    #endif
+
+    #ifdef USE_PROJECTED_POSITION
+    float4 projectedPosition : TEXCOORD7;
+    #endif
+    #endif
+
+    #if defined(_ALPHA_TRANSITION_BLEND_SECOND_TEX_AVERAGE) || defined(_ALPHA_TRANSITION_BLEND_SECOND_TEX_MULTIPLY)
+    float4 flowTransitionSecondUVs : TEXCOORD8; // xy: FlowMap UV, zw: TransitionMap UV
+    float2 transitionEmissionProgressesSecond : TEXCOORD9; // x: TransitionMap Progress, y: EmissionMap Progress
+    #endif
+
+    UNITY_VERTEX_INPUT_INSTANCE_ID
+};
+
+/**
+ * \brief Initialize output data from vertex shader for DepthOnly and DepthNormals pass.
+ * \param[in] input Input attributes to vertex shader.
+ * \param[in,out] output Output data from vertex shader.
+ */
+inline void InitializeVertexOutputDrawDepth(in AttributesDrawDepth input, in out VaryingsDrawDepth output)
+{
+    output.positionHCS = TransformObjectToHClip(input.positionOS.xyz);
+    #ifdef FRAGMENT_USE_NORMAL_WS
+    output.normalWS = TransformObjectToWorldNormal(input.normalOS, true);
+    #ifdef _NORMAL_MAP_ENABLED
+    CalculateTangetAndBinormalInWorldSpace(output.tangentWS, output.binormalWS,
+        output.normalWS, input.tangentOS );
+    #endif
+    #endif
+
+    #ifdef _ALPHATEST_ENABLED // This code is not used for opaque objects.
+    output.color = GetParticleColor(input.color);
+    #ifdef FRAGMENT_USE_VIEW_DIR_WS
+    float3 positionWS = TransformObjectToWorld(input.positionOS.xyz);
+    output.viewDirWS = GetWorldSpaceViewDir(positionWS);
+    #endif
+
+    #ifdef USE_PROJECTED_POSITION
+    output.projectedPosition = ComputeScreenPos(output.positionHCS);
+    #endif
+    #endif
+}
+
+/**
+ * \brief Initialize input data of fragment shader for DepthOnly and DepthNormalsPass.
+ * \param input Input data from vertex shader.
+ */
+inline void InitializeFragmentInputDrawDepth(in out VaryingsDrawDepth input)
+{
+    #ifdef FRAGMENT_USE_NORMAL_WS
+    input.normalWS = normalize(input.normalWS);
+    #endif
+
+    #ifdef _ALPHATEST_ENABLED // This code is not used for opaque objects.
+    #ifdef FRAGMENT_USE_VIEW_DIR_WS
+    input.viewDirWS = normalize(input.viewDirWS);
+    #endif
+    #endif
+}
+
+/**
+ * \brief Vertex shader entry point.
+ * \param input Input attribute.
+ * \return Return data of VaryingsDrawDepth Structure.
+ */
+VaryingsDrawDepth vert(AttributesDrawDepth input)
+{
+    VaryingsDrawDepth output = (VaryingsDrawDepth)0;
+    UNITY_SETUP_INSTANCE_ID(input);
+    UNITY_TRANSFER_INSTANCE_ID(input, output);
+    SETUP_VERTEX;
+    #ifdef _USE_CUSTOM_COORD // This code is not used for opaque objects.
+    SETUP_CUSTOM_COORD(input)
+    TRANSFER_CUSTOM_COORD(input, output);
+    #endif
+
+    // Vertex Deformation
+    #ifdef _VERTEX_DEFORMATION_ENABLED
+    float2 vertexDeformationUVs = TRANSFORM_TEX(input.texcoord.xy, _VertexDeformationMap);
+    vertexDeformationUVs.x += GET_CUSTOM_COORD(_VertexDeformationMapOffsetXCoord);
+    vertexDeformationUVs.y += GET_CUSTOM_COORD(_VertexDeformationMapOffsetYCoord);
+    float vertexDeformationIntensity = _VertexDeformationIntensity + GET_CUSTOM_COORD(_VertexDeformationIntensityCoord);
+    vertexDeformationIntensity = GetVertexDeformationIntensity(
+        _VertexDeformationMap, sampler_VertexDeformationMap,
+        vertexDeformationIntensity,
+        vertexDeformationUVs,
+        _VertexDeformationMapChannel,
+        _VertexDeformationBaseValue);
+    input.positionOS.xyz += normalize(input.normalOS) * vertexDeformationIntensity;
+    #endif
+    InitializeVertexOutputDrawDepth(input, output);
+
+    #ifdef _USE_BASE_MAP_UV
+    // Base Map UV
+    float2 baseMapUv = input.texcoord.xy;
+    if (_BaseMapRotation > 0.0 || _BaseMapRotationCoord > 0.0)
+    {
+        half angle = _BaseMapRotation + GET_CUSTOM_COORD(_BaseMapRotationCoord);
+        baseMapUv = RotateUV(baseMapUv, angle * PI * 2, _BaseMapRotationOffsets.xy);
+    }
+    baseMapUv = TRANSFORM_BASE_MAP(baseMapUv);
+    baseMapUv.x += GET_CUSTOM_COORD(_BaseMapOffsetXCoord);
+    baseMapUv.y += GET_CUSTOM_COORD(_BaseMapOffsetYCoord);
+    output.baseMapUVAndProgresses.xy = baseMapUv;
+    #endif
+
+    // Flow Map UV
+    #ifdef _USE_FLOW_MAP
+    float2 flowMapUv = input.texcoord.xy;
+
+    if (_FlowMapRotation > 0.0 || _FlowMapRotationCoord > 0.0)
+    {
+        half flowAngle = _FlowMapRotation + GET_CUSTOM_COORD(_FlowMapRotationCoord);
+        flowMapUv = RotateUV(flowMapUv, flowAngle * PI * 2, _FlowMapRotationOffsets.xy);
+    }
+
+    flowMapUv = TRANSFORM_TEX(flowMapUv, _FlowMap);
+
+    flowMapUv.x += GET_CUSTOM_COORD(_FlowMapOffsetXCoord);
+    flowMapUv.y += GET_CUSTOM_COORD(_FlowMapOffsetYCoord);
+
+    output.flowTransitionUVs.xy = flowMapUv;
+    #endif
+
+    #ifdef _USE_TRANSITION_MAP
+    // Transition Map UV
+    float2 alphaTransitionMapUv = input.texcoord.xy;
+
+    if (_AlphaTransitionMapRotation > 0.0 || _AlphaTransitionMapRotationCoord > 0.0)
+    {
+        half alphaAngle = _AlphaTransitionMapRotation + GET_CUSTOM_COORD(_AlphaTransitionMapRotationCoord);
+        alphaTransitionMapUv = RotateUV(alphaTransitionMapUv, alphaAngle * PI * 2, _AlphaTransitionMapRotationOffsets.xy);
+    }
+
+    alphaTransitionMapUv = TRANSFORM_ALPHA_TRANSITION_MAP(alphaTransitionMapUv);
+
+    alphaTransitionMapUv.x += GET_CUSTOM_COORD(_AlphaTransitionMapOffsetXCoord);
+    alphaTransitionMapUv.y += GET_CUSTOM_COORD(_AlphaTransitionMapOffsetYCoord);
+
+    output.flowTransitionUVs.zw = alphaTransitionMapUv;
+
+    #if defined(_ALPHA_TRANSITION_BLEND_SECOND_TEX_AVERAGE) || defined(_ALPHA_TRANSITION_BLEND_SECOND_TEX_MULTIPLY)
+    float2 alphaTransitionMapSecondUv = input.texcoord.xy;
+
+    if (_AlphaTransitionMapSecondTextureRotation > 0.0 || _AlphaTransitionMapSecondTextureRotationCoord > 0.0)
+    {
+        half alphaSecondAngle = _AlphaTransitionMapSecondTextureRotation + GET_CUSTOM_COORD(_AlphaTransitionMapSecondTextureRotationCoord);
+        alphaTransitionMapSecondUv = RotateUV(alphaTransitionMapSecondUv, alphaSecondAngle * PI * 2, _AlphaTransitionMapSecondTextureRotationOffsets.xy);
+    }
+
+    alphaTransitionMapSecondUv = TRANSFORM_ALPHA_TRANSITION_MAP_SECOND(alphaTransitionMapSecondUv);
+
+    alphaTransitionMapSecondUv.x += GET_CUSTOM_COORD(_AlphaTransitionMapSecondTextureOffsetXCoord);
+    alphaTransitionMapSecondUv.y += GET_CUSTOM_COORD(_AlphaTransitionMapSecondTextureOffsetYCoord);
+
+    output.flowTransitionSecondUVs.zw = alphaTransitionMapSecondUv;
+    #endif
+    #endif
+
+    #ifdef _ALPHATEST_ENABLED // This code is not used for opaque objects.
+
+    // Base Map Progress
+    #ifdef _BASE_MAP_MODE_2D_ARRAY
+    float baseMapProgress = _BaseMapProgress + GET_CUSTOM_COORD(_BaseMapProgressCoord);
+    
+    // Random Row Selection
+    #ifdef _BASE_MAP_RANDOM_ROW_SELECTION_ENABLED
+    output.baseMapUVAndProgresses.z = FlipBookProgressWithRandomRow(baseMapProgress, _BaseMapSliceCount, _BaseMapRowCount, GET_CUSTOM_COORD(_BaseMapRandomRowCoord));
+    #else
+    output.baseMapUVAndProgresses.z = FlipBookProgress(baseMapProgress, _BaseMapSliceCount);
+    #endif
+    #elif _BASE_MAP_MODE_3D
+    float baseMapProgress = _BaseMapProgress + GET_CUSTOM_COORD(_BaseMapProgressCoord);
+    
+    // Random Row Selection
+    #ifdef _BASE_MAP_RANDOM_ROW_SELECTION_ENABLED
+    output.baseMapUVAndProgresses.z = FlipBookProgressWithRandomRow(baseMapProgress, _BaseMapSliceCount, _BaseMapRowCount, GET_CUSTOM_COORD(_BaseMapRandomRowCoord));
+    #else
+    output.baseMapUVAndProgresses.z = FlipBookBlendingProgress(baseMapProgress, _BaseMapSliceCount);
+    #endif
+    #endif
+
+    // Tint Map UV
+    #if defined(_TINT_MAP_ENABLED) || defined(_TINT_MAP_MODE_2D_ARRAY) || defined(_TINT_MAP_3D_ENABLED)
+    float2 tintMapUv = input.texcoord.xy;
+
+    // Tint Map Rotation
+    if (_TintMapRotation > 0.0 || _TintMapRotationCoord > 0.0)
+    {
+        half tintAngle = _TintMapRotation + GET_CUSTOM_COORD(_TintMapRotationCoord);
+        tintMapUv = RotateUV(tintMapUv, tintAngle * PI * 2, _TintMapRotationOffsets.xy);
+    }
+
+    tintMapUv = TRANSFORM_TINT_MAP(tintMapUv);
+    tintMapUv.x += GET_CUSTOM_COORD(_TintMapOffsetXCoord);
+    tintMapUv.y += GET_CUSTOM_COORD(_TintMapOffsetYCoord);
+    output.tintEmissionUV.xy = tintMapUv;
+    #endif
+
+    // Tint Map Progress
+    #ifdef _TINT_MAP_MODE_2D_ARRAY
+    float tintMapProgress = _TintMapProgress + GET_CUSTOM_COORD(_TintMapProgressCoord);
+    
+    // Random Row Selection
+    #ifdef _TINT_MAP_RANDOM_ROW_SELECTION_ENABLED
+    output.baseMapUVAndProgresses.w = FlipBookProgressWithRandomRow(tintMapProgress, _TintMapSliceCount, _TintMapRowCount, GET_CUSTOM_COORD(_TintMapRandomRowCoord));
+    #else
+    output.baseMapUVAndProgresses.w = FlipBookProgress(tintMapProgress, _TintMapSliceCount);
+    #endif
+    #elif _TINT_MAP_3D_ENABLED
+    float tintMapProgress = _TintMap3DProgress + GET_CUSTOM_COORD(_TintMap3DProgressCoord);
+    
+    // Random Row Selection
+    #ifdef _TINT_MAP_RANDOM_ROW_SELECTION_ENABLED
+    output.baseMapUVAndProgresses.w = FlipBookBlendingProgressWithRandomRow(tintMapProgress, _TintMapSliceCount, _TintMapRowCount, GET_CUSTOM_COORD(_TintMapRandomRowCoord));
+    #else
+    output.baseMapUVAndProgresses.w = FlipBookBlendingProgress(tintMapProgress, _TintMapSliceCount);
+    #endif
+    #endif
+
+    // Transition Map Progress
+    #if defined(_ALPHA_TRANSITION_MAP_MODE_2D_ARRAY) || defined(_ALPHA_TRANSITION_MAP_MODE_3D)
+    float transitionMapProgress = _AlphaTransitionMapProgress + GET_CUSTOM_COORD(_AlphaTransitionMapProgressCoord);
+    float sliceCount = _AlphaTransitionMapSliceCount;
+    #ifdef _ALPHA_TRANSITION_MAP_MODE_2D_ARRAY
+    // Random Row Selection
+    #ifdef _ALPHA_TRANSITION_MAP_RANDOM_ROW_SELECTION_ENABLED
+    output.transitionEmissionProgresses.x = FlipBookProgressWithRandomRow(transitionMapProgress, sliceCount, _AlphaTransitionMapRowCount, GET_CUSTOM_COORD(_AlphaTransitionMapRandomRowCoord));
+    #else
+    output.transitionEmissionProgresses.x = FlipBookProgress(transitionMapProgress, sliceCount);
+    #endif
+    #elif _ALPHA_TRANSITION_MAP_MODE_3D
+    // Random Row Selection
+    #ifdef _ALPHA_TRANSITION_MAP_RANDOM_ROW_SELECTION_ENABLED
+    output.transitionEmissionProgresses.x = FlipBookBlendingProgressWithRandomRow(transitionMapProgress, sliceCount, _AlphaTransitionMapRowCount, GET_CUSTOM_COORD(_AlphaTransitionMapRandomRowCoord));
+    #else
+    output.transitionEmissionProgresses.x = FlipBookBlendingProgress(transitionMapProgress, sliceCount);
+    #endif
+    #endif
+
+    #endif
+
+    // Transition Map Progress for Second Texture
+    #if defined(_ALPHA_TRANSITION_BLEND_SECOND_TEX_AVERAGE) || defined(_ALPHA_TRANSITION_BLEND_SECOND_TEX_MULTIPLY)
+    #if defined(_ALPHA_TRANSITION_MAP_SECOND_TEXTURE_MODE_2D_ARRAY) || defined(_ALPHA_TRANSITION_MAP_SECOND_TEXTURE_MODE_3D)
+    float transitionMapProgressSecond = _AlphaTransitionMapSecondTextureProgress + GET_CUSTOM_COORD(_AlphaTransitionMapSecondTextureProgressCoord);
+    float sliceCountSecond = _AlphaTransitionMapSecondTextureSliceCount;
+    #ifdef _ALPHA_TRANSITION_MAP_SECOND_TEXTURE_MODE_2D_ARRAY
+    output.transitionEmissionProgressesSecond.x = FlipBookProgress(transitionMapProgressSecond, sliceCountSecond);
+    #elif _ALPHA_TRANSITION_MAP_SECOND_TEXTURE_MODE_3D
+    output.transitionEmissionProgressesSecond.x = FlipBookBlendingProgress(transitionMapProgressSecond, sliceCountSecond);
+    #endif
+    #endif
+    #endif
+
+    // Emission Map UV
+    #ifdef _EMISSION_AREA_MAP
+    float2 emissionMapUv = input.texcoord.xy;
+
+    if (_EmissionMapRotation > 0.0 || _EmissionMapRotationCoord > 0.0)
+    {
+        half emissionAngle = _EmissionMapRotation + GET_CUSTOM_COORD(_EmissionMapRotationCoord);
+        emissionMapUv = RotateUV(emissionMapUv, emissionAngle * PI * 2, _EmissionMapRotationOffsets.xy);
+    }
+
+    emissionMapUv = TRANSFORM_EMISSION_MAP(emissionMapUv);
+
+    emissionMapUv.x += GET_CUSTOM_COORD(_EmissionMapOffsetXCoord);
+    emissionMapUv.y += GET_CUSTOM_COORD(_EmissionMapOffsetYCoord);
+
+    output.tintEmissionUV.zw = emissionMapUv;
+    #endif
+
+    // Emission Map Progress
+    #ifdef _EMISSION_MAP_MODE_2D_ARRAY
+    float emissionMapProgress = _EmissionMapProgress + GET_CUSTOM_COORD(_EmissionMapProgressCoord);
+    
+    // Random Row Selection
+    #ifdef _EMISSION_MAP_RANDOM_ROW_SELECTION_ENABLED
+    output.transitionEmissionProgresses.y = FlipBookProgressWithRandomRow(emissionMapProgress, _EmissionMapSliceCount, _EmissionMapRowCount, GET_CUSTOM_COORD(_EmissionMapRandomRowCoord));
+    #else
+    output.transitionEmissionProgresses.y = FlipBookProgress(emissionMapProgress, _EmissionMapSliceCount);
+    #endif
+    #elif _EMISSION_MAP_MODE_3D
+    float emissionMapProgress = _EmissionMapProgress + GET_CUSTOM_COORD(_EmissionMapProgressCoord);
+    
+    // Random Row Selection
+    #ifdef _EMISSION_MAP_RANDOM_ROW_SELECTION_ENABLED
+    output.transitionEmissionProgresses.y = FlipBookBlendingProgressWithRandomRow(emissionMapProgress, _EmissionMapSliceCount, _EmissionMapRowCount, GET_CUSTOM_COORD(_EmissionMapRandomRowCoord));
+    #else
+    output.transitionEmissionProgresses.y = FlipBookBlendingProgress(emissionMapProgress, _EmissionMapSliceCount);
+    #endif
+    #endif
+
+    // NOTE : Not need in DepthNormals pass.
+    //Fog
+    // output.transitionEmissionProgresses.z = ComputeFogFactor(output.positionHCS.z);
+    #endif
+
+    return output;
+}
+
+/**
+ * \brief Fragment shader entry point.
+ * \param input Input data from vertex shader.
+ * \return If DEPTH_NORMALS_PASS is defined, this function return normal of pixel,\n
+ * but it isn't defined it return zero.
+ */
+half4 frag(VaryingsDrawDepth input) : SV_Target
+{
+    UNITY_SETUP_INSTANCE_ID(input);
+    SETUP_FRAGMENT;
+
+    #ifdef _USE_CUSTOM_COORD
+    SETUP_CUSTOM_COORD(input);
+    #endif
+
+    InitializeFragmentInputDrawDepth(input);
+
+    #if defined(_TRANSPARENCY_BY_RIM) || defined(_TINT_AREA_RIM)
+    half rim = 1.0 - abs(dot(input.normalWS, input.viewDirWS));
+    #endif
+
+    // Flow map
+    #if defined( _USE_FLOW_MAP)
+    half intensity = _FlowIntensity + GET_CUSTOM_COORD(_FlowIntensityCoord);
+    half2 flowMapUvOffset = GetFlowMapUvOffset(_FlowMap, sampler_FlowMap, intensity, input.flowTransitionUVs.xy, _FlowMapChannelsX, _FlowMapChannelsY);
+    #if defined(_FLOW_MAP_ENABLED) || defined(_FLOW_MAP_TARGET_BASE)
+        input.baseMapUVAndProgresses.xy += flowMapUvOffset;
+    #endif
+    #ifdef _FLOW_MAP_TARGET_TINT
+    #if defined(_TINT_MAP_ENABLED) || defined(_TINT_MAP_MODE_2D_ARRAY) || defined(_TINT_MAP_3D_ENABLED)
+        input.tintEmissionUV.xy += flowMapUvOffset;
+    #endif
+    #endif
+    #ifdef _FLOW_MAP_TARGET_EMISSION
+        input.tintEmissionUV.zw += flowMapUvOffset;
+    #endif
+    #ifdef _FLOW_MAP_TARGET_ALPHA_TRANSITION
+        input.flowTransitionUVs.zw += flowMapUvOffset;
+    #if defined(_ALPHA_TRANSITION_BLEND_SECOND_TEX_AVERAGE) || defined(_ALPHA_TRANSITION_BLEND_SECOND_TEX_MULTIPLY)
+        input.flowTransitionSecondUVs.zw += flowMapUvOffset;
+    #endif
+    #endif
+    #endif
+
+    #ifdef _ALPHATEST_ENABLED // This code is not used for opaque objects.
+    // Base Color
+    half4 color = SAMPLE_BASE_MAP(input.baseMapUVAndProgresses.xy, input.baseMapUVAndProgresses.z);
+
+    // Tint Color
+    #if defined(_TINT_AREA_ALL) || defined(_TINT_AREA_RIM)
+    half tintBlendRate = _TintBlendRate + GET_CUSTOM_COORD(_TintBlendRateCoord);
+    #ifdef _TINT_AREA_RIM
+    half tintRimProgress = _TintRimProgress + GET_CUSTOM_COORD(_TintRimProgressCoord);
+    half tintRimSharpness = _TintRimSharpness + GET_CUSTOM_COORD(_TintRimSharpnessCoord);
+    half tintRim = GetRimValue(rim, tintRimProgress, tintRimSharpness, _InverseTintRim);
+    tintBlendRate *= _TintBlendRate * tintRim;
+    #endif
+    #if defined(_TINT_MAP_ENABLED) || defined(_TINT_MAP_MODE_2D_ARRAY) || defined(_TINT_MAP_3D_ENABLED)
+    ApplyTintColor(color, input.tintEmissionUV.xy, input.baseMapUVAndProgresses.w, tintBlendRate);
+    #else
+    ApplyTintColor(color, half2( 0, 0 ), input.baseMapUVAndProgresses.w, tintBlendRate);
+    #endif
+    #endif
+
+    // Alpha Transition
+    #ifdef _USE_TRANSITION_MAP
+    half alphaTransitionProgress = _AlphaTransitionProgress + GET_CUSTOM_COORD(_AlphaTransitionProgressCoord);
+    ModulateAlphaTransitionProgress(alphaTransitionProgress, input.color.a);
+    #if defined(_ALPHA_TRANSITION_BLEND_SECOND_TEX_AVERAGE) || defined(_ALPHA_TRANSITION_BLEND_SECOND_TEX_MULTIPLY)
+    half alphaTransitionProgressSecondTexture = _AlphaTransitionProgressSecondTexture + GET_CUSTOM_COORD(_AlphaTransitionProgressCoordSecondTexture);
+    ModulateAlphaTransitionProgress(alphaTransitionProgressSecondTexture, input.color.a);
+    color.a *= GetTransitionAlpha(input.flowTransitionUVs.zw, input.transitionEmissionProgresses.x, alphaTransitionProgress, input.flowTransitionSecondUVs.zw, input.transitionEmissionProgressesSecond.x, alphaTransitionProgressSecondTexture);
+    #else
+    color.a *= GetTransitionAlpha(input.flowTransitionUVs.zw, input.transitionEmissionProgresses.x, alphaTransitionProgress);
+    #endif
+    #endif
+
+    // NOTE : Not need in DepthNormals pass.
+    // Color Correction
+    // ApplyColorCorrection(color.rgb);
+
+    // Vertex Color
+    ApplyVertexColor(color, input.color);
+
+    // Emission
+    half emissionIntensity = _EmissionIntensity + GET_CUSTOM_COORD(_EmissionIntensityCoord);
+    ApplyEmissionColor(color, input.tintEmissionUV.zw, emissionIntensity, input.transitionEmissionProgresses.y, _EmissionMapChannelsX);
+
+    // NOTE : Not need in DepthNormals pass.
+    // Fog
+    // half fogFactor = input.transitionEmissionProgresses.z;
+    // color.rgb = MixFog(color.rgb, fogFactor);
+
+    // Rim Transparency
+    #ifdef _TRANSPARENCY_BY_RIM
+    half rimTransparencyProgress = _RimTransparencyProgress + GET_CUSTOM_COORD(_RimTransparencyProgressCoord);
+    half rimTransparencySharpness = _RimTransparencySharpness + GET_CUSTOM_COORD(_RimTransparencySharpnessCoord);
+    ApplyRimTransparency(color, 1.0 - rim, rimTransparencyProgress, rimTransparencySharpness);
+    #endif
+
+    // Luminance Transparency
+    #ifdef _TRANSPARENCY_BY_LUMINANCE
+    half luminanceTransparencyProgress = _LuminanceTransparencyProgress + GET_CUSTOM_COORD(_LuminanceTransparencyProgressCoord);
+    half luminanceTransparencySharpness = _LuminanceTransparencySharpness + GET_CUSTOM_COORD(_LuminanceTransparencySharpnessCoord);
+    ApplyLuminanceTransparency(color, luminanceTransparencyProgress, luminanceTransparencySharpness);
+    #endif
+
+    // Soft Particle
+    #ifdef _SOFT_PARTICLES_ENABLED
+    ApplySoftParticles(color, input.projectedPosition);
+    #endif
+
+    // Depth Fade
+    #ifdef _DEPTH_FADE_ENABLED
+    ApplyDepthFade(color, input.projectedPosition);
+    #endif
+
+    AlphaClip(color.a, _Cutoff);
+
+    // NOTE : Not need in DepthNormals pass.
+    // color.rgb = ApplyAlpha(color.rgb, color.a);
+    #endif
+    #ifdef DEPTH_NORMALS_PASS
+    float3 normalWS = input.normalWS;
+    #ifdef _NORMAL_MAP_ENABLED
+    float3 normalTS = SAMPLE_NORMAL_MAP(input.baseMapUVAndProgresses.xy, input.baseMapUVAndProgresses.z,
+                                             _NormalMapBumpScale);
+    normalWS = GetNormalWS(normalTS, input.tangentWS, input.binormalWS, input.normalWS );
+    #endif
+    return half4(NormalizeNormalPerPixel(normalWS), 0.0);
+    #else
+    return half4(0.0, 0.0, 0.0, 0.0);
+    #endif
+}
+
+#endif

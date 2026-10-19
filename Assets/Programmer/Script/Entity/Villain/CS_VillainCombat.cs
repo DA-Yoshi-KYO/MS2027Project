@@ -4,9 +4,9 @@ using UnityEngine;
 using UnityEngine.AI;
 
 /*
- * 悪人のプレイヤーへの反撃を行うクラス
- * プレイヤーが臨戦態勢範囲に入る、またはプレイヤーに攻撃されると臨戦態勢になり、
- * 一番近いプレイヤーを追いかけて攻撃する
+ * 悪人のプレイヤー・警察への反撃を行うクラス
+ * プレイヤー・警察が臨戦態勢範囲に入る、または攻撃されると臨戦態勢になり、
+ * 一番近いプレイヤー(いなければ警察)を追いかけて攻撃する
  *
  * 制作者：　中出峻輔
  */
@@ -60,10 +60,18 @@ using UnityEngine.AI;
  *   判定 = 正面 hitRange 先、半径 hitRadius の球
  *   実際のダメージ = CSO_AttackData.CalculateDamage() × CS_VillainStats.attackPower
  *   → Attack DataのDamageを1にすると、攻撃力がそのままダメージになる
- * ・ダメージを与えるのはプレイヤー(CS_PlayerHealth)のみ。悪人同士では当たらない
+ * ・ダメージを与えるのはプレイヤー(CS_PlayerHealth)のみ。悪人同士では当たらない(警察はそもそもダメージを受けない)
  * ・移動速度 = プレイヤーの通常移動速度(Player Base Stats) × CS_VillainStats.moveSpeedMultiplier
  * ・移動(経路探索)はCS_VillainMove(NavMeshAgent)に任せる。このクラスは目的地を決めるだけ
- * ・どのプレイヤーに攻撃されたかは分からないため、攻撃されたら近くのプレイヤーを狙う
+ * ・攻撃されたら、攻撃者が警察ならその警察を狙う。それ以外は近くのプレイヤー(いなければ警察)を狙う
+ *   (プレイヤーの攻撃は攻撃者が渡されないことがあるため、プレイヤーは今まで通り近くから探す)
+ * ・警察(CS_PoliceBrain)
+ *   プレイヤーと同じように臨戦態勢範囲で気付き、追いかけて攻撃する(仕様: 警察に戦いを挑んで負ける)
+ *   標的にする優先度は 陽動ホログラム > プレイヤー > 警察
+ *   → 警察を追跡中に、臨戦態勢範囲にホログラム・プレイヤーが入ったら、そちらに切り替える
+ *   警察は倒せない(IDamageableではない)ので、攻撃は当たってもダメージにならない。最後は警察に倒される
+ *   警察が消える演出に入った(CS_PoliceBrainが無効になった)ら、近くに別の標的がいればそちらを狙い、いなければ帰還する
+ *   路地裏の判定などは、プレイヤーを標的にしている時と同じ(警察が表通りに出たら追跡をやめる)
  * ・陽動ホログラム(CS_Hologram)
  *   臨戦態勢範囲にホログラムがあると気付き、プレイヤーより優先して標的にする(追いかけて攻撃するが、ホログラムは消えない)
  *   気付くのは犯罪中と、プレイヤーを追跡中(攻撃中は攻撃が終わってから)。帰還中は気付かない
@@ -179,8 +187,9 @@ public class CS_VillainCombat : NetworkBehaviour
 
     private State _state = State.Idle;
     private bool _isSurrounding;             // 攻撃枠が無く、取り囲んで様子を見ているか
-    private Transform _target;               // 標的(プレイヤー、または陽動ホログラム)
-    private CS_PlayerHealth _targetPlayer;   // 標的がプレイヤーの時のHP(倒れたかの判定に使う)。ホログラムの時はnull
+    private Transform _target;               // 標的(プレイヤー、警察、または陽動ホログラム)
+    private CS_PlayerHealth _targetPlayer;   // 標的がプレイヤーの時のHP(倒れたかの判定に使う)。それ以外の時はnull
+    private CS_PoliceBrain _targetPolice;    // 標的が警察の時の行動(消える演出中かの判定に使う)。それ以外の時はnull
     private Vector3 _homePosition;        // スポーンした位置(犯罪を行う場所)
     private Quaternion _homeRotation;
     private float _scanTimer;
@@ -219,7 +228,8 @@ public class CS_VillainCombat : NetworkBehaviour
     private float engageRange => _isConfinedToEventArea
         ? Vector3.Distance(transform.position, _eventAreaCenter) + _eventAreaRadius
         : _stats.engageRange;
-    private bool isTargetHologram => _target != null && _targetPlayer == null;   // 陽動ホログラムを狙っているか
+    private bool isTargetHologram => _target != null && _targetPlayer == null && _targetPolice == null;   // 陽動ホログラムを狙っているか
+    private bool isTargetPolice => _targetPolice != null;   // 警察を狙っているか
 
     private void Awake()
     {
@@ -250,13 +260,13 @@ public class CS_VillainCombat : NetworkBehaviour
 
     private void OnEnable()
     {
-        _health.onDamaged += HandleDamaged;
+        _health.onDamagedBy += HandleDamagedBy;
         if (_knockback != null) _knockback.onKnockbackStarted += HandleKnockbackStarted;
     }
 
     private void OnDisable()
     {
-        _health.onDamaged -= HandleDamaged;
+        _health.onDamagedBy -= HandleDamagedBy;
         if (_knockback != null) _knockback.onKnockbackStarted -= HandleKnockbackStarted;
         ReleaseAttackSlot();
 
@@ -323,8 +333,8 @@ public class CS_VillainCombat : NetworkBehaviour
             return;
         }
 
-        // プレイヤーを追っている間に陽動ホログラムに気付いたら、ホログラムを狙う
-        if (!isTargetHologram) ScanHologram();
+        // 追っている標的より優先度が高い標的(ホログラム、警察を追っている時はプレイヤーも)に気付いたら、そちらを狙う
+        if (!isTargetHologram) ScanHigherPriorityTarget();
 
         Vector3 toTarget = GetFlatDirection(_target.position);
         if (!TryAcquireAttackSlot())
@@ -482,10 +492,19 @@ public class CS_VillainCombat : NetworkBehaviour
         _state = State.Chase;
     }
 
-    // 攻撃されたら、臨戦態勢でなければ近くのプレイヤーを狙う(サーバーのみ呼ばれる)
-    private void HandleDamaged()
+    // 攻撃されたら、臨戦態勢でなければ反撃する(サーバーのみ呼ばれる)
+    // 攻撃者が警察ならその警察を、それ以外は近くのプレイヤー(いなければ警察)を狙う
+    // onDamagedByは撃退より先に呼ばれるので、HPが0になった(撃退される)攻撃には反撃しない
+    private void HandleDamagedBy(GameObject attacker, float damage)
     {
-        if (isEngaged) return;
+        if (isEngaged || _health.currentHp <= 0f) return;
+
+        CS_PoliceBrain police = attacker != null ? attacker.GetComponentInParent<CS_PoliceBrain>() : null;
+        if (IsValidTarget(police) && !IsOutsideConfinedArea(police.transform.position))
+        {
+            SetTarget(police.transform, null);
+            return;
+        }
 
         // 反撃なので、ホログラムではなく攻撃してきたプレイヤー(の候補)を狙う
         TryEngageInRange(_counterSearchRange, false);
@@ -499,13 +518,23 @@ public class CS_VillainCombat : NetworkBehaviour
         return TryEngageInRange(engageRange, true);
     }
 
-    // 一定間隔ごとに、臨戦態勢範囲に陽動ホログラムがないか確認し、あれば標的をホログラムに切り替える
-    private void ScanHologram()
+    // 一定間隔ごとに、臨戦態勢範囲に今の標的より優先度が高い標的がないか確認し、あれば切り替える
+    // 陽動ホログラムは常に優先する。警察を追っている時は、プレイヤーも優先する
+    private void ScanHigherPriorityTarget()
     {
         if (!TickScanTimer()) return;
 
         Transform hologram = FindNearestHologram(engageRange);
-        if (hologram != null) SetTarget(hologram, null);
+        if (hologram != null)
+        {
+            SetTarget(hologram, null);
+            return;
+        }
+
+        if (!isTargetPolice) return;
+
+        CS_PlayerHealth player = FindNearestPlayer(engageRange);
+        if (player != null) SetTarget(player.transform, player);
     }
 
     // 確認する間隔(scanInterval)がたったか
@@ -519,6 +548,7 @@ public class CS_VillainCombat : NetworkBehaviour
     }
 
     // 指定範囲で一番近い標的を探し、見つかったら追跡を始める
+    // 優先度は 陽動ホログラム > プレイヤー > 警察
     // includeHolograms: 陽動ホログラムも探すか(見つかればプレイヤーより優先する)
     private bool TryEngageInRange(float range, bool includeHolograms)
     {
@@ -530,19 +560,28 @@ public class CS_VillainCombat : NetworkBehaviour
         }
 
         CS_PlayerHealth player = FindNearestPlayer(range);
-        if (player == null) return false;
+        if (player != null)
+        {
+            SetTarget(player.transform, player);
+            return true;
+        }
 
-        SetTarget(player.transform, player);
+        CS_PoliceBrain police = FindNearestPolice(range);
+        if (police == null) return false;
+
+        SetTarget(police.transform, null);
         return true;
     }
 
-    // 標的を設定して追跡を始める(player: 標的がプレイヤーの時のHP。ホログラムの時はnull)
+    // 標的を設定して追跡を始める(player: 標的がプレイヤーの時のHP。それ以外の時はnull)
+    // 警察かどうかは標的から調べる(仲間から知らされた時も同じように扱えるように)
     // notifyGroup: 臨戦態勢になった時に、同じグループの仲間へ知らせるか(仲間から知らされて臨戦態勢になる時はfalse)
     private void SetTarget(Transform target, CS_PlayerHealth player, bool notifyGroup = true)
     {
         bool wasEngaged = isEngaged;
         _target = target;
         _targetPlayer = player;
+        _targetPolice = player == null ? target.GetComponentInParent<CS_PoliceBrain>() : null;
         _state = State.Chase;
 
         // 追跡を始めた時点では路地裏にいるものとして数え直す
@@ -568,14 +607,17 @@ public class CS_VillainCombat : NetworkBehaviour
     {
         _target = null;
         _targetPlayer = null;
+        _targetPolice = null;
     }
 
-    // 標的がまだ狙える状態か(プレイヤーは倒れていない、ホログラムは消えていない)
+    // 標的がまだ狙える状態か(プレイヤーは倒れていない、警察は消える演出中でない、ホログラムは消えていない)
     private bool IsTargetValid()
     {
-        if (_target == null) return false;   // Destroy(Despawn)されたホログラム・プレイヤーもnull扱いになる
+        if (_target == null) return false;   // Destroy(Despawn)されたホログラム・プレイヤー・警察もnull扱いになる
 
-        return _targetPlayer == null || IsValidTarget(_targetPlayer);
+        if (_targetPlayer != null) return IsValidTarget(_targetPlayer);
+        if (_targetPolice != null) return IsValidTarget(_targetPolice);
+        return true;
     }
 
     // 指定範囲で、見えている(煙幕に遮られていない)一番近い陽動ホログラムを探す
@@ -628,9 +670,42 @@ public class CS_VillainCombat : NetworkBehaviour
         return nearest;
     }
 
+    // 指定範囲で、見えている(煙幕に遮られていない)一番近い警察を探す
+    private CS_PoliceBrain FindNearestPolice(float range)
+    {
+        int count = Physics.OverlapSphereNonAlloc(
+            transform.position, range, _hitBuffer, _targetLayers, QueryTriggerInteraction.Ignore);
+
+        Vector3 eyePosition = transform.position + Vector3.up * _eyeHeight;
+        CS_PoliceBrain nearest = null;
+        float nearestSqr = float.MaxValue;
+        for (int i = 0; i < count; i++)
+        {
+            CS_PoliceBrain police = _hitBuffer[i].GetComponentInParent<CS_PoliceBrain>();
+            if (!IsValidTarget(police)) continue;
+            if (IsOutsideConfinedArea(police.transform.position)) continue;
+
+            // 煙幕の中にいる・煙幕越しの警察は見えない(プレイヤーと同じ)
+            if (CS_SmokeScreen.IsLineBlocked(eyePosition, _hitBuffer[i].bounds.center)) continue;
+
+            float sqr = (police.transform.position - transform.position).sqrMagnitude;
+            if (sqr >= nearestSqr) continue;
+
+            nearest = police;
+            nearestSqr = sqr;
+        }
+        return nearest;
+    }
+
     private bool IsValidTarget(CS_PlayerHealth player)
     {
         return player != null && !player.isDead;
+    }
+
+    // 消える演出中の警察は行動が止まっている(CS_PoliceBrainが無効になる)ので、標的にしない
+    private bool IsValidTarget(CS_PoliceBrain police)
+    {
+        return police != null && police.isActiveAndEnabled;
     }
 
     // 路地裏のArea名からエリアマスクを求める(起動時に1回だけ)

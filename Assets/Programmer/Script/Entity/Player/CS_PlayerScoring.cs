@@ -16,6 +16,8 @@ using UnityEngine;
  *                     撃破スコアは相手のIDefeatScoreから読む(無ければ_defaultVillainScore。データ表: A 100 / B 150)
  *   犯罪を完遂された: -_crimeCompletedPenalty(既定20)。どの悪人グループの犯罪でも、全プレイヤーが減点される
  *   警察に見つかった: -_foundByPolicePenalty(既定50)。警察が新しく自分を標的にするたびに減点される
+ *                     ただし一度見つかったら_foundByPoliceInterval秒(既定5)は見つかっていない扱いにする
+ *                     (その間は減点も、暗躍ボーナスの途切れも起きない。複数の警察に続けて見つかっても1回分)
  *   他プレイヤーを倒した: +_defeatPlayerScore(仕様に点数が無いため既定0。回数は数える)
  *   ※ 警察に倒されたこと自体では減点しない(仕様の減点は「見つかった数」のため)
  * ・誰が倒したかは、攻撃側(CS_PlayerAttack / CS_PlayerSpecialAttack)がDealDamage経由でダメージを与え、
@@ -26,6 +28,8 @@ using UnityEngine;
  *   次のどれかで連続撃破数を0に戻す(次の撃破が1人目になる)
  *     変身を解く(CS_PlayerTransformationの状態が通常に戻る) / HPが0になる / 警察に見つかる(ReportFoundByPolice)
  * ・警察に見つかったことは、警察側(CS_PoliceBrain)が新しく標的にした瞬間にReportFoundByPolice()で知らせてくれる
+ * ・他プレイヤーを倒した時は、倒された相手の番号をRPCで全員へ配り、各クライアントでキル通知(CS_NotificationController.ShowKill)を出す
+ *   表示名は「Player{番号+1}」(仮)。NPCも同じプレハブなので同じ形で出る
  * ・悪人を倒した時は、onVillainDefeatedで知らせる(必殺ゲージ(CS_PlayerSpecialGauge)が、倒した本人の分だけ溜める)
  * ・スコアはサーバーだけが計算する(攻撃判定・悪人の処理がサーバーで行われるため)
  * ・オフライン(NetworkManagerが動いていない)のテストシーンでも単体で動く
@@ -47,6 +51,7 @@ public class CS_PlayerScoring : NetworkBehaviour
     [Header("減点")]
     [SerializeField] private int _crimeCompletedPenalty = 20;   // 犯罪を完遂された時に減る点数
     [SerializeField] private int _foundByPolicePenalty = 50;    // 警察に見つかった時に減る点数
+    [SerializeField] private float _foundByPoliceInterval = 5f; // 一度見つかってから、次に見つかった扱いにするまでの秒数
 
     [Header("他プレイヤー撃破")]
     [SerializeField] private int _defeatPlayerScore = 0;        // 他プレイヤーを倒した時の点数(仕様未定のため既定0)
@@ -56,6 +61,7 @@ public class CS_PlayerScoring : NetworkBehaviour
     private CS_PlayerTransformation _transformation;
 
     private int _streak;    // 暗躍ボーナスの連続撃破数(サーバー、またはオフラインでのみ意味を持つ)
+    private double _nextFoundByPoliceTime = double.MinValue;    // この時刻までは警察に見つかっても数えない(サーバー、またはオフラインのみ)
 
     public int streak => _streak;
 
@@ -98,6 +104,11 @@ public class CS_PlayerScoring : NetworkBehaviour
     {
         if (!CanScore()) return;
 
+        // 前に見つかってから_foundByPoliceInterval秒経っていなければ数えない
+        double now = GetCurrentTime();
+        if (now < _nextFoundByPoliceTime) return;
+        _nextFoundByPoliceTime = now + _foundByPoliceInterval;
+
         ResetStreak();
         _holder.AddFoundByPolice(-_foundByPolicePenalty);
     }
@@ -120,7 +131,32 @@ public class CS_PlayerScoring : NetworkBehaviour
         if (target is CS_PlayerHealth player && player != _health)
         {
             _holder.AddDefeatPlayer(_defeatPlayerScore);
+            NotifyKill(player);
         }
+    }
+
+    // 倒された相手の番号を全員へ配り、キル通知を出す
+    private void NotifyKill(CS_PlayerHealth victim)
+    {
+        CS_Player victimPlayer = victim.GetComponentInParent<CS_Player>();
+        if (victimPlayer == null) return;
+
+        if (IsSpawned) NotifyKillRpc(victimPlayer.playerNumber);
+        else ShowKill(victimPlayer.playerNumber);  // オフラインのテストシーン
+    }
+
+    [Rpc(SendTo.Everyone)]
+    private void NotifyKillRpc(int victimNumber)
+    {
+        ShowKill(victimNumber);
+    }
+
+    private static void ShowKill(int victimNumber)
+    {
+        CS_NotificationController notification = FindAnyObjectByType<CS_NotificationController>();
+        if (notification == null) return;
+
+        notification.ShowKill($"Player{victimNumber + 1}");
     }
 
     // 連続撃破数に応じた暗躍ボーナスの倍率(_bonusStartCount人目から_bonusStepずつ上がる)
@@ -172,6 +208,16 @@ public class CS_PlayerScoring : NetworkBehaviour
     private bool CanScore()
     {
         return !IsSpawned || IsServer;
+    }
+
+    private double GetCurrentTime()
+    {
+        return IsSpawned ? NetworkManager.ServerTime.Time : Time.timeAsDouble;
+    }
+
+    private void OnValidate()
+    {
+        _foundByPoliceInterval = Mathf.Max(0f, _foundByPoliceInterval);
     }
 
     // 倒されていないか(悪人・プレイヤー以外は倒れることが無いものとして扱う)

@@ -18,7 +18,7 @@ using UnityEngine.AI;
  *   オンライン: サーバー/ホスト以外は何もしない(生成したNetworkObjectが同期されてくる)
  *   オフライン(NetworkManagerが動いていないテストシーン): その場で生成する
  * ・スポーン位置はシーン上のCS_VillainSpawnPointを起動時に1回だけ取得する
- *   今の遊び方(CS_GameModeStore)と同じモードのスポーン位置だけを使う(マルチとソロで同じフィールドを使うため)
+ *   usePointsが設定されていれば、その中だけを使う(ソロで、フィールドの路地裏のうち使う所だけを選ぶため)
  *   使用中(グループが残っている)のスポーン位置には生成しない
  * ・ゲームの経過時間による変化(timeScaling)
  *   設定されていれば、生成時の経過時間の段階で、1グループの人数・HP・犯罪完遂時間・攻撃力を決める
@@ -52,6 +52,11 @@ public class CS_VillainSpawner : MonoBehaviour
     [SerializeField]
     [Tooltip("生成する悪人の種類。メンバーごとにランダムで選ばれる")]
     private NetworkObject[] _villainPrefabs;
+
+    [Header("スポーン位置")]
+    [SerializeField]
+    [Tooltip("使うスポーン位置。空ならシーンのスポーン位置を全部使う")]
+    private CS_VillainSpawnPoint[] _usePoints;
 
     [Header("時間経過による変化")]
     [SerializeField]
@@ -120,13 +125,13 @@ public class CS_VillainSpawner : MonoBehaviour
 
         if (!HasValidPrefabs()) return;
 
-        // 今の遊び方(マルチ/ソロ)用のスポーン位置だけを使う
-        _spawnPoints = System.Array.FindAll(
-            FindObjectsByType<CS_VillainSpawnPoint>(FindObjectsSortMode.None),
-            point => point.mode == CS_GameModeStore.mode);
+        // 使うスポーン位置が選ばれていればその中だけ、無ければシーンの全部を使う
+        _spawnPoints = _usePoints != null && _usePoints.Length > 0
+            ? System.Array.FindAll(_usePoints, point => point != null)
+            : FindObjectsByType<CS_VillainSpawnPoint>(FindObjectsSortMode.None);
         if (_spawnPoints.Length == 0)
         {
-            Debug.LogError($"CS_VillainSpawner: シーンに{CS_GameModeStore.mode}用のCS_VillainSpawnPointがありません", this);
+            Debug.LogError("CS_VillainSpawner: 使えるCS_VillainSpawnPointがありません", this);
             return;
         }
 

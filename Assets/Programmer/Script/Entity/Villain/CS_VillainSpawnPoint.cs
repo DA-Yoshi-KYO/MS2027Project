@@ -16,8 +16,6 @@ using UnityEngine;
  * ・グループがいなくなる(全滅・犯罪完遂の逃走)と、しばらくリスポーンを待つ状態(isCoolingDown)になる
  *   待ち時間の開始と、待ち中でも生成してよいかの判断はCS_VillainSpawnerが行う
  * ・Sceneビューで選択すると、生成範囲が赤い円で表示される
- * ・mode のスポーン位置は、その遊び方の時だけ使われる(CS_VillainSpawnerが見分ける)
- *   路地裏(BackAlley)に入っている物はマルチ用。ソロ用は SoloGameObjects の中に置き、mode を Solo にする
  */
 // ========================================
 
@@ -27,15 +25,10 @@ public class CS_VillainSpawnPoint : MonoBehaviour
     [Tooltip("グループのメンバーを並べる円の半径(m)")]
     private float _groupRadius = 1.5f;
 
-    [SerializeField]
-    [Tooltip("どの遊び方(マルチ/ソロ)で使うスポーン位置か")]
-    private CSE_GameMode _mode = CSE_GameMode.Multi;
-
     private bool _isOccupied;
     private float _cooldownEndTime;   // リスポーンの待ちが終わる時刻(Time.time)
 
     public float groupRadius => _groupRadius;
-    public CSE_GameMode mode => _mode;
 
     // グループが生成されていて、まだ残っているか
     public bool isOccupied

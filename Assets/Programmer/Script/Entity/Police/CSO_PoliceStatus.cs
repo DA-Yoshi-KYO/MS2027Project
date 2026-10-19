@@ -38,6 +38,11 @@ public class CSO_PoliceStatus : ScriptableObject
     private float _viewDistance;
     public float viewDistance => _viewDistance;
 
+    [SerializeField, Min(0f)]
+    [Tooltip("視野の高さ(自分の目の高さから、上下にこの距離以内にいる標的だけが見える。二階など、高さの違う場所の標的を見つけないようにする)")]
+    private float _viewHeight = 3.0f;
+    public float viewHeight => _viewHeight;
+
     [Header("＝＝＝ 攻撃力 ＝＝＝")]
     [SerializeField, Min(10000f)]
     [Tooltip("攻撃力(プレイヤーを一撃で倒すため、プレイヤーの最大体力より大きい値にする)")]

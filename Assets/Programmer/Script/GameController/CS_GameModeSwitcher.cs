@@ -4,6 +4,7 @@
  * 制作者：吉田京志郎
  * ------------------------------------------------
  * 2026-10-19 | 初回作成
+ * 2026-10-19 | ソロ用の物をプレハブから生成せず、シーンに置いた物を切り替えるように変更
  * ================================================ */
 
 using UnityEngine;
@@ -12,15 +13,16 @@ using UnityEngine;
 /*
  * メモ
  * ・ゲームシーンに1つ置き、遊び方(CS_GameModeStore)に合わせてシーンの配置物を切り替える
- *   マルチ: 何もしない(シーンに置いたマルチ用の配置物がそのまま動く)
- *   ソロ  : マルチ専用の物を無効にし、ソロ用の配置プレハブを生成する
+ *   マルチ: ソロ用の物を無効にする(マルチ用の配置物はそのまま動く)
+ *   ソロ  : マルチ専用の物を無効にし、ソロ用の物を有効にする
  * ・フィールド(建物・道路)は両方の遊び方で共通なので、ここには入れない
  * ・マルチ専用の物: 悪人スポナー、手配度マネージャー、アイテム生成、巡回警察、ランダムイベント、
- *                   出現点・生成点、ソロでは要らないUI(ランキング、頭上の順位など)
- * ・ソロ用の配置プレハブ: 上と同じ種類の物をソロ用のDBで設定したもの + 遊べる範囲(CS_PlayArea)と範囲の壁
- *   ランダムイベントは入れない
+ *                   出現点・生成点、ソロでは要らないUI(ランキング)
+ * ・ソロ用の物(SoloGameObjects): 上と同じ種類の物をソロ用のDBで設定したもの + 遊べる範囲(CS_PlayArea)と範囲の壁
+ *   シーンに置いておくので、フィールドを見ながら出現点や範囲を直せる
+ *   編集中に表示したまま保存しても、マルチではここで無効にするので問題ない
  * ・他のスポナーはStartで出現点を探すので、それより前(Awake)に切り替える
- *   そのため実行順を早めている
+ *   そのため実行順を早めている(他の物のAwakeより先に無効にできる)
  * ・ソロは通信せずに遊ぶので、マルチ専用の物にNetworkObjectが含まれていても無効にしてよい
  */
 // ========================================
@@ -28,22 +30,26 @@ using UnityEngine;
 public class CS_GameModeSwitcher : MonoBehaviour
 {
     [SerializeField][Tooltip("ソロの時に無効にする物(マルチ専用の配置物・UI)")] private GameObject[] _multiOnlyObjects;
-    [SerializeField][Tooltip("ソロの時に生成する配置プレハブ")] private GameObject _soloLayoutPrefab;
+    [SerializeField][Tooltip("ソロの時だけ有効にする物(シーンに置いたSoloGameObjects)")] private GameObject _soloObjects;
 
     void Awake()
     {
-        if (!CS_GameModeStore.isSolo) return;
+        bool isSolo = CS_GameModeStore.isSolo;
 
-        foreach (GameObject target in _multiOnlyObjects)
+        // 先に片方を無効にしてから、もう片方を有効にする(両方が同時に動く瞬間を作らない)
+        if (isSolo)
         {
-            if (target != null) target.SetActive(false);
+            foreach (GameObject target in _multiOnlyObjects)
+            {
+                if (target != null) target.SetActive(false);
+            }
         }
 
-        if (_soloLayoutPrefab == null)
+        if (_soloObjects == null)
         {
-            Debug.LogError("CS_GameModeSwitcher: Solo Layout Prefab が未設定です", this);
+            Debug.LogError("CS_GameModeSwitcher: Solo Objects が未設定です", this);
             return;
         }
-        Instantiate(_soloLayoutPrefab);
+        _soloObjects.SetActive(isSolo);
     }
 }

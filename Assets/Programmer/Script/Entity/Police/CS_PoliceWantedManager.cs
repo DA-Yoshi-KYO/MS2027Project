@@ -424,6 +424,9 @@ public class CS_PoliceWantedManager : MonoBehaviour
             // 建物の中など、歩ける場所(NavMesh)が近くに無い位置には出現させない
             if (!NavMesh.SamplePosition(candidate, out NavMeshHit hit, _navMeshSearchDistance, NavMesh.AllAreas)) continue;
 
+            // ソロで遊べる範囲を狭めている時は、範囲の外には出現させない(CS_PlayArea)
+            if (!CS_PlayArea.Contains(hit.position)) continue;
+
             // 屋根の上・閉じた区画など、プレイヤーまで歩いて行けない場所には出現させない
             if (!CanReach(hit.position, center)) continue;
 

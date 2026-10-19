@@ -404,7 +404,7 @@ MonoBehaviour:
   _policePrefab: {fileID: 769974262908060740, guid: 6dc8d9277d6c9e946a9d1237009a748a, type: 3}
   _spawnPoint: {fileID: 5254328759413048311}
   _memberStatuses:
-  - {fileID: 11400000, guid: 047b3aaf3c777874096d259e0127665b, type: 2}
+  - {fileID: 11400000, guid: 3f8fbd9b4ec9e294eab5c18728f6a273, type: 2}
   _playerBaseStats: {fileID: 11400000, guid: 817504dae6f859c46802b52e2c8274fb, type: 2}
   _patrolPoints:
   - {fileID: 1677499403624177551}
@@ -1881,7 +1881,7 @@ MonoBehaviour:
   _policePrefab: {fileID: 769974262908060740, guid: 6dc8d9277d6c9e946a9d1237009a748a, type: 3}
   _spawnPoint: {fileID: 5320856413491416763}
   _memberStatuses:
-  - {fileID: 11400000, guid: 047b3aaf3c777874096d259e0127665b, type: 2}
+  - {fileID: 11400000, guid: 3f8fbd9b4ec9e294eab5c18728f6a273, type: 2}
   _playerBaseStats: {fileID: 11400000, guid: 817504dae6f859c46802b52e2c8274fb, type: 2}
   _patrolPoints:
   - {fileID: 3696777388846525820}
@@ -2322,8 +2322,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::CS_VillainSpawner
   _villainPrefabs:
-  - {fileID: 7937220719263797659, guid: 156f42c7a862f454782e20589af74ea2, type: 3}
-  _timeScaling: {fileID: 11400000, guid: 8eccc71d25911be43bfd63c68e612e03, type: 2}
+  - {fileID: 2032511979435760629, guid: 4ec0c1856ca510c458096bda2171c5f4, type: 3}
+  _timeScaling: {fileID: 11400000, guid: 2ff437065ca25ef49938e0e1b8d75fcb, type: 2}
   _minMembers: 5
   _maxMembers: 6
   _maxAttackersPerGroup: 2
@@ -3279,7 +3279,7 @@ MonoBehaviour:
   _policePrefab: {fileID: 769974262908060740, guid: 6dc8d9277d6c9e946a9d1237009a748a, type: 3}
   _spawnPoint: {fileID: 8810823626655698795}
   _memberStatuses:
-  - {fileID: 11400000, guid: 047b3aaf3c777874096d259e0127665b, type: 2}
+  - {fileID: 11400000, guid: 3f8fbd9b4ec9e294eab5c18728f6a273, type: 2}
   _playerBaseStats: {fileID: 11400000, guid: 817504dae6f859c46802b52e2c8274fb, type: 2}
   _patrolPoints:
   - {fileID: 266869474900968248}
@@ -3406,7 +3406,7 @@ MonoBehaviour:
   _policePrefab: {fileID: 769974262908060740, guid: 6dc8d9277d6c9e946a9d1237009a748a, type: 3}
   _spawnPoint: {fileID: 7657230861726421186}
   _memberStatuses:
-  - {fileID: 11400000, guid: 047b3aaf3c777874096d259e0127665b, type: 2}
+  - {fileID: 11400000, guid: 3f8fbd9b4ec9e294eab5c18728f6a273, type: 2}
   _playerBaseStats: {fileID: 11400000, guid: 817504dae6f859c46802b52e2c8274fb, type: 2}
   _patrolPoints:
   - {fileID: 8182449108150829595}
@@ -5106,6 +5106,14 @@ PrefabInstance:
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: 3840000000000000003, guid: ca8844fdd034404e9100da0dc65e4705, type: 3}
+      propertyPath: _status
+      value: 
+      objectReference: {fileID: 11400000, guid: 3f8fbd9b4ec9e294eab5c18728f6a273, type: 2}
+    - target: {fileID: 3840000000000000003, guid: ca8844fdd034404e9100da0dc65e4705, type: 3}
+      propertyPath: _levelData
+      value: 
+      objectReference: {fileID: 11400000, guid: f096fb46f0380464d96aff7c9afebb65, type: 2}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []

@@ -58,7 +58,8 @@ public class CS_PlayerRankOverheadUI : NetworkBehaviour
 
         if (CS_GameModeStore.isSolo)
         {
-            if (_rankOverhead != null) _rankOverhead.gameObject.SetActive(false);
+            // 順位UIはPlayerの子に置いてある(プレイヤー本体を消さないよう、子の時だけ無効にする)
+            if (_rankOverhead != null && _rankOverhead.gameObject != gameObject) _rankOverhead.gameObject.SetActive(false);
             return;
         }
 

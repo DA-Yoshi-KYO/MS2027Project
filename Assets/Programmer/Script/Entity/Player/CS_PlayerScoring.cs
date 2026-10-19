@@ -28,6 +28,8 @@ using UnityEngine;
  *   次のどれかで連続撃破数を0に戻す(次の撃破が1人目になる)
  *     変身を解く(CS_PlayerTransformationの状態が通常に戻る) / HPが0になる / 警察に見つかる(ReportFoundByPolice)
  * ・警察に見つかったことは、警察側(CS_PoliceBrain)が新しく標的にした瞬間にReportFoundByPolice()で知らせてくれる
+ * ・他プレイヤーを倒した時は、倒された相手の番号をRPCで全員へ配り、各クライアントでキル通知(CS_NotificationController.ShowKill)を出す
+ *   表示名は「Player{番号+1}」(仮)。NPCも同じプレハブなので同じ形で出る
  * ・悪人を倒した時は、onVillainDefeatedで知らせる(必殺ゲージ(CS_PlayerSpecialGauge)が、倒した本人の分だけ溜める)
  * ・スコアはサーバーだけが計算する(攻撃判定・悪人の処理がサーバーで行われるため)
  * ・オフライン(NetworkManagerが動いていない)のテストシーンでも単体で動く
@@ -129,7 +131,32 @@ public class CS_PlayerScoring : NetworkBehaviour
         if (target is CS_PlayerHealth player && player != _health)
         {
             _holder.AddDefeatPlayer(_defeatPlayerScore);
+            NotifyKill(player);
         }
+    }
+
+    // 倒された相手の番号を全員へ配り、キル通知を出す
+    private void NotifyKill(CS_PlayerHealth victim)
+    {
+        CS_Player victimPlayer = victim.GetComponentInParent<CS_Player>();
+        if (victimPlayer == null) return;
+
+        if (IsSpawned) NotifyKillRpc(victimPlayer.playerNumber);
+        else ShowKill(victimPlayer.playerNumber);  // オフラインのテストシーン
+    }
+
+    [Rpc(SendTo.Everyone)]
+    private void NotifyKillRpc(int victimNumber)
+    {
+        ShowKill(victimNumber);
+    }
+
+    private static void ShowKill(int victimNumber)
+    {
+        CS_NotificationController notification = FindAnyObjectByType<CS_NotificationController>();
+        if (notification == null) return;
+
+        notification.ShowKill($"Player{victimNumber + 1}");
     }
 
     // 連続撃破数に応じた暗躍ボーナスの倍率(_bonusStartCount人目から_bonusStepずつ上がる)

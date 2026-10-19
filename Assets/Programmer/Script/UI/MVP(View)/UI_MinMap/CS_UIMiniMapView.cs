@@ -10,7 +10,10 @@ using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 
-/// <summary>ミニマップのView。静止画PNG + uvRectスクロール方式。</summary>
+/// <summary>
+/// ミニマップのView。
+/// 静止画PNG + uvRectスクロール方式。
+/// </summary>
 public class CS_UIMiniMapView : CS_BaseView<CS_UIMiniMapPresenter>
 {
     [Header("背景（静止画PNGをセットしたRawImage）")]
@@ -28,6 +31,7 @@ public class CS_UIMiniMapView : CS_BaseView<CS_UIMiniMapPresenter>
     [SerializeField] private GameObject _allyIconPrefab;
     [SerializeField] private GameObject _policeIconPrefab;
     [SerializeField] private GameObject _itemIconPrefab;
+    [SerializeField] private GameObject _randomEventIconPrefab;
 
     [Header("表示設定")]
     [SerializeField] private float _miniMapDisplayRadius = 185f;
@@ -37,7 +41,8 @@ public class CS_UIMiniMapView : CS_BaseView<CS_UIMiniMapPresenter>
     [SerializeField, Min(0)] private float _debugMetersPerPixel;
     [SerializeField, Min(0)] private float _debugVisibleRange;
 
-    private readonly Dictionary<string, MiniMapIconInstance> _iconPool = new();
+    private readonly Dictionary<string, MiniMapIconInstance>
+        _iconPool = new();
 
     public override void SetPresenter(CS_UIMiniMapPresenter presenter)
     {
@@ -46,10 +51,15 @@ public class CS_UIMiniMapView : CS_BaseView<CS_UIMiniMapPresenter>
 
     public void Render(MiniMapViewData data)
     {
-        if (_mapImage != null && data.mapRadius > 0f && _miniMapDisplayRadius > 0f)
+        if (_mapImage != null &&
+            data.mapRadius > 0f &&
+            data.mapWorldSize > 0f &&
+            _miniMapDisplayRadius > 0f)
         {
             float imageWidth = _mapImage.rectTransform.rect.width;
-            float imageWorldSize = imageWidth * data.mapRadius / _miniMapDisplayRadius;
+            float imageWorldSize =
+                imageWidth * data.mapRadius / _miniMapDisplayRadius;
+
             float uvSize = imageWorldSize / data.mapWorldSize;
 
             _mapImage.uvRect = new Rect(
@@ -59,8 +69,12 @@ public class CS_UIMiniMapView : CS_BaseView<CS_UIMiniMapPresenter>
                 uvSize
             );
 
-            _debugPixelsPerMeter = _miniMapDisplayRadius / data.mapRadius;
-            _debugMetersPerPixel = data.mapRadius / _miniMapDisplayRadius;
+            _debugPixelsPerMeter =
+                _miniMapDisplayRadius / data.mapRadius;
+
+            _debugMetersPerPixel =
+                data.mapRadius / _miniMapDisplayRadius;
+
             _debugVisibleRange = imageWorldSize;
         }
 
@@ -81,22 +95,31 @@ public class CS_UIMiniMapView : CS_BaseView<CS_UIMiniMapPresenter>
 
         foreach (MiniMapIconData icon in data.icons)
         {
-            activeIds.Add(icon.id);
-            RenderIcon(icon);
+            string poolKey = BuildPoolKey(icon.id, icon.type);
+            activeIds.Add(poolKey);
+            RenderIcon(icon, poolKey);
         }
 
         foreach (var pair in _iconPool)
-            pair.Value.root.gameObject.SetActive(activeIds.Contains(pair.Key));
+        {
+            pair.Value.root.gameObject.SetActive(
+                activeIds.Contains(pair.Key)
+            );
+        }
     }
 
-    private void RenderIcon(MiniMapIconData data)
+    private void RenderIcon(
+        MiniMapIconData data,
+        string poolKey)
     {
-        MiniMapIconInstance instance = GetOrCreateIcon(data.id, data.type);
+        MiniMapIconInstance instance =
+            GetOrCreateIcon(poolKey, data.type);
 
         if (instance == null)
             return;
 
         instance.root.gameObject.SetActive(true);
+
         instance.root.anchoredPosition = new Vector2(
             data.normalizedX * _miniMapDisplayRadius,
             data.normalizedY * _miniMapDisplayRadius
@@ -118,11 +141,15 @@ public class CS_UIMiniMapView : CS_BaseView<CS_UIMiniMapPresenter>
     }
 
     private MiniMapIconInstance GetOrCreateIcon(
-        string id,
+        string poolKey,
         CSE_MiniMapEntityType type)
     {
-        if (_iconPool.TryGetValue(id, out MiniMapIconInstance existing))
+        if (_iconPool.TryGetValue(
+            poolKey,
+            out MiniMapIconInstance existing))
+        {
             return existing;
+        }
 
         GameObject prefab = type switch
         {
@@ -130,6 +157,7 @@ public class CS_UIMiniMapView : CS_BaseView<CS_UIMiniMapPresenter>
             CSE_MiniMapEntityType.MultiplayerAlly => _allyIconPrefab,
             CSE_MiniMapEntityType.Police => _policeIconPrefab,
             CSE_MiniMapEntityType.Item => _itemIconPrefab,
+            CSE_MiniMapEntityType.RandomEvent => _randomEventIconPrefab,
             _ => null,
         };
 
@@ -137,8 +165,11 @@ public class CS_UIMiniMapView : CS_BaseView<CS_UIMiniMapPresenter>
             return null;
 
         GameObject iconObject = Instantiate(prefab, _iconsRoot);
-        RectTransform iconRect = iconObject.GetComponent<RectTransform>();
-        Image iconImage = iconObject.GetComponentInChildren<Image>(true);
+        RectTransform iconRect =
+            iconObject.GetComponent<RectTransform>();
+
+        Image iconImage =
+            iconObject.GetComponentInChildren<Image>(true);
 
         if (iconRect == null)
         {
@@ -149,12 +180,28 @@ public class CS_UIMiniMapView : CS_BaseView<CS_UIMiniMapPresenter>
         if (iconImage != null)
             iconImage.raycastTarget = false;
 
-        var instance = new MiniMapIconInstance(iconRect, iconImage);
-        _iconPool[id] = instance;
+        var instance = new MiniMapIconInstance(
+            iconRect,
+            iconImage
+        );
+
+        _iconPool[poolKey] = instance;
         return instance;
     }
 
-    private static void SetIconAlpha(MiniMapIconInstance instance, float alpha)
+    /// <summary>
+    /// 種類が異なるエンティティで同じIDを使っても衝突しないキーを作る。
+    /// </summary>
+    private static string BuildPoolKey(
+        string id,
+        CSE_MiniMapEntityType type)
+    {
+        return $"{type}:{id}";
+    }
+
+    private static void SetIconAlpha(
+        MiniMapIconInstance instance,
+        float alpha)
     {
         if (instance.image == null)
             return;
@@ -183,7 +230,9 @@ public class CS_UIMiniMapView : CS_BaseView<CS_UIMiniMapPresenter>
         public RectTransform root => _root;
         public Image image => _image;
 
-        public MiniMapIconInstance(RectTransform root, Image image)
+        public MiniMapIconInstance(
+            RectTransform root,
+            Image image)
         {
             _root = root;
             _image = image;

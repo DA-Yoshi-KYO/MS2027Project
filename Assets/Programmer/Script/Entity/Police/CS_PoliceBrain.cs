@@ -168,7 +168,7 @@ public class CS_PoliceBrain : MonoBehaviour
     {
         _group = group;
         _move.Setting(speedTable);
-        _vision.Setting(status.viewAngle, status.viewDistance);
+        _vision.Setting(status.viewAngle, status.viewDistance, status.viewHeight);
         _attack.Setting(status.attackPower);
 
         _state = CSE_PoliceMoveState.Patrol;

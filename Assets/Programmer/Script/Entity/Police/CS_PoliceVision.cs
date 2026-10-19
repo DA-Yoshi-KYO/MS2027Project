@@ -33,6 +33,9 @@ public class CS_PoliceVision : MonoBehaviour
     // 視野距離
     private float _viewDistance = 0.0f;
 
+    // 視野の高さ(目の高さから、上下にこの距離以内の標的だけが見える)
+    private float _viewHeight = 0.0f;
+
     // 初期化処理を行わずに判定するのを防ぐためのフラグ
     private bool _isInitialized = false;
 
@@ -51,6 +54,9 @@ public class CS_PoliceVision : MonoBehaviour
     // 視野距離
     public float viewDistance => _viewDistance;
 
+    // 視野の高さ
+    public float viewHeight => _viewHeight;
+
     // 視野角に関係なく気付く距離
     public float noticeDistance => _noticeDistance;
 
@@ -59,10 +65,12 @@ public class CS_PoliceVision : MonoBehaviour
     /// </summary>
     /// <param name="viewAngle">視野角度(視野全体の幅)</param>
     /// <param name="viewDistance">視野距離</param>
-    public void Setting(float viewAngle, float viewDistance)
+    /// <param name="viewHeight">視野の高さ(目の高さから、上下にこの距離以内の標的だけが見える)</param>
+    public void Setting(float viewAngle, float viewDistance, float viewHeight)
     {
         _viewAngle = viewAngle;
         _viewDistance = viewDistance;
+        _viewHeight = viewHeight;
         _isInitialized = true;
     }
 
@@ -97,7 +105,7 @@ public class CS_PoliceVision : MonoBehaviour
         {
             Collider targetCollider = _overlapBuffer[i];
             Transform candidate = GetTargetRoot(targetCollider, out int candidatePriority);
-            if (candidate == null || !IsVisible(targetCollider.bounds.center, candidate)) continue;
+            if (candidate == null || !IsVisible(targetCollider.bounds.center, candidate, candidate == currentTarget)) continue;
 
             SelectBetterTarget(candidate, candidatePriority, currentTarget, ref bestTarget, ref bestSqrDistance, ref priority);
         }
@@ -106,7 +114,7 @@ public class CS_PoliceVision : MonoBehaviour
         foreach (CS_Hologram hologram in CS_Hologram.activeHolograms)
         {
             Transform candidate = hologram.transform;
-            if (!IsVisible(candidate.position, candidate)) continue;
+            if (!IsVisible(candidate.position, candidate, candidate == currentTarget)) continue;
 
             SelectBetterTarget(candidate, hologramPriority, currentTarget, ref bestTarget, ref bestSqrDistance, ref priority);
         }
@@ -191,13 +199,17 @@ public class CS_PoliceVision : MonoBehaviour
     /// </summary>
     /// <param name="targetPosition">標的の中心の位置</param>
     /// <param name="targetRoot">標的の本体</param>
+    /// <param name="isChasing">今追っている標的か(追っている標的は、階段を上り下りして高さが離れても見失わないよう、視野の高さを見ない)</param>
     /// <returns>見えていればtrue</returns>
-    private bool IsVisible(Vector3 targetPosition, Transform targetRoot)
+    private bool IsVisible(Vector3 targetPosition, Transform targetRoot, bool isChasing)
     {
         Vector3 eyePosition = transform.position + Vector3.up * _eyeHeight;
 
-        // 距離と角度は水平方向だけで判定する(高さの差で見えなくならないように)
+        // 目の高さから視野の高さより離れている標的は見えない(二階にいる標的など)
         Vector3 toTarget = targetPosition - eyePosition;
+        if (!isChasing && Mathf.Abs(toTarget.y) > _viewHeight) return false;
+
+        // 距離と角度は水平方向だけで判定する(高さの差で見えなくならないように)
         Vector3 flatToTarget = new Vector3(toTarget.x, 0.0f, toTarget.z);
         Vector3 flatForward = new Vector3(transform.forward.x, 0.0f, transform.forward.z);
 

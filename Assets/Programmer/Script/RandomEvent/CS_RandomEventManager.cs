@@ -25,6 +25,12 @@ using UnityEngine;
  *      クライアントにもRPCで知らせ、同じ内容のCS_RandomEventContextで呼ぶ(UI・ミニマップ・演出用)
  *   候補が空・空いている発生地点が無い場合は、そのタイミングでは何も起きない
  *
+ * ■ イベント発生の通知
+ *   開始の時(サーバー・クライアントとも)に、CS_NotificationController.ShowEvent でイベント名(displayName)を画面に出す
+ *   クライアントにはRPCで開始が届いた時に出すので、全員の画面に出る
+ *   CS_NotificationControllerは、最初に通知を出す時に探す(イベントの発生はまれなので、見つかるまで毎回探してもよい)
+ *   シーンに無い場合(テストシーンなど)は通知を出さない
+ *
  * ■ 経過時間
  *   CS_TimerController(ゲームのタイマー)から取る。シーンに無ければ、このクラスが動き始めてからの時間を使う
  *   オンラインでタイマーがまだSpawnされていない間は、終了時刻が未設定で正しい値が取れないので使わない
@@ -58,6 +64,7 @@ public class CS_RandomEventManager : NetworkBehaviour
     private bool[] _isTimingDone;                 // 各タイミングを処理済みか
     private readonly List<CS_RandomEventContext> _activeEvents = new List<CS_RandomEventContext>();
     private CS_TimerController _timer;
+    private CS_NotificationController _notification;   // イベント発生の通知を出す先。見つかるまではnull
     private float _startTime;                     // 動き始めた時刻(タイマーが無い時の経過時間に使う)
     private float _checkTimer;
     private int _nextId = 1;
@@ -159,7 +166,7 @@ public class CS_RandomEventManager : NetworkBehaviour
         _activeEvents.Add(context);
 
         context.randomEvent.OnStart(context);
-        onEventStarted?.Invoke(context);
+        NotifyStarted(context);
         if (IsSpawned) NotifyStartedRpc(context.id, timingIndex, candidateIndex, pointIndex, elapsedTime);
     }
 
@@ -217,7 +224,16 @@ public class CS_RandomEventManager : NetworkBehaviour
 
         CS_RandomEventContext context = new CS_RandomEventContext(id, candidates[candidateIndex], _points[pointIndex], startTime);
         _activeEvents.Add(context);
+        NotifyStarted(context);
+    }
+
+    // イベントが始まったことを購読側に知らせ、画面にイベント名を出す(サーバー・クライアントとも)
+    private void NotifyStarted(CS_RandomEventContext context)
+    {
         onEventStarted?.Invoke(context);
+
+        if (_notification == null) _notification = FindAnyObjectByType<CS_NotificationController>();
+        if (_notification != null) _notification.ShowEvent(context.randomEvent.displayName);
     }
 
     [Rpc(SendTo.NotServer)]

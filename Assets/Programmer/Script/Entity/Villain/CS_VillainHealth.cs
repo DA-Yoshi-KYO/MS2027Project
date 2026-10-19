@@ -43,9 +43,9 @@ public class CS_VillainHealth : NetworkBehaviour, IDamageable
     public bool isDefeated => _isDefeated;
 
     public event Action<float, float> onHpChanged;   // (current, max)
-    public event Action onDamaged;                    // ダメージを受けた時(サーバーのみ)。反撃の開始に使う
+    public event Action onDamaged;                    // ダメージを受けて撃退されなかった時(サーバーのみ)
     public event Action onDefeated;                   // この悪人が撃退された時(サーバーのみ)
-    public event Action<GameObject, float> onDamagedBy;   // (攻撃者 / 分からなければnull, 実際に減ったHP)。撃退より先に呼ばれる(サーバーのみ)
+    public event Action<GameObject, float> onDamagedBy;   // (攻撃者 / 分からなければnull, 実際に減ったHP)。撃退より先に呼ばれる(サーバーのみ)。反撃の開始に使う
 
     // どの悪人が撃退されても呼ばれる(サーバーのみ)。スコア加算など、悪人全体を見る側の購読用
     public static event Action<CS_VillainHealth> onAnyVillainDefeated;

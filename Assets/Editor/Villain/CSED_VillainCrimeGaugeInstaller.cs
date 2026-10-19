@@ -4,7 +4,7 @@ using UnityEditor.SceneManagement;
 using UnityEngine;
 
 /*
- * 開いているシーンの全スポーン位置(CS_VillainSpawnPoint)に、犯罪完遂ゲージを組み込むエディタ拡張
+ * 開いているシーン(またはプレハブ)の全スポーン位置(CS_VillainSpawnPoint)に、犯罪完遂ゲージを組み込むエディタ拡張
  * Tools/Villain/犯罪完遂ゲージをスポーン位置に組み込む から実行する(何度実行しても同じ結果になる)
  *
  * 制作者：　中出峻輔
@@ -19,13 +19,15 @@ using UnityEngine;
  *   3. 直下にゲージ(VillainCrimeGaugeCanvas.prefab)を置き、CS_VillainCrimeGaugeに設定する
  * ・ゲージはスポーン位置から gaugeHeight 上に置く(悪人の頭より上)。置いた後に位置を変えてもよい
  * ・スポーン位置を増やした時も、このメニューを実行し直せばよい
- * ・シーンは保存しないので、確認してから保存する
+ * ・プレハブ編集モードで開いている時は、そのプレハブの中のスポーン位置に組み込む(BackAlleyなど)
+ *   開いていない時は、開いているシーンの全スポーン位置に組み込む
+ * ・シーン・プレハブは保存しないので、確認してから保存する
  */
 // ========================================
 
 public static class CSED_VillainCrimeGaugeInstaller
 {
-    private const string _gaugePrefabPath = "Assets/Programmer/Prefab/UI/InGame/VillainCrimeGaugeCanvas.prefab";
+    private const string _gaugePrefabPath = "Assets/Programmer/Prefab/UI/InGame/Villain/VillainCrimeGaugeCanvas.prefab";
     private const string _gaugeName = "VillainCrimeGaugeCanvas";
     private const float _gaugeHeight = 2.3f;   // スポーン位置(体の中心の高さ)からの高さ(m)
 
@@ -39,10 +41,22 @@ public static class CSED_VillainCrimeGaugeInstaller
             return;
         }
 
-        CS_VillainSpawnPoint[] points = Object.FindObjectsByType<CS_VillainSpawnPoint>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+        // プレハブ編集モード中は、開いているプレハブの中だけを対象にする
+        PrefabStage prefabStage = PrefabStageUtility.GetCurrentPrefabStage();
+        CS_VillainSpawnPoint[] points = prefabStage != null
+            ? prefabStage.prefabContentsRoot.GetComponentsInChildren<CS_VillainSpawnPoint>(true)
+            : Object.FindObjectsByType<CS_VillainSpawnPoint>(FindObjectsInactive.Include, FindObjectsSortMode.None);
+
         foreach (CS_VillainSpawnPoint point in points)
         {
             InstallTo(point, gaugePrefab);
+        }
+
+        if (prefabStage != null)
+        {
+            EditorSceneManager.MarkSceneDirty(prefabStage.scene);
+            Debug.Log($"CSED_VillainCrimeGaugeInstaller: プレハブ「{prefabStage.prefabContentsRoot.name}」の{points.Length}か所のスポーン位置に犯罪完遂ゲージを組み込みました(プレハブは未保存)");
+            return;
         }
 
         EditorSceneManager.MarkAllScenesDirty();

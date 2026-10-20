@@ -1,4 +1,5 @@
 ﻿using UnityEngine;
+using UnityEngine.Rendering;
 
 /*
  * ダッシュ中に集中線などの画面効果をかけるクラス
@@ -14,8 +15,8 @@
  * ・かける条件はCS_PlayerCameraFov(ダッシュ中に画角を広げる)と同じ
  *   ブリンク中(CS_Player.isDashing) または スプリント中(isSprinting)で実際に動いている時
  *   (止まってダッシュボタンを押しているだけの時はかけない)
- * ・見た目(線の本数・太さなど)は_speedLinesのVolume Profile(CSV_SpeedLines)で、
- *   出し入れの速さは_speedLines(CSO_ScreenEffectData)のFade In / Fade Outで調整する
+ * ・見た目(線の本数・太さなど)も出し入れの速さも、_speedLinesのVolume Profileで調整する
+ *   見た目: CSV_SpeedLines、出し入れの速さ: CSV_ScreenEffectTimingのFade In Time / Fade Out Time
  * ・自分の画面のプレイヤーかどうかの判定はCS_PlayerScreenEffect側で行う
  */
 // ========================================
@@ -26,7 +27,7 @@
 public class CS_PlayerDashScreenEffect : MonoBehaviour
 {
     [Header("かける効果")]
-    [SerializeField] private CSO_ScreenEffectData _speedLines;   // ダッシュ中にかける効果
+    [SerializeField] private VolumeProfile _speedLines;   // ダッシュ中にかける効果
 
     [Header("スプリントとみなす速さ")]
     [SerializeField][Min(0f)] private float _minSprintSpeed = 0.5f;  // 水平方向にこれ以上の速さで動いている時だけかける(m/秒)

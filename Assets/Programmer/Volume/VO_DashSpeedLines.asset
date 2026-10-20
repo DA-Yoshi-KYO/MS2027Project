@@ -14,6 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Unity.RenderPipelines.Core.Runtime::UnityEngine.Rendering.VolumeProfile
   components:
   - {fileID: 5713184258960347303}
+  - {fileID: 8074616241615446153}
 --- !u!114 &5713184258960347303
 MonoBehaviour:
   m_ObjectHideFlags: 3
@@ -54,3 +55,54 @@ MonoBehaviour:
   flickerRate:
     m_OverrideState: 1
     m_Value: 20
+--- !u!114 &8074616241615446153
+MonoBehaviour:
+  m_ObjectHideFlags: 3
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8a2d4dd812d841b999814203bc267a75, type: 3}
+  m_Name: CSV_ScreenEffectTiming
+  m_EditorClassIdentifier: Assembly-CSharp::CSV_ScreenEffectTiming
+  active: 1
+  priority:
+    m_OverrideState: 1
+    m_Value: 100
+  fadeInTime:
+    m_OverrideState: 1
+    m_Value: 0.05
+  fadeOutTime:
+    m_OverrideState: 1
+    m_Value: 0.25
+  playDuration:
+    m_OverrideState: 1
+    m_Value: 0.3
+  playWeightCurve:
+    m_OverrideState: 1
+    m_Value:
+      serializedVersion: 2
+      m_Curve:
+      - serializedVersion: 3
+        time: 0
+        value: 1
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      - serializedVersion: 3
+        time: 1
+        value: 0
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      m_PreInfinity: 2
+      m_PostInfinity: 2
+      m_RotationOrder: 4

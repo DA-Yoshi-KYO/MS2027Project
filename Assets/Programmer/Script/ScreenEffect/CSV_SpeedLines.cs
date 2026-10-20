@@ -18,7 +18,9 @@ using UnityEngine.Rendering.HighDefinition;
  *   Custom Post Process Orders(After Post Process)に登録しないと描画されない(登録済み)
  * ・Intensityが0の時は描画しない。Volumeのweightでなめらかに出し入れできるよう、
  *   既定値(Volumeが効いていない時の値)は0にしている
- * ・線の出方は_flickerRate回/秒で切り替わる(漫画のようにパラパラ変わる)
+ * ・線の出方はflickerRate回/秒で切り替わる(漫画のようにパラパラ変わる)
+ * ・各線は外へ流れる筋の連なりで、flowSpeedの速さで流れ続ける(強さが一定になっても動きが止まらないように)
+ *   筋の長さはstreakLength。筋と筋の間には同じ長さの隙間が空く
  * ・シェーダーはShader.Findで探すため、Graphics設定のAlways Included Shadersに入れている(ビルドで消えないように)
  */
 // ========================================
@@ -53,6 +55,12 @@ public sealed class CSV_SpeedLines : CustomPostProcessVolumeComponent, IPostProc
     [Tooltip("線の出方が1秒に何回切り替わるか")]
     public ClampedFloatParameter flickerRate = new ClampedFloatParameter(20f, 0f, 60f);
 
+    [Tooltip("筋が外へ流れる速さ(画面の高さを1とした長さ/秒)")]
+    public ClampedFloatParameter flowSpeed = new ClampedFloatParameter(2f, 0f, 20f);
+
+    [Tooltip("流れる筋1本の長さ(画面の高さを1とした長さ)")]
+    public ClampedFloatParameter streakLength = new ClampedFloatParameter(0.3f, 0.02f, 2f);
+
     private const string _shaderName = "Hidden/Shader/SH_SpeedLines";
 
     private static readonly int _mainTexId = Shader.PropertyToID("_MainTex");
@@ -65,6 +73,8 @@ public sealed class CSV_SpeedLines : CustomPostProcessVolumeComponent, IPostProc
     private static readonly int _innerRadiusId = Shader.PropertyToID("_InnerRadius");
     private static readonly int _softnessId = Shader.PropertyToID("_Softness");
     private static readonly int _flickerRateId = Shader.PropertyToID("_FlickerRate");
+    private static readonly int _flowSpeedId = Shader.PropertyToID("_FlowSpeed");
+    private static readonly int _streakLengthId = Shader.PropertyToID("_StreakLength");
     private static readonly int _aspectRatioId = Shader.PropertyToID("_AspectRatio");
     private static readonly int _effectTimeId = Shader.PropertyToID("_EffectTime");
 
@@ -104,6 +114,8 @@ public sealed class CSV_SpeedLines : CustomPostProcessVolumeComponent, IPostProc
         _material.SetFloat(_innerRadiusId, innerRadius.value);
         _material.SetFloat(_softnessId, softness.value);
         _material.SetFloat(_flickerRateId, flickerRate.value);
+        _material.SetFloat(_flowSpeedId, flowSpeed.value);
+        _material.SetFloat(_streakLengthId, streakLength.value);
         _material.SetFloat(_aspectRatioId, (float)camera.actualWidth / camera.actualHeight);
         // ヒットストップなどでTime.timeScaleが変わっても線は動き続けるようにする
         _material.SetFloat(_effectTimeId, Time.unscaledTime);

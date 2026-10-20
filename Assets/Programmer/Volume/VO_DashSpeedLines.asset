@@ -54,7 +54,13 @@ MonoBehaviour:
     m_Value: 0.25
   flickerRate:
     m_OverrideState: 1
-    m_Value: 20
+    m_Value: 6
+  flowSpeed:
+    m_OverrideState: 1
+    m_Value: 2
+  streakLength:
+    m_OverrideState: 1
+    m_Value: 0.3
 --- !u!114 &8074616241615446153
 MonoBehaviour:
   m_ObjectHideFlags: 3

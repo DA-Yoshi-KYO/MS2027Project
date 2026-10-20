@@ -7,6 +7,9 @@
 // ・中心からの角度で画面を_LineCount個に区切り、区切りごとに乱数で「線を出すか」「太さ」「内側の端の位置」を決める
 // ・乱数は_FlickerRate回/秒で変わるので、線がパラパラ切り替わる
 // ・角度で区切っているため、線は中心に近いほど細くなる(集中線らしい形になる)
+// ・各線は「中心側から外へ流れていく筋」が繰り返し並んだ形で、_FlowSpeedの速さで外へ流れ続ける
+//   (Weightが1になって強さが一定になった後も、線が動き続けて勢いが落ちないようにするため)
+//   筋は外側の先端が一番濃く、中心側へ向かって薄くなる。筋と筋の間には筋と同じ長さの隙間を空ける
 Shader "Hidden/Shader/SH_SpeedLines"
 {
     Properties
@@ -58,6 +61,8 @@ Shader "Hidden/Shader/SH_SpeedLines"
     float _InnerRadius;
     float _Softness;
     float _FlickerRate;
+    float _FlowSpeed;
+    float _StreakLength;
     float _AspectRatio;
     float _EffectTime;
 
@@ -99,11 +104,20 @@ Shader "Hidden/Shader/SH_SpeedLines"
         float halfWidth = _LineWidth * 0.5 * lerp(0.3, 1.0, randomShape);
         float lineMask = 1.0 - smoothstep(halfWidth * 0.5, halfWidth, fromLineCenter);
 
+        // 外へ流れる筋(周期は筋の長さの2倍。前半が筋、後半が隙間)
+        // 流れる速さと筋の並び始めの位置は本ごとにずらす(切り替わっても同じ線なら途切れないよう、frameは使わない)
+        float flowSpeed = _FlowSpeed * lerp(0.7, 1.3, Hash11(lineId * 3.17 + 0.25));
+        float flowPhase = Hash11(lineId * 7.31 + 0.75);
+        float period = max(_StreakLength, 0.001) * 2.0;
+        float flow = frac((distFromCenter - _EffectTime * flowSpeed) / period + flowPhase);
+        float headFade = 1.0 - smoothstep(0.46, 0.5, flow);   // 外側の先端をわずかにぼかす
+        float streakMask = step(flow, 0.5) * saturate(flow / 0.5) * headFade;
+
         // 中心付近には出さない(内側の端の位置は本ごとにずらす)
         float inner = _InnerRadius * lerp(0.8, 1.3, randomShape);
         float radialMask = smoothstep(inner, inner + _Softness, distFromCenter);
 
-        float alpha = saturate(show * lineMask * radialMask * _Intensity * _LineColor.a);
+        float alpha = saturate(show * lineMask * streakMask * radialMask * _Intensity * _LineColor.a);
         float3 color = lerp(sourceColor, _LineColor.rgb, alpha);
 
         return float4(color, 1);

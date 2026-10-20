@@ -177,6 +177,14 @@ public class CS_Player : NetworkBehaviour
         _isNpc.Value = true;
     }
 
+    // 自分の画面のプレイヤー(このマシンで人が操作しているプレイヤー)。いなければnull
+    // 警察の警戒UI(CS_PoliceDetectionSource)が、「自分への信号か」を判定するのに使う
+    public static CS_Player localPlayer { get; private set; }
+
+    // 自分の画面のプレイヤーが決まった(出現した)時と、いなくなった(nullで渡される)時に発生する
+    // 警察がプレイヤーより先に出現している場合に、警察側が表示を判定し直すために購読する
+    public static event Action<CS_Player> onLocalPlayerSet;
+
     // 操作しているクライアントでだけ発生する。見た目(CS_PlayerVisual)など、ゲームロジックの外から購読する
     public event Action onJumped;
     public event Action onDashStarted;
@@ -389,6 +397,19 @@ public class CS_Player : NetworkBehaviour
 
         Cursor.lockState = CursorLockMode.Locked;
         Cursor.visible = false;
+
+        RegisterAsLocalPlayer();
+    }
+
+    // 自分の画面のプレイヤーとして公開し、警戒UIの方向の基準に登録する
+    private void RegisterAsLocalPlayer()
+    {
+        localPlayer = this;
+
+        CS_PoliceDetectionController detection = FindAnyObjectByType<CS_PoliceDetectionController>();
+        if (detection != null) detection.SetPlayerTransform(transform);
+
+        onLocalPlayerSet?.Invoke(this);
     }
 
     // 自分のプレイヤーの後片付け(入力参照の解放、カーソル解除)
@@ -406,6 +427,12 @@ public class CS_Player : NetworkBehaviour
         _lungeRemaining = 0f;
         _hasAimFacing = false;
         UnbindInputActions();
+
+        if (localPlayer == this)
+        {
+            localPlayer = null;
+            onLocalPlayerSet?.Invoke(null);
+        }
 
         // NPCはカーソルを触っていない
         if (_npcInput != null)

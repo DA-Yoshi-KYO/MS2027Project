@@ -43,8 +43,8 @@ public class CS_PoliceSquad : MonoBehaviour, IPoliceGroup
     // 警備エリア内でのプレイヤーの変身の検知
     private readonly CS_PoliceTransformationWatcher _transformationWatcher = new CS_PoliceTransformationWatcher();
 
-    // 変身したばかりのプレイヤーの位置を受け取る際に使い回すリスト
-    private readonly List<Vector3> _transformedPositions = new List<Vector3>();
+    // 変身したばかりのプレイヤーを受け取る際に使い回すリスト
+    private readonly List<CS_PlayerHealth> _transformedPlayers = new List<CS_PlayerHealth>();
 
     // グループ全員で合わせる巡回速度(メンバーの中で一番遅い巡回速度。隊列がばらけないように揃える)
     private float _groupPatrolSpeed = 0.0f;
@@ -142,7 +142,7 @@ public class CS_PoliceSquad : MonoBehaviour, IPoliceGroup
     public static void NotifyIncident(Vector3 position, CS_PlayerHealth source)
     {
         // 巡回グループと増援には同じ現場を渡し、全員が現場の周りの別々の位置へ向かうようにする
-        CS_PoliceGatherPoint point = new CS_PoliceGatherPoint(position);
+        CS_PoliceGatherPoint point = new CS_PoliceGatherPoint(position, source);
         NotifySquads(point);
         CS_PoliceWantedManager.ReceiveSignal(source, point);
     }
@@ -195,10 +195,10 @@ public class CS_PoliceSquad : MonoBehaviour, IPoliceGroup
 
         // 警備エリア内でプレイヤーが変身したら、その場所へ駆け付ける
         if (_guardArea == null) return;
-        _transformationWatcher.Update(Time.deltaTime, _guardArea, _transformedPositions);
-        foreach (Vector3 position in _transformedPositions)
+        _transformationWatcher.Update(Time.deltaTime, _guardArea, _transformedPlayers);
+        foreach (CS_PlayerHealth player in _transformedPlayers)
         {
-            ReceiveIncident(new CS_PoliceGatherPoint(position));
+            ReceiveIncident(new CS_PoliceGatherPoint(player.transform.position, player));
         }
     }
 

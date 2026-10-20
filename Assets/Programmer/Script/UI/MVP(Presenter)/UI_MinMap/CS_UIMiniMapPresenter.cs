@@ -9,7 +9,9 @@
 using System.Collections.Generic;
 using UnityEngine;
 
-/// <summary>ModelのデータをViewDataへ変換してViewへ渡すPresenter。</summary>
+/// <summary>
+/// ModelのデータをViewDataへ変換してViewへ渡すPresenter。
+/// </summary>
 public class CS_UIMiniMapPresenter : CS_BasePresenter
 {
     [Header("ミニマップ設定")]
@@ -33,7 +35,7 @@ public class CS_UIMiniMapPresenter : CS_BasePresenter
 
     public void OnModelUpdated(CS_UIMiniMapModel model)
     {
-        if (_view == null)
+        if (_view == null || model == null)
             return;
 
         MiniMapEntityData player = model.GetLocalPlayer();
@@ -50,13 +52,16 @@ public class CS_UIMiniMapPresenter : CS_BasePresenter
     {
         float mapRadius = model.miniMapRadius;
         float mapWorldSize = model.miniMapWorldSize;
-        float playerRotation = _rotateWithPlayer ? player.entityRotation : 0f;
+        float playerRotation =
+            _rotateWithPlayer ? player.entityRotation : 0f;
 
         float playerUvX =
-            (player.entityWorldPosition.x - _mapCenterX) / mapWorldSize + 0.5f;
+            (player.entityWorldPosition.x - _mapCenterX) /
+            mapWorldSize + 0.5f;
 
         float playerUvY =
-            (player.entityWorldPosition.z - _mapCenterZ) / mapWorldSize + 0.5f;
+            (player.entityWorldPosition.z - _mapCenterZ) /
+            mapWorldSize + 0.5f;
 
         var icons = new List<MiniMapIconData>();
 
@@ -94,6 +99,15 @@ public class CS_UIMiniMapPresenter : CS_BasePresenter
             mapRadius,
             playerRotation,
             CSE_MiniMapEntityType.Item
+        );
+
+        AddEntityIcons(
+            icons,
+            model.GetRandomEvents(),
+            player.entityWorldPosition,
+            mapRadius,
+            playerRotation,
+            CSE_MiniMapEntityType.RandomEvent
         );
 
         return new MiniMapViewData(
@@ -139,7 +153,9 @@ public class CS_UIMiniMapPresenter : CS_BasePresenter
         float playerRotation,
         CSE_MiniMapEntityType type)
     {
-        Vector3 difference = entity.entityWorldPosition - playerPosition;
+        Vector3 difference =
+            entity.entityWorldPosition - playerPosition;
+
         float dx = difference.x;
         float dz = difference.z;
 
@@ -148,16 +164,20 @@ public class CS_UIMiniMapPresenter : CS_BasePresenter
             float radians = playerRotation * Mathf.Deg2Rad;
             float cosine = Mathf.Cos(radians);
             float sine = Mathf.Sin(radians);
+
             float rotatedX = dx * cosine - dz * sine;
             float rotatedZ = dx * sine + dz * cosine;
+
             dx = rotatedX;
             dz = rotatedZ;
         }
 
         float normalizedX = dx / mapRadius;
         float normalizedY = dz / mapRadius;
+
         float distance = Mathf.Sqrt(
-            normalizedX * normalizedX + normalizedY * normalizedY
+            normalizedX * normalizedX +
+            normalizedY * normalizedY
         );
 
         bool isClipped = distance > 1f;
@@ -173,7 +193,8 @@ public class CS_UIMiniMapPresenter : CS_BasePresenter
             type,
             normalizedX,
             normalizedY,
-            entity.entityRotation - (_rotateWithPlayer ? playerRotation : 0f),
+            entity.entityRotation -
+                (_rotateWithPlayer ? playerRotation : 0f),
             isClipped
         );
     }

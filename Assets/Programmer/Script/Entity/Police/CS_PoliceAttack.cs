@@ -76,6 +76,9 @@ public class CS_PoliceAttack : MonoBehaviour
     // チャージ中か
     public bool isCharging => _isCharging;
 
+    // 攻撃判定が出るまでの残り時間(秒。チャージしていない時は0)
+    public float chargeRemaining => _isCharging ? Mathf.Max(0.0f, _chargeTimer) : 0.0f;
+
     // チャージの進み具合(0:開始直後 〜 1:溜め終わり。チャージしていない時は0)
     public float chargeProgress => _isCharging ? 1.0f - Mathf.Clamp01(_chargeTimer / _chargingDuration) : 0.0f;
 

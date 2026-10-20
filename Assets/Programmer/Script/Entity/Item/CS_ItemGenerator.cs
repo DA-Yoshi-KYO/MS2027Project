@@ -4,6 +4,7 @@
  * 制作者：吉田京志郎
  * ------------------------------------------------
  * 2026-09-22 | 初回作成
+ * 2026-10-17 | 拾われたアイテムの再生成を追加
  * ================================================ */
 
 using System.Collections.Generic;
@@ -22,13 +23,18 @@ using UnityEngine;
  * ・生成するアイテムのプレハブはNetworkPrefabsList(DefaultNetworkPrefabs)に登録しておくこと
  * ・初期生成はStartで行う(NetworkSceneManagerでのシーン読み込み中のAwakeでSpawnすると、
  *   シーン配置オブジェクトとして二重に処理されエラーになるため)
+ * ・再生成: フィールド上のアイテムが初期生成数より少ない間、再生成間隔ごとに1つずつ空いているポイントへ生成する
+ *   再生成間隔が0なら再生成しない。生成するアイテムは初期生成の候補から選ぶ
+ *   拾われたアイテムはDespawn(破棄)されるので、ポイントのitemがnullになった時点で空きとして扱う
  */
 // ========================================
 public class CS_ItemGenerator : MonoBehaviour
 {
     [SerializeField][Tooltip("初期生成するアイテムの数")][Min(0)] private int _initGenerateNum = 0;      // 初期生成するアイテムの数
     [SerializeField][Tooltip("初期生成するアイテムの候補")] private CS_ItemBase[] _initGenerateItemKinds;    // 初期生成するアイテムの候補
+    [SerializeField][Tooltip("再生成の間隔(秒)。0なら再生成しない")][Min(0f)] private float _respawnInterval = 30f;   // 再生成の間隔(秒)
     private CS_ItemGeneratePoint[] _itemGeneratePoints; // アイテム生成用のポイント
+    private float _respawnTimer;                        // 再生成までの経過時間
 
     // このマシンが生成の権威を持つか(オフライン、またはサーバー/ホスト)
     private static bool HasAuthority =>
@@ -66,6 +72,37 @@ public class CS_ItemGenerator : MonoBehaviour
         }
     }
 
+    void Update()
+    {
+        if (!HasAuthority) return;
+        if (_respawnInterval <= 0f) return;
+        if (_itemGeneratePoints == null || _initGenerateItemKinds == null || _initGenerateItemKinds.Length <= 0) return;
+
+        // フィールド上のアイテムが初期生成数に足りている間はタイマーを進めない
+        if (CountGeneratedItems() >= Mathf.Min(_initGenerateNum, _itemGeneratePoints.Length))
+        {
+            _respawnTimer = 0f;
+            return;
+        }
+
+        _respawnTimer += Time.deltaTime;
+        if (_respawnTimer < _respawnInterval) return;
+
+        _respawnTimer = 0f;
+        GenerateToRandomPoint(_initGenerateItemKinds[Random.Range(0, _initGenerateItemKinds.Length)]);
+    }
+
+    // フィールド上に残っている(拾われていない)アイテムの数を数える
+    private int CountGeneratedItems()
+    {
+        int count = 0;
+        foreach (var point in _itemGeneratePoints)
+        {
+            if (point.item != null) ++count;
+        }
+        return count;
+    }
+
     /// <summary>
     /// シーンに存在する生成位置候補からランダムに選ばれた位置にアイテムを生成する
     /// </summary>
@@ -73,7 +110,7 @@ public class CS_ItemGenerator : MonoBehaviour
     /// <returns>生成に成功したかどうか</returns>
     public bool GenerateToRandomPoint(CS_ItemBase item)
     {
-        if (_itemGeneratePoints.Length <= 0)
+        if (_itemGeneratePoints == null || _itemGeneratePoints.Length <= 0)
         {
             Debug.LogError("ポイントが存在しません");
             return false;
@@ -90,8 +127,7 @@ public class CS_ItemGenerator : MonoBehaviour
 
         // 除外した後の生成位置候補からランダムに決定し、アイテムを生成する
         var point = pointList[Random.Range(0, pointList.Count)];
-        Generate(item, point.transform);
-        point.item = item;
+        point.item = Generate(item, point.transform);
 
         return true;    //　生成に成功
     }
@@ -101,8 +137,8 @@ public class CS_ItemGenerator : MonoBehaviour
     /// </summary>
     /// <param name="item">生成するアイテム</param>
     /// <param name="spawnPoint">生成する位置</param>
-    /// <returns>生成に成功したかどうか</returns>
-    public bool Generate(CS_ItemBase item, Transform spawnPoint)
+    /// <returns>生成したアイテム</returns>
+    public CS_ItemBase Generate(CS_ItemBase item, Transform spawnPoint)
     {
         CS_ItemBase instance = Instantiate(item, spawnPoint);
 
@@ -111,6 +147,6 @@ public class CS_ItemGenerator : MonoBehaviour
             instance.NetworkObject.Spawn();
         }
 
-        return true;
+        return instance;
     }
 }

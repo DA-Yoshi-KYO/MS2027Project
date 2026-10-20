@@ -23,6 +23,7 @@ using UnityEngine;
  *      ローカルプレイヤーのスポーン時に、出現中の全プレイヤー分をBindし直す
  * ・Unbindは、UI側がOnNetworkDespawn / OnDestroyで自動で行う
  * ・オフライン(NetworkManagerが動いていない)のテストシーンでも単体で動く(自分のカメラでBindする。playerNumberは0)
+ * ・ソロ(CS_GameModeStore)では順位を競う相手がいないので、順位UIごと出さない
  */
 // ========================================
 
@@ -54,6 +55,13 @@ public class CS_PlayerRankOverheadUI : NetworkBehaviour
     {
         if (IsSpawned) return;
         if (NetworkManager.Singleton != null && NetworkManager.Singleton.IsListening) return;
+
+        if (CS_GameModeStore.isSolo)
+        {
+            // 順位UIはPlayerの子に置いてある(プレイヤー本体を消さないよう、子の時だけ無効にする)
+            if (_rankOverhead != null && _rankOverhead.gameObject != gameObject) _rankOverhead.gameObject.SetActive(false);
+            return;
+        }
 
         Register(_player.isLocalPlayer);
     }

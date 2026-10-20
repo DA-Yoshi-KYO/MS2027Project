@@ -4878,6 +4878,8 @@ GameObject:
   - component: {fileID: 7728493016254819043}
   - component: {fileID: 2641957380172645918}
   - component: {fileID: 8357102946618239417}
+  - component: {fileID: 5884805568190594611}
+  - component: {fileID: 8704568956945689768}
   m_Layer: 31
   m_Name: Player
   m_TagString: PlayerNoTransformation
@@ -5542,6 +5544,32 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::CS_PlayerStun
   ShowTopMostFoldoutHeaderGroup: 1
+--- !u!114 &5884805568190594611
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1825699444668748530}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 33e070af027348d8aecfe4f941e2fb9b, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CS_PlayerScreenEffect
+--- !u!114 &8704568956945689768
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1825699444668748530}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ee5956ae82414201b11cb866d0fcd9e2, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CS_PlayerDashScreenEffect
+  _speedLines: {fileID: 11400000, guid: 2df06620278e4176a9403bdb95b761c8, type: 2}
+  _minSprintSpeed: 0.5
 --- !u!1 &3298430547158640491
 GameObject:
   m_ObjectHideFlags: 0

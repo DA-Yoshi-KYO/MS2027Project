@@ -26,15 +26,18 @@ using UnityEngine.Rendering;
 [Serializable, VolumeComponentMenu("ScreenEffect/Timing")]
 public sealed class CSV_ScreenEffectTiming : VolumeComponent
 {
+    [Header("優先度")]
     [Tooltip("Volumeの優先度(ほかのVolumeより上にする)")]
     public FloatParameter priority = new FloatParameter(100f);
 
+    [Header("続けてかける時(SetHeld)")]
     [Tooltip("SetHeldで出しきるまでの時間(秒)")]
     public MinFloatParameter fadeInTime = new MinFloatParameter(0.05f, 0f);
 
     [Tooltip("SetHeldで消えきるまでの時間(秒)")]
     public MinFloatParameter fadeOutTime = new MinFloatParameter(0.25f, 0f);
 
+    [Header("1回だけかける時(Play)")]
     [Tooltip("Playの長さ(秒)")]
     public MinFloatParameter playDuration = new MinFloatParameter(0.3f, 0.01f);
 

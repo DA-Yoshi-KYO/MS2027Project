@@ -21,6 +21,10 @@ using UnityEngine.Rendering.HighDefinition;
  * ・線の出方はflickerRate回/秒で切り替わる(漫画のようにパラパラ変わる)
  * ・各線は外へ流れる筋の連なりで、flowSpeedの速さで流れ続ける(強さが一定になっても動きが止まらないように)
  *   筋の長さはstreakLength。筋と筋の間には同じ長さの隙間が空く
+ * ・flickerRate / flowSpeedも既定値を0にしている
+ *   Volumeのweightが上がるにつれて0からProfileの値まで速くなり、weightが1の時に一番勢いが出る
+ * ・動きは「経過時間 × 速さ」ではなく、毎フレーム「前回からの経過時間 × 今の速さ」を足し込んで求める
+ *   (速さがweightで変わっている最中に掛け算で求めると、線の切り替え・流れが異常に速くなるため)
  * ・シェーダーはShader.Findで探すため、Graphics設定のAlways Included Shadersに入れている(ビルドで消えないように)
  */
 // ========================================
@@ -28,12 +32,14 @@ using UnityEngine.Rendering.HighDefinition;
 [Serializable, VolumeComponentMenu("Post-processing/Custom/Speed Lines")]
 public sealed class CSV_SpeedLines : CustomPostProcessVolumeComponent, IPostProcessComponent
 {
+    [Header("強さ・色")]
     [Tooltip("線の濃さ(0で描画しない)")]
     public ClampedFloatParameter intensity = new ClampedFloatParameter(0f, 0f, 1f);
 
     [Tooltip("線の色(アルファで透け具合を決める)")]
     public ColorParameter color = new ColorParameter(new Color(1f, 1f, 1f, 0.8f), false, true, true);
 
+    [Header("線の形")]
     [Tooltip("集中する点(画面の左下が0、右上が1)")]
     public Vector2Parameter center = new Vector2Parameter(new Vector2(0.5f, 0.5f));
 
@@ -46,20 +52,22 @@ public sealed class CSV_SpeedLines : CustomPostProcessVolumeComponent, IPostProc
     [Tooltip("線の太さ(1区切りに対する割合)")]
     public ClampedFloatParameter lineWidth = new ClampedFloatParameter(0.5f, 0.01f, 1f);
 
+    [Tooltip("流れる筋1本の長さ(画面の高さを1とした長さ)")]
+    public ClampedFloatParameter streakLength = new ClampedFloatParameter(0.3f, 0.02f, 2f);
+
+    [Header("中心の空き")]
     [Tooltip("線が出ない中心部分の半径(画面の高さを1とした長さ)")]
     public ClampedFloatParameter innerRadius = new ClampedFloatParameter(0.35f, 0f, 1.5f);
 
     [Tooltip("線の内側の端をぼかす長さ")]
     public ClampedFloatParameter softness = new ClampedFloatParameter(0.25f, 0.01f, 1f);
 
+    [Header("動き(既定値0。Weightに合わせて0からProfileの値まで上がる)")]
     [Tooltip("線の出方が1秒に何回切り替わるか")]
-    public ClampedFloatParameter flickerRate = new ClampedFloatParameter(20f, 0f, 60f);
+    public ClampedFloatParameter flickerRate = new ClampedFloatParameter(0f, 0f, 60f);
 
     [Tooltip("筋が外へ流れる速さ(画面の高さを1とした長さ/秒)")]
-    public ClampedFloatParameter flowSpeed = new ClampedFloatParameter(2f, 0f, 20f);
-
-    [Tooltip("流れる筋1本の長さ(画面の高さを1とした長さ)")]
-    public ClampedFloatParameter streakLength = new ClampedFloatParameter(0.3f, 0.02f, 2f);
+    public ClampedFloatParameter flowSpeed = new ClampedFloatParameter(0f, 0f, 20f);
 
     private const string _shaderName = "Hidden/Shader/SH_SpeedLines";
 
@@ -72,13 +80,17 @@ public sealed class CSV_SpeedLines : CustomPostProcessVolumeComponent, IPostProc
     private static readonly int _lineWidthId = Shader.PropertyToID("_LineWidth");
     private static readonly int _innerRadiusId = Shader.PropertyToID("_InnerRadius");
     private static readonly int _softnessId = Shader.PropertyToID("_Softness");
-    private static readonly int _flickerRateId = Shader.PropertyToID("_FlickerRate");
-    private static readonly int _flowSpeedId = Shader.PropertyToID("_FlowSpeed");
+    private static readonly int _flickerPhaseId = Shader.PropertyToID("_FlickerPhase");
+    private static readonly int _flowDistanceId = Shader.PropertyToID("_FlowDistance");
     private static readonly int _streakLengthId = Shader.PropertyToID("_StreakLength");
     private static readonly int _aspectRatioId = Shader.PropertyToID("_AspectRatio");
-    private static readonly int _effectTimeId = Shader.PropertyToID("_EffectTime");
+
+    private const float _maxDeltaTime = 0.1f;   // 足し込む経過時間の上限(しばらく描画していなかった時に一気に進まないように)
 
     private Material _material;
+    private float _flickerPhase;    // 線の出方を切り替えた回数(足し込んだ値)
+    private float _flowDistance;    // 筋が流れた距離(足し込んだ値)
+    private float _lastRenderTime = -1f;
 
     public bool IsActive() => _material != null && intensity.value > 0f;
 
@@ -113,14 +125,26 @@ public sealed class CSV_SpeedLines : CustomPostProcessVolumeComponent, IPostProc
         _material.SetFloat(_lineWidthId, lineWidth.value);
         _material.SetFloat(_innerRadiusId, innerRadius.value);
         _material.SetFloat(_softnessId, softness.value);
-        _material.SetFloat(_flickerRateId, flickerRate.value);
-        _material.SetFloat(_flowSpeedId, flowSpeed.value);
         _material.SetFloat(_streakLengthId, streakLength.value);
         _material.SetFloat(_aspectRatioId, (float)camera.actualWidth / camera.actualHeight);
-        // ヒットストップなどでTime.timeScaleが変わっても線は動き続けるようにする
-        _material.SetFloat(_effectTimeId, Time.unscaledTime);
+
+        AdvanceMotion();
+        _material.SetFloat(_flickerPhaseId, _flickerPhase);
+        _material.SetFloat(_flowDistanceId, _flowDistance);
 
         HDUtils.DrawFullScreen(cmd, _material, destination, shaderPassId: 0);
+    }
+
+    // 前回の描画からの経過時間 × 今の速さを足し込む
+    // ヒットストップなどでTime.timeScaleが変わっても線は動き続けるよう、unscaledTimeで数える
+    private void AdvanceMotion()
+    {
+        float now = Time.unscaledTime;
+        float deltaTime = _lastRenderTime < 0f ? 0f : Mathf.Clamp(now - _lastRenderTime, 0f, _maxDeltaTime);
+        _lastRenderTime = now;
+
+        _flickerPhase += deltaTime * flickerRate.value;
+        _flowDistance += deltaTime * flowSpeed.value;
     }
 
     public override void Cleanup()

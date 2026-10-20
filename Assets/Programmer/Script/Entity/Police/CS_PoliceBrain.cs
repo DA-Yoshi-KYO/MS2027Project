@@ -46,6 +46,15 @@ public class CS_PoliceBrain : MonoBehaviour
     // 駆け付け中に位置を追い続けるプレイヤー(出現直後の増援が持ち主へ向かうのに使う。いなければnull)
     private CS_PlayerHealth _rushPlayer = null;
 
+    // 駆け付けの元になった信号を出したプレイヤー(警戒UIが「自分への信号か」を判定するのに使う。分からなければnull)
+    private CS_PlayerHealth _rushSource = null;
+
+    // 警戒UIへ知らせる状態の元になる、駆け付け・探索中の相手のプレイヤー番号(いなければ-1)
+    private int _signalPlayerNumber = -1;
+
+    // 警戒UIへ状態を知らせるクラス(付いていなければ知らせない)
+    private CS_PoliceDetectionSource _detection = null;
+
     // 探索する場所の目印と位置(探索中の警察が、同じ場所の周りの別々の位置へ割り当てられる)
     private object _searchKey = null;
     private Vector3 _searchCenter = Vector3.zero;
@@ -148,6 +157,7 @@ public class CS_PoliceBrain : MonoBehaviour
         _move = GetComponent<CS_PoliceMove>();
         _vision = GetComponent<CS_PoliceVision>();
         _attack = GetComponent<CS_PoliceAttack>();
+        _detection = GetComponent<CS_PoliceDetectionSource>();
         _wanderPath = new NavMeshPath();
 
         // 判断と移動はサーバーだけで行う。クライアントでは位置をNetworkTransformの同期に任せる
@@ -187,6 +197,7 @@ public class CS_PoliceBrain : MonoBehaviour
         _rushKey = point;
         _rushCenter = point.position;
         _rushPlayer = null;
+        _rushSource = point.source;
         _hasRushRequest = true;
     }
 
@@ -201,6 +212,7 @@ public class CS_PoliceBrain : MonoBehaviour
         _rushKey = player;
         _rushCenter = player.transform.position;
         _rushPlayer = player;
+        _rushSource = player;
         _hasRushRequest = true;
     }
 
@@ -225,6 +237,9 @@ public class CS_PoliceBrain : MonoBehaviour
         _move.SetStopped(true);
         _attack.enabled = false;
         enabled = false;
+
+        // 消える演出の間は、警戒UIにも出さない
+        if (_detection != null) _detection.SetState(CS_PoliceDetectionSource.noPlayer, CS_PoliceDetectionSource.noPlayer);
     }
 
     private void Update()
@@ -242,7 +257,53 @@ public class CS_PoliceBrain : MonoBehaviour
         _thinkTimer = _thinkInterval;
 
         Think();
+        PublishDetection();
         CheckAbnormal();
+    }
+
+    /// <summary>
+    /// 今の状態を、警戒UI(自分に気付いている警察の表示)へ知らせるメソッド
+    /// ・追跡中: 標的を「追跡中」、また「駆け付け・探索中の相手」としても知らせる
+    /// ・駆け付け中: 信号を出したプレイヤーを「駆け付け・探索中の相手」として知らせる
+    /// ・探索中: 直前の相手(追跡していた標的・駆け付けた信号の主)を残す
+    /// ・巡回・待機中: どちらも無し
+    /// 標的がプレイヤーでない(悪人・ホログラムなど)場合や、信号の主が分からない場合は、相手なし(-1)
+    /// </summary>
+    private void PublishDetection()
+    {
+        if (_detection == null) return;
+
+        int foundNumber = CS_PoliceDetectionSource.noPlayer;
+        switch (_state)
+        {
+            case CSE_PoliceMoveState.Chase:
+                foundNumber = GetPlayerNumber(_currentTarget);
+                _signalPlayerNumber = foundNumber;
+                break;
+            case CSE_PoliceMoveState.Rush:
+                _signalPlayerNumber = GetPlayerNumber(_rushSource);
+                break;
+            case CSE_PoliceMoveState.Search:
+                break;
+            default:
+                _signalPlayerNumber = CS_PoliceDetectionSource.noPlayer;
+                break;
+        }
+
+        _detection.SetState(foundNumber, _signalPlayerNumber);
+    }
+
+    /// <summary>
+    /// 標的のプレイヤー番号を取得するメソッド
+    /// </summary>
+    /// <param name="target">標的(プレイヤーのオブジェクトか、その一部)</param>
+    /// <returns>プレイヤー番号(プレイヤーでなければ-1)</returns>
+    private static int GetPlayerNumber(Component target)
+    {
+        if (target == null) return CS_PoliceDetectionSource.noPlayer;
+
+        CS_Player player = target.GetComponentInParent<CS_Player>();
+        return player != null ? player.playerNumber : CS_PoliceDetectionSource.noPlayer;
     }
 
     /// <summary>

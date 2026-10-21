@@ -4881,6 +4881,7 @@ GameObject:
   - component: {fileID: 7419356021884736152}
   - component: {fileID: 5884805568190594611}
   - component: {fileID: 8704568956945689768}
+  - component: {fileID: 6038915642972428042}
   m_Layer: 31
   m_Name: Player
   m_TagString: PlayerNoTransformation
@@ -5478,6 +5479,31 @@ MonoBehaviour:
   _widenSpeed: 20
   _returnSpeed: 5
   _minSprintSpeed: 0.5
+--- !u!114 &6038915642972428042
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1825699444668748530}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 42b97f2a6f5b4e9ba5265a832abd8b23, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CS_PlayerCameraOcclusion
+  _settings:
+  - tag: Building
+    fadeValue: 0
+  - tag: Prop
+    fadeValue: 0.5
+  _targetHeights:
+  - 0.3
+  - 1.6
+  _castRadius: 0.2
+  _layerMask:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  _fadeSpeed: 6
 --- !u!114 &3917264058213697542
 MonoBehaviour:
   m_ObjectHideFlags: 0

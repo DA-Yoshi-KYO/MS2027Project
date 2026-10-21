@@ -45,6 +45,9 @@ using UnityEngine.AI;
  *   ・レイドのボス(SetEventAreaのconfineがtrue)は範囲の中に留まる
  *     範囲の中の標的に反応し、範囲の外の標的は見つけない。追いかける時も範囲の外へは出ない
  * ・isEngagedがtrueの間は犯罪の手を止める(犯罪の進行側から参照する想定)
+ * ・見張り役(SetWatcherで巡回ルートを渡された悪人)は、犯罪中(Idle)の間CS_VillainPatrolで路地裏を巡回する
+ *   巡回中も犯罪中の扱い(グループの犯罪は進む)。臨戦態勢範囲の確認も、他のメンバーと同じように行う
+ *   帰還してスポーン位置に着いたら、巡回を始め直す
  * ・仲間への通知
  *   犯罪中・帰還中から新しく臨戦態勢になった時(標的を見つけた・攻撃されて反撃する)、同じグループの仲間へ知らせる
  *   知らされた仲間は、犯罪中なら同じ標的を追跡し始める(臨戦態勢範囲の外にいても、煙幕越しでも気付く)
@@ -177,6 +180,7 @@ public class CS_VillainCombat : NetworkBehaviour
     private CS_VillainStats _stats;
     private CS_VillainHealth _health;
     private CS_VillainKnockback _knockback;   // 付いていなければノックバックしない
+    private CS_VillainPatrol _patrol;         // 付いていなければ見張り役にならない
     private CS_VillainGroup _group;       // 所属するグループ。スポナーを通さず置いた悪人はnull
     private readonly Collider[] _hitBuffer = new Collider[_hitBufferSize];
     private readonly HashSet<IDamageable> _hitTargets = new HashSet<IDamageable>();
@@ -222,6 +226,8 @@ public class CS_VillainCombat : NetworkBehaviour
     private bool hasAuthority => !IsSpawned || IsServer;
 
     private float moveSpeed => _playerBaseStats.moveSpeed * _stats.moveSpeedMultiplier;
+    private float patrolSpeed => _playerBaseStats.moveSpeed * _stats.patrolSpeedMultiplier;
+    private bool isWatcher => _patrol != null && _patrol.hasRoute;   // 見張り役(巡回ルートを持つ)か
 
     // 臨戦態勢になる範囲。範囲の中に留まる悪人(レイドのボス)は、イベントの範囲全体を見る
     // (範囲の外の標的はFindNearestPlayer / FindNearestHologramで外す)
@@ -237,6 +243,7 @@ public class CS_VillainCombat : NetworkBehaviour
         _stats = GetComponent<CS_VillainStats>();
         _health = GetComponent<CS_VillainHealth>();
         _knockback = GetComponent<CS_VillainKnockback>();
+        _patrol = GetComponent<CS_VillainPatrol>();
 
         // スポナーはInstantiate時に位置を決めるので、Awakeの時点でスポーン位置になっている
         _homePosition = transform.position;
@@ -312,10 +319,21 @@ public class CS_VillainCombat : NetworkBehaviour
     }
 
     // 犯罪中。臨戦態勢範囲にプレイヤーが入ったら追跡を始める
+    // 見張り役は、犯罪中は路地裏を巡回する(巡回中も臨戦態勢範囲は確認する)
     private void UpdateIdle()
     {
-        _move.Stop();
+        if (isWatcher) _patrol.Tick(patrolSpeed, Time.fixedDeltaTime);
+        else _move.Stop();
+
         ScanEngageRange();
+    }
+
+    // 見張り役にする(生成直後にCS_VillainSpawnerから呼ばれる)。CS_VillainPatrolが付いていなければ見張り役にならない
+    public void SetWatcher(Vector3 patrolEndA, Vector3 patrolEndB)
+    {
+        if (_patrol == null) return;
+
+        _patrol.SetRoute(patrolEndA, patrolEndB);
     }
 
     private void UpdateChase()
@@ -393,6 +411,7 @@ public class CS_VillainCombat : NetworkBehaviour
         _move.Stop();
         transform.rotation = _homeRotation;
         _state = State.Idle;
+        if (isWatcher) _patrol.Restart();
     }
 
     // 攻撃枠が無い間、ターゲットを取り囲むように広がり、ターゲットの方を向いて様子を見る

@@ -27,6 +27,8 @@ using UnityEngine.InputSystem;
  *   カメラを回しただけでは体は回らない。移動キーを押している間だけ、進む方向(カメラから見た入力の方向)へ_rotationSpeedで回る
  *   移動は押した方向へすぐ始まり、体の向きは回りながら追いつく(以前のように「向き終わるまで動かない」ことはない)
  *   例外: エイムアシスト中は攻撃する相手の方、ダッシュ中はダッシュの方向、NPCは止まっている間も指定された向きへ回る
+ *   体の向きとカメラの向きがずれるため、警戒UI(CS_PoliceDetectionController)の方向の基準には、プレイヤー本体ではなく
+ *   「位置はプレイヤー、向きはカメラの左右の向き」の基準(_viewDirectionAnchor)を渡す(画面の上 = カメラの正面になる)
  *   3. LateUpdate   : カメラをプレイヤーの周りに配置する
  * ・カメラはプレイヤーの子だが、回転がプレイヤーに引っ張られないよう
  *   LateUpdateでワールド座標を直接指定している
@@ -130,6 +132,8 @@ public class CS_Player : NetworkBehaviour
     private float _dashCooldownRemaining;
     private Vector3 _dashDirection;
     private bool _isSprinting;      // ダッシュ後、ダッシュボタンを押し続けている間か
+
+    private Transform _viewDirectionAnchor;     // 位置はプレイヤー、向きはカメラの左右の向き。警戒UIの方向の基準(自分のプレイヤーのみ)
 
     private bool _hasAimFacing;     // エイムアシストで、攻撃する相手の方を向いている間か
     private float _aimFacingYaw;
@@ -361,6 +365,15 @@ public class CS_Player : NetworkBehaviour
         if (!_isControlled || _npcInput != null) return;   // NPCはカメラを使わない
 
         UpdateCameraTransform();
+        UpdateViewDirectionAnchor();
+    }
+
+    // 警戒UIの方向の基準を、プレイヤーの位置とカメラの左右の向きに合わせる
+    private void UpdateViewDirectionAnchor()
+    {
+        if (_viewDirectionAnchor == null) return;
+
+        _viewDirectionAnchor.SetPositionAndRotation(transform.position, Quaternion.Euler(0f, _yaw, 0f));
     }
 
     // NPCの初期化(サーバー、またはオフライン)。入力はCS_PlayerNpcInputから読み、カメラは使わない
@@ -402,12 +415,20 @@ public class CS_Player : NetworkBehaviour
     }
 
     // 自分の画面のプレイヤーとして公開し、警戒UIの方向の基準に登録する
+    // 体はカメラと別の方向を向くため、カメラの左右の向きを持つ基準(_viewDirectionAnchor)を作って渡す
+    // (プレイヤーの子にすると体の回転に引っ張られるので、親は持たせずLateUpdateで追従させる)
     private void RegisterAsLocalPlayer()
     {
         localPlayer = this;
 
+        if (_viewDirectionAnchor == null)
+        {
+            _viewDirectionAnchor = new GameObject($"{name}_ViewDirectionAnchor").transform;
+        }
+        UpdateViewDirectionAnchor();
+
         CS_PoliceDetectionController detection = FindAnyObjectByType<CS_PoliceDetectionController>();
-        if (detection != null) detection.SetPlayerTransform(transform);
+        if (detection != null) detection.SetPlayerTransform(_viewDirectionAnchor);
 
         onLocalPlayerSet?.Invoke(this);
     }
@@ -432,6 +453,12 @@ public class CS_Player : NetworkBehaviour
         {
             localPlayer = null;
             onLocalPlayerSet?.Invoke(null);
+        }
+
+        if (_viewDirectionAnchor != null)
+        {
+            Destroy(_viewDirectionAnchor.gameObject);
+            _viewDirectionAnchor = null;
         }
 
         // NPCはカーソルを触っていない

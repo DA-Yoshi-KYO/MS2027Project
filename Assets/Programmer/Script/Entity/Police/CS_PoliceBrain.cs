@@ -142,6 +142,15 @@ public class CS_PoliceBrain : MonoBehaviour
     private float _wanderPauseMax = 3.0f;
 
     [SerializeField, Min(1f)]
+    // 行動している警察の一覧(警戒状態の管理が、プレイヤーの付近にいる警察を探すのに使う。サーバー、またはオフラインだけ)
+    private static readonly List<CS_PoliceBrain> _activeBrains = new List<CS_PoliceBrain>();
+
+    // 行動している警察の一覧
+    public static IReadOnlyList<CS_PoliceBrain> activeBrains => _activeBrains;
+
+    // 判断・移動をしているか(初期化済みで、消える演出などで止められていない)
+    public bool isActing => enabled && _isInitialized;
+
     [Tooltip("1つの行き先へ歩き始めてから、この時間が経っても着かない(詰まった・遠回りしている)時は、行き先を選び直す(秒)")]
     private float _wanderMaxWalkTime = 8.0f;
 
@@ -180,6 +189,7 @@ public class CS_PoliceBrain : MonoBehaviour
         _move.Setting(speedTable);
         _vision.Setting(status.viewAngle, status.viewDistance, status.viewHeight);
         _attack.Setting(status.attackPower);
+        if (!_activeBrains.Contains(this)) _activeBrains.Add(this);
 
         _state = CSE_PoliceMoveState.Patrol;
         _isInitialized = true;
@@ -352,7 +362,21 @@ public class CS_PoliceBrain : MonoBehaviour
     private Transform FindTarget()
     {
         Transform ownTarget = _vision.FindTarget(_currentTarget, out int ownPriority);
-        if (ownTarget != null) _group.ReportTarget(ownTarget, ownPriority);
+        if (ownTarget != null)
+        {
+            _group.ReportTarget(ownTarget, ownPriority);
+            ReportAlert(ownTarget);
+    /// <summary>
+    /// 自分の目で見つけた標的がプレイヤーなら、警戒状態の管理へ知らせるメソッド(警戒状態になる・解除までの時間が数え直される)
+    /// </summary>
+    /// <param name="target">自分の視界に映っている標的</param>
+    private void ReportAlert(Transform target)
+    {
+        CS_PlayerHealth player = target.GetComponentInParent<CS_PlayerHealth>();
+        if (player != null) CS_PoliceAlertManager.Report(player, target.position);
+    }
+
+        }
 
         // 自分には見えていなくても、仲間が見つけた標的の方が優先度が高ければそちらを追う
         Transform sharedTarget = _group.GetSharedTarget(out int sharedPriority);
@@ -562,6 +586,7 @@ public class CS_PoliceBrain : MonoBehaviour
         return false;
     }
 
+        _activeBrains.Remove(this);
     /// <summary>
     /// 駆け付け・探索で目指す、現場の周りの自分の位置を求めるメソッド
     /// </summary>

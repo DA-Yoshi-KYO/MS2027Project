@@ -136,6 +136,16 @@ public class CS_PoliceMove : MonoBehaviour
     }
 
     /// <summary>
+    /// 移動状態ごとの速度を取得するメソッド
+    /// </summary>
+    /// <param name="moveState">移動状態</param>
+    /// <returns>その移動状態の速度(設定されていなければ0)</returns>
+    public float GetStateSpeed(CSE_PoliceMoveState moveState)
+    {
+        return _moveStateSpeeds.TryGetValue(moveState, out float speed) ? speed : 0.0f;
+    }
+
+    /// <summary>
     /// 指定した目的地へ、指定した移動状態の速度で移動するメソッド
     /// </summary>
     /// <param name="position">目的地</param>

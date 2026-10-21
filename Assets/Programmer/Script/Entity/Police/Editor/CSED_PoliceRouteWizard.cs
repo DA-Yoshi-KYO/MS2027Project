@@ -13,7 +13,6 @@ using UnityEngine;
 /// <summary>
 /// 選んだ警察のグループ(CS_PoliceSquad)の巡回ポイントを、灰色の道の上に自動で作るエディタ専用ツール
 /// 1. 巡回ルートを作る範囲を、XとZの座標で決める(Yは、無視するかどうかを選べる)
-///    ツールを開いた時は、グループの警備エリア(GuardArea)の範囲が入っている(「警備エリアから範囲を取り込む」で入れ直せる)
 /// 2. 範囲の中の灰色の道(Road)の上を一周するルートを作る(路地裏(BackAlley)は、余白をあけて避ける)
 /// 3. ルートの曲がり角ごとに巡回ポイントのオブジェクトを作り、グループの子にして、PatrolPointsに設定する
 /// ツールの画面を開いている間は、入力した範囲をSceneビューに表示する(範囲を調整しながら確認できる)
@@ -35,7 +34,7 @@ public class CSED_PoliceRouteWizard : ScriptableWizard
     // Yを無視する時に使う、十分に広いYの範囲
     private const float _unlimitedHeight = 100000.0f;
 
-    // グループの警備エリアが無い時の、範囲の初期値(X・Zの片側の大きさ)
+    // 範囲の初期値(X・Zの片側の大きさ)
     private const float _defaultHalfSize = 120.0f;
 
     // Yを無視する時に、Sceneビューで範囲を表示する高さの余白と、枠の縦線の長さ(m)
@@ -97,9 +96,8 @@ public class CSED_PoliceRouteWizard : ScriptableWizard
             return;
         }
 
-        CSED_PoliceRouteWizard wizard = DisplayWizard<CSED_PoliceRouteWizard>("灰色の道から巡回ポイントを作る", "作る", "警備エリアから範囲を取り込む");
+        CSED_PoliceRouteWizard wizard = DisplayWizard<CSED_PoliceRouteWizard>("灰色の道から巡回ポイントを作る", "作る");
         wizard._squad = squad;
-        wizard.ImportGuardArea();
         wizard.OnWizardUpdate();
     }
 
@@ -174,27 +172,6 @@ public class CSED_PoliceRouteWizard : ScriptableWizard
             summary += $"\n離れていて外れる道(橙): {graph.excludedEdges.Count} 本 (「離れた道も回る」をオンにすると回ります)";
         }
         return summary;
-    }
-
-    // 「警備エリアから範囲を取り込む」ボタン
-    private void OnWizardOtherButton()
-    {
-        ImportGuardArea();
-    }
-
-    /// <summary>
-    /// グループの警備エリア(GuardArea)の範囲を、X・Z・Yの入力欄に取り込むメソッド(警備エリアが無ければ何もしない)
-    /// </summary>
-    private void ImportGuardArea()
-    {
-        if (_squad == null || !TryGetGuardArea(_squad, out Bounds area)) return;
-
-        _minX = area.min.x;
-        _maxX = area.max.x;
-        _minZ = area.min.z;
-        _maxZ = area.max.z;
-        _minY = area.min.y;
-        _maxY = area.max.y;
     }
 
     /// <summary>
@@ -355,32 +332,6 @@ public class CSED_PoliceRouteWizard : ScriptableWizard
         roadCount = roads.Count;
         alleyCount = alleys.Count;
         return CSED_PoliceRoadGraph.Build(roads, alleys, alleyMargin, area, !includeDisconnected);
-    }
-
-    /// <summary>
-    /// グループの警備エリア(Collider)の範囲を取得するメソッド
-    /// </summary>
-    /// <param name="squad">グループ</param>
-    /// <param name="area">警備エリアの範囲(ワールド座標)</param>
-    /// <returns>取得できたらtrue(警備エリアが未設定ならfalse)</returns>
-    private static bool TryGetGuardArea(CS_PoliceSquad squad, out Bounds area)
-    {
-        area = new Bounds();
-
-        SerializedProperty property = new SerializedObject(squad).FindProperty("_guardArea");
-        Collider collider = property != null ? property.objectReferenceValue as Collider : null;
-        if (collider == null) return false;
-
-        // Prefab Modeではコライダーのboundsが当てにならないことがあるので、BoxColliderは大きさと位置から求める
-        if (collider is BoxCollider box)
-        {
-            Vector3 size = Vector3.Scale(box.size, box.transform.lossyScale);
-            area = new Bounds(box.transform.TransformPoint(box.center), new Vector3(Mathf.Abs(size.x), Mathf.Abs(size.y), Mathf.Abs(size.z)));
-            return true;
-        }
-
-        area = collider.bounds;
-        return true;
     }
 
     /// <summary>

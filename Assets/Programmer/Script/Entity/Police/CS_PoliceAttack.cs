@@ -29,7 +29,7 @@ public class CS_PoliceAttack : MonoBehaviour
     // 今回のチャージにかける時間(溜め始めた時の溜め時間。途中で溜め時間が変わっても、進み具合が飛ばないよう覚えておく)
     private float _chargingDuration = 1.0f;
 
-    // 次のチャージから使う溜め時間(手配度などで変わる)
+    // 次のチャージから使う溜め時間
     private float _chargeTime = 0.0f;
 
     // チャージを始めた時に標的がいた位置(攻撃判定はこの位置に向かって出す)
@@ -37,9 +37,6 @@ public class CS_PoliceAttack : MonoBehaviour
 
     // 初期化処理を行わずに攻撃するのを防ぐためのフラグ
     private bool _isInitialized = false;
-
-    // 溜め時間の下限(秒)。手配度で短くしても、攻撃を見てから避けられる時間を残す
-    private const float _minChargeTime = 0.3f;
 
     [Header("＝＝＝ 攻撃 ＝＝＝")]
     [SerializeField, Min(0f)]
@@ -51,7 +48,7 @@ public class CS_PoliceAttack : MonoBehaviour
     private float _attackInterval = 1.0f;
 
     [SerializeField, Min(1f)]
-    [Tooltip("攻撃をするまでの溜め時間(秒)。手配度で出現した増援は、手配度データの溜め時間を使う")]
+    [Tooltip("攻撃をするまでの溜め時間(秒)")]
     private float _attackChargeTime = 2.0f;
 
     [Header("＝＝＝ 攻撃判定 ＝＝＝")]
@@ -94,16 +91,6 @@ public class CS_PoliceAttack : MonoBehaviour
         _attackPower = attackPower;
         _chargeTime = _attackChargeTime;
         _isInitialized = true;
-    }
-
-    /// <summary>
-    /// 次のチャージから使う溜め時間を変更するメソッド(手配度の変化など)
-    /// チャージ中の場合、その回の溜め時間は変わらない
-    /// </summary>
-    /// <param name="chargeTime">溜め時間(秒)。0以下なら、Inspectorの溜め時間に戻す</param>
-    public void ChangeChargeTime(float chargeTime)
-    {
-        _chargeTime = chargeTime > 0.0f ? Mathf.Max(_minChargeTime, chargeTime) : _attackChargeTime;
     }
 
     private void Update()

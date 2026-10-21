@@ -23,6 +23,7 @@ GameObject:
   - component: {fileID: 1872172813661465890}
   - component: {fileID: 487590664383712497}
   - component: {fileID: 5997323292010348831}
+  - component: {fileID: 3196402215840117245}
   m_Layer: 31
   m_Name: Villain
   m_TagString: Untagged
@@ -478,3 +479,18 @@ RectTransform:
   m_CorrespondingSourceObject: {fileID: 3024163532033439586, guid: 19e0c61570e93e84095382a8a7d69d69, type: 3}
   m_PrefabInstance: {fileID: 8843079239888452314}
   m_PrefabAsset: {fileID: 0}
+--- !u!114 &3196402215840117245
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 942901870687269662}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5df700a2e024420effa86ce5bb0dccdf, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CS_VillainPatrol
+  _lookAroundTime: 3
+  _lookAroundAngle: 60
+  _lookAroundPeriod: 2

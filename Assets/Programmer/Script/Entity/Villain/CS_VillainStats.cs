@@ -48,6 +48,8 @@ public class CS_VillainStats : NetworkBehaviour
 
     public float maxHp => _maxHp.Value;
     public float moveSpeedMultiplier => _moveSpeedMultiplier.Value;
+    // 見張り役の巡回の速さ(倍率)。巡回はサーバーだけで行うので同期しない
+    public float patrolSpeedMultiplier => _baseStats != null ? _baseStats.patrolSpeedMultiplier : 0f;
     public float attackPower => _attackPower.Value;
     public float engageRange => _engageRange.Value;
     public float crimeCompleteTime => _crimeCompleteTime.Value;

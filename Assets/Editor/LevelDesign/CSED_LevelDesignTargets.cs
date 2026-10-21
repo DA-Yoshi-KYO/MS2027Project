@@ -53,7 +53,7 @@ public static class CSED_LevelDesignTargets
 
     // タブごとに編集するデータの型
     private static readonly Type[] _villainTypes = { typeof(CSO_VillainStats), typeof(CSO_VillainTimeScaling) };
-    private static readonly Type[] _policeTypes = { typeof(CSO_PoliceStatus), typeof(CSO_PoliceWantedLevelData) };
+    private static readonly Type[] _policeTypes = { typeof(CSO_PoliceStatus), typeof(CSO_PoliceAlertData) };
 
     // シーン内のプレイヤーを番号順(P1〜P4)に返す
     public static List<CS_PlayerStats> FindPlayers()

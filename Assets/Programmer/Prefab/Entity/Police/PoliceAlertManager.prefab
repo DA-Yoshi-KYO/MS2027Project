@@ -11,7 +11,7 @@ GameObject:
   - component: {fileID: 3840000000000000002}
   - component: {fileID: 3840000000000000003}
   m_Layer: 0
-  m_Name: PoliceWantedManager
+  m_Name: PoliceAlertManager
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -41,15 +41,7 @@ MonoBehaviour:
   m_GameObject: {fileID: 3840000000000000001}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 21bdb60916b343f4a313e3f0c1e2f0db, type: 3}
+  m_Script: {fileID: 11500000, guid: 380b03cdc2cd407b9f224c0496b02e15, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::CS_PoliceWantedManager
-  _policePrefab: {fileID: 769974262908060740, guid: 6dc8d9277d6c9e946a9d1237009a748a, type: 3}
-  _status: {fileID: 11400000, guid: 047b3aaf3c777874096d259e0127665b, type: 2}
-  _playerBaseStats: {fileID: 11400000, guid: 817504dae6f859c46802b52e2c8274fb, type: 2}
-  _levelData: {fileID: 11400000, guid: 3137228320a94fc4bc45eb6a99af8291, type: 2}
-  _spawnRadius: 20
-  _spawnAttempts: 10
-  _navMeshSearchDistance: 2
-  _refreshInterval: 0.2
-  _shareDuration: 0.5
+  m_EditorClassIdentifier: Assembly-CSharp::CS_PoliceAlertManager
+  _alertData: {fileID: 11400000, guid: 8e88ad5759e244339f21f236301001d4, type: 2}

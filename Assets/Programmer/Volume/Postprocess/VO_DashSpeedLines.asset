@@ -33,7 +33,7 @@ MonoBehaviour:
     m_Value: 1
   color:
     m_OverrideState: 1
-    m_Value: {r: 1, g: 1, b: 1, a: 0.8}
+    m_Value: {r: 1, g: 1, b: 1, a: 0.3137255}
   center:
     m_OverrideState: 1
     m_Value: {x: 0.5, y: 0.5}
@@ -45,22 +45,22 @@ MonoBehaviour:
     m_Value: 0.4
   lineWidth:
     m_OverrideState: 1
-    m_Value: 0.5
+    m_Value: 0.13
+  streakLength:
+    m_OverrideState: 1
+    m_Value: 0.3
   innerRadius:
     m_OverrideState: 1
-    m_Value: 0.35
+    m_Value: 0.6
   softness:
     m_OverrideState: 1
-    m_Value: 0.25
+    m_Value: 0.24
   flickerRate:
     m_OverrideState: 1
     m_Value: 6
   flowSpeed:
     m_OverrideState: 1
     m_Value: 2
-  streakLength:
-    m_OverrideState: 1
-    m_Value: 0.3
 --- !u!114 &8074616241615446153
 MonoBehaviour:
   m_ObjectHideFlags: 3
@@ -79,7 +79,7 @@ MonoBehaviour:
     m_Value: 100
   fadeInTime:
     m_OverrideState: 1
-    m_Value: 0.05
+    m_Value: 0.5
   fadeOutTime:
     m_OverrideState: 1
     m_Value: 0.25

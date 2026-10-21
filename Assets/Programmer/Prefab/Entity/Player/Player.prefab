@@ -4875,6 +4875,9 @@ GameObject:
   - component: {fileID: 5854182590809397507}
   - component: {fileID: 6182937450261938471}
   - component: {fileID: 3917264058213697542}
+  - component: {fileID: 7728493016254819043}
+  - component: {fileID: 2641957380172645918}
+  - component: {fileID: 8357102946618239417}
   m_Layer: 31
   m_Name: Player
   m_TagString: PlayerNoTransformation
@@ -4965,7 +4968,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Unity.Netcode.Runtime::Unity.Netcode.NetworkObject
-  GlobalObjectIdHash: 2681437817
+  GlobalObjectIdHash: 2789187359
   InScenePlacedSourceGlobalObjectIdHash: 0
   m_InScenePlacedDisabledByDefault: 0
   DeferredDespawnTick: 0
@@ -5484,6 +5487,60 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 6b3c3a9a53580251abd98683d5ac8d01, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::CS_PlayerWantedLevelUI
+  ShowTopMostFoldoutHeaderGroup: 1
+--- !u!114 &7728493016254819043
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1825699444668748530}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ccf4ccbd4e2d99ae9d72109012a0f323, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CS_PlayerParry
+  ShowTopMostFoldoutHeaderGroup: 1
+  _parryWindow: 0.5
+  _searchRadius: 4
+  _searchLayers:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  _invincibleTime: 0.6
+  _counterDamage: 1
+  _counterKnockbackPower: 2
+  _policeStunTime: 2
+  _playerStunTime: 1
+--- !u!114 &2641957380172645918
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1825699444668748530}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b75f233c4260da9936519a5d0257c1ef, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CS_PlayerParryEffect
+  _slowRate: 0.8
+  _slowDuration: 0.3
+  _useVignette: 1
+  _vignetteIntensity: 0.35
+  _darkenInTime: 0.05
+  _darkenOutTime: 0.3
+--- !u!114 &8357102946618239417
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1825699444668748530}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 527361809c569fa494630c98d11b9cda, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CS_PlayerStun
   ShowTopMostFoldoutHeaderGroup: 1
 --- !u!1 &3298430547158640491
 GameObject:

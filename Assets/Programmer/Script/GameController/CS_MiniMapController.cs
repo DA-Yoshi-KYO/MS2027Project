@@ -7,17 +7,24 @@
  * 2026-10-16 | マップの回転の基準を、プレイヤー本体とは別に渡せるようにした(カメラの向きで回すため。秋野)
  * ================================================ */
 
+using System;
 using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
 /// ミニマップのController。
-/// プレイヤー・敵・他プレイヤー・警察・アイテムのアイコンを管理する。
+/// プレイヤー・敵・他プレイヤー・警察・アイテム・ランダムイベントを管理する。
+/// ローカルプレイヤーは本体Transformから位置、viewTransformから向きを取得する。
 /// </summary>
 public class CS_MiniMapController : MonoBehaviour
 {
-    [Header("プレイヤー本体のTransform（動的生成の場合は空でOK）")]
+    // =========================================================
+    // Inspector
+    // =========================================================
+
+    [Header("ローカルプレイヤー（動的生成の場合は空でOK）")]
     [SerializeField] private Transform _localPlayerTransform;
+    [SerializeField] private Transform _localPlayerViewTransform;
 
     [Header("UICanvas配下のMiniMapを直接セット")]
     [SerializeField] private CS_UIMiniMapView _miniMapView;
@@ -31,18 +38,30 @@ public class CS_MiniMapController : MonoBehaviour
     // 内部フィールド
     // =========================================================
 
-    private Transform _localRotationTransform;   // マップの回転の基準(nullならプレイヤー本体の向き)
-
     private CS_UIMiniMapModel _model;
     private CS_UIMiniMapPresenter _presenter;
 
-    private readonly Dictionary<string, Transform> _enemyTransforms = new();
-    private readonly Dictionary<string, Transform> _allyTransforms = new();
-    private readonly Dictionary<string, Transform> _policeTransforms = new();
-    private readonly Dictionary<string, Transform> _itemTransforms = new();
+    private readonly Dictionary<string, Transform>
+        _enemyTransforms = new();
+
+    private readonly Dictionary<string, Transform>
+        _allyTransforms = new();
+
+    private readonly Dictionary<string, Transform>
+        _policeTransforms = new();
+
+    private readonly Dictionary<string, Transform>
+        _itemTransforms = new();
+
+    private readonly Dictionary<string, Transform>
+        _randomEventTransforms = new();
 
     private float _updateTimer;
     private const float _updateInterval = 0.05f;
+
+    // =========================================================
+    // 初期化
+    // =========================================================
 
     private void Awake()
     {
@@ -57,11 +76,14 @@ public class CS_MiniMapController : MonoBehaviour
     {
         if (_miniMapView == null)
         {
-            Debug.LogError("[CS_MiniMapController] _miniMapViewが未設定です。");
+            Debug.LogError(
+                "[CS_MiniMapController] _miniMapViewが未設定です。"
+            );
             return;
         }
 
-        _presenter = _miniMapView.GetComponent<CS_UIMiniMapPresenter>();
+        _presenter =
+            _miniMapView.GetComponent<CS_UIMiniMapPresenter>();
 
         if (_presenter == null)
         {
@@ -74,6 +96,10 @@ public class CS_MiniMapController : MonoBehaviour
         _presenter.SetView(_miniMapView);
         _model.OnDataChanged += OnModelDataChanged;
     }
+
+    // =========================================================
+    // 更新
+    // =========================================================
 
     private void Update()
     {
@@ -88,25 +114,49 @@ public class CS_MiniMapController : MonoBehaviour
 
     private void SyncPositions()
     {
+        // 位置はPlayer本体、向きはviewTransformを使用する。
         if (_localPlayerTransform != null)
         {
-            // 位置はプレイヤー本体、回転は基準(カメラなど)があればその向きを使う
-            Transform rotationSource = _localRotationTransform != null ? _localRotationTransform : _localPlayerTransform;
+            Transform rotationSource =
+                _localPlayerViewTransform != null
+                    ? _localPlayerViewTransform
+                    : _localPlayerTransform;
+
             _model.SetLocalPlayer(
                 _localPlayerTransform.position,
                 rotationSource.eulerAngles.y
             );
         }
 
-        SyncEntityPositions(_enemyTransforms, _model.AddOrUpdateEnemy);
-        SyncEntityPositions(_allyTransforms, _model.AddOrUpdateMultiplayerAlly);
-        SyncEntityPositions(_policeTransforms, _model.AddOrUpdatePolice);
-        SyncEntityPositions(_itemTransforms, _model.AddOrUpdateItem);
+        SyncEntityPositions(
+            _enemyTransforms,
+            _model.AddOrUpdateEnemy
+        );
+
+        SyncEntityPositions(
+            _allyTransforms,
+            _model.AddOrUpdateMultiplayerAlly
+        );
+
+        SyncEntityPositions(
+            _policeTransforms,
+            _model.AddOrUpdatePolice
+        );
+
+        SyncEntityPositions(
+            _itemTransforms,
+            _model.AddOrUpdateItem
+        );
+
+        SyncEntityPositions(
+            _randomEventTransforms,
+            _model.AddOrUpdateRandomEvent
+        );
     }
 
     private void SyncEntityPositions(
         Dictionary<string, Transform> transforms,
-        System.Action<string, Vector3, float> updateAction)
+        Action<string, Vector3, float> updateAction)
     {
         foreach (var pair in transforms)
         {
@@ -127,26 +177,52 @@ public class CS_MiniMapController : MonoBehaviour
     }
 
     // =========================================================
-    // 外部 API
+    // ローカルプレイヤー
     // =========================================================
 
-    /// <summary>Player(Clone) 生成後に呼ぶ</summary>
-    /// <param name="rotationSource">マップの回転の基準(省略時はプレイヤー本体の向き)。カメラの向きで回したい時にカメラのTransformを渡す</param>
-    public void RegisterLocalPlayer(Transform playerTransform, Transform rotationSource = null)
+    /// <summary>
+    /// Player(Clone)生成後に呼ぶ。
+    /// playerTransformは位置、viewTransformはミニマップの向きに使用する。
+    /// </summary>
+    public void RegisterLocalPlayer(
+        Transform playerTransform,
+        Transform viewTransform)
     {
         if (playerTransform == null)
         {
-            Debug.LogError("[CS_MiniMapController] playerTransformがnullです。");
+            Debug.LogError(
+                "[CS_MiniMapController] playerTransformがnullです。"
+            );
             return;
         }
 
         _localPlayerTransform = playerTransform;
-        _localRotationTransform = rotationSource;
+        _localPlayerViewTransform =
+            viewTransform != null
+                ? viewTransform
+                : playerTransform;
+
+        // 登録したフレームから表示できるよう、直ちにModelへ反映する。
+        _model.SetLocalPlayer(
+            _localPlayerTransform.position,
+            _localPlayerViewTransform.eulerAngles.y
+        );
     }
 
-    public void RegisterEnemy(string id, Transform enemyTransform)
+    // =========================================================
+    // 敵
+    // =========================================================
+
+    public void RegisterEnemy(
+        string id,
+        Transform enemyTransform)
     {
-        RegisterEntity(_enemyTransforms, id, enemyTransform, _model.AddOrUpdateEnemy);
+        RegisterEntity(
+            _enemyTransforms,
+            id,
+            enemyTransform,
+            _model.AddOrUpdateEnemy
+        );
     }
 
     public void UnregisterEnemy(string id)
@@ -155,7 +231,13 @@ public class CS_MiniMapController : MonoBehaviour
         _model.RemoveEnemy(id);
     }
 
-    public void RegisterAlly(string id, Transform allyTransform)
+    // =========================================================
+    // 他プレイヤー
+    // =========================================================
+
+    public void RegisterAlly(
+        string id,
+        Transform allyTransform)
     {
         RegisterEntity(
             _allyTransforms,
@@ -171,7 +253,13 @@ public class CS_MiniMapController : MonoBehaviour
         _model.RemoveMultiplayerAlly(id);
     }
 
-    public void RegisterPolice(string id, Transform policeTransform)
+    // =========================================================
+    // 警察
+    // =========================================================
+
+    public void RegisterPolice(
+        string id,
+        Transform policeTransform)
     {
         RegisterEntity(
             _policeTransforms,
@@ -187,8 +275,13 @@ public class CS_MiniMapController : MonoBehaviour
         _model.RemovePolice(id);
     }
 
-    /// <summary>全種類共通のアイコンでアイテムを登録する。</summary>
-    public void RegisterItem(string id, Transform itemTransform)
+    // =========================================================
+    // アイテム
+    // =========================================================
+
+    public void RegisterItem(
+        string id,
+        Transform itemTransform)
     {
         RegisterEntity(
             _itemTransforms,
@@ -198,7 +291,6 @@ public class CS_MiniMapController : MonoBehaviour
         );
     }
 
-    /// <summary>取得・消滅したアイテムをミニマップから削除する。</summary>
     public void UnregisterItem(string id)
     {
         _itemTransforms.Remove(id);
@@ -210,21 +302,79 @@ public class CS_MiniMapController : MonoBehaviour
         _model.SetItemActive(id, isActive);
     }
 
+    // =========================================================
+    // ランダムイベント
+    // =========================================================
+
+    /// <summary>
+    /// ランダムイベント発生時に、発生地点のTransformを登録する。
+    /// </summary>
+    public void RegisterRandomEvent(
+        string id,
+        Transform eventTransform)
+    {
+        RegisterEntity(
+            _randomEventTransforms,
+            id,
+            eventTransform,
+            _model.AddOrUpdateRandomEvent
+        );
+    }
+
+    /// <summary>
+    /// ランダムイベント終了・クリア時に登録解除する。
+    /// </summary>
+    public void UnregisterRandomEvent(string id)
+    {
+        _randomEventTransforms.Remove(id);
+        _model.RemoveRandomEvent(id);
+    }
+
+    public void SetRandomEventActive(
+        string id,
+        bool isActive)
+    {
+        _model.SetRandomEventActive(id, isActive);
+    }
+
+    // =========================================================
+    // 共通処理
+    // =========================================================
+
     private void RegisterEntity(
         Dictionary<string, Transform> transforms,
         string id,
         Transform entityTransform,
-        System.Action<string, Vector3, float> updateAction)
+        Action<string, Vector3, float> updateAction)
     {
-        if (string.IsNullOrWhiteSpace(id) || entityTransform == null)
+        if (string.IsNullOrWhiteSpace(id) ||
+            entityTransform == null)
+        {
             return;
+        }
 
         transforms[id] = entityTransform;
-        updateAction(id, entityTransform.position, entityTransform.eulerAngles.y);
+
+        updateAction(
+            id,
+            entityTransform.position,
+            entityTransform.eulerAngles.y
+        );
     }
 
-    public void SetMapRadius(float radius) => _model.SetMapRadius(radius);
-    public void SetMapWorldSize(float size) => _model.SetMapWorldSize(size);
+    public void SetMapRadius(float radius)
+    {
+        _model.SetMapRadius(radius);
+    }
+
+    public void SetMapWorldSize(float size)
+    {
+        _model.SetMapWorldSize(size);
+    }
+
+    // =========================================================
+    // 終了処理
+    // =========================================================
 
     private void OnDestroy()
     {

@@ -22,27 +22,35 @@ using UnityEngine.Rendering.HighDefinition;
  *      パラメータ名はCS_VillainAnimatorParamsの定数を使う
  *   3. マテリアル(MT_VillainMannequin.mat)の生成
  *      プレイヤーと同じテクスチャに色(_tintColor)を掛ける。犯罪完遂のフェードのため半透明(Transparent)にする
+ *      色を掛けるのは新しく作る時だけ(Inspectorで変えた色は、実行し直しても戻さない)
  *   4. Villain.prefabへModelを追加し、CS_VillainVisualを設定する
  *      (カプセルの描画と、向き確認用の子のCubeは外す)
- * ・攻撃モーションの再生速度は、CS_VillainCombatの攻撃判定の時間(hitActiveTime)に収まるよう自動で決める
- *   → hitActiveTimeを変えたら、このツールを実行し直す
+ * ・溜めと攻撃は同じパンチのモーションを使い、再生位置はCS_VillainVisualがAttackTimeで決める(Motion Time)
+ *   → 溜め時間・攻撃判定の時間を変えても、実行し直す必要はない
+ * ・Tools/Villain/攻撃モーションを解析
+ *   パンチのモーションで手が一番後ろに来る位置(腕を引き切った)と、一番前に来る位置(腕が伸び切った)を求め、
+ *   CS_VillainVisualのwindupTime・strikeTimeへ設定する(Villain・VillainBossの両方)
+ *   あわせて、今あるAnimator Controllerの溜め・攻撃をMotion Timeで動くように直す(作り直さない)
  * ・本番アセットに差し替えるときは、このツールは不要になる(CS_VillainVisualのメモを参照)
  */
 // ========================================
 
 public static class CSED_VillainTempVisualBuilder
 {
-    private const string _tempRoot = "Assets/Programmer/TempAssets/Player";
+    private const string _tempRoot = "Assets/Programmer/PlaceholderAsset/Player";
     private const string _modelPath = _tempRoot + "/Mannequin Character/characters/Mannequin_Medium.fbx";
     private const string _texturePath = _tempRoot + "/Mannequin Character/Textures/mannequin_texture.png";
     private const string _animFolder = _tempRoot + "/Animations/fbx/Rig_Medium/";
     private static readonly string[] _clipFiles = { "Rig_Medium_General", "Rig_Medium_MovementBasic", "Rig_Medium_MovementAdvanced", "Rig_Medium_CombatMelee" };
 
-    private const string _outputFolder = "Assets/Programmer/TempAssets/Generated/Villain";
+    private const string _outputFolder = "Assets/Programmer/PlaceholderAsset/Generated/Villain";
     private const string _clipFolder = _outputFolder + "/Clips";
     private const string _controllerPath = _outputFolder + "/VillainTempAnimator.controller";
     private const string _materialPath = _outputFolder + "/MT_VillainMannequin.mat";
     private const string _prefabPath = "Assets/Programmer/Prefab/Entity/Villain/Villain.prefab";
+    private const string _bossPrefabPath = "Assets/Programmer/Prefab/Entity/Villain/VillainBoss.prefab";
+    private const string _combatMeleeFile = "Rig_Medium_CombatMelee";
+    private const int _analyzeSamples = 120;   // 攻撃モーションを解析する時の分割数
     private const string _modelName = "Model";
     private const string _directionMarkerName = "Cube";   // 向き確認用の仮オブジェクト(モデルで向きが分かるので外す)
 
@@ -55,10 +63,9 @@ public static class CSED_VillainTempVisualBuilder
     private const string _backward = "Walking_Backwards";
     private const string _strafeLeft = "Running_Strafe_Left";
     private const string _strafeRight = "Running_Strafe_Right";
-    private const string _charge = "Melee_Blocking";                 // 溜め(構えて耐える)
-    private const string _attack = "Melee_Unarmed_Attack_Punch_A";   // 攻撃判定中
+    private const string _attack = "Melee_Unarmed_Attack_Punch_A";   // 溜め(腕を引く)・攻撃判定中(腕を伸ばす)
     private const string _hit = "Hit_A";                             // ノックバック
-    private static readonly string[] _loopClips = { _idle, _forward, _backward, _strafeLeft, _strafeRight, _charge };
+    private static readonly string[] _loopClips = { _idle, _forward, _backward, _strafeLeft, _strafeRight };
 
     [MenuItem("Tools/Villain/仮の見た目を組み込む")]
     public static void Build()
@@ -71,16 +78,19 @@ public static class CSED_VillainTempVisualBuilder
         {
             CS_VillainCombat combat = root.GetComponent<CS_VillainCombat>();
             SerializedObject serializedCombat = combat != null ? new SerializedObject(combat) : null;
-            float hitActiveTime = serializedCombat != null ? serializedCombat.FindProperty("_hitActiveTime").floatValue : 1f;
             Object playerBaseStats = serializedCombat != null ? serializedCombat.FindProperty("_playerBaseStats").objectReferenceValue : null;
 
             Dictionary<string, AnimationClip> clips = LoadClips();
-            AnimatorController controller = CreateController(clips, hitActiveTime);
+            AnimatorController controller = CreateController(clips);
             Material material = CreateMaterial();
 
             RemovePlaceholderVisuals(root);
             Animator animator = AttachModel(root, controller, material);
             AttachVisual(root, animator, playerBaseStats);
+            if (TryAnalyzeAttack(Clip(clips, _attack), out float windupTime, out float strikeTime))
+            {
+                SetAttackTimes(root, windupTime, strikeTime);
+            }
 
             PrefabUtility.SaveAsPrefabAsset(root, _prefabPath);
         }
@@ -156,11 +166,11 @@ public static class CSED_VillainTempVisualBuilder
         if (material == null)
         {
             material = new Material(Shader.Find("HDRP/Lit"));
+            material.SetColor("_BaseColor", _tintColor);   // 色は作る時だけ掛ける(Inspectorで変えた色を戻さない)
             AssetDatabase.CreateAsset(material, _materialPath);
         }
 
         material.SetTexture("_BaseColorMap", AssetDatabase.LoadAssetAtPath<Texture2D>(_texturePath));
-        material.SetColor("_BaseColor", _tintColor);
         material.SetFloat("_Smoothness", 0.2f);
 
         // 犯罪完遂のフェード(_BaseColorのアルファを下げる)が見えるよう半透明にする
@@ -174,7 +184,7 @@ public static class CSED_VillainTempVisualBuilder
 
     // ---- Animator Controller ----
 
-    private static AnimatorController CreateController(Dictionary<string, AnimationClip> clips, float hitActiveTime)
+    private static AnimatorController CreateController(Dictionary<string, AnimationClip> clips)
     {
         AssetDatabase.DeleteAsset(_controllerPath);
         AnimatorController controller = AnimatorController.CreateAnimatorControllerAtPath(_controllerPath);
@@ -183,13 +193,14 @@ public static class CSED_VillainTempVisualBuilder
         controller.AddParameter(CS_VillainAnimatorParams.moveZ, AnimatorControllerParameterType.Float);
         controller.AddParameter(CS_VillainAnimatorParams.charging, AnimatorControllerParameterType.Bool);
         controller.AddParameter(CS_VillainAnimatorParams.attacking, AnimatorControllerParameterType.Bool);
+        controller.AddParameter(CS_VillainAnimatorParams.attackTime, AnimatorControllerParameterType.Float);
         controller.AddParameter(CS_VillainAnimatorParams.hit, AnimatorControllerParameterType.Trigger);
 
         AnimatorStateMachine machine = controller.layers[0].stateMachine;
         AnimatorState locomotion = AddLocomotion(controller, machine, clips);
         machine.defaultState = locomotion;
 
-        AddAttack(machine, locomotion, Clip(clips, _charge), Clip(clips, _attack), hitActiveTime);
+        AddAttack(machine, locomotion, Clip(clips, _attack));
         AddHit(machine, locomotion, Clip(clips, _hit));
 
         EditorUtility.SetDirty(controller);
@@ -221,13 +232,13 @@ public static class CSED_VillainTempVisualBuilder
     }
 
     // 溜め(Charging) → 攻撃(Attacking) → 両方falseでLocomotionへ戻る
-    private static void AddAttack(AnimatorStateMachine machine, AnimatorState locomotion, AnimationClip chargeClip, AnimationClip attackClip, float hitActiveTime)
+    // 溜め・攻撃とも同じモーションを、AttackTimeの位置で再生する(CS_VillainVisualが決める)
+    private static void AddAttack(AnimatorStateMachine machine, AnimatorState locomotion, AnimationClip attackClip)
     {
-        AnimatorState charge = AddClipState(machine, "Charge", chargeClip);
+        AnimatorState charge = AddClipState(machine, "Charge", attackClip);
         AnimatorState attack = AddClipState(machine, "Attack", attackClip);
-
-        // 攻撃判定の時間に収まるよう再生速度を決める
-        if (attackClip != null && hitActiveTime > 0f) attack.speed = attackClip.length / hitActiveTime;
+        UseAttackTime(charge);
+        UseAttackTime(attack);
 
         AddAnyStateTransition(machine, charge, AnimatorConditionMode.If, CS_VillainAnimatorParams.charging);
         AddAnyStateTransition(machine, attack, AnimatorConditionMode.If, CS_VillainAnimatorParams.attacking);
@@ -240,6 +251,14 @@ public static class CSED_VillainTempVisualBuilder
         AnimatorStateTransition attackEnd = attack.AddTransition(locomotion);
         SetupTransition(attackEnd, false, 0f);
         attackEnd.AddCondition(AnimatorConditionMode.IfNot, 0f, CS_VillainAnimatorParams.attacking);
+    }
+
+    // 再生位置をAttackTimeで決める(Motion Time)
+    private static void UseAttackTime(AnimatorState state)
+    {
+        state.speed = 1f;
+        state.timeParameterActive = true;
+        state.timeParameter = CS_VillainAnimatorParams.attackTime;
     }
 
     // ノックバック(Hit)で再生し、終わったらLocomotionへ戻る
@@ -326,5 +345,171 @@ public static class CSED_VillainTempVisualBuilder
         serialized.FindProperty("_animator").objectReferenceValue = animator;
         serialized.FindProperty("_playerBaseStats").objectReferenceValue = playerBaseStats;
         serialized.ApplyModifiedPropertiesWithoutUndo();
+    }
+
+    // ---- 攻撃モーションの解析 ----
+
+    [MenuItem("Tools/Villain/攻撃モーションを解析")]
+    public static void AnalyzeAttackMotion()
+    {
+        AnimationClip clip = LoadFbxClip(_combatMeleeFile, _attack);
+        if (clip == null)
+        {
+            Debug.LogError("CSED_VillainTempVisualBuilder: アニメーションが見つかりません: " + _attack);
+            return;
+        }
+
+        UpdateExistingController(clip);
+
+        if (!TryAnalyzeAttack(clip, out float windupTime, out float strikeTime)) return;
+
+        foreach (string path in new[] { _prefabPath, _bossPrefabPath })
+        {
+            GameObject root = PrefabUtility.LoadPrefabContents(path);
+            try
+            {
+                if (SetAttackTimes(root, windupTime, strikeTime)) PrefabUtility.SaveAsPrefabAsset(root, path);
+            }
+            finally
+            {
+                PrefabUtility.UnloadPrefabContents(root);
+            }
+        }
+
+        AssetDatabase.SaveAssets();
+        Debug.Log($"CSED_VillainTempVisualBuilder: 攻撃モーションを解析しました(腕を引き切る: {windupTime:0.000} / 腕が伸び切る: {strikeTime:0.000})");
+    }
+
+    private static AnimationClip LoadFbxClip(string file, string clipName)
+    {
+        foreach (Object asset in AssetDatabase.LoadAllAssetsAtPath(_animFolder + file + ".fbx"))
+        {
+            if (asset is AnimationClip clip && clip.name == clipName) return clip;
+        }
+        return null;
+    }
+
+    // 今あるControllerの溜め・攻撃を、攻撃モーションをAttackTimeの位置で再生するように直す(作り直さない)
+    private static void UpdateExistingController(AnimationClip attackClip)
+    {
+        AnimatorController controller = AssetDatabase.LoadAssetAtPath<AnimatorController>(_controllerPath);
+        if (controller == null)
+        {
+            Debug.LogWarning("CSED_VillainTempVisualBuilder: Animator Controllerが無いため、先に 仮の見た目を組み込む を実行してください");
+            return;
+        }
+
+        bool hasAttackTime = false;
+        foreach (AnimatorControllerParameter parameter in controller.parameters)
+        {
+            if (parameter.name == CS_VillainAnimatorParams.attackTime) hasAttackTime = true;
+        }
+        if (!hasAttackTime) controller.AddParameter(CS_VillainAnimatorParams.attackTime, AnimatorControllerParameterType.Float);
+
+        foreach (ChildAnimatorState child in controller.layers[0].stateMachine.states)
+        {
+            AnimatorState state = child.state;
+            if (state.name != "Charge" && state.name != "Attack") continue;
+
+            state.motion = attackClip;
+            UseAttackTime(state);
+            EditorUtility.SetDirty(state);
+        }
+
+        EditorUtility.SetDirty(controller);
+    }
+
+    // 攻撃モーションの中で、手が一番前に来る位置(腕が伸び切った)と、その前で一番後ろに来る位置(腕を引き切った)を求める
+    // 左右の手のうち、前後に大きく動く方をパンチする手とみなす。位置は0〜1(モーション全体に対する割合)
+    private static bool TryAnalyzeAttack(AnimationClip clip, out float windupTime, out float strikeTime)
+    {
+        windupTime = 0f;
+        strikeTime = 0f;
+        if (clip == null) return false;
+
+        GameObject model = Object.Instantiate(AssetDatabase.LoadAssetAtPath<GameObject>(_modelPath));
+        model.hideFlags = HideFlags.HideAndDontSave;
+        try
+        {
+            List<Transform> hands = FindHands(model.transform);
+            if (hands.Count == 0)
+            {
+                Debug.LogError("CSED_VillainTempVisualBuilder: モデルに手のボーンが見つかりません");
+                return false;
+            }
+
+            float[,] forward = new float[hands.Count, _analyzeSamples + 1];
+            for (int i = 0; i <= _analyzeSamples; i++)
+            {
+                clip.SampleAnimation(model, clip.length * i / _analyzeSamples);
+                for (int h = 0; h < hands.Count; h++)
+                {
+                    forward[h, i] = model.transform.InverseTransformPoint(hands[h].position).z;
+                }
+            }
+
+            int bestHand = 0;
+            float bestRange = -1f;
+            for (int h = 0; h < hands.Count; h++)
+            {
+                float min = float.MaxValue, max = float.MinValue;
+                for (int i = 0; i <= _analyzeSamples; i++)
+                {
+                    min = Mathf.Min(min, forward[h, i]);
+                    max = Mathf.Max(max, forward[h, i]);
+                }
+                if (max - min <= bestRange) continue;
+
+                bestRange = max - min;
+                bestHand = h;
+            }
+
+            int strike = 0;
+            for (int i = 1; i <= _analyzeSamples; i++)
+            {
+                if (forward[bestHand, i] > forward[bestHand, strike]) strike = i;
+            }
+            int windup = 0;
+            for (int i = 1; i < strike; i++)
+            {
+                if (forward[bestHand, i] < forward[bestHand, windup]) windup = i;
+            }
+
+            windupTime = (float)windup / _analyzeSamples;
+            strikeTime = (float)strike / _analyzeSamples;
+            Debug.Log($"CSED_VillainTempVisualBuilder: パンチする手 = {hands[bestHand].name}");
+            return true;
+        }
+        finally
+        {
+            Object.DestroyImmediate(model);
+        }
+    }
+
+    // 手首のボーン(名前にhandを含み、親はhandを含まない。指は除く)
+    private static List<Transform> FindHands(Transform root)
+    {
+        List<Transform> hands = new List<Transform>();
+        foreach (Transform bone in root.GetComponentsInChildren<Transform>())
+        {
+            if (!bone.name.ToLower().Contains("hand")) continue;
+            if (bone.parent != null && bone.parent.name.ToLower().Contains("hand")) continue;
+
+            hands.Add(bone);
+        }
+        return hands;
+    }
+
+    // CS_VillainVisualへ腕を引き切る位置・伸び切る位置を設定する。付いていなければfalse
+    private static bool SetAttackTimes(GameObject root, float windupTime, float strikeTime)
+    {
+        CS_VillainVisual visual = root.GetComponent<CS_VillainVisual>();
+        if (visual == null) return false;
+
+        SerializedObject serialized = new SerializedObject(visual);
+        serialized.FindProperty("_windupTime").floatValue = windupTime;
+        serialized.FindProperty("_strikeTime").floatValue = strikeTime;
+        serialized.ApplyModifiedPropertiesWithoutUndo();
+        return true;
     }
 }

@@ -10,7 +10,9 @@ using System;
 using System.Collections.Generic;
 using UnityEngine;
 
-/// <summary>ミニマップに表示するエンティティの種類</summary>
+/// <summary>
+/// ミニマップに表示するエンティティの種類
+/// </summary>
 public enum CSE_MiniMapEntityType
 {
     Player,
@@ -18,10 +20,13 @@ public enum CSE_MiniMapEntityType
     MultiplayerAlly,
     Police,
     Item,
+    RandomEvent,
     Max,
 }
 
-/// <summary>ミニマップ上に表示する各エンティティのデータ</summary>
+/// <summary>
+/// ミニマップ上に表示する各エンティティのデータ
+/// </summary>
 public class MiniMapEntityData
 {
     public string entityId { get; private set; }
@@ -46,15 +51,17 @@ public class MiniMapEntityData
 
 /// <summary>
 /// ミニマップのModel。
-/// プレイヤー・敵・他プレイヤー・警察・アイテムの位置情報を管理する。
+/// プレイヤー・敵・他プレイヤー・警察・アイテム・ランダムイベントを管理する。
 /// </summary>
 public class CS_UIMiniMapModel : CS_BaseModel
 {
     private MiniMapEntityData _localPlayer;
+
     private readonly Dictionary<string, MiniMapEntityData> _enemies = new();
     private readonly Dictionary<string, MiniMapEntityData> _multiplayerAllies = new();
     private readonly Dictionary<string, MiniMapEntityData> _polices = new();
     private readonly Dictionary<string, MiniMapEntityData> _items = new();
+    private readonly Dictionary<string, MiniMapEntityData> _randomEvents = new();
 
     public float miniMapRadius { get; private set; }
     public float miniMapWorldSize { get; private set; }
@@ -71,6 +78,10 @@ public class CS_UIMiniMapModel : CS_BaseModel
         miniMapWorldSize = mapWorldSize;
         rotatePlayer = rotateWithPlayer;
     }
+
+    // =========================================================
+    // ローカルプレイヤー
+    // =========================================================
 
     public void SetLocalPlayer(Vector3 worldPosition, float rotation)
     {
@@ -94,16 +105,39 @@ public class CS_UIMiniMapModel : CS_BaseModel
 
     public MiniMapEntityData GetLocalPlayer() => _localPlayer;
 
-    public void AddOrUpdateEnemy(string id, Vector3 worldPosition, float rotation = 0f)
+    // =========================================================
+    // 敵
+    // =========================================================
+
+    public void AddOrUpdateEnemy(
+        string id,
+        Vector3 worldPosition,
+        float rotation = 0f)
     {
-        AddOrUpdate(_enemies, id, CSE_MiniMapEntityType.Enemy, worldPosition, rotation);
+        AddOrUpdate(
+            _enemies,
+            id,
+            CSE_MiniMapEntityType.Enemy,
+            worldPosition,
+            rotation
+        );
     }
 
     public void RemoveEnemy(string id) => Remove(_enemies, id);
-    public void SetEnemyActive(string id, bool isActive) => SetActive(_enemies, id, isActive);
-    public IReadOnlyDictionary<string, MiniMapEntityData> GetEnemies() => _enemies;
+    public void SetEnemyActive(string id, bool isActive) =>
+        SetActive(_enemies, id, isActive);
 
-    public void AddOrUpdateMultiplayerAlly(string id, Vector3 worldPosition, float rotation = 0f)
+    public IReadOnlyDictionary<string, MiniMapEntityData> GetEnemies() =>
+        _enemies;
+
+    // =========================================================
+    // 他プレイヤー
+    // =========================================================
+
+    public void AddOrUpdateMultiplayerAlly(
+        string id,
+        Vector3 worldPosition,
+        float rotation = 0f)
     {
         AddOrUpdate(
             _multiplayerAllies,
@@ -114,30 +148,92 @@ public class CS_UIMiniMapModel : CS_BaseModel
         );
     }
 
-    public void RemoveMultiplayerAlly(string id) => Remove(_multiplayerAllies, id);
-    public IReadOnlyDictionary<string, MiniMapEntityData> GetMultiplayerAllies() => _multiplayerAllies;
+    public void RemoveMultiplayerAlly(string id) =>
+        Remove(_multiplayerAllies, id);
 
-    public void AddOrUpdatePolice(string id, Vector3 worldPosition, float rotation = 0f)
+    public IReadOnlyDictionary<string, MiniMapEntityData>
+        GetMultiplayerAllies() => _multiplayerAllies;
+
+    // =========================================================
+    // 警察
+    // =========================================================
+
+    public void AddOrUpdatePolice(
+        string id,
+        Vector3 worldPosition,
+        float rotation = 0f)
     {
-        AddOrUpdate(_polices, id, CSE_MiniMapEntityType.Police, worldPosition, rotation);
+        AddOrUpdate(
+            _polices,
+            id,
+            CSE_MiniMapEntityType.Police,
+            worldPosition,
+            rotation
+        );
     }
 
     public void RemovePolice(string id) => Remove(_polices, id);
-    public void SetPoliceActive(string id, bool isActive) => SetActive(_polices, id, isActive);
-    public IReadOnlyDictionary<string, MiniMapEntityData> GetPolices() => _polices;
+    public void SetPoliceActive(string id, bool isActive) =>
+        SetActive(_polices, id, isActive);
+
+    public IReadOnlyDictionary<string, MiniMapEntityData> GetPolices() =>
+        _polices;
 
     // =========================================================
     // アイテム
     // =========================================================
 
-    public void AddOrUpdateItem(string id, Vector3 worldPosition, float rotation = 0f)
+    public void AddOrUpdateItem(
+        string id,
+        Vector3 worldPosition,
+        float rotation = 0f)
     {
-        AddOrUpdate(_items, id, CSE_MiniMapEntityType.Item, worldPosition, rotation);
+        AddOrUpdate(
+            _items,
+            id,
+            CSE_MiniMapEntityType.Item,
+            worldPosition,
+            rotation
+        );
     }
 
     public void RemoveItem(string id) => Remove(_items, id);
-    public void SetItemActive(string id, bool isActive) => SetActive(_items, id, isActive);
-    public IReadOnlyDictionary<string, MiniMapEntityData> GetItems() => _items;
+    public void SetItemActive(string id, bool isActive) =>
+        SetActive(_items, id, isActive);
+
+    public IReadOnlyDictionary<string, MiniMapEntityData> GetItems() =>
+        _items;
+
+    // =========================================================
+    // ランダムイベント
+    // =========================================================
+
+    public void AddOrUpdateRandomEvent(
+        string id,
+        Vector3 worldPosition,
+        float rotation = 0f)
+    {
+        AddOrUpdate(
+            _randomEvents,
+            id,
+            CSE_MiniMapEntityType.RandomEvent,
+            worldPosition,
+            rotation
+        );
+    }
+
+    public void RemoveRandomEvent(string id) =>
+        Remove(_randomEvents, id);
+
+    public void SetRandomEventActive(string id, bool isActive) =>
+        SetActive(_randomEvents, id, isActive);
+
+    public IReadOnlyDictionary<string, MiniMapEntityData>
+        GetRandomEvents() => _randomEvents;
+
+    // =========================================================
+    // 共通処理
+    // =========================================================
 
     private void AddOrUpdate(
         Dictionary<string, MiniMapEntityData> entities,
@@ -157,13 +253,20 @@ public class CS_UIMiniMapModel : CS_BaseModel
         }
         else
         {
-            entities[id] = new MiniMapEntityData(id, type, worldPosition, rotation);
+            entities[id] = new MiniMapEntityData(
+                id,
+                type,
+                worldPosition,
+                rotation
+            );
         }
 
         OnDataChanged?.Invoke();
     }
 
-    private void Remove(Dictionary<string, MiniMapEntityData> entities, string id)
+    private void Remove(
+        Dictionary<string, MiniMapEntityData> entities,
+        string id)
     {
         if (entities.Remove(id))
             OnDataChanged?.Invoke();
@@ -206,6 +309,7 @@ public class CS_UIMiniMapModel : CS_BaseModel
         _multiplayerAllies.Clear();
         _polices.Clear();
         _items.Clear();
+        _randomEvents.Clear();
         _localPlayer = null;
     }
 }

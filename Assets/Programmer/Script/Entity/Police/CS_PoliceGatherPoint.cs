@@ -18,15 +18,23 @@ public class CS_PoliceGatherPoint
     // 事件の現場
     private readonly Vector3 _position = Vector3.zero;
 
+    // 事件の元になった信号を出したプレイヤー(分からなければnull)
+    private readonly CS_PlayerHealth _source = null;
+
     // 事件の現場
     public Vector3 position => _position;
+
+    // 事件の元になった信号を出したプレイヤー(警戒UIが「自分への信号か」を判定するのに使う。分からなければnull)
+    public CS_PlayerHealth source => _source;
 
     /// <summary>
     /// コンストラクタ
     /// </summary>
     /// <param name="position">事件の現場</param>
-    public CS_PoliceGatherPoint(Vector3 position)
+    /// <param name="source">信号を出したプレイヤー(分からなければnull)</param>
+    public CS_PoliceGatherPoint(Vector3 position, CS_PlayerHealth source = null)
     {
         _position = position;
+        _source = source;
     }
 }

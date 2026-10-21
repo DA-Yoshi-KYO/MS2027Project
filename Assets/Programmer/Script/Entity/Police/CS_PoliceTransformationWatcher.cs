@@ -12,7 +12,7 @@ using UnityEngine;
 /// <summary>
 /// 警察のグループの警備エリア内で、プレイヤーが変身したことを検知するクラス
 /// 一定間隔でエリア内のプレイヤーの変身状態を調べ、「前回は変身していなかった → 今回は変身している」
-/// プレイヤーを見つけたら、その位置を返す(変身した状態でエリアに入ってきた場合は対象外)
+/// プレイヤーを見つけたら、そのプレイヤーを返す(変身した状態でエリアに入ってきた場合は対象外)
 /// </summary>
 public class CS_PoliceTransformationWatcher
 {
@@ -42,31 +42,31 @@ public class CS_PoliceTransformationWatcher
     }
 
     /// <summary>
-    /// 一定間隔で警備エリア内を調べ、変身したばかりのプレイヤーの位置を集めるメソッド(毎フレーム呼ぶ)
+    /// 一定間隔で警備エリア内を調べ、変身したばかりのプレイヤーを集めるメソッド(毎フレーム呼ぶ)
     /// </summary>
     /// <param name="deltaTime">前のフレームからの経過時間</param>
     /// <param name="guardArea">警備エリア</param>
-    /// <param name="transformedPositions">変身したばかりのプレイヤーの位置(調べていないフレームは空になる)</param>
-    public void Update(float deltaTime, Collider guardArea, List<Vector3> transformedPositions)
+    /// <param name="transformedPlayers">変身したばかりのプレイヤー(調べていないフレームは空になる)</param>
+    public void Update(float deltaTime, Collider guardArea, List<CS_PlayerHealth> transformedPlayers)
     {
-        transformedPositions.Clear();
+        transformedPlayers.Clear();
 
         _checkTimer -= deltaTime;
         if (_checkTimer > 0.0f) return;
         _checkTimer = _checkInterval;
 
-        CollectStates(guardArea, transformedPositions);
+        CollectStates(guardArea, transformedPlayers);
 
         // 今回の状態を、次回の比較に使う「前回の状態」にする
         (_lastStates, _currentStates) = (_currentStates, _lastStates);
     }
 
     /// <summary>
-    /// 警備エリア内のプレイヤーの変身状態を記録し、変身したばかりのプレイヤーの位置を集めるメソッド
+    /// 警備エリア内のプレイヤーの変身状態を記録し、変身したばかりのプレイヤーを集めるメソッド
     /// </summary>
     /// <param name="guardArea">警備エリア</param>
-    /// <param name="transformedPositions">変身したばかりのプレイヤーの位置</param>
-    private void CollectStates(Collider guardArea, List<Vector3> transformedPositions)
+    /// <param name="transformedPlayers">変身したばかりのプレイヤー</param>
+    private void CollectStates(Collider guardArea, List<CS_PlayerHealth> transformedPlayers)
     {
         _currentStates.Clear();
 
@@ -90,7 +90,7 @@ public class CS_PoliceTransformationWatcher
             // 前回もエリア内にいて変身していなかったプレイヤーが、今回は変身している
             if (isTransformed && _lastStates.TryGetValue(player, out bool wasTransformed) && !wasTransformed)
             {
-                transformedPositions.Add(position);
+                transformedPlayers.Add(player);
             }
         }
     }

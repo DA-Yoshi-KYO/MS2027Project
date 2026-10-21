@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using UnityEngine;
 
 /*
  * 悪人グループ1つ分の情報と、グループ単位の犯罪の進行を管理するクラス
@@ -24,6 +25,8 @@ using System.Collections.Generic;
  * ・同時に攻撃できるのは、グループのうち maxAttackers 人まで(攻撃枠)
  *   臨戦態勢になったメンバーは攻撃枠を取れたら攻撃し、取れなければつかず離れずで様子を見る
  *   攻撃枠は臨戦態勢が終わる(帰還する)・撃退される・逃走する時に空き、様子見のメンバーが代わりに取る
+ * ・様子見のメンバーがターゲットを取り囲む時の並び順(GetSurroundOrder)も、グループの中で決める
+ *   同じターゲットを取り囲んでいるメンバーの平均位置の方向を扇の中心にし、そこから見た角度(左から右)の順に並べる
  * ・サーバー(オフライン時はその場)でのみ使う
  */
 // ========================================
@@ -32,6 +35,7 @@ public class CS_VillainGroup
 {
     private readonly CS_VillainSpawnPoint _spawnPoint;
     private readonly List<CS_VillainCrime> _members = new List<CS_VillainCrime>();
+    private readonly List<CS_VillainCombat> _combats = new List<CS_VillainCombat>();          // メンバーの反撃(_membersと同じ順)
     private readonly HashSet<CS_VillainCombat> _attackers = new HashSet<CS_VillainCombat>();   // 攻撃枠を持っているメンバー
     private readonly int _maxAttackers;
     private readonly bool _usesTimeScaling;
@@ -70,7 +74,67 @@ public class CS_VillainGroup
     public void AddMember(CS_VillainCrime member)
     {
         _members.Add(member);
-        member.GetComponent<CS_VillainCombat>().SetGroup(this);
+        CS_VillainCombat combat = member.GetComponent<CS_VillainCombat>();
+        _combats.Add(combat);
+        combat.SetGroup(this);
+    }
+
+    // メンバーが新しく臨戦態勢になったことを、他のメンバーへ知らせる(サーバーのみ)
+    public void NotifyEngaged(CS_VillainCombat source, Transform target, CS_PlayerHealth player)
+    {
+        foreach (CS_VillainCombat combat in _combats)
+        {
+            if (combat == null || combat == source) continue;
+
+            combat.OnAllyEngaged(target, player);
+        }
+    }
+
+    // 同じターゲットを取り囲んでいるメンバーの並び方を求める
+    // center: ターゲットから見た、取り囲んでいるメンバーの平均位置の方向(並ぶ扇の中心)
+    // index : selfが中心から見て左から何番目か / count: 全部で何人か
+    public void GetSurroundOrder(CS_VillainCombat self, Transform target, out Vector3 center, out int index, out int count)
+    {
+        center = Vector3.zero;
+        foreach (CS_VillainCombat combat in _combats)
+        {
+            if (!IsSurrounding(combat, self, target)) continue;
+
+            Vector3 offset = combat.transform.position - target.position;
+            offset.y = 0f;
+            if (offset.sqrMagnitude > 0f) center += offset.normalized;
+        }
+        center = center.sqrMagnitude > 0f ? center.normalized : self.transform.forward;
+
+        float selfAngle = GetAngleFromFront(self, target, center);
+        index = 0;
+        count = 1;   // self
+        foreach (CS_VillainCombat combat in _combats)
+        {
+            if (combat == self || !IsSurrounding(combat, self, target)) continue;
+
+            count++;
+            float angle = GetAngleFromFront(combat, target, center);
+            // 同じ角度の時はリストの順で決める(2人が同じ番号にならないように)
+            if (angle < selfAngle || (angle == selfAngle && _combats.IndexOf(combat) < _combats.IndexOf(self))) index++;
+        }
+    }
+
+    // 同じターゲットを取り囲んでいるメンバーか(self自身は、まだ取り囲みに入る前でも含める)
+    private static bool IsSurrounding(CS_VillainCombat combat, CS_VillainCombat self, Transform target)
+    {
+        if (combat == null) return false;
+        if (combat == self) return true;
+
+        return combat.isSurrounding && combat.target == target;
+    }
+
+    // 扇の中心(front)から見た、メンバーのいる方向の角度(右が+)
+    private static float GetAngleFromFront(CS_VillainCombat combat, Transform target, Vector3 front)
+    {
+        Vector3 offset = combat.transform.position - target.position;
+        offset.y = 0f;
+        return Vector3.SignedAngle(front, offset, Vector3.up);
     }
 
     // 攻撃枠を取る。既に持っている、または空きがあればtrue

@@ -24,6 +24,9 @@ public class CS_PoliceBrain : MonoBehaviour
     private CS_PoliceVision _vision = null;
     private CS_PoliceAttack _attack = null;
 
+    // 標的を追いかける時に狙う位置を決めるクラス(出現した時に、ステータスの追いかけ方で作る)
+    private CS_PoliceChaseAim _chaser = null;
+
     // 所属先(巡回するグループ)
     private IPoliceGroup _group = null;
 
@@ -186,6 +189,7 @@ public class CS_PoliceBrain : MonoBehaviour
         _move.Setting(speedTable);
         _vision.Setting(status.viewAngle, status.viewDistance, status.viewHeight);
         _attack.Setting(status.attackPower);
+        _chaser = new CS_PoliceChaseAim(status);
 
         _state = CSE_PoliceMoveState.Patrol;
         _isInitialized = true;
@@ -361,8 +365,10 @@ public class CS_PoliceBrain : MonoBehaviour
         _isWandering = false;
 
         // 全員が標的の一点に押し合わないよう、標的を囲む位置(攻撃の射程の内側)を目指す
+        // 囲む中心は追いかけ方で決まる(追尾: 標的の位置 / 先回り: 標的の動く先)
         float chaseRadius = _attack.attackRange * _chaseRadiusRatio;
-        _move.SetDestination(GetSlotDestination(target, _chaseRingKind, target.position, chaseRadius), CSE_PoliceMoveState.Chase);
+        Vector3 aim = _chaser.GetAimPosition(target, transform.position, _move.GetStateSpeed(CSE_PoliceMoveState.Chase));
+        _move.SetDestination(GetSlotDestination(target, _chaseRingKind, aim, chaseRadius), CSE_PoliceMoveState.Chase);
         _attack.TryStartCharge(target);
     }
 

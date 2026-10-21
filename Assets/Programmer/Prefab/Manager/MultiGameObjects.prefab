@@ -2597,6 +2597,7 @@ GameObject:
   - component: {fileID: 3849940814473903302}
   - component: {fileID: 190591818984820767}
   - component: {fileID: 4322491624296611854}
+  - component: {fileID: 6608713720438170531}
   m_Layer: 0
   m_Name: RandomEventManager
   m_TagString: Untagged
@@ -3692,3 +3693,15 @@ Transform:
   m_CorrespondingSourceObject: {fileID: 2499838623366135980, guid: 9ccd8ccc404ae4945bb9746bfc0d8bec, type: 3}
   m_PrefabInstance: {fileID: 6241952802490913806}
   m_PrefabAsset: {fileID: 0}
+--- !u!114 &6608713720438170531
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7054867216860441873}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 453ce90b8363835e6f09918f327c8e44, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CS_RandomEventMiniMapIcon

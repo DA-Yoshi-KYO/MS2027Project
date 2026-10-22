@@ -2,7 +2,7 @@
 using UnityEngine.Rendering;
 
 /*
- * ダッシュ中に集中線などの画面効果をかけるクラス
+ * ダッシュ中に集中線・被写界深度(奥のぼかし)などの画面効果をかけるクラス
  * CS_Playerのダッシュ状態を見て、CS_PlayerScreenEffectへ効果のオン・オフを伝えるだけ
  * (ゲームロジック側はこのクラスの存在を知らない。外しても移動は動く)
  *
@@ -15,8 +15,11 @@ using UnityEngine.Rendering;
  * ・かける条件はCS_PlayerCameraFov(ダッシュ中に画角を広げる)と同じ
  *   ブリンク中(CS_Player.isDashing) または スプリント中(isSprinting)で実際に動いている時
  *   (止まってダッシュボタンを押しているだけの時はかけない)
- * ・見た目(線の本数・太さなど)も出し入れの速さも、_speedLinesのVolume Profileで調整する
- *   見た目: CSV_SpeedLines、出し入れの速さ: CSV_ScreenEffectTimingのFade In Time / Fade Out Time
+ * ・ダッシュ中の効果は1つのVolume Profile(_dashEffect)にまとめ、Playerの子のVolume1つでかける
+ *   見た目も出し入れの速さも、このProfileで調整する
+ *   集中線: CSV_SpeedLines
+ *   奥のぼかし: HDRPのDepth of Field(Manual。手前はぼかさず、Far Focus Start〜Endで奥をぼかす)
+ *   出し入れの速さ: CSV_ScreenEffectTimingのFade In Time / Fade Out Time(全部の効果で共通)
  * ・自分の画面のプレイヤーかどうかの判定はCS_PlayerScreenEffect側で行う
  */
 // ========================================
@@ -27,7 +30,7 @@ using UnityEngine.Rendering;
 public class CS_PlayerDashScreenEffect : MonoBehaviour
 {
     [Header("かける効果")]
-    [SerializeField] private VolumeProfile _speedLines;   // ダッシュ中にかける効果
+    [SerializeField] private VolumeProfile _dashEffect;   // ダッシュ中にかける効果(集中線・奥のぼかし)
 
     [Header("スプリントとみなす速さ")]
     [SerializeField][Min(0f)] private float _minSprintSpeed = 0.5f;  // 水平方向にこれ以上の速さで動いている時だけかける(m/秒)
@@ -46,13 +49,13 @@ public class CS_PlayerDashScreenEffect : MonoBehaviour
     private void LateUpdate()
     {
         bool isFast = _player.isDashing || (_player.isSprinting && IsMoving());
-        _screenEffect.SetHeld(_speedLines, isFast);
+        _screenEffect.SetHeld(_dashEffect, isFast);
     }
 
     private void OnDisable()
     {
         if (_screenEffect == null) return;
-        _screenEffect.SetHeld(_speedLines, false);
+        _screenEffect.SetHeld(_dashEffect, false);
     }
 
     // 水平方向に動いているか(止まってダッシュボタンを押しているだけの時はかけない)

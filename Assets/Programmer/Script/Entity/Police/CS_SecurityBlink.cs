@@ -86,6 +86,15 @@ public class CS_SecurityBlink : MonoBehaviour
     }
 
     /// <summary>
+    /// 点滅をやめて、普段の色に戻すメソッド
+    /// </summary>
+    public void StopFlash()
+    {
+        _flashRemaining = 0.0f;
+        ApplyColor(false, false);
+    }
+
+    /// <summary>
     /// 見た目の色を反映するメソッド
     /// </summary>
     /// <param name="isAlert">赤にするか(falseなら青)</param>

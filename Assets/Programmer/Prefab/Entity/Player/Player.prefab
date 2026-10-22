@@ -5334,6 +5334,7 @@ MonoBehaviour:
   _bonusStep: 0.2
   _crimeCompletedPenalty: 20
   _foundByPolicePenalty: 50
+  _foundByPoliceInterval: 5
   _defeatPlayerScore: 0
 --- !u!114 &-4510307253191130015
 MonoBehaviour:
@@ -5479,31 +5480,6 @@ MonoBehaviour:
   _widenSpeed: 20
   _returnSpeed: 5
   _minSprintSpeed: 0.5
---- !u!114 &6038915642972428042
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1825699444668748530}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 42b97f2a6f5b4e9ba5265a832abd8b23, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::CS_PlayerCameraOcclusion
-  _settings:
-  - tag: Building
-    fadeValue: 0
-  - tag: Prop
-    fadeValue: 0.5
-  _targetHeights:
-  - 0.3
-  - 1.6
-  _castRadius: 0.2
-  _layerMask:
-    serializedVersion: 2
-    m_Bits: 4294967295
-  _fadeSpeed: 6
 --- !u!114 &3917264058213697542
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -5612,6 +5588,31 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::CS_PlayerDashScreenEffect
   _speedLines: {fileID: 11400000, guid: da6c55f96423472f891c3401b4125735, type: 2}
   _minSprintSpeed: 0.5
+--- !u!114 &6038915642972428042
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1825699444668748530}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 42b97f2a6f5b4e9ba5265a832abd8b23, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CS_PlayerCameraOcclusion
+  _settings:
+  - tag: Building
+    fadeValue: 0
+  - tag: Prop
+    fadeValue: 0.5
+  _targetHeights:
+  - 0.3
+  - 1.6
+  _castRadius: 0.2
+  _layerMask:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  _fadeSpeed: 6
 --- !u!1 &3298430547158640491
 GameObject:
   m_ObjectHideFlags: 0
@@ -5640,8 +5641,8 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 3298430547158640491}
   serializedVersion: 2
-  m_LocalRotation: {x: 0.09584575, y: -0, z: -0, w: 0.9953962}
-  m_LocalPosition: {x: 100, y: 3.560663, z: -106.87139}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -6187,7 +6188,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 8211388652041010643, guid: da07e20c2bfc65e4ca8fe6762518ce3a, type: 3}
       propertyPath: GlobalObjectIdHash
-      value: 2593234121
+      value: 4256807303
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []

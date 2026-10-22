@@ -49,16 +49,6 @@
       ]
     },
     {
-      "_heading": "手配度データ",
-      "_assetPath": "Assets/Programmer/Database/Police/DB_PoliceWantedLevel.asset",
-      "_arrayProperty": "_levels",
-      "_columns": [
-        { "_column": "警察の出現数", "_property": "_policeCount" },
-        { "_column": "警察の追跡速度倍率", "_property": "_chaseSpeedMultiplier" },
-        { "_column": "視界範囲", "_property": "_viewDistance" }
-      ]
-    },
-    {
       "_heading": "悪人の時間経過による変化データ",
       "_assetPath": "Assets/Programmer/Database/Villain/DB_VillainTimeScaling.asset",
       "_arrayProperty": "_stages",

@@ -21,10 +21,8 @@ using UnityEngine;
  * ・タグは変身が完了した時に切り替える(変身途中はまだ通常のタグ)
  *   通常・変身途中: PlayerNoTransformation / 変身完了: PlayerTransformation
  * ・変身完了中は、一定間隔で現在地を警察へ知らせる
- *   信号はCS_PoliceSquad.NotifyIncident(位置, 自分のCS_PlayerHealth)で警察へ知らせる
- *   警備エリア内の警察グループと、このプレイヤーの手配度で出現した増援の両方が駆け付ける
- *   (増援を「信号を出した本人の場所」へ向かわせるため、位置だけでなく誰が出したかも渡す。警察側からの依頼)
- *   あわせてonPoliceNotified(信号を出した位置)も発生させる
+ *   警察への通知は、警戒状態(旧手配度)の仕様変更で無くなった(警察が自分の目でプレイヤーを見つけた時に、警戒状態になる)
+ *   信号の間隔の仕組みとonPoliceNotified(信号を出した位置)は、今は警察に使われていない(プレイヤー担当の判断で整理する)
  *   間隔は変身を続けるほど短くなる(仕様書「変形のリスク」、データ表「プレイヤーデータ」)
  *     間隔 = 初期信号間隔(_policeNotifyInterval、既定10秒)
  *          - 短縮時間(_policeNotifyShortenAmount、既定2秒) × (変身完了からの経過時間 ÷ 間隔短縮時間(_policeNotifyShortenTime、既定20秒) の切り捨て)
@@ -33,7 +31,6 @@ using UnityEngine;
  *   次の信号の間隔は、信号を出した時点の経過時間で決める。解除して再変身すると、また初期信号間隔から始まる
  *   間隔が短くなった瞬間にonPoliceNotifyIntervalShortenedを発生させる(手配度 CS_PlayerWantedLevel が+1する)
  *   (最短間隔に達した後は、それ以上短くならないので発生しない)
- *   変身が完了した瞬間そのものは、警察側(CS_PoliceTransformationWatcher)がタグの変化で検知している
  * ・状態と各時刻はNetworkVariableで持つ(書き込みはサーバーのみ、読み取りは全員可)
  *   流れ: Ownerがボタンを押す → サーバーへ依頼(RPC) → サーバーが条件を確認して確定 → 全員のタグが切り替わる
  *   変身の完了と警察への通知も、サーバーが時間を見て行う
@@ -244,8 +241,6 @@ public class CS_PlayerTransformation : NetworkBehaviour
         // 次の間隔は、この信号を出した時点の経過時間で決める
         float elapsed = (float)(_nextPoliceNotifyTime - _transformedTime);
         _nextPoliceNotifyTime += GetPoliceNotifyInterval(elapsed);
-        // 誰が出した信号かを警察側が判断できるよう、自分(CS_PlayerHealth)も一緒に渡す
-        CS_PoliceSquad.NotifyIncident(transform.position, _health);
         onPoliceNotified?.Invoke(transform.position);
     }
 

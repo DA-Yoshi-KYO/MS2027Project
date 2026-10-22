@@ -124,20 +124,6 @@ public class CS_PoliceMove : MonoBehaviour
         _isInitialized = true;
     }
 
-    /// <summary>
-    /// 移動状態はそのままで、移動状態に応じた速度だけを入れ替えるメソッド(手配度の変化など)
-    /// </summary>
-    /// <param name="speedTable">警察の移動状態に応じた速度を格納した辞書</param>
-    public void ChangeSpeedTable(Dictionary<CSE_PoliceMoveState, float> speedTable)
-    {
-        foreach (var kvp in speedTable)
-        {
-            _moveStateSpeeds[kvp.Key] = kvp.Value;
-        }
-
-        ApplyCurrentSpeed();
-    }
-
     private void Update()
     {
         if (!_isInitialized) return;
@@ -147,6 +133,16 @@ public class CS_PoliceMove : MonoBehaviour
 
         // 移動できない状態が続いた時間を数える(途切れたらリセット)
         _stuckTimer = IsBlocked() ? _stuckTimer + Time.deltaTime : 0.0f;
+    }
+
+    /// <summary>
+    /// 移動状態ごとの速度を取得するメソッド
+    /// </summary>
+    /// <param name="moveState">移動状態</param>
+    /// <returns>その移動状態の速度(設定されていなければ0)</returns>
+    public float GetStateSpeed(CSE_PoliceMoveState moveState)
+    {
+        return _moveStateSpeeds.TryGetValue(moveState, out float speed) ? speed : 0.0f;
     }
 
     /// <summary>

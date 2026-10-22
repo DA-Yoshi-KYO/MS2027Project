@@ -24,7 +24,10 @@ public class CS_PoliceBrain : MonoBehaviour
     private CS_PoliceVision _vision = null;
     private CS_PoliceAttack _attack = null;
 
-    // 所属先(巡回するグループ、または手配度で出現した増援のまとまり)
+    // 標的を追いかける時に狙う位置を決めるクラス(出現した時に、ステータスの追いかけ方で作る)
+    private CS_PoliceChaseAim _chaser = null;
+
+    // 所属先(巡回するグループ)
     private IPoliceGroup _group = null;
 
     // 現在の行動状態
@@ -42,9 +45,6 @@ public class CS_PoliceBrain : MonoBehaviour
     // 駆け付ける現場の目印(同じ事件へ向かう警察は同じ目印を持ち、現場の周りの別々の位置へ割り当てられる)と、現場の位置
     private object _rushKey = null;
     private Vector3 _rushCenter = Vector3.zero;
-
-    // 駆け付け中に位置を追い続けるプレイヤー(出現直後の増援が持ち主へ向かうのに使う。いなければnull)
-    private CS_PlayerHealth _rushPlayer = null;
 
     // 駆け付けの元になった信号を出したプレイヤー(警戒UIが「自分への信号か」を判定するのに使う。分からなければnull)
     private CS_PlayerHealth _rushSource = null;
@@ -145,6 +145,15 @@ public class CS_PoliceBrain : MonoBehaviour
     [Tooltip("1つの行き先へ歩き始めてから、この時間が経っても着かない(詰まった・遠回りしている)時は、行き先を選び直す(秒)")]
     private float _wanderMaxWalkTime = 8.0f;
 
+    // 行動している警察の一覧(警戒状態の管理が、プレイヤーの付近にいる警察を探すのに使う。サーバー、またはオフラインだけ)
+    private static readonly List<CS_PoliceBrain> _activeBrains = new List<CS_PoliceBrain>();
+
+    // 行動している警察の一覧
+    public static IReadOnlyList<CS_PoliceBrain> activeBrains => _activeBrains;
+
+    // 判断・移動をしているか(初期化済みで、消える演出などで止められていない)
+    public bool isActing => enabled && _isInitialized;
+
     // 現在の行動状態
     public CSE_PoliceMoveState state => _state;
 
@@ -180,9 +189,11 @@ public class CS_PoliceBrain : MonoBehaviour
         _move.Setting(speedTable);
         _vision.Setting(status.viewAngle, status.viewDistance, status.viewHeight);
         _attack.Setting(status.attackPower);
+        _chaser = new CS_PoliceChaseAim(status);
 
         _state = CSE_PoliceMoveState.Patrol;
         _isInitialized = true;
+        if (!_activeBrains.Contains(this)) _activeBrains.Add(this);
 
         // 全員が同じフレームで判断・経路計算をしないよう、最初の判断のタイミングをずらす
         _thinkTimer = Random.Range(0.0f, _thinkInterval);
@@ -196,37 +207,8 @@ public class CS_PoliceBrain : MonoBehaviour
     {
         _rushKey = point;
         _rushCenter = point.position;
-        _rushPlayer = null;
         _rushSource = point.source;
         _hasRushRequest = true;
-    }
-
-    /// <summary>
-    /// プレイヤーのいる場所へ、プレイヤーが動いても位置を追いながら駆け付けるよう指示するメソッド
-    /// 見つけたら追跡に切り替わる。変身を解いた・倒れた場合は、その時の位置を探索する
-    /// </summary>
-    /// <param name="player">向かう先のプレイヤー</param>
-    public void RequestPursuit(CS_PlayerHealth player)
-    {
-        // 同じプレイヤーへ向かう警察は、プレイヤーを目印にして、プレイヤーの周りの別々の位置へ割り当てられる
-        _rushKey = player;
-        _rushCenter = player.transform.position;
-        _rushPlayer = player;
-        _rushSource = player;
-        _hasRushRequest = true;
-    }
-
-    /// <summary>
-    /// 移動速度・視野距離・攻撃の溜め時間を変更するメソッド(手配度の変化など)
-    /// </summary>
-    /// <param name="speedTable">警察の移動状態に応じた速度を格納した辞書</param>
-    /// <param name="viewDistance">視野距離</param>
-    /// <param name="chargeTime">攻撃の溜め時間(秒)。0以下なら、警察のステータスの溜め時間のまま</param>
-    public void ChangeAbility(Dictionary<CSE_PoliceMoveState, float> speedTable, float viewDistance, float chargeTime)
-    {
-        _move.ChangeSpeedTable(speedTable);
-        _vision.ChangeViewDistance(viewDistance);
-        _attack.ChangeChargeTime(chargeTime);
     }
 
     /// <summary>
@@ -352,7 +334,11 @@ public class CS_PoliceBrain : MonoBehaviour
     private Transform FindTarget()
     {
         Transform ownTarget = _vision.FindTarget(_currentTarget, out int ownPriority);
-        if (ownTarget != null) _group.ReportTarget(ownTarget, ownPriority);
+        if (ownTarget != null)
+        {
+            _group.ReportTarget(ownTarget, ownPriority);
+            ReportAlert(ownTarget);
+        }
 
         // 自分には見えていなくても、仲間が見つけた標的の方が優先度が高ければそちらを追う
         Transform sharedTarget = _group.GetSharedTarget(out int sharedPriority);
@@ -376,13 +362,24 @@ public class CS_PoliceBrain : MonoBehaviour
 
         // 標的を見つけた時点で、駆け付けの指示は済んだものとする
         _hasRushRequest = false;
-        _rushPlayer = null;
         _isWandering = false;
 
         // 全員が標的の一点に押し合わないよう、標的を囲む位置(攻撃の射程の内側)を目指す
+        // 囲む中心は追いかけ方で決まる(追尾: 標的の位置 / 先回り: 標的の動く先)
         float chaseRadius = _attack.attackRange * _chaseRadiusRatio;
-        _move.SetDestination(GetSlotDestination(target, _chaseRingKind, target.position, chaseRadius), CSE_PoliceMoveState.Chase);
+        Vector3 aim = _chaser.GetAimPosition(target, transform.position, _move.GetStateSpeed(CSE_PoliceMoveState.Chase));
+        _move.SetDestination(GetSlotDestination(target, _chaseRingKind, aim, chaseRadius), CSE_PoliceMoveState.Chase);
         _attack.TryStartCharge(target);
+    }
+
+    /// <summary>
+    /// 自分の目で見つけた標的がプレイヤーなら、警戒状態の管理へ知らせるメソッド(警戒状態になる・解除までの時間が数え直される)
+    /// </summary>
+    /// <param name="target">自分の視界に映っている標的</param>
+    private void ReportAlert(Transform target)
+    {
+        CS_PlayerHealth player = target.GetComponentInParent<CS_PlayerHealth>();
+        if (player != null) CS_PoliceAlertManager.Report(player, target.position);
     }
 
     /// <summary>
@@ -401,8 +398,6 @@ public class CS_PoliceBrain : MonoBehaviour
     /// </summary>
     private void Rush()
     {
-        UpdateRushTarget();
-
         _state = CSE_PoliceMoveState.Rush;
         _isWandering = false;
 
@@ -413,24 +408,6 @@ public class CS_PoliceBrain : MonoBehaviour
 
         _hasRushRequest = false;
         StartSearch(_rushKey, _rushCenter);
-    }
-
-    /// <summary>
-    /// 位置を追っているプレイヤーがいれば、駆け付ける場所をそのプレイヤーの今の位置に更新するメソッド
-    /// </summary>
-    private void UpdateRushTarget()
-    {
-        if (_rushPlayer == null) return;
-
-        // 変身を解いた・倒れたプレイヤーは追わない(駆け付ける場所は、最後に分かっていた位置のままにする)
-        // 目印は同じプレイヤーのままなので、同じプレイヤーへ向かう警察は、引き続き別々の位置を目指す
-        if (!CS_PoliceVision.IsPlayerTargetable(_rushPlayer))
-        {
-            _rushPlayer = null;
-            return;
-        }
-
-        _rushCenter = _rushPlayer.transform.position;
     }
 
     /// <summary>
@@ -615,6 +592,7 @@ public class CS_PoliceBrain : MonoBehaviour
 
     private void OnDestroy()
     {
+        _activeBrains.Remove(this);
         LeaveRing();
     }
 

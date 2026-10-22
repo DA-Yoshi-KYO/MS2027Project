@@ -12,7 +12,7 @@ using UnityEngine.InputSystem;
 using UnityEngine.Rendering;
 
 /// <summary>
-/// 警察・悪人・プレイヤーの攻撃判定や視界を、Game画面に線で表示するデバッグ用クラス
+/// 警察・悪人・プレイヤー・防犯装置(巡回ドローン)の攻撃判定や視界を、Game画面に線で表示するデバッグ用クラス
 /// </summary>
 // ========================================
 /*
@@ -22,6 +22,7 @@ using UnityEngine.Rendering;
  * ・線はLineRendererを使い回して描く(毎フレーム、必要な本数だけ有効にする)
  * ・表示するもの
  *   警察  : 視界(扇形)、背後でも気付く距離、攻撃範囲。視界の色は行動状態で変わる
+ *   巡回ドローン : 視界(扇形)を、ドローンの高さと真下の地面の両方に表示。色は状態で変わる
  *   悪人  : 攻撃判定、臨戦態勢範囲、反撃の索敵範囲、スポーン位置からの追跡限界
  *   プレイヤー : 各段の攻撃判定、必殺技の判定
  *   攻撃判定(球)は、攻撃中だけ明るい色の球(3方向の円)で表示する
@@ -78,6 +79,10 @@ public class CS_DebugRangeDrawer : MonoBehaviour
     [SerializeField]
     private bool _showPlayer = true;
 
+    [SerializeField]
+    [Tooltip("防犯装置(巡回ドローン)の視界を表示するか")]
+    private bool _showSecurity = true;
+
     [Header("＝＝＝ 色(警察) ＝＝＝")]
     [SerializeField]
     [Tooltip("巡回中の視界")]
@@ -98,6 +103,11 @@ public class CS_DebugRangeDrawer : MonoBehaviour
     [SerializeField]
     [Tooltip("攻撃範囲")]
     private Color _policeAttackColor = new Color(1.0f, 0.2f, 0.2f);
+
+    [Header("＝＝＝ 色(防犯装置) ＝＝＝")]
+    [SerializeField]
+    [Tooltip("止まっている(スタン中の)ドローンの視界")]
+    private Color _securityStunnedColor = new Color(0.5f, 0.5f, 0.5f);
 
     [Header("＝＝＝ 色(悪人) ＝＝＝")]
     [SerializeField]
@@ -141,6 +151,7 @@ public class CS_DebugRangeDrawer : MonoBehaviour
             if (_showPolice) DrawPolice();
             if (_showVillain) DrawVillains();
             if (_showPlayer) DrawPlayers();
+            if (_showSecurity) DrawSecurityDrones();
         }
 
         // 今回使わなかった線は隠す
@@ -169,6 +180,64 @@ public class CS_DebugRangeDrawer : MonoBehaviour
             {
                 DrawCircle(foot, attack.attackRange, _policeAttackColor);
             }
+        }
+    }
+
+    /// <summary>
+    /// 巡回ドローンの視界を描画するメソッド
+    /// ドローンの高さの扇形と、その真下の地面の扇形を、縦の線でつないで表示する(空中にいても、地面のどこまで見えるかが分かる)
+    /// 色はドローンの状態で変わる(巡回: 水色 / 見つけている間: 赤 / 見失ったあと追っている: 黄 / スタン: 灰色)
+    /// </summary>
+    private void DrawSecurityDrones()
+    {
+        foreach (CS_SecurityDrone drone in FindObjectsByType<CS_SecurityDrone>(FindObjectsSortMode.None))
+        {
+            if (!drone.TryGetComponent(out CS_PoliceVision vision) || vision.viewDistance <= 0.0f) continue;
+
+            Color color = GetSecurityViewColor(drone.state);
+            Vector3 position = drone.transform.position;
+            DrawSector(position, drone.transform.forward, vision.viewAngle, vision.viewDistance, color);
+
+            // 真下の地面にも描く(地面が見つからなければ、ドローンの高さだけ)
+            if (!Physics.Raycast(position, Vector3.down, out RaycastHit ground, Mathf.Infinity, ~0, QueryTriggerInteraction.Ignore)) continue;
+
+            Vector3 groundPosition = ground.point + Vector3.up * _groundOffset;
+            DrawSector(groundPosition, drone.transform.forward, vision.viewAngle, vision.viewDistance, color);
+            DrawVerticalEdges(position, groundPosition, drone.transform.forward, vision.viewAngle, vision.viewDistance, color);
+        }
+    }
+
+    /// <summary>
+    /// 扇形の要と、左右の端を、上の扇形から下の扇形へつなぐ縦の線を描画するメソッド
+    /// </summary>
+    private void DrawVerticalEdges(Vector3 top, Vector3 bottom, Vector3 forward, float angle, float radius, Color color)
+    {
+        forward.y = 0.0f;
+        if (forward.sqrMagnitude < 0.0001f) forward = Vector3.forward;
+        forward.Normalize();
+
+        float half = Mathf.Min(angle, 360.0f) * 0.5f;
+        foreach (float current in new[] { 0.0f, -half, half })
+        {
+            Vector3 offset = current == 0.0f ? Vector3.zero : Quaternion.AngleAxis(current, Vector3.up) * forward * radius;
+            _points.Clear();
+            _points.Add(top + offset);
+            _points.Add(bottom + offset);
+            DrawLine(_points, color, false);
+        }
+    }
+
+    /// <summary>
+    /// 巡回ドローンの状態に応じた視界の色を取得するメソッド
+    /// </summary>
+    private Color GetSecurityViewColor(CSE_SecurityDroneState state)
+    {
+        switch (state)
+        {
+            case CSE_SecurityDroneState.Detected: return _policeViewChaseColor;
+            case CSE_SecurityDroneState.Chase: return _policeViewAlertColor;
+            case CSE_SecurityDroneState.Stunned: return _securityStunnedColor;
+            default: return _policeViewPatrolColor;
         }
     }
 

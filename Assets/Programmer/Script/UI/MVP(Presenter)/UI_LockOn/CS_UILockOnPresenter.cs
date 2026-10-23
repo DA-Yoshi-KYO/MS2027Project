@@ -6,130 +6,220 @@
  * 2026-10-21 | 初回作成
  * ================================================ */
 
+using R3;
 using UnityEngine;
 
+public enum CSE_LockOnOffscreenMode
+{
+    Hide = 0,
+    ClampToEdge = 1,
+}
+
 /// <summary>
-/// ロックオンModelとWorld Space Viewを接続するPresenter。
-/// LockOnCanvasの生成後にBindTarget()を呼ぶ。
+/// ローカルPlayer番号にBindされたModelを取得し、
+/// 対象のワールド座標をUICanvas上の座標へ変換するPresenter。
 /// </summary>
 [RequireComponent(typeof(CS_UILockOnView))]
 public class CS_UILockOnPresenter : CS_BasePresenter
 {
-    // =========================================================
-    // Inspector
-    // =========================================================
-
-    [Header("カメラ（未設定ならCamera.mainを使用）")]
+    [Header("座標変換")]
+    [SerializeField] private RectTransform _canvasRect;
+    [SerializeField] private Canvas _canvas;
     [SerializeField] private Camera _targetCamera;
 
-    // =========================================================
-    // 内部フィールド
-    // =========================================================
+    [Header("対象位置の補正")]
+    [SerializeField] private Vector3 _worldOffset = new(0f, 1f, 0f);
 
-    private CS_UILockOnModel _model;
+    [Header("画面外の扱い")]
+    [SerializeField]
+    private CSE_LockOnOffscreenMode _offscreenMode =
+        CSE_LockOnOffscreenMode.Hide;
+
+    [Min(0f)]
+    [SerializeField] private float _edgePadding = 40f;
+
     private CS_UILockOnView _view;
-
-    // =========================================================
-    // 初期化
-    // =========================================================
+    private CS_UILockOnModel _model;
+    private DisposableBag _disposables;
 
     private void Awake()
     {
-        _model = new CS_UILockOnModel();
         _view = GetComponent<CS_UILockOnView>();
-
         _view.SetPresenter(this);
-        _model.OnLockOnVisibilityChanged +=
-            HandleLockOnVisibilityChanged;
+        _view.SetVisible(false, false);
 
-        _view.SetVisible(false);
+        if (_canvas == null)
+            _canvas = GetComponentInParent<Canvas>();
+
+        if (_canvasRect == null && _canvas != null)
+            _canvasRect = _canvas.transform as RectTransform;
     }
 
-    // =========================================================
-    // 更新
-    // =========================================================
+    private void OnEnable()
+    {
+        CS_UILockOnModel.OnBound += HandleModelBound;
+        CS_UILockOnModel.OnUnbound += HandleModelUnbound;
+        TryBindLocalModel();
+    }
+
+    private void OnDisable()
+    {
+        CS_UILockOnModel.OnBound -= HandleModelBound;
+        CS_UILockOnModel.OnUnbound -= HandleModelUnbound;
+        UnbindModel();
+        _view?.SetVisible(false, false);
+    }
 
     private void LateUpdate()
     {
-        if (!_model.isLockedOn)
-            return;
-
-        // 対象が破棄された場合は自動で解除する。
-        if (_model.targetTransform == null)
+        if (_model == null)
         {
-            ClearTarget();
+            _view.SetVisible(false, false);
+            return;
+        }
+
+        Transform target = _model.currentTarget;
+
+        if (target == null)
+        {
+            if (_model.isLockedOn)
+                _model.ClearTarget();
+
+            _view.SetVisible(false, false);
             return;
         }
 
         if (_targetCamera == null)
             _targetCamera = Camera.main;
 
-        _view.LookAtCamera(_targetCamera);
-    }
-
-    // =========================================================
-    // 外部API
-    // =========================================================
-
-    /// <summary>
-    /// ロックオン対象を設定し、LockOnCanvasを対象の子へ移動する。
-    /// targetTransformには対象側のLockOnPositionを渡す。
-    /// </summary>
-    public void BindTarget(Transform targetTransform)
-    {
-        if (targetTransform == null)
+        if (_targetCamera == null || _canvasRect == null)
         {
-            ClearTarget();
+            _view.SetVisible(false, false);
             return;
         }
 
-        transform.SetParent(targetTransform, false);
-        transform.localPosition = Vector3.zero;
-        transform.localRotation = Quaternion.identity;
+        Vector3 screenPosition = _targetCamera.WorldToScreenPoint(
+            target.position + _worldOffset
+        );
 
-        _model.SetTarget(targetTransform);
+        if (screenPosition.z <= 0f)
+        {
+            _view.SetVisible(false, false);
+            return;
+        }
 
-        // 同じ表示状態から別ターゲットへ切り替えた場合にも表示を保証する。
+        bool isOnScreen =
+            screenPosition.x >= 0f &&
+            screenPosition.x <= Screen.width &&
+            screenPosition.y >= 0f &&
+            screenPosition.y <= Screen.height;
+
+        if (!isOnScreen &&
+            _offscreenMode == CSE_LockOnOffscreenMode.Hide)
+        {
+            _view.SetVisible(false, false);
+            return;
+        }
+
+        if (!isOnScreen)
+        {
+            screenPosition.x = Mathf.Clamp(
+                screenPosition.x,
+                _edgePadding,
+                Screen.width - _edgePadding
+            );
+
+            screenPosition.y = Mathf.Clamp(
+                screenPosition.y,
+                _edgePadding,
+                Screen.height - _edgePadding
+            );
+        }
+
+        Camera uiCamera =
+            _canvas != null &&
+            _canvas.renderMode != RenderMode.ScreenSpaceOverlay
+                ? _canvas.worldCamera
+                : null;
+
+        if (!RectTransformUtility.ScreenPointToLocalPointInRectangle(
+            _canvasRect,
+            screenPosition,
+            uiCamera,
+            out Vector2 localPosition))
+        {
+            _view.SetVisible(false, false);
+            return;
+        }
+
+        _view.SetPosition(localPosition);
         _view.SetVisible(true);
     }
 
-    /// <summary>
-    /// ロックオンを解除し、UIを非表示にする。
-    /// </summary>
-    public void ClearTarget()
+    private void TryBindLocalModel()
     {
-        _model.ClearTarget();
-        _view.SetVisible(false);
+        int playerNumber = CS_UILockOnModel.localPlayerNumber;
+
+        if (playerNumber < 0)
+            return;
+
+        if (CS_UILockOnModel.TryGet(playerNumber, out CS_UILockOnModel model))
+            BindModel(model);
     }
 
-    public void SetTargetCamera(Camera targetCamera)
+    private void HandleModelBound(
+        int playerNumber,
+        CS_UILockOnModel model)
     {
-        _targetCamera = targetCamera;
+        if (playerNumber != CS_UILockOnModel.localPlayerNumber)
+            return;
+
+        BindModel(model);
     }
 
-    // =========================================================
-    // Modelイベント
-    // =========================================================
-
-    private void HandleLockOnVisibilityChanged(bool isVisible)
+    private void HandleModelUnbound(int playerNumber)
     {
-        _view.SetVisible(isVisible);
+        if (playerNumber != CS_UILockOnModel.localPlayerNumber)
+            return;
+
+        UnbindModel();
+        _view.SetVisible(false, false);
     }
 
-    // =========================================================
-    // 終了処理
-    // =========================================================
+    private void BindModel(CS_UILockOnModel model)
+    {
+        if (_model == model)
+            return;
+
+        UnbindModel();
+        _model = model;
+
+        if (_model == null)
+            return;
+
+        _model.target
+            .Subscribe(HandleTargetChanged)
+            .AddTo(ref _disposables);
+    }
+
+    private void HandleTargetChanged(Transform target)
+    {
+        if (target == null)
+            _view.SetVisible(false, false);
+    }
+
+    private void UnbindModel()
+    {
+        _disposables.Dispose();
+        _disposables = default;
+        _model = null;
+    }
 
     protected override void OnDestroy()
     {
-        if (_model != null)
-        {
-            _model.OnLockOnVisibilityChanged -=
-                HandleLockOnVisibilityChanged;
-
-            _model.Dispose();
-        }
-
+        CS_UILockOnModel.OnBound -= HandleModelBound;
+        CS_UILockOnModel.OnUnbound -= HandleModelUnbound;
+        UnbindModel();
         base.OnDestroy();
     }
 }

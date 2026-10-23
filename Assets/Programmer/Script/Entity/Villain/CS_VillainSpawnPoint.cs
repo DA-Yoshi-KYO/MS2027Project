@@ -18,10 +18,13 @@ using UnityEngine.AI;
  * ・グループがいなくなる(全滅・犯罪完遂の逃走)と、しばらくリスポーンを待つ状態(isCoolingDown)になる
  *   待ち時間の開始と、待ち中でも生成してよいかの判断はCS_VillainSpawnerが行う
  * ・見張り役の巡回ルート(GetPatrolEnds)
- *   路地裏の範囲(Patrol Area。空なら親のNavMeshModifierVolume = BackAlleyのAlleyArea)の、
+ *   路地裏の範囲(Patrol Area)の、
  *   長い方向の両端(端から patrolEndMargin 内側)を巡回の端とする
  *   → 路地裏の範囲が無い時は、この位置から前後(Z方向)に fallbackPatrolDistance 離れた2点
  *   → 端はNavMeshの上に合わせる(見つからない時はそのままの位置)
+ *   Patrol Areaが空なら、親のNavMeshModifierVolume、無ければこの位置を真上から見て含む路地裏
+ *   (BackAlleyのNavMeshModifierVolume)を探して使う
+ *   出現点はField_Multi・Field_Solo1などに直接置き、路地裏(Field_Common)とは別のプレハブになるため
  * ・Sceneビューで選択すると、生成範囲が赤い円、巡回ルートが黄色い線で表示される
  */
 // ========================================
@@ -36,7 +39,7 @@ public class CS_VillainSpawnPoint : MonoBehaviour
 
     [Header("見張り役の巡回")]
     [SerializeField]
-    [Tooltip("見張り役が巡回する路地裏の範囲。空なら親から探す(BackAlleyのAlleyArea)")]
+    [Tooltip("見張り役が巡回する路地裏の範囲。空なら親、無ければこの位置を含む路地裏から探す")]
     private NavMeshModifierVolume _patrolArea;
 
     [SerializeField, Min(0f)]
@@ -47,6 +50,7 @@ public class CS_VillainSpawnPoint : MonoBehaviour
     [Tooltip("路地裏の範囲が無い時に、この位置から前後へ巡回する距離(m)")]
     private float _fallbackPatrolDistance = 5f;
 
+    private NavMeshModifierVolume _foundPatrolArea;   // 自動で探した路地裏の範囲(一度見つけたら使い回す)
     private bool _isOccupied;
     private float _cooldownEndTime;   // リスポーンの待ちが終わる時刻(Time.time)
 
@@ -63,7 +67,15 @@ public class CS_VillainSpawnPoint : MonoBehaviour
     public bool isCoolingDown => Time.time < _cooldownEndTime;
     public float cooldownEndTime => _cooldownEndTime;
 
-    private NavMeshModifierVolume patrolArea => _patrolArea != null ? _patrolArea : GetComponentInParent<NavMeshModifierVolume>();
+    private NavMeshModifierVolume patrolArea
+    {
+        get
+        {
+            if (_patrolArea != null) return _patrolArea;
+            if (_foundPatrolArea == null) _foundPatrolArea = FindPatrolArea();
+            return _foundPatrolArea;
+        }
+    }
 
     // グループがいなくなったので、duration秒間リスポーンを待つ
     public void StartCooldown(float duration)
@@ -113,6 +125,27 @@ public class CS_VillainSpawnPoint : MonoBehaviour
         center.y = transform.position.y;
         endA = center + direction * length;
         endB = center - direction * length;
+    }
+
+    // 親の路地裏、無ければこの位置を真上から見て含む路地裏のうち、高さが一番近いものを返す
+    private NavMeshModifierVolume FindPatrolArea()
+    {
+        NavMeshModifierVolume parentArea = GetComponentInParent<NavMeshModifierVolume>();
+        if (parentArea != null) return parentArea;
+
+        NavMeshModifierVolume nearest = null;
+        float nearestHeight = float.MaxValue;
+        foreach (NavMeshModifierVolume area in FindObjectsByType<NavMeshModifierVolume>(FindObjectsSortMode.None))
+        {
+            Vector3 local = area.transform.InverseTransformPoint(transform.position) - area.center;
+            if (Mathf.Abs(local.x) > area.size.x * 0.5f || Mathf.Abs(local.z) > area.size.z * 0.5f) continue;
+
+            float height = Mathf.Abs(area.transform.TransformPoint(area.center).y - transform.position.y);
+            if (height >= nearestHeight) continue;
+            nearest = area;
+            nearestHeight = height;
+        }
+        return nearest;
     }
 
     private static Vector3 Flat(Vector3 vector)

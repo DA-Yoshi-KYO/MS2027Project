@@ -16,7 +16,7 @@ using UnityEngine;
 /// 2. 範囲の中の灰色の道(Road)の上を一周するルートを作る(路地裏(BackAlley)は、余白をあけて避ける)
 /// 3. ルートの曲がり角ごとに巡回ポイントのオブジェクトを作り、グループの子にして、PatrolPointsに設定する
 /// ツールの画面を開いている間は、入力した範囲をSceneビューに表示する(範囲を調整しながら確認できる)
-/// Field.prefabをPrefab Modeで開いてグループを選んで使えば、プレハブにそのまま保存される
+/// Field_Multi.prefab・Field_Solo1.prefabをPrefab Modeで開いてグループを選んで使えば、プレハブにそのまま保存される
 /// (シーン内のプレハブのインスタンスに使った場合は、Overridesから、プレハブへApplyする)
 /// </summary>
 public class CSED_PoliceRouteWizard : ScriptableWizard

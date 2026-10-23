@@ -38,7 +38,7 @@ CS_Player / CS_PlayerAttack / CS_PlayerTransformation / ...(人と全く同じ�
 | [`Npc/CS_NpcWorld.cs`](../Assets/Programmer/Script/Entity/Player/Npc/CS_NpcWorld.cs) | 悪人・警察・アイテムの一覧(全NPCで共有。1秒に1回だけ取り直す) |
 | `Assets/Programmer/Database/Npc/DB_NpcPersonality_Lv1〜3.asset` | 3種類の性格のデータ |
 
-## 生成: `CS_PlayerSpawner`(`Field.prefab`)
+## 生成: `CS_PlayerSpawner`(`Field_Multi.prefab` / `Field_Solo1.prefab`)
 
 - ゲーム開始時(シーンの`Start`)に、接続済みの人の分を生成した後、空いている番号(0〜3)をNPCで埋める
 - 後から人が接続して枠が足りない時は、NPCを1体(番号の大きいもの)消して、その番号を人に譲る

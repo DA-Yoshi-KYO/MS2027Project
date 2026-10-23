@@ -26,7 +26,8 @@ using UnityEngine;
  *   連続撃破数が_bonusStartCount人目(既定5)からは、倍率が_bonusStep(既定0.2)ずつ上がる
  *   (4人目まで×1、5人目×1.2、6人目×1.4…)
  *   次のどれかで連続撃破数を0に戻す(次の撃破が1人目になる)
- *     変身を解く(CS_PlayerTransformationの状態が通常に戻る) / HPが0になる / 警察に見つかる(ReportFoundByPolice)
+ *     HPが0になる / 警察に見つかる(ReportFoundByPolice)
+ *     (以前の「変身を解く」は、常時変身(Issue #277)で無くなった)
  * ・警察に見つかったことは、警察側(CS_PoliceBrain)が新しく標的にした瞬間にReportFoundByPolice()で知らせてくれる
  * ・他プレイヤーを倒した時は、倒された相手の番号をRPCで全員へ配り、各クライアントでキル通知(CS_NotificationController.ShowKill)を出す
  *   表示名は「Player{番号+1}」(仮)。NPCも同じプレハブなので同じ形で出る
@@ -38,7 +39,6 @@ using UnityEngine;
 
 [RequireComponent(typeof(CS_PlayerResultDataHolder))]
 [RequireComponent(typeof(CS_PlayerHealth))]
-[RequireComponent(typeof(CS_PlayerTransformation))]
 public class CS_PlayerScoring : NetworkBehaviour
 {
     [Header("悪人撃破")]
@@ -58,7 +58,6 @@ public class CS_PlayerScoring : NetworkBehaviour
 
     private CS_PlayerResultDataHolder _holder;
     private CS_PlayerHealth _health;
-    private CS_PlayerTransformation _transformation;
 
     private int _streak;    // 暗躍ボーナスの連続撃破数(サーバー、またはオフラインでのみ意味を持つ)
     private double _nextFoundByPoliceTime = double.MinValue;    // この時刻までは警察に見つかっても数えない(サーバー、またはオフラインのみ)
@@ -72,17 +71,14 @@ public class CS_PlayerScoring : NetworkBehaviour
     {
         _holder = GetComponent<CS_PlayerResultDataHolder>();
         _health = GetComponent<CS_PlayerHealth>();
-        _transformation = GetComponent<CS_PlayerTransformation>();
 
         _health.onDeath += HandleDeath;
-        _transformation.onStateChanged += HandleTransformStateChanged;
         CS_VillainGroup.onAnyCrimeCompleted += HandleCrimeCompleted;
     }
 
     public override void OnDestroy()
     {
         if (_health != null) _health.onDeath -= HandleDeath;
-        if (_transformation != null) _transformation.onStateChanged -= HandleTransformStateChanged;
         CS_VillainGroup.onAnyCrimeCompleted -= HandleCrimeCompleted;
 
         base.OnDestroy();
@@ -178,15 +174,6 @@ public class CS_PlayerScoring : NetworkBehaviour
     private void HandleDeath()
     {
         if (!CanScore()) return;
-
-        ResetStreak();
-    }
-
-    // 変身を解いたら(通常の状態に戻ったら)連続撃破を途切れさせる
-    private void HandleTransformStateChanged(CSE_PlayerTransformState state)
-    {
-        if (!CanScore()) return;
-        if (state != CSE_PlayerTransformState.Normal) return;
 
         ResetStreak();
     }

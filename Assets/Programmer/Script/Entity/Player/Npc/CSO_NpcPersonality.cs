@@ -50,11 +50,6 @@ public class CSO_NpcPersonality : ScriptableObject
     [SerializeField] private bool _skipsLateCrimes = false;   // 向かっても犯罪の完遂に間に合わない悪人には向かわない
     [SerializeField] private bool _usesSprint = true;         // 遠い目標へはダッシュ・スプリントで向かう
 
-    [Header("変身")]
-    [SerializeField][Min(0f)] private float _transformDistance = 12f;    // 標的がこの距離以内に入ったら変身する(m)
-    [SerializeField][Min(0f)] private float _untransformIdleTime = 6f;  // 標的が無い状態がこの秒数続いたら変身を解く
-    [SerializeField][Min(0)] private int _maxWantedLevel = 3;            // 手配度がこの値以上になったら変身を解く
-
     [Header("必殺技")]
     [SerializeField][Min(1)] private int _specialMinTargets = 2;   // 範囲内にこの人数以上いたら必殺技を使う
     [SerializeField] private bool _savesSpecialForPlayers = false; // 必殺技を他のプレイヤーのために取っておく(悪人には使わない)
@@ -81,9 +76,6 @@ public class CSO_NpcPersonality : ScriptableObject
     public float fleeHpRatio => _fleeHpRatio;
     public bool skipsLateCrimes => _skipsLateCrimes;
     public bool usesSprint => _usesSprint;
-    public float transformDistance => _transformDistance;
-    public float untransformIdleTime => _untransformIdleTime;
-    public int maxWantedLevel => _maxWantedLevel;
     public int specialMinTargets => _specialMinTargets;
     public bool savesSpecialForPlayers => _savesSpecialForPlayers;
     public float itemUseChance => _itemUseChance;

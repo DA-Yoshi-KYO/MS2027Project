@@ -14,7 +14,7 @@ using UnityEngine;
  * ・仕様: 仕様書「NPC(他プレイヤー)」、データ表「NPC(他プレイヤー)思考／行動指針データ」、Issue #165 / #166
  *   LLMや機械学習は使わず、行動ごとに点数を付けて一番高いものを選ぶ(ユーティリティAI)
  *   点数 = 性格(CSO_NpcPersonality)の重み × 近さ。性格の違いは重みと数値で表す
- * ・NPCはプレイヤーと同じ部品(移動・攻撃・変身・必殺技・アイテム・インタラクト・手配度・スコア)をそのまま使う
+ * ・NPCはプレイヤーと同じ部品(移動・攻撃・必殺技・アイテム・インタラクト・スコア)をそのまま使う
  *   ここは「ボタンを押す・スティックを倒す」だけを行い、数値やルールは人と全く同じ
  * ・動くのはNPCを操作するマシン(サーバー、またはオフライン)だけ(CS_Player.npcInputがある時)
  * ・各部品のUpdateより先にボタンを押す必要があるため、実行順を早めている
@@ -22,10 +22,10 @@ using UnityEngine;
  *   悪人を倒す / アイテムを拾う / イベント(ケアパッケージなど)に参加する / 他のプレイヤーを邪魔する /
  *   追ってくる警察から逃げる / うろつく
  * ・行動ごとの細かい動き
- *   悪人・邪魔する相手: 近づき、変身距離に入ったら変身、届く距離なら攻撃。囲めていれば必殺技
- *   逃げる: 変身を解き(仕様「変形を解けばバレない」)、警察と反対側へダッシュで逃げる
+ *   悪人・邪魔する相手: 近づき、届く距離なら攻撃。囲めていれば必殺技
+ *   逃げる: 警察と反対側へダッシュで逃げる
  *   イベント: 操作できる距離まで近づき、通常攻撃ボタン(=インタラクト)を押し続ける
- *   変身は、手配度が高くなりすぎた時・標的が無い状態が続いた時に解く
+ * ・プレイヤーは常に変身している(仕様変更、Issue #277)ため、変身・解除の判断は行わない
  * ・引っかかって進めない時は、ジャンプして経路を計算し直す。何度も続く時は、その行動をあきらめる
  * ・プレイヤーのスコアを見て強さを変える調整(Issue #167)はクローズ済みのため入れていない
  */
@@ -34,8 +34,6 @@ using UnityEngine;
 [DefaultExecutionOrder(-50)] // ボタンを押す処理を、各部品(CS_PlayerAttackなど)のUpdateより先に行う
 [RequireComponent(typeof(CS_Player))]
 [RequireComponent(typeof(CS_PlayerHealth))]
-[RequireComponent(typeof(CS_PlayerTransformation))]
-[RequireComponent(typeof(CS_PlayerWantedLevel))]
 [RequireComponent(typeof(CS_PlayerSpecialGauge))]
 [RequireComponent(typeof(CS_PlayerItemSlot))]
 public class CS_PlayerNpcBrain : NetworkBehaviour
@@ -48,11 +46,9 @@ public class CS_PlayerNpcBrain : NetworkBehaviour
     [Header("距離")]
     [SerializeField] private float _arriveDistance = 1f;         // 目的地に着いたとみなす距離(m)
     [SerializeField] private float _sprintDistance = 8f;         // これより遠い目標へはダッシュ・スプリントで向かう(m)
-    [SerializeField] private float _waitDistance = 3.5f;         // 変身できない間、標的からこの距離で待つ(m)
     [SerializeField] private float _itemUseDistance = 8f;        // 標的がこの距離以内ならアイテムを使う(m)
     [SerializeField] private float _fleeDistance = 15f;          // 逃げる時に、警察から離れる距離(m)
 
-    private const float _transformTimeEstimate = 5f;   // 変身にかかるおおよその秒数(間に合うかの見積もり用)
     private const float _stuckCheckInterval = 1f;      // 引っかかっていないか確かめる間隔(秒)
     private const float _stuckMoveDistance = 0.5f;     // この間隔で、これしか進んでいなければ引っかかっている(m)
     private const int _stuckGiveUpCount = 3;           // 引っかかりがこの回数続いたら、その行動をあきらめる
@@ -62,8 +58,6 @@ public class CS_PlayerNpcBrain : NetworkBehaviour
 
     private CS_Player _player;
     private CS_PlayerHealth _health;
-    private CS_PlayerTransformation _transformation;
-    private CS_PlayerWantedLevel _wantedLevel;
     private CS_PlayerSpecialGauge _gauge;
     private CS_PlayerItemSlot _itemSlot;
     private CS_PlayerAttack _attack;
@@ -82,7 +76,6 @@ public class CS_PlayerNpcBrain : NetworkBehaviour
     private float _nextDecisionTime;
     private float _nextAttackTime;
     private float _aimOffset;               // 今の攻撃の向きのずれ(度)
-    private float _lastHasTargetTime;       // 最後に標的(悪人・邪魔する相手)がいた時刻
     private bool _useItemPending;           // 次のフレームでアイテムを使う
     private float _nextInteractRetryTime;
     private bool _isHoldingInteract;        // インタラクトのボタンを押し続けている途中か
@@ -93,7 +86,7 @@ public class CS_PlayerNpcBrain : NetworkBehaviour
     private bool _isMoving;
 
     // このフレームで押すボタン(毎フレーム決め直し、最後にまとめて反映する)
-    private bool _wantAttack, _wantSpecial, _wantDash, _wantUseItem, _wantTransform, _wantJump;
+    private bool _wantAttack, _wantSpecial, _wantDash, _wantUseItem, _wantJump;
 
     public CSO_NpcPersonality personality => _personality;
 
@@ -101,8 +94,6 @@ public class CS_PlayerNpcBrain : NetworkBehaviour
     {
         _player = GetComponent<CS_Player>();
         _health = GetComponent<CS_PlayerHealth>();
-        _transformation = GetComponent<CS_PlayerTransformation>();
-        _wantedLevel = GetComponent<CS_PlayerWantedLevel>();
         _gauge = GetComponent<CS_PlayerSpecialGauge>();
         _itemSlot = GetComponent<CS_PlayerItemSlot>();
         _attack = GetComponent<CS_PlayerAttack>();
@@ -149,7 +140,6 @@ public class CS_PlayerNpcBrain : NetworkBehaviour
         if (Time.time >= _actStartTime)
         {
             Act(input);
-            UpdateTransformation();
         }
 
         UpdateStuck();
@@ -212,7 +202,7 @@ public class CS_PlayerNpcBrain : NetworkBehaviour
         if (combat == null || crime == null || combat.group == null) return false;
 
         float remaining = (1f - combat.group.crimeProgress) * crime.crimeCompleteTime;
-        float travel = distance / Mathf.Max(0.1f, _stats.moveSpeed) + (_transformation.isTransformed ? 0f : _transformTimeEstimate);
+        float travel = distance / Mathf.Max(0.1f, _stats.moveSpeed);
         return travel > remaining;
     }
 
@@ -268,7 +258,7 @@ public class CS_PlayerNpcBrain : NetworkBehaviour
     {
         if (_personality.harassWeight <= 0f) return;
 
-        foreach (CS_PlayerWantedLevel other in CS_PlayerWantedLevel.activePlayers)
+        foreach (CS_Player other in CS_Player.activePlayers)
         {
             if (other == null || other.gameObject == gameObject) continue;
 
@@ -279,8 +269,7 @@ public class CS_PlayerNpcBrain : NetworkBehaviour
             if (distance > _personality.harassRange) continue;
 
             // 邪魔したいのは人のプレイヤー。NPC同士はあまり狙わない
-            CS_Player otherPlayer = other.GetComponent<CS_Player>();
-            float weight = _personality.harassWeight * (otherPlayer != null && otherPlayer.isNpc ? 0.5f : 1f);
+            float weight = _personality.harassWeight * (other.isNpc ? 0.5f : 1f);
             float score = weight * Closeness(distance, _personality.harassRange);
             if (other.transform == _goalTarget) score *= _keepGoalBonus;
             if (score <= bestScore) continue;
@@ -415,28 +404,14 @@ public class CS_PlayerNpcBrain : NetworkBehaviour
             return;
         }
 
-        _lastHasTargetTime = Time.time;
         Vector3 targetPosition = _goalTarget.position;
         float distance = Vector3.Distance(transform.position, targetPosition);
 
-        // 変身距離に入ったら変身する(攻撃は変身中しかできない)
-        if (_transformation.canTransform && distance <= _personality.transformDistance)
-        {
-            _wantTransform = true;
-        }
-
-        if (_transformation.isTransformed && distance <= GetAttackReach())
+        if (distance <= GetAttackReach())
         {
             Face(input, targetPosition, _aimOffset);
             TryAttack();
             TrySpecial();
-            return;
-        }
-
-        // 変身できない間は、少し離れて待つ(近づきすぎると一方的に攻撃される)
-        if (!_transformation.isTransformed && distance <= _waitDistance)
-        {
-            Face(input, targetPosition, 0f);
             return;
         }
 
@@ -472,7 +447,7 @@ public class CS_PlayerNpcBrain : NetworkBehaviour
     // 必殺技の範囲に十分な数の相手がいれば使う
     private void TrySpecial()
     {
-        if (!_transformation.isTransformed || !_gauge.isFull) return;
+        if (!_gauge.isFull) return;
 
         float radius = GetSpecialRadius();
         int villains = _personality.savesSpecialForPlayers ? 0 : CountVillainsWithin(radius);
@@ -533,28 +508,10 @@ public class CS_PlayerNpcBrain : NetworkBehaviour
         _wantAttack = true;
     }
 
-    // 変身を解いて、警察と反対側へ逃げる
+    // 警察と反対側へ逃げる
     private void ActFlee(CS_PlayerNpcInput input)
     {
-        if (_transformation.isTransformed)
-        {
-            _wantTransform = true;   // 変形を解けばバレない(仕様書「変形のリスク」)
-        }
-
         if (!MoveTo(input, _goalPosition, true)) EndGoal();
-    }
-
-    // 手配度が高くなりすぎた・標的が無い状態が続いた時は、変身を解く
-    private void UpdateTransformation()
-    {
-        if (!_transformation.isTransformed) return;
-
-        bool isWantedTooHigh = _wantedLevel.level >= _personality.maxWantedLevel;
-        bool isIdleTooLong = Time.time - _lastHasTargetTime >= _personality.untransformIdleTime;
-        if (isWantedTooHigh || isIdleTooLong)
-        {
-            _wantTransform = true;
-        }
     }
 
     // 今の行動を終わらせ、すぐ次を選ぶ
@@ -635,13 +592,13 @@ public class CS_PlayerNpcBrain : NetworkBehaviour
 
     private void ClearWants()
     {
-        _wantAttack = _wantSpecial = _wantDash = _wantUseItem = _wantTransform = _wantJump = false;
+        _wantAttack = _wantSpecial = _wantDash = _wantUseItem = _wantJump = false;
     }
 
     // このフレームで押すボタンを反映する
     // 攻撃(インタラクトの長押しに使う)とダッシュ(スプリントに使う)は、押し続けられるようそのまま反映する
     // それ以外は「押した瞬間」だけが意味を持つため、押しっぱなしにせず、押した次のフレームで一度離す
-    // (変身を解けない攻撃中に押した時など、1回目が受け付けられなくても押し直せるように)
+    // (1回目が受け付けられなくても押し直せるように)
     private void ApplyWants(CS_PlayerNpcInput input)
     {
         if (!_wantAttack) _isHoldingInteract = false;
@@ -650,7 +607,6 @@ public class CS_PlayerNpcBrain : NetworkBehaviour
         input.dash.SetHeld(_wantDash);
         Tap(input.special, _wantSpecial);
         Tap(input.useItem, _wantUseItem);
-        Tap(input.transformation, _wantTransform);
         Tap(input.jump, _wantJump);
     }
 
@@ -694,7 +650,7 @@ public class CS_PlayerNpcBrain : NetworkBehaviour
     private int CountPlayersWithin(float radius)
     {
         int count = 0;
-        foreach (CS_PlayerWantedLevel other in CS_PlayerWantedLevel.activePlayers)
+        foreach (CS_Player other in CS_Player.activePlayers)
         {
             if (other == null || other.gameObject == gameObject) continue;
             if (Vector3.Distance(transform.position, other.transform.position) <= radius) count++;

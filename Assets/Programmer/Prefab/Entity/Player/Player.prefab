@@ -4865,7 +4865,6 @@ GameObject:
   - component: {fileID: 1551694478834558629}
   - component: {fileID: 216742350355605707}
   - component: {fileID: 8888284080912326668}
-  - component: {fileID: -4510307253191130015}
   - component: {fileID: 349586411803567952}
   - component: {fileID: 345532491756338339}
   - component: {fileID: 7310482956127384501}
@@ -4874,7 +4873,6 @@ GameObject:
   - component: {fileID: 5839164027731649215}
   - component: {fileID: 5854182590809397507}
   - component: {fileID: 6182937450261938471}
-  - component: {fileID: 3917264058213697542}
   - component: {fileID: 7728493016254819043}
   - component: {fileID: 2641957380172645918}
   - component: {fileID: 8357102946618239417}
@@ -5190,12 +5188,6 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::CS_PlayerTransformation
   ShowTopMostFoldoutHeaderGroup: 1
-  _transformDuration: 1
-  _cooldown: 5
-  _policeNotifyInterval: 10
-  _policeNotifyShortenTime: 20
-  _policeNotifyShortenAmount: 2
-  _policeNotifyMinInterval: 2
 --- !u!114 &4417805521937715263
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -5336,22 +5328,6 @@ MonoBehaviour:
   _foundByPolicePenalty: 50
   _foundByPoliceInterval: 5
   _defeatPlayerScore: 0
---- !u!114 &-4510307253191130015
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1825699444668748530}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 208e51ca32fa30a4085ff29301c37eb2, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::CS_PlayerWantedLevel
-  ShowTopMostFoldoutHeaderGroup: 1
-  _maxLevel: 5
-  _crimeCompletedIncrease: 1
-  _decreaseInterval: 2
 --- !u!114 &349586411803567952
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -5480,19 +5456,6 @@ MonoBehaviour:
   _widenSpeed: 20
   _returnSpeed: 5
   _minSprintSpeed: 0.5
---- !u!114 &3917264058213697542
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1825699444668748530}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 6b3c3a9a53580251abd98683d5ac8d01, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::CS_PlayerWantedLevelUI
-  ShowTopMostFoldoutHeaderGroup: 1
 --- !u!114 &7728493016254819043
 MonoBehaviour:
   m_ObjectHideFlags: 0

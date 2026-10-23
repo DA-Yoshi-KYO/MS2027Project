@@ -4884,6 +4884,7 @@ GameObject:
   - component: {fileID: 6619284730158836402}
   - component: {fileID: 3846102957716629043}
   - component: {fileID: 7731590264018837125}
+  - component: {fileID: 4718293045561290871}
   m_Layer: 31
   m_Name: Player
   m_TagString: PlayerNoTransformation
@@ -5392,6 +5393,20 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::CS_PlayerItemSlotUI
   ShowTopMostFoldoutHeaderGroup: 1
+--- !u!114 &4718293045561290871
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1825699444668748530}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 73a923c085324ee196aa90e88668e378, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CS_PlayerLockOnUI
+  ShowTopMostFoldoutHeaderGroup: 1
+  _searchInterval: 0.1
 --- !u!114 &201390582602146537
 MonoBehaviour:
   m_ObjectHideFlags: 0

@@ -14,7 +14,7 @@ using UnityEngine;
  * ・悪人・警察・アイテムには「出現中の一覧」が無いため、_refreshInterval秒ごとにFindObjectsByTypeで取り直す
  *   (コーディング規則「Findの必要性を検討」: 毎フレームは探さない。NPCが何人いても1秒に1回だけ)
  *   取り直すまでの間に消えたものは、使う側でnullチェックする(Destroyされたものは == null になる)
- * ・プレイヤーはCS_PlayerWantedLevel.activePlayers、イベント(ケアパッケージなど)はCS_InteractableRegistryを直接使う
+ * ・プレイヤーはCS_Player.activePlayers、イベント(ケアパッケージなど)はCS_InteractableRegistryを直接使う
  * ・NPCを動かすサーバー(またはオフライン)でだけ使う
  */
 // ========================================

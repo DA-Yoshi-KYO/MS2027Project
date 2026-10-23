@@ -34,6 +34,7 @@ using UnityEngine;
  * ■ 変身途中のエフェクト
  *   変身途中(CS_PlayerTransformation.isTransforming)の間だけ_transformingEffectを再生する(全クライアント)
  *   終わったら放出だけ止め、出ている粒は自然に消えるのを待つ。_transformingEffectが空なら何も出さない
+ *   ※ 常時変身(Issue #277)になり変身途中が無くなったため、今は再生されない
  *
  * ■ 差し替え
  *   ・Animatorは自動で子オブジェクトから探す(_animatorが空のとき)。Modelの子を差し替えるだけでよい

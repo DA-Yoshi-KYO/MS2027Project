@@ -4883,6 +4883,7 @@ GameObject:
   - component: {fileID: 5203948171630284711}
   - component: {fileID: 6619284730158836402}
   - component: {fileID: 3846102957716629043}
+  - component: {fileID: 7731590264018837125}
   m_Layer: 31
   m_Name: Player
   m_TagString: PlayerNoTransformation
@@ -6331,3 +6332,18 @@ MonoBehaviour:
   _scoreStep: 0.2
   _statusStep: 0.1
   _scanRadiusStep: 5
+--- !u!114 &7731590264018837125
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1825699444668748530}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6487e9fe0e2cf497c50a105a7d342ea9, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CS_PlayerAmbush
+  _range: 3
+  _backAngle: 120
+  _aboveHeight: 1.5

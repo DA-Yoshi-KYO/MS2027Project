@@ -16,7 +16,7 @@ using UnityEngine;
  *   (死亡中の移動の扱いはCS_Player側で行っている)
  * ・復活の処理はサーバーで行う(Revive()がサーバー専用のため)
  * ・復活予定時刻はNetworkVariableで持ち、HUD用に復活までの残り秒数(respawnRemaining)を全クライアントへ公開する
- * ・復活してから_invincibleDuration秒(既定3秒)は無敵(CS_PlayerHealth.SetInvincible)
+ * ・復活してから_invincibleDuration秒(既定5秒。仕様書「リスポーン」)は無敵(CS_PlayerHealth.SetInvincible)
  *   無敵の終了時刻もNetworkVariableで持ち、全クライアントで無敵中か(isRespawnInvincible)を判定できる
  *   (見た目の点滅はCS_PlayerVisualがこれを見て行う)
  * ・オフライン(NetworkManagerが動いていない)のテストシーンでも単体で動く
@@ -28,7 +28,7 @@ public class CS_PlayerRespawn : NetworkBehaviour
 {
     [Header("復活")]
     [SerializeField] private float _respawnDelay = 10f;  // 死亡してから復活するまでの時間(秒)
-    [SerializeField] private float _invincibleDuration = 3f;    // 復活してから無敵が続く時間(秒)
+    [SerializeField] private float _invincibleDuration = 5f;    // 復活してから無敵が続く時間(秒)
 
     private CS_PlayerHealth _health;
     private Coroutine _respawnCoroutine;

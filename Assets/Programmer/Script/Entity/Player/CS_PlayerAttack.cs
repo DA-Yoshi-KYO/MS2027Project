@@ -3,8 +3,8 @@ using Unity.Netcode;
 using UnityEngine;
 
 /*
- * プレイヤーの3段コンボ攻撃を行うクラス
- * 攻撃ボタンを続けて押すと、1段目 → 2段目 → 3段目と派生する
+ * プレイヤーの5段コンボ攻撃を行うクラス(仕様書「攻撃」)
+ * 攻撃ボタンを続けて押すと、1段目 → 2段目 → … → 5段目と派生する(段数はAttack Stepsの数で決まる)
  *
  * 制作者：　秋野翔太
  */
@@ -13,8 +13,9 @@ using UnityEngine;
 /*
  * メモ
  * ・各段の数値や追加効果は CSO_AttackData(ScriptableObject) で決める
- *   Attack Steps に 1段目、2段目、3段目の順で割り当てる
+ *   Attack Steps に 1段目、2段目…の順で割り当てる(DB_PlayerAttack1〜5)
  * ・派生できる受付時間は、各段の CSO_AttackData の Combo Window で変更できる
+ *   (データ表「次コンボのバッファ」1秒。モーションが終わってから1秒以内に押せば次の段へつながる)
  * ・コンボの流れ
  *   待機 → 攻撃ボタン → [n段目] → 攻撃モーション終了 → 受付時間内にボタン → [n+1段目]
  *   ・攻撃モーション中に押したボタンは「先行入力」として覚え、モーション終了と同時に派生する
@@ -28,14 +29,13 @@ using UnityEngine;
  *   攻撃ボタンはインタラクト(CS_PlayerInteractor)と共有。操作できるものの近く・操作中は攻撃を出さない
  * ・フレンドリーファイアは常に有効(チーム判定なし)。IDamageableを実装していれば
  *   プレイヤーだろうと敵だろうと関係なく当たる
- * ・実際のダメージ = CSO_AttackData.CalculateDamage() × CS_PlayerStats.attackPower(倍率)
+ * ・実際のダメージ = CSO_AttackData.CalculateDamage() × CS_PlayerStats.currentAttackPower(倍率。暗躍ボーナス込み)
  * ・ヒットする度に、各段のGauge Gain分だけCS_PlayerSpecialGaugeが溜まる
- *   (仕様では通常攻撃のヒットでは溜まらないため、DB_PlayerAttack1〜3のGauge Gainは0にしている)
+ *   (仕様では通常攻撃のヒットでは溜まらないため、DB_PlayerAttack1〜5のGauge Gainは0にしている)
+ * ・奇襲(CS_PlayerAmbush): 1段目の判定で、気づかれていない悪人の背後・上から当てた時は、一撃で倒すダメージにする
  * ・動けなくなった(死亡・スタン)時はコンボを中断する
  * ・必殺技(CS_PlayerSpecialAttack)を行っている間は、通常攻撃を行わない(isAttacking/isPerformingSpecialで排他制御)
- * ・変身中(CS_PlayerTransformation.isTransformed)でないと発動できない
- *   変身完了中はCS_PlayerTransformation側で解除できないよう制御しているため、
- *   コンボ開始後に変身が解けることは基本的に無い(死亡時の強制解除を除く)
+ * ・変身中(CS_PlayerTransformation.isTransformed)でないと発動できない(今は常時変身(Issue #277)のため、いつでも発動できる)
  */
 // ========================================
 
@@ -47,7 +47,7 @@ using UnityEngine;
 public class CS_PlayerAttack : NetworkBehaviour
 {
     [Header("コンボ")]
-    [SerializeField] private CSO_AttackData[] _attackSteps;     // 1段目、2段目、3段目の順に割り当てる
+    [SerializeField] private CSO_AttackData[] _attackSteps;     // 1段目、2段目…の順に割り当てる
 
     [Header("攻撃判定")]
     [SerializeField] private LayerMask _targetLayers;           // ダメージを与える対象のレイヤー
@@ -62,6 +62,7 @@ public class CS_PlayerAttack : NetworkBehaviour
     private CS_PlayerTransformation _transformation;
     private CS_PlayerScoring _scoring;
     private CS_PlayerInteractor _interactor;   // ケアパッケージなどの操作(攻撃と同じボタンを使う)。付いていなければnull
+    private CS_PlayerAmbush _ambush;           // 奇襲の判定。付いていなければ奇襲しない
     private readonly Collider[] _hitBuffer = new Collider[_hitBufferSize];
     private readonly HashSet<IDamageable> _hitTargets = new HashSet<IDamageable>();
 
@@ -89,6 +90,7 @@ public class CS_PlayerAttack : NetworkBehaviour
         _transformation = GetComponent<CS_PlayerTransformation>();
         _scoring = GetComponent<CS_PlayerScoring>();
         _interactor = GetComponent<CS_PlayerInteractor>();
+        _ambush = GetComponent<CS_PlayerAmbush>();
 
         if (HasValidSteps()) return;
 
@@ -154,7 +156,7 @@ public class CS_PlayerAttack : NetworkBehaviour
         if (_currentStep == _noStep) return;
 
         CSO_AttackData step = _attackSteps[_currentStep];
-        _elapsed += Time.deltaTime;
+        _elapsed += Time.deltaTime * _stats.comboSpeedRate;   // 暗躍ボーナスでコンボのモーションが速くなる
 
         // 判定のタイミングになったら、一度だけ判定を依頼する
         if (!_hasHit && _elapsed >= step.hitDelay)
@@ -271,8 +273,17 @@ public class CS_PlayerAttack : NetworkBehaviour
 
         foreach (IDamageable target in _hitTargets)
         {
-            float damage = step.CalculateDamage(context, target) * _stats.attackPower;
+            float damage = step.CalculateDamage(context, target) * _stats.currentAttackPower;
+
+            // 1段目で奇襲の条件がそろっていれば、一撃で倒すダメージにする(CS_PlayerAmbush)
+            CS_VillainHealth ambushed = null;
+            if (stepIndex == 0 && _ambush != null && _ambush.CanAmbush(target, position, out ambushed))
+            {
+                damage = Mathf.Max(damage, ambushed.currentHp);
+            }
+
             DealDamage(target, damage);
+            if (ambushed != null) _ambush.NotifyAmbush(ambushed);
             CS_AttackHitDetector.TryKnockback(target, position);   // 攻撃した位置から離れる方向へ下がる
             step.OnHit(context, target);
             _gauge.Fill(step.gaugeGain);

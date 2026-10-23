@@ -25,7 +25,7 @@ using UnityEngine;
  * ・onHpChanged / onDeath は、HPバーなどのUIやリスポーン処理から購読して使う
  * ・攻撃が当たる直前にブリンクを押していた時は、パリー(CS_PlayerParry.TryParryHit)が成功してダメージを受けない
  * ・無敵中はダメージを受けない。無敵は要因(呼び出し元)ごとにSetInvincible(要因, true/false)で管理し、
- *   1つでも無敵の要因が残っていれば無敵(変身途中: CS_PlayerTransformation / 復活直後: CS_PlayerRespawn /
+ *   1つでも無敵の要因が残っていれば無敵(復活直後: CS_PlayerRespawn /
  *   被弾直後: このクラス自身)
  *   ダメージ処理はサーバーだけで行うため、無敵の状態もサーバー(またはオフライン)だけが持つ
  * ・被弾すると(致死でなければ)、_postDamageInvincibleDuration秒(既定3秒、Inspectorで調整可能)だけ無敵になる

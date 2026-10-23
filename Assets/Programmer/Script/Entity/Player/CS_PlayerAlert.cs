@@ -4,7 +4,7 @@ using UnityEngine;
 
 /*
  * プレイヤーごとの警戒状態(なし / 発見中 / 捜索中)を管理するクラス
- * 手配度(CS_PlayerWantedLevel)に代わる、メタルギア式の状態変化の土台
+ * 手配度に代わる、メタルギア式の状態変化の土台
  * 警察陣営(警察・防犯装置)はNotifyDetected()で見つけたことを知らせ、UIはonAlertChangedを購読して表示を変える
  *
  * 制作者：　秋野翔太
@@ -24,7 +24,7 @@ using UnityEngine;
  * ・警戒状態はNetworkVariableで持つ(書き込みはサーバーのみ、読み取りは全員可)
  *   NotifyDetected()はサーバー(またはオフライン)で呼ぶ。クライアントで呼んでも何もしない
  * ・onAlertChangedは全クライアントで発生する(UI・警察側用)
- * ・今の手配度(CS_PlayerWantedLevel)はまだ消さない(警察側が参照しているため。消すのは警察側のIssue)
+ * ・手配度(CS_PlayerWantedLevel)は、警察側が警戒状態へ移った(Issue #271)ため削除した
  * ・オフライン(NetworkManagerが動いていない)のテストシーンでも単体で動く
  */
 // ========================================

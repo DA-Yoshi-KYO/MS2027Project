@@ -55,6 +55,10 @@ public class CS_PoliceBrain : MonoBehaviour
     // 警戒UIへ状態を知らせるクラス(付いていなければ知らせない)
     private CS_PoliceDetectionSource _detection = null;
 
+    // 怪しんで近づいているプレイヤーと、最後に見た位置(巡回時の視界の中にいる間は更新する)
+    private Transform _suspect = null;
+    private Vector3 _lastSuspectPosition = Vector3.zero;
+
     // 探索する場所の目印と位置(探索中の警察が、同じ場所の周りの別々の位置へ割り当てられる)
     private object _searchKey = null;
     private Vector3 _searchCenter = Vector3.zero;
@@ -187,7 +191,7 @@ public class CS_PoliceBrain : MonoBehaviour
     {
         _group = group;
         _move.Setting(speedTable);
-        _vision.Setting(status.viewAngle, status.viewDistance, status.viewHeight);
+        _vision.Setting(status.viewAngle, status.viewDistance, status.viewHeight, status.suspicionViewAngle, status.suspicionViewDistance);
         _attack.Setting(status.attackPower);
         _chaser = new CS_PoliceChaseAim(status);
 
@@ -316,14 +320,25 @@ public class CS_PoliceBrain : MonoBehaviour
             return;
         }
 
-        // 3. 探索中なら探索を続ける
+        // 3. 巡回時の視界(判定の大きい視界)にプレイヤーがいれば、怪しんで近づく(見つけたことにはならない。近づいて発見視界に入れば、追跡になる)
+        Transform suspect = _vision.FindSuspect();
+        if (suspect != null)
+        {
+            Approach(suspect);
+            return;
+        }
+
+        // 怪しいプレイヤーを見失った場合は、最後に見た場所を探す
+        if (_state == CSE_PoliceMoveState.Suspect) StartSearch(_suspect, _lastSuspectPosition);
+
+        // 4. 探索中なら探索を続ける
         if (_state == CSE_PoliceMoveState.Search)
         {
             UpdateSearch();
             return;
         }
 
-        // 4. どれでもなければ、所属先に合わせて巡回・待機する
+        // 5. どれでもなければ、所属先に合わせて巡回・待機する
         MoveIdle();
     }
 
@@ -391,6 +406,21 @@ public class CS_PoliceBrain : MonoBehaviour
     {
         CS_PlayerScoring scoring = target.GetComponentInParent<CS_PlayerScoring>();
         if (scoring != null) scoring.ReportFoundByPolice();
+    }
+
+    /// <summary>
+    /// 巡回時の視界にいるプレイヤーへ、怪しんで近づくメソッド
+    /// プレイヤーの周りの自分の位置(視野距離の範囲内)を目指すので、近づけば発見視界に入って、追跡になる
+    /// </summary>
+    /// <param name="suspect">怪しいプレイヤー</param>
+    private void Approach(Transform suspect)
+    {
+        _state = CSE_PoliceMoveState.Suspect;
+        _suspect = suspect;
+        _lastSuspectPosition = suspect.position;
+        _isWandering = false;
+
+        _move.SetDestination(GetGatherDestination(suspect, suspect.position), CSE_PoliceMoveState.Suspect);
     }
 
     /// <summary>

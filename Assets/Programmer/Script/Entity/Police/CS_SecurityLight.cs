@@ -63,7 +63,7 @@ public class CS_SecurityLight : MonoBehaviour
     [Tooltip("動く向き(このオブジェクトの向き基準。X: 右 / Y: 上 / Z: 前)。左右・縦・斜めなど")]
     private Vector3 _moveDirection = Vector3.forward;
 
-    [SerializeField, Range(0f, 50f)]
+    [SerializeField, Range(0f, 100f)]
     [Tooltip("動く距離(m。置いた場所から、この距離まで往復する。0ならその場に留まる)")]
     private float _moveDistance = 5.0f;
 

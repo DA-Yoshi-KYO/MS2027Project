@@ -15,7 +15,7 @@ MonoBehaviour:
   components:
   - {fileID: 5713184258960347303}
   - {fileID: 8074616241615446153}
-  - {fileID: 3920571846602197358}
+  - {fileID: 6184029375510273946}
 --- !u!114 &5713184258960347303
 MonoBehaviour:
   m_ObjectHideFlags: 3
@@ -113,7 +113,7 @@ MonoBehaviour:
       m_PreInfinity: 2
       m_PostInfinity: 2
       m_RotationOrder: 4
---- !u!114 &3920571846602197358
+--- !u!114 &6184029375510273946
 MonoBehaviour:
   m_ObjectHideFlags: 3
   m_CorrespondingSourceObject: {fileID: 0}
@@ -122,61 +122,22 @@ MonoBehaviour:
   m_GameObject: {fileID: 0}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: aaa3b8214f75b354e9ba2caadd022259, type: 3}
-  m_Name: DepthOfField
-  m_EditorClassIdentifier: Unity.RenderPipelines.HighDefinition.Runtime::UnityEngine.Rendering.HighDefinition.DepthOfField
+  m_Script: {fileID: 11500000, guid: d37baf52a0464e7b9221d8466528be29, type: 3}
+  m_Name: CSV_EdgeBlur
+  m_EditorClassIdentifier: Assembly-CSharp::CSV_EdgeBlur
   active: 1
-  quality:
-    m_OverrideState: 0
+  intensity:
+    m_OverrideState: 1
     m_Value: 1
-  focusMode:
+  blurRadius:
     m_OverrideState: 1
-    m_Value: 2
-  focusDistance:
-    m_OverrideState: 0
-    m_Value: 10
-  focusDistanceMode:
-    m_OverrideState: 0
-    m_Value: 0
-  nearFocusStart:
+    m_Value: 0.015
+  center:
     m_OverrideState: 1
-    m_Value: 0
-  nearFocusEnd:
+    m_Value: {x: 0.5, y: 0.5}
+  innerRadius:
     m_OverrideState: 1
-    m_Value: 0
-  farFocusStart:
+    m_Value: 0.45
+  softness:
     m_OverrideState: 1
-    m_Value: 12
-  farFocusEnd:
-    m_OverrideState: 1
-    m_Value: 35
-  m_NearSampleCount:
-    m_OverrideState: 0
-    m_Value: 5
-  m_NearMaxBlur:
-    m_OverrideState: 1
-    m_Value: 0
-  m_FarSampleCount:
-    m_OverrideState: 0
-    m_Value: 7
-  m_FarMaxBlur:
-    m_OverrideState: 1
-    m_Value: 5
-  m_Resolution:
-    m_OverrideState: 0
-    m_Value: 2
-  m_HighQualityFiltering:
-    m_OverrideState: 0
-    m_Value: 1
-  m_PhysicallyBased:
-    m_OverrideState: 0
-    m_Value: 0
-  m_AdaptiveSamplingWeight:
-    m_OverrideState: 0
-    m_Value: 0.75
-  m_LimitManualRangeNearBlur:
-    m_OverrideState: 0
-    m_Value: 0
-  coCStabilization:
-    m_OverrideState: 0
-    m_Value: 1
+    m_Value: 0.3

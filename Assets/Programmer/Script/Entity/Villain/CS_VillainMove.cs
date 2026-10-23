@@ -17,6 +17,7 @@ using UnityEngine.AI;
  *   クライアントではNavMeshAgentを無効にし、位置はNetworkTransformの同期に任せる
  * ・移動中の向きはNavMeshAgentが変える(回転の速さはrotationSpeed)
  *   止まっている時に向きを変えたい場合はFaceTowardsを使う
+ * ・Stopはその場でぴたっと止める(NavMeshAgentの加速度による滑りを残さない)
  *   移動しながら別の方向を向き続けたい時(取り囲む時の横歩き)はMoveToFacingを使う
  * ・追いかける相手は毎回位置が変わるので、目的地が repathDistance 以上ずれた時だけ経路を再計算する
  * ・NavMeshの外にいる時は移動しない(スポーン位置はNavMeshの上に置くこと)
@@ -98,6 +99,10 @@ public class CS_VillainMove : MonoBehaviour
 
         _agent.isStopped = true;
         _agent.ResetPath();
+
+        // 止める指示を出してもNavMeshAgentは加速度(Acceleration)の分だけ滑り続けるので、速度を消してその場で止める
+        // (滑ると攻撃の溜め中に狙った位置を通り過ぎ、後ろを向いてしまう)
+        _agent.velocity = Vector3.zero;
     }
 
     // 経路を無視して、指定した分だけ押し動かす(ノックバック用)

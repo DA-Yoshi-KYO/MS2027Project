@@ -48,6 +48,8 @@ using UnityEngine.AI;
  * ・見張り役(SetWatcherで巡回ルートを渡された悪人)は、犯罪中(Idle)の間CS_VillainPatrolで路地裏を巡回する
  *   巡回中も犯罪中の扱い(グループの犯罪は進む)。臨戦態勢範囲の確認も、他のメンバーと同じように行う
  *   帰還してスポーン位置に着いたら、巡回を始め直す
+ *   実行役が全員倒されたら、巡回中に犯行地点(スポーン位置)の近くを通った時に気付き、戦闘時の速さで向かって犯罪を引き継ぐ
+ *   (引き継ぐまではグループの犯罪は進まない。着いたら巡回をやめて実行役になり、そこを新しい戻り先にする)
  * ・仲間への通知
  *   犯罪中・帰還中から新しく臨戦態勢になった時(標的を見つけた・攻撃されて反撃する)、同じグループの仲間へ知らせる
  *   知らされた仲間は、犯罪中なら同じ標的を追跡し始める(臨戦態勢範囲の外にいても、煙幕越しでも気付く)
@@ -55,10 +57,12 @@ using UnityEngine.AI;
  *   知らされて臨戦態勢になった仲間は、さらに知らせ直さない
  * ・攻撃の流れ
  *   ターゲットまで attackStartDistance 以内に近づくと攻撃を始める
- *   → 攻撃を始めた時にターゲットがいた位置へ向き、chargeTime 秒溜める(この間は当たらない)
+ *   → 攻撃を始めた時にターゲットがいた方向へ向き(方向で固定する)、chargeTime 秒溜める(この間は当たらない)
  *   → hitActiveTime 秒間、正面に攻撃判定を出す(その間に入ったプレイヤーに1回ずつ当たる)
  *   → attackInterval 秒待ってから、次の攻撃ができる
  * ・攻撃の段階(attackPhase)はNetworkVariableで全クライアントに同期し、CS_VillainAttackVisualが見た目に使う
+ * ・臨戦態勢中に狙っているプレイヤーもNetworkVariableで全クライアントに同期する(IsTargeting)
+ *   奇襲できる悪人を、クライアント側でロックオン表示するため(CS_PlayerAmbush.FindAmbushTarget)
  * ・攻撃範囲とダメージはCSO_AttackData(Attack Data)で決める(Attack DataのhitDelay・durationは使わない)
  *   判定 = 正面 hitRange 先、半径 hitRadius の球
  *   実際のダメージ = CSO_AttackData.CalculateDamage() × CS_VillainStats.attackPower
@@ -108,6 +112,7 @@ public class CS_VillainCombat : NetworkBehaviour
     private const float _surroundTolerance = 1f;  // 取り囲み中、決まった位置からこれ以上ずれたら位置を直す(m)
     private const float _navMeshSampleRadius = 1f; // ターゲットの足元のNavMeshを探す半径(m)。取り囲む位置の計算に使う
     private const float _eyeHeight = 0.6f;        // 体の中心(transform.position)から目までの高さ(m)。煙幕の視線判定に使う
+    private const ulong _noTargetPlayer = ulong.MaxValue;   // プレイヤーを狙っていない時の_targetPlayerIdの値
 
     private static bool _hasWarnedNoAlleyArea;    // 路地裏Areaが無い警告を出したか(全悪人で共有)
 
@@ -189,8 +194,12 @@ public class CS_VillainCombat : NetworkBehaviour
     // 攻撃の段階。書き込みはサーバーのみ(NetworkVariableのデフォルト)。見た目の切り替えに全クライアントで使う
     private readonly NetworkVariable<CSE_VillainAttackPhase> _attackPhase = new NetworkVariable<CSE_VillainAttackPhase>();
 
+    // 臨戦態勢中に狙っているプレイヤーのNetworkObjectId(狙っていない時は_noTargetPlayer)。書き込みはサーバーのみ
+    private readonly NetworkVariable<ulong> _targetPlayerId = new NetworkVariable<ulong>(_noTargetPlayer);
+
     private State _state = State.Idle;
     private bool _isSurrounding;             // 攻撃枠が無く、取り囲んで様子を見ているか
+    private bool _isTakingOver;              // 見張り役が、実行役のいない犯行地点へ犯罪を引き継ぎに向かっているか
     private Transform _target;               // 標的(プレイヤー、警察、または陽動ホログラム)
     private CS_PlayerHealth _targetPlayer;   // 標的がプレイヤーの時のHP(倒れたかの判定に使う)。それ以外の時はnull
     private CS_PoliceBrain _targetPolice;    // 標的が警察の時の行動(消える演出中かの判定に使う)。それ以外の時はnull
@@ -199,7 +208,7 @@ public class CS_VillainCombat : NetworkBehaviour
     private float _scanTimer;
     private float _attackElapsed;         // 攻撃開始からの経過時間
     private float _attackCooldown;        // 次の攻撃までの残り時間
-    private Vector3 _attackAimPosition;   // 攻撃を始めた時にターゲットがいた位置(溜め中はここへ向く)
+    private Vector3 _attackAimDirection;  // 攻撃を始めた時にターゲットがいた方向(水平。溜め中はこの方向を向く)
     private int _alleyAreaMask;           // 路地裏AreaのNavMeshエリアマスク。0なら路地裏判定を行わない
     private bool _isTargetInAlley;        // 直前のターゲットの路地裏判定(足元のNavMeshが見つからない時に使う)
     private float _outsideAlleyTime;      // ターゲットが路地裏の外に出てからの時間
@@ -212,6 +221,7 @@ public class CS_VillainCombat : NetworkBehaviour
     public bool isCommittingCrime => enabled && _state == State.Idle;             // スポーン位置で犯罪を進めているか
     public bool isAttacking => _state == State.Attack;                           // 攻撃中か(溜め・攻撃判定)
     public bool isSurrounding => _state == State.Chase && _isSurrounding;         // 取り囲んで様子を見ているか(サーバーのみ)
+    public bool isWatcher => _patrol != null && _patrol.hasRoute;    // 見張り役(巡回ルートを持つ)か(サーバーのみ)
     public Transform target => _target;                                           // 標的(サーバーのみ)
     public CSE_VillainAttackPhase attackPhase => _attackPhase.Value;              // 攻撃の段階(全クライアントで参照可)
     public float chargeTime => _chargeTime;
@@ -227,7 +237,6 @@ public class CS_VillainCombat : NetworkBehaviour
 
     private float moveSpeed => _playerBaseStats.moveSpeed * _stats.moveSpeedMultiplier;
     private float patrolSpeed => _playerBaseStats.moveSpeed * _stats.patrolSpeedMultiplier;
-    private bool isWatcher => _patrol != null && _patrol.hasRoute;   // 見張り役(巡回ルートを持つ)か
 
     // 臨戦態勢になる範囲。範囲の中に留まる悪人(レイドのボス)は、イベントの範囲全体を見る
     // (範囲の外の標的はFindNearestPlayer / FindNearestHologramで外す)
@@ -304,6 +313,8 @@ public class CS_VillainCombat : NetworkBehaviour
     {
         if (!hasAuthority) return;
 
+        SyncTargetPlayer();
+
         _attackCooldown = Mathf.Max(0f, _attackCooldown - Time.fixedDeltaTime);
 
         // ノックバック中は他の行動を止める(移動はCS_VillainKnockbackが行う)
@@ -322,10 +333,46 @@ public class CS_VillainCombat : NetworkBehaviour
     // 見張り役は、犯罪中は路地裏を巡回する(巡回中も臨戦態勢範囲は確認する)
     private void UpdateIdle()
     {
-        if (isWatcher) _patrol.Tick(patrolSpeed, Time.fixedDeltaTime);
+        if (isWatcher) UpdateWatcher();
         else _move.Stop();
 
         ScanEngageRange();
+    }
+
+    // 見張り役。巡回し、実行役がいなくなっていれば犯行地点の近くを通った時に気付いて犯罪を引き継ぐ
+    private void UpdateWatcher()
+    {
+        if (_isTakingOver)
+        {
+            MoveToTakeOver();
+            return;
+        }
+
+        _patrol.Tick(patrolSpeed, Time.fixedDeltaTime);
+        if (CanNoticeNoExecutor()) _isTakingOver = true;
+    }
+
+    // 実行役が誰もいない犯行地点の近くまで来たか
+    private bool CanNoticeNoExecutor()
+    {
+        if (_group == null || _group.spawnPoint == null || _group.HasExecutor()) return false;
+
+        return GetFlatDirection(_group.spawnPoint.transform.position).magnitude <= _patrol.takeOverNoticeDistance;
+    }
+
+    // 戦闘時の速さで犯行地点へ向かい、着いたら実行役になる
+    private void MoveToTakeOver()
+    {
+        _move.MoveTo(_group.spawnPoint.transform.position, moveSpeed);
+        if (!_move.IsNearDestination(_arriveDistance)) return;
+
+        _move.Stop();
+        _patrol.ClearRoute();
+        _isTakingOver = false;
+
+        // 犯行地点を新しい戻り先にする(臨戦態勢の後はここへ戻って犯罪を続ける)
+        _homePosition = transform.position;
+        _homeRotation = transform.rotation;
     }
 
     // 見張り役にする(生成直後にCS_VillainSpawnerから呼ばれる)。CS_VillainPatrolが付いていなければ見張り役にならない
@@ -379,8 +426,9 @@ public class CS_VillainCombat : NetworkBehaviour
         _move.Stop();
         _attackElapsed += Time.fixedDeltaTime;
 
-        // 溜め中も、攻撃を始めた時にターゲットがいた位置を向き続ける(ターゲットは追いかけない)
-        _move.FaceTowards(GetFlatDirection(_attackAimPosition));
+        // 溜め中も、攻撃を始めた時にターゲットがいた方向を向き続ける(ターゲットは追いかけない)
+        // 位置ではなく方向で持つので、自分の位置が少しずれても狙いが後ろへひっくり返らない
+        _move.FaceTowards(_attackAimDirection);
 
         if (_attackElapsed < _chargeTime) return;
 
@@ -411,6 +459,7 @@ public class CS_VillainCombat : NetworkBehaviour
         _move.Stop();
         transform.rotation = _homeRotation;
         _state = State.Idle;
+        _isTakingOver = false;   // 引き継ぎに向かう途中で臨戦態勢になった時は、また巡回して気付くところからやり直す
         if (isWatcher) _patrol.Restart();
     }
 
@@ -478,7 +527,8 @@ public class CS_VillainCombat : NetworkBehaviour
     {
         _state = State.Attack;
         _attackElapsed = 0f;
-        _attackAimPosition = _target.position;
+        Vector3 toTarget = GetFlatDirection(_target.position);
+        _attackAimDirection = toTarget.sqrMagnitude > 0f ? toTarget : transform.forward;
         _damagedTargets.Clear();
         _attackPhase.Value = CSE_VillainAttackPhase.Charge;
     }
@@ -620,6 +670,25 @@ public class CS_VillainCombat : NetworkBehaviour
         if (IsOutsideConfinedArea(target.position)) return;
 
         SetTarget(target, player, false);
+    }
+
+    // 狙っているプレイヤーを全クライアントへ知らせる(変わった時だけ送られる)
+    private void SyncTargetPlayer()
+    {
+        if (!IsSpawned) return;
+
+        ulong id = isEngaged && _targetPlayer != null ? _targetPlayer.NetworkObjectId : _noTargetPlayer;
+        if (_targetPlayerId.Value != id) _targetPlayerId.Value = id;
+    }
+
+    // playerRootのプレイヤーに気づいて狙っているか(全クライアントで参照可)
+    // サーバー・オフラインは標的をそのまま見る。クライアントは同期されたNetworkObjectIdで見る(1フレームほど遅れる)
+    public bool IsTargeting(Transform playerRoot)
+    {
+        if (hasAuthority) return isEngaged && _target != null && _target.root == playerRoot;
+        if (!playerRoot.TryGetComponent(out NetworkObject networkObject)) return false;
+
+        return _targetPlayerId.Value == networkObject.NetworkObjectId;
     }
 
     private void ClearTarget()

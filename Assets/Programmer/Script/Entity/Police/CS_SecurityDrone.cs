@@ -15,6 +15,7 @@ using UnityEngine;
 /// ・警察と同じ視界(視野角・距離・高さ)を持つ。プレイヤーを見つけたら、警察陣営を警戒状態にする
 ///   見つけている間は、目が青と赤で点滅する。見失ったあとも、しばらく(設定の時間)ついてくる
 /// ・背中から攻撃されると、一定時間動かなくなる(スタン)。目も消える。パリーの反撃(IStunnable)でもスタンする
+///   空中にいても殴れるよう、ドローンの下から地面までの「当たり判定の柱」を持つ(攻撃の判定にだけ当たり、物理的にはぶつからない)
 /// ・巡回範囲(任意のコライダー)を指定すると、その中から出ない(「2Fだけ」「裏道だけ」などの条件に使う)
 /// 判断と移動はサーバー(またはオフライン)だけで行い、位置はNetworkTransformで、状態はNetworkVariableで全員へ同期する
 /// 出現とデータの受け渡しはCS_SecurityDroneSpawnerが行う
@@ -100,6 +101,15 @@ public class CS_SecurityDrone : NetworkBehaviour, IDamageable, IStunnable
     [Tooltip("巡回中に、避けられない・避け続けたまま、この時間が経ったら、次の巡回ポイントへ向かう(秒)")]
     private float _blockedSkipTime = 6.0f;
 
+    [Header("＝＝＝ 当たり判定の柱 ＝＝＝")]
+    [SerializeField, Min(0.05f)]
+    [Tooltip("当たり判定の柱の半径(m)。プレイヤーの攻撃の判定が、この柱に触れれば当たる")]
+    private float _hitColumnRadius = 0.5f;
+
+    [SerializeField, Min(0.1f)]
+    [Tooltip("当たり判定の柱の最大の長さ(m)。ドローンの下の地面がこれより遠い時は、この長さまで")]
+    private float _hitColumnMaxLength = 8.0f;
+
     [Header("＝＝＝ 見た目 ＝＝＝")]
     [SerializeField]
     [Tooltip("目(顔)の色を変えるクラス")]
@@ -109,12 +119,16 @@ public class CS_SecurityDrone : NetworkBehaviour, IDamageable, IStunnable
     [Tooltip("目(顔)の見た目。スタン中は消す")]
     private Renderer _faceRenderer = null;
 
+    // ドローンの下から地面までの、攻撃の判定に当たる柱(起動時に作る。ドローンの高さに合わせて、長さを変える)
+    private CapsuleCollider _hitColumn = null;
+
     // 今の状態(全クライアントで分かる。ネットワークに出現していない時は、判断に使っている状態)
     public CSE_SecurityDroneState state => IsSpawned ? _state.Value : _currentState;
 
     private void Awake()
     {
         _vision = GetComponent<CS_PoliceVision>();
+        CreateHitColumn();
     }
 
     public override void OnNetworkSpawn()
@@ -168,6 +182,7 @@ public class CS_SecurityDrone : NetworkBehaviour, IDamageable, IStunnable
         }
 
         UpdateMovement();
+        UpdateHitColumn();
     }
 
     /// <summary>
@@ -265,6 +280,41 @@ public class CS_SecurityDrone : NetworkBehaviour, IDamageable, IStunnable
         if (_stunTimer > 0.0f) return;
 
         EndChase();
+    }
+
+    /// <summary>
+    /// 攻撃の判定に当たる、ドローンの下から地面までの柱を作るメソッド
+    /// 柱は、他の物との物理的なぶつかりを全部無視する(プレイヤーが柱にぶつかって進めなくならないようにする)
+    /// 攻撃の判定(Physics.Overlap系)は、ぶつかりの設定に関係なく当たる
+    /// </summary>
+    private void CreateHitColumn()
+    {
+        GameObject column = new GameObject("HitColumn");
+        column.layer = gameObject.layer;
+        column.transform.SetParent(transform, false);
+
+        _hitColumn = column.AddComponent<CapsuleCollider>();
+        _hitColumn.direction = 1;
+        _hitColumn.radius = _hitColumnRadius;
+        _hitColumn.height = _hitColumnRadius * 2.0f;
+        _hitColumn.excludeLayers = ~0;
+    }
+
+    /// <summary>
+    /// 当たり判定の柱を、ドローンの位置から真下の地面までの長さに合わせるメソッド
+    /// </summary>
+    private void UpdateHitColumn()
+    {
+        float length = _hitColumnMaxLength;
+        if (Physics.Raycast(transform.position, Vector3.down, out RaycastHit hit, _hitColumnMaxLength,
+            CS_PoliceLayers.obstacleLayers, QueryTriggerInteraction.Ignore))
+        {
+            length = hit.distance;
+        }
+
+        // ドローンの体(中心)から地面まで。カプセルの高さは、両端の半球を含むので、半径の2倍以上にする
+        _hitColumn.height = Mathf.Max(length, _hitColumnRadius * 2.0f);
+        _hitColumn.center = new Vector3(0.0f, -_hitColumn.height * 0.5f, 0.0f);
     }
 
     /// <summary>

@@ -4865,7 +4865,6 @@ GameObject:
   - component: {fileID: 1551694478834558629}
   - component: {fileID: 216742350355605707}
   - component: {fileID: 8888284080912326668}
-  - component: {fileID: -4510307253191130015}
   - component: {fileID: 349586411803567952}
   - component: {fileID: 345532491756338339}
   - component: {fileID: 7310482956127384501}
@@ -4874,7 +4873,6 @@ GameObject:
   - component: {fileID: 5839164027731649215}
   - component: {fileID: 5854182590809397507}
   - component: {fileID: 6182937450261938471}
-  - component: {fileID: 3917264058213697542}
   - component: {fileID: 7728493016254819043}
   - component: {fileID: 2641957380172645918}
   - component: {fileID: 8357102946618239417}
@@ -4882,6 +4880,11 @@ GameObject:
   - component: {fileID: 5884805568190594611}
   - component: {fileID: 8704568956945689768}
   - component: {fileID: 6038915642972428042}
+  - component: {fileID: 5203948171630284711}
+  - component: {fileID: 6619284730158836402}
+  - component: {fileID: 3846102957716629043}
+  - component: {fileID: 7731590264018837125}
+  - component: {fileID: 4718293045561290871}
   m_Layer: 31
   m_Name: Player
   m_TagString: PlayerNoTransformation
@@ -5032,6 +5035,8 @@ MonoBehaviour:
   - {fileID: 11400000, guid: 16c61d084960ba64dae2ed5da664b045, type: 2}
   - {fileID: 11400000, guid: 76c0a9a32dc0bd048ba495ed3ab9c27b, type: 2}
   - {fileID: 11400000, guid: e44d5cf926290df4fbed9120d78f05da, type: 2}
+  - {fileID: 11400000, guid: 6d33f5bcc470dc9b6dfc409a03e6f071, type: 2}
+  - {fileID: 11400000, guid: b9e90e24082cda255ec79bb4590ab452, type: 2}
   _targetLayers:
     serializedVersion: 2
     m_Bits: 4294967295
@@ -5190,12 +5195,6 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::CS_PlayerTransformation
   ShowTopMostFoldoutHeaderGroup: 1
-  _transformDuration: 1
-  _cooldown: 5
-  _policeNotifyInterval: 10
-  _policeNotifyShortenTime: 20
-  _policeNotifyShortenAmount: 2
-  _policeNotifyMinInterval: 2
 --- !u!114 &4417805521937715263
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -5330,28 +5329,10 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::CS_PlayerScoring
   ShowTopMostFoldoutHeaderGroup: 1
   _defaultVillainScore: 100
-  _bonusStartCount: 5
-  _bonusStep: 0.2
   _crimeCompletedPenalty: 20
   _foundByPolicePenalty: 50
   _foundByPoliceInterval: 5
   _defeatPlayerScore: 0
---- !u!114 &-4510307253191130015
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1825699444668748530}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 208e51ca32fa30a4085ff29301c37eb2, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::CS_PlayerWantedLevel
-  ShowTopMostFoldoutHeaderGroup: 1
-  _maxLevel: 5
-  _crimeCompletedIncrease: 1
-  _decreaseInterval: 2
 --- !u!114 &349586411803567952
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -5412,6 +5393,20 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::CS_PlayerItemSlotUI
   ShowTopMostFoldoutHeaderGroup: 1
+--- !u!114 &4718293045561290871
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1825699444668748530}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 73a923c085324ee196aa90e88668e378, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CS_PlayerLockOnUI
+  ShowTopMostFoldoutHeaderGroup: 1
+  _searchInterval: 0.1
 --- !u!114 &201390582602146537
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -5480,19 +5475,6 @@ MonoBehaviour:
   _widenSpeed: 20
   _returnSpeed: 5
   _minSprintSpeed: 0.5
---- !u!114 &3917264058213697542
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1825699444668748530}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 6b3c3a9a53580251abd98683d5ac8d01, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::CS_PlayerWantedLevelUI
-  ShowTopMostFoldoutHeaderGroup: 1
 --- !u!114 &7728493016254819043
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -5506,7 +5488,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::CS_PlayerParry
   ShowTopMostFoldoutHeaderGroup: 1
-  _parryWindow: 0.5
+  _parryWindow: 1
   _searchRadius: 4
   _searchLayers:
     serializedVersion: 2
@@ -6320,3 +6302,65 @@ Animator:
   m_AllowConstantClipSamplingOptimization: 1
   m_KeepAnimatorStateOnDisable: 0
   m_WriteDefaultValuesOnDisable: 0
+--- !u!114 &5203948171630284711
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1825699444668748530}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a28e3446266f4869a85868e54eb4c451, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CS_PlayerScan
+  _baseRadius: 30
+  _expandTime: 1
+  _fadeTime: 0.3
+  _revealDuration: 10
+--- !u!114 &6619284730158836402
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1825699444668748530}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e054647baf61efe8c7f328e470f7df97, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CS_PlayerScanEffect
+  _waveMaterial: {fileID: 2100000, guid: e46dddc4853c73a43a167d13b56f9853, type: 2}
+--- !u!114 &3846102957716629043
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1825699444668748530}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a5369efd22420107800fc1dea7a8853a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CS_PlayerStealthBonus
+  ShowTopMostFoldoutHeaderGroup: 1
+  _bonusStartCount: 5
+  _bonusMaxCount: 10
+  _scoreStep: 0.2
+  _statusStep: 0.1
+  _scanRadiusStep: 5
+--- !u!114 &7731590264018837125
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1825699444668748530}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6487e9fe0e2cf497c50a105a7d342ea9, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CS_PlayerAmbush
+  _range: 3
+  _backAngle: 120
+  _aboveHeight: 1.5

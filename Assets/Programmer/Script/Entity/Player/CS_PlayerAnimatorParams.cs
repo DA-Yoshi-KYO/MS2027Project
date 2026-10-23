@@ -34,6 +34,7 @@ public static class CS_PlayerAnimatorParams
     public const string hit = "Hit";
 
     public const string comboStep = "ComboStep";   // int 通常攻撃が何段目か(0始まり)
+    public const string attackSpeed = "AttackSpeed"; // float 通常攻撃のモーション速度の倍率(1で等倍。暗躍ボーナスで上がる)。攻撃のステートのSpeed Multiplierに使う
 
     public static readonly int speedHash = Animator.StringToHash(speed);
     public static readonly int moveXHash = Animator.StringToHash(moveX);
@@ -46,4 +47,5 @@ public static class CS_PlayerAnimatorParams
     public static readonly int specialHash = Animator.StringToHash(special);
     public static readonly int hitHash = Animator.StringToHash(hit);
     public static readonly int comboStepHash = Animator.StringToHash(comboStep);
+    public static readonly int attackSpeedHash = Animator.StringToHash(attackSpeed);
 }

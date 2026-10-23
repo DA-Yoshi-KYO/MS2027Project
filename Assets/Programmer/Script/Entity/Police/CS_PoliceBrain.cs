@@ -18,7 +18,7 @@ using UnityEngine.AI;
 [RequireComponent(typeof(CS_PoliceMove))]
 [RequireComponent(typeof(CS_PoliceVision))]
 [RequireComponent(typeof(CS_PoliceAttack))]
-public class CS_PoliceBrain : MonoBehaviour
+public class CS_PoliceBrain : MonoBehaviour, IStunnable
 {
     private CS_PoliceMove _move = null;
     private CS_PoliceVision _vision = null;
@@ -54,6 +54,10 @@ public class CS_PoliceBrain : MonoBehaviour
 
     // 警戒UIへ状態を知らせるクラス(付いていなければ知らせない)
     private CS_PoliceDetectionSource _detection = null;
+
+    // 怪しんで近づいているプレイヤーと、最後に見た位置(巡回時の視界の中にいる間は更新する)
+    private Transform _suspect = null;
+    private Vector3 _lastSuspectPosition = Vector3.zero;
 
     // 探索する場所の目印と位置(探索中の警察が、同じ場所の周りの別々の位置へ割り当てられる)
     private object _searchKey = null;
@@ -95,6 +99,9 @@ public class CS_PoliceBrain : MonoBehaviour
 
     // 次に判断するまでの残り時間
     private float _thinkTimer = 0.0f;
+
+    // スタンされている残り時間(0以下ならスタンしていない)
+    private float _stunTimer = 0.0f;
 
     // 異常事態(詰まり・巡回ルートに戻れない)をグループに報告済みか
     private bool _hasReportedAbnormal = false;
@@ -145,6 +152,9 @@ public class CS_PoliceBrain : MonoBehaviour
     [Tooltip("1つの行き先へ歩き始めてから、この時間が経っても着かない(詰まった・遠回りしている)時は、行き先を選び直す(秒)")]
     private float _wanderMaxWalkTime = 8.0f;
 
+    // スタンしているか(サーバー、またはオフラインでだけ正しい。見た目はCS_PoliceStunEffectが、全員へ同期して出す)
+    public bool isStunned => _stunTimer > 0.0f;
+
     // 行動している警察の一覧(警戒状態の管理が、プレイヤーの付近にいる警察を探すのに使う。サーバー、またはオフラインだけ)
     private static readonly List<CS_PoliceBrain> _activeBrains = new List<CS_PoliceBrain>();
 
@@ -187,7 +197,7 @@ public class CS_PoliceBrain : MonoBehaviour
     {
         _group = group;
         _move.Setting(speedTable);
-        _vision.Setting(status.viewAngle, status.viewDistance, status.viewHeight);
+        _vision.Setting(status.viewAngle, status.viewDistance, status.viewHeight, status.suspicionViewAngle, status.suspicionViewDistance);
         _attack.Setting(status.attackPower);
         _chaser = new CS_PoliceChaseAim(status);
 
@@ -212,6 +222,21 @@ public class CS_PoliceBrain : MonoBehaviour
     }
 
     /// <summary>
+    /// IStunnable実装。パリーの反撃などで、指定した時間の間、移動と攻撃(チャージ中も含む)を止める(サーバー、またはオフラインで呼ばれる)
+    /// スタンしている間は判断もしない。終わったら、止まる前の状態から再開する
+    /// すでにスタンしている時は、残り時間が長い方にする
+    /// </summary>
+    /// <param name="duration">動かなくなる時間(秒)</param>
+    public void Stun(float duration)
+    {
+        if (!_isInitialized || !enabled || duration <= 0.0f || CS_PoliceSquad.IsNetworkClientOnly()) return;
+
+        _stunTimer = Mathf.Max(_stunTimer, duration);
+        _attack.CancelAttack();
+        _move.SetStopped(true);
+    }
+
+    /// <summary>
     /// 判断・移動・攻撃をすべて止めるメソッド(消える演出の間に動かないようにする)
     /// </summary>
     public void StopActing()
@@ -227,6 +252,13 @@ public class CS_PoliceBrain : MonoBehaviour
     private void Update()
     {
         if (!_isInitialized) return;
+
+        // スタンしている間は、その場で止まったまま、何もしない
+        if (_stunTimer > 0.0f)
+        {
+            UpdateStun();
+            return;
+        }
 
         // 攻撃のチャージ中はその場で止まり、チャージを始めた時に標的がいた位置の方を向く
         // (判断は続け、チャージが終わったらその時の目的地へ移動を再開する)
@@ -289,6 +321,19 @@ public class CS_PoliceBrain : MonoBehaviour
     }
 
     /// <summary>
+    /// スタンの残り時間を進めるメソッド(終わったら、移動を再開し、すぐ判断し直す)
+    /// </summary>
+    private void UpdateStun()
+    {
+        _stunTimer -= Time.deltaTime;
+        if (_stunTimer > 0.0f) return;
+
+        _stunTimer = 0.0f;
+        _move.SetStopped(false);
+        _thinkTimer = 0.0f;
+    }
+
+    /// <summary>
     /// 状況を判断し、優先順位の高い行動を1つ選んで実行するメソッド
     /// </summary>
     private void Think()
@@ -316,14 +361,25 @@ public class CS_PoliceBrain : MonoBehaviour
             return;
         }
 
-        // 3. 探索中なら探索を続ける
+        // 3. 巡回時の視界(判定の大きい視界)にプレイヤーがいれば、怪しんで近づく(見つけたことにはならない。近づいて発見視界に入れば、追跡になる)
+        Transform suspect = _vision.FindSuspect();
+        if (suspect != null)
+        {
+            Approach(suspect);
+            return;
+        }
+
+        // 怪しいプレイヤーを見失った場合は、最後に見た場所を探す
+        if (_state == CSE_PoliceMoveState.Suspect) StartSearch(_suspect, _lastSuspectPosition);
+
+        // 4. 探索中なら探索を続ける
         if (_state == CSE_PoliceMoveState.Search)
         {
             UpdateSearch();
             return;
         }
 
-        // 4. どれでもなければ、所属先に合わせて巡回・待機する
+        // 5. どれでもなければ、所属先に合わせて巡回・待機する
         MoveIdle();
     }
 
@@ -391,6 +447,21 @@ public class CS_PoliceBrain : MonoBehaviour
     {
         CS_PlayerScoring scoring = target.GetComponentInParent<CS_PlayerScoring>();
         if (scoring != null) scoring.ReportFoundByPolice();
+    }
+
+    /// <summary>
+    /// 巡回時の視界にいるプレイヤーへ、怪しんで近づくメソッド
+    /// プレイヤーの周りの自分の位置(視野距離の範囲内)を目指すので、近づけば発見視界に入って、追跡になる
+    /// </summary>
+    /// <param name="suspect">怪しいプレイヤー</param>
+    private void Approach(Transform suspect)
+    {
+        _state = CSE_PoliceMoveState.Suspect;
+        _suspect = suspect;
+        _lastSuspectPosition = suspect.position;
+        _isWandering = false;
+
+        _move.SetDestination(GetGatherDestination(suspect, suspect.position), CSE_PoliceMoveState.Suspect);
     }
 
     /// <summary>

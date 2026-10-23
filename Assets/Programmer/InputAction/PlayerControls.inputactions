@@ -87,7 +87,7 @@
                     "initialStateCheck": false
                 },
                 {
-                    "name": "Transformation",
+                    "name": "Scan",
                     "type": "Button",
                     "id": "8d0f2a43-6b8c-4e0a-9b3d-5f7a9c1e3b64",
                     "expectedControlType": "Button",
@@ -335,18 +335,18 @@
                     "interactions": "",
                     "processors": "",
                     "groups": "",
-                    "action": "Transformation",
+                    "action": "Scan",
                     "isComposite": false,
                     "isPartOfComposite": false
                 },
                 {
                     "name": "",
                     "id": "af2b4c65-8d0e-4a2c-9d5f-7b9c1e3a5d86",
-                    "path": "<Gamepad>/rightStickPress",
+                    "path": "<Gamepad>/leftShoulder",
                     "interactions": "",
                     "processors": "",
                     "groups": "",
-                    "action": "Transformation",
+                    "action": "Scan",
                     "isComposite": false,
                     "isPartOfComposite": false
                 }

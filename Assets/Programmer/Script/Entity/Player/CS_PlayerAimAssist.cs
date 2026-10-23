@@ -12,7 +12,8 @@
  * メモ
  * ・目的: 「誰でも遊べるように」(仕様書「プレイヤー」の操作について)、狙いが多少ずれていても攻撃が当たるようにする
  * ・流れ(攻撃している本人の手元でだけ動く。CS_PlayerAttack / CS_PlayerSpecialAttackの開始イベントは本人の手元でしか発生しない)
- *   1. 攻撃(各段)・必殺技の開始時に、_range以内・狙っている方向(カメラの向き)から左右_angle度以内の敵を探す
+ *   1. 攻撃(各段)・必殺技の開始時に、_range以内・狙っている方向から左右_angle度以内の敵を探す
+ *      狙っている方向は、スティック(移動入力)を_stickThreshold以上倒していればその方向、倒していなければカメラの向き
  *      近さと角度で点数を付け、一番狙いやすい1体を選ぶ(見つからなければ何もしない = いつも通りカメラの向きで攻撃する)
  *   2. 選んだ相手の方へすぐに向きを変え(CS_Player.SetAimFacing)、判定が出るまで相手を追って向き続ける
  *   3. 攻撃が届かない距離なら、判定が出るまでに届く距離まで踏み込む(CS_Player.Lunge。最大_maxLungeDistance)
@@ -38,6 +39,7 @@ public class CS_PlayerAimAssist : MonoBehaviour
     [SerializeField][Range(0f, 180f)] private float _angle = 75f;   // 狙っている方向(カメラの向き)から左右何度以内の相手を補正するか
     [SerializeField][Min(0f)] private float _anglePriority = 0.5f;  // 相手を選ぶ時に、近さに比べて角度をどれだけ重視するか
     [SerializeField] private bool _targetPlayers = true;            // 他のプレイヤー(人・NPC)も補正の対象にするか(悪人がいない時だけ)
+    [SerializeField][Range(0f, 1f)] private float _stickThreshold = 0.3f;  // スティックをこれ以上倒していれば、その方向を狙っている方向にする
 
     [Header("踏み込み")]
     [SerializeField][Min(0f)] private float _maxLungeDistance = 1.5f;   // 踏み込む最大の距離(m。0で踏み込まない)
@@ -195,7 +197,7 @@ public class CS_PlayerAimAssist : MonoBehaviour
     // 悪人を優先する: 範囲内に悪人が1体でもいれば悪人の中から選び、悪人がいない時だけプレイヤーの中から選ぶ
     private Transform FindTarget()
     {
-        Vector3 aim = Quaternion.Euler(0f, _player.viewYaw, 0f) * Vector3.forward;
+        Vector3 aim = GetAimDirection();
         int count = Physics.OverlapSphereNonAlloc(transform.position, _range, _buffer, _attack.targetLayers, QueryTriggerInteraction.Ignore);
 
         Transform bestVillain = null, bestOther = null;
@@ -229,6 +231,16 @@ public class CS_PlayerAimAssist : MonoBehaviour
         }
 
         return bestVillain != null ? bestVillain : bestOther;
+    }
+
+    // 狙っている方向。スティック(移動入力)を倒していればその方向、倒していなければカメラの向き
+    // (仕様「攻撃範囲内に敵が複数人いる場合、スティックを倒している方向の敵を優先して攻撃したい」)
+    private Vector3 GetAimDirection()
+    {
+        Vector3 stick = _player.moveDirection;
+        if (stick.magnitude >= _stickThreshold) return stick.normalized;
+
+        return Quaternion.Euler(0f, _player.viewYaw, 0f) * Vector3.forward;
     }
 
     // 補正してよい相手か(倒れていない悪人。_targetPlayersがオンなら倒れていないプレイヤー(人・NPC)も)

@@ -15,6 +15,10 @@ using UnityEngine;
  * ・見回す: 着いた時の向きを中心に、左右 lookAroundAngle 度ずつ首を振るように体の向きを変える(lookAroundPeriod 秒で1往復)
  * ・巡回中も犯罪中(Idle)のままなので、臨戦態勢範囲にプレイヤーが入れば気付く(CS_VillainCombat側で判定)
  *   臨戦態勢 → 帰還(スポーン位置へ戻る)の後は、また遠い方の端から巡回を再開する
+ * ・犯罪の引き継ぎ(判断と移動はCS_VillainCombatが行う)
+ *   実行役が全員倒されても、すぐには引き継がずに巡回を続ける
+ *   巡回中に犯行地点から takeOverNoticeDistance 以内に来たら、誰もいないことに気付き、戦闘時の速さで犯行地点へ向かう
+ *   着いたら巡回をやめ(ClearRoute)、実行役として犯罪を続ける
  * ・移動の速さは CS_VillainCombat が渡す(プレイヤーの通常移動速度 × CSO_VillainStatsの巡回時の倍率)
  * ・処理はサーバー(オフライン時はその場)でのみ行う。位置・向きはNetworkTransformで同期する
  */
@@ -37,6 +41,10 @@ public class CS_VillainPatrol : MonoBehaviour
     [Tooltip("見回す時に、左右を1往復する時間(秒)")]
     private float _lookAroundPeriod = 2f;
 
+    [SerializeField, Min(0f)]
+    [Tooltip("実行役がいなくなった時、犯行地点(スポーン位置)にこの距離(m)まで近づいたら、誰もいないことに気付いて犯罪を引き継ぐ")]
+    private float _takeOverNoticeDistance = 5f;
+
     private CS_VillainMove _move;
     private readonly Vector3[] _ends = new Vector3[2];
     private bool _hasRoute;
@@ -46,6 +54,7 @@ public class CS_VillainPatrol : MonoBehaviour
     private Vector3 _lookForward;     // 見回す時の中心の向き(着いた時の向き)
 
     public bool hasRoute => _hasRoute;
+    public float takeOverNoticeDistance => _takeOverNoticeDistance;
 
     private void Awake()
     {
@@ -59,6 +68,13 @@ public class CS_VillainPatrol : MonoBehaviour
         _ends[1] = endB;
         _hasRoute = true;
         Restart();
+    }
+
+    // 巡回をやめる(犯罪を引き継いで実行役になった時)
+    public void ClearRoute()
+    {
+        _hasRoute = false;
+        _isLookingAround = false;
     }
 
     // 今いる位置から遠い方の端へ向かうところから始め直す(帰還して犯罪中に戻った時など)

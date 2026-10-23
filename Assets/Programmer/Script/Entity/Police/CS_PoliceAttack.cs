@@ -35,6 +35,9 @@ public class CS_PoliceAttack : MonoBehaviour
     // チャージを始めた時に標的がいた位置(攻撃判定はこの位置に向かって出す)
     private Vector3 _chargeTargetPosition = Vector3.zero;
 
+    // 今出している攻撃判定(消えるまで覚えておく。スタンされた時に、すぐ消すため)
+    private CS_PoliceAttackHitbox _activeHitbox = null;
+
     // 初期化処理を行わずに攻撃するのを防ぐためのフラグ
     private bool _isInitialized = false;
 
@@ -109,6 +112,21 @@ public class CS_PoliceAttack : MonoBehaviour
     }
 
     /// <summary>
+    /// 今の攻撃(チャージ中と、出している攻撃判定)を中断するメソッド(スタンされた時に使う。チャージしていなくても呼んでよい)
+    /// 中断した後は、攻撃の間隔が経つまで、新しいチャージを始められない
+    /// </summary>
+    public void CancelAttack()
+    {
+        _isCharging = false;
+        _chargeTimer = 0.0f;
+        _cooldownTimer = _attackInterval;
+
+        // 攻撃判定は、消えるまでの時間が残っていても、すぐ消す(Unityのnullチェックで、消えている場合は何もしない)
+        if (_activeHitbox != null) Destroy(_activeHitbox.gameObject);
+        _activeHitbox = null;
+    }
+
+    /// <summary>
     /// 標的が攻撃範囲内にいれば、攻撃のチャージを始めるメソッド
     /// </summary>
     /// <param name="target">攻撃する標的(HPを持つオブジェクト)</param>
@@ -141,7 +159,7 @@ public class CS_PoliceAttack : MonoBehaviour
 
         // 攻撃判定には攻撃を出した位置(警察の中心)を渡し、そこから壁越しになる相手には当たらないようにする
         // 攻撃した警察(自分)も渡し、プレイヤー側が「警察に倒された」と判定できるようにする
-        CS_PoliceAttackHitbox.Create(center, transform.position, gameObject, _attackPower, _hitboxRadius, _hitboxLifetime);
+        _activeHitbox = CS_PoliceAttackHitbox.Create(center, transform.position, gameObject, _attackPower, _hitboxRadius, _hitboxLifetime);
     }
 
     /// <summary>

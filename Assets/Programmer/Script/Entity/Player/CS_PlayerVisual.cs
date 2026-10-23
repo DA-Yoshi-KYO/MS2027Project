@@ -34,6 +34,7 @@ using UnityEngine;
  * ■ 変身途中のエフェクト
  *   変身途中(CS_PlayerTransformation.isTransforming)の間だけ_transformingEffectを再生する(全クライアント)
  *   終わったら放出だけ止め、出ている粒は自然に消えるのを待つ。_transformingEffectが空なら何も出さない
+ *   ※ 常時変身(Issue #277)になり変身途中が無くなったため、今は再生されない
  *
  * ■ 差し替え
  *   ・Animatorは自動で子オブジェクトから探す(_animatorが空のとき)。Modelの子を差し替えるだけでよい
@@ -61,6 +62,7 @@ public class CS_PlayerVisual : NetworkBehaviour
     [SerializeField] private float _locomotionDamping = 0.08f;  // 移動パラメータのなめらかさ(小さいほど素早く追従)
     [SerializeField] private float _maxTrackedSpeed = 40f;      // これを超える座標の変化はテレポートとみなして無視する(m/秒)
     [SerializeField] private float _blinkInterval = 0.1f;       // 復活直後の無敵中に点滅する間隔(秒)
+    [SerializeField][Min(1)] private int _attackMotionCount = 3;    // Animatorにある通常攻撃のモーションの数。これを超えた段(5段コンボの4・5段目など)は先頭から使い回す
     [SerializeField] private ParticleSystem _transformingEffect;    // 変身途中に出すパーティクル(空なら出さない)
 
     private CS_Player _player;
@@ -144,6 +146,7 @@ public class CS_PlayerVisual : NetworkBehaviour
         UpdateLocomotion(Time.deltaTime);
         SetBool(CS_PlayerAnimatorParams.groundedHash, _player.isGrounded);
         SetBool(CS_PlayerAnimatorParams.deadHash, _health.isDead);
+        if (Has(CS_PlayerAnimatorParams.attackSpeedHash)) _animator.SetFloat(CS_PlayerAnimatorParams.attackSpeedHash, _stats.comboSpeedRate);
     }
 
     // 変身が完了している間だけ変身後のモデルを表示し、アニメーションの送り先も切り替える
@@ -226,7 +229,7 @@ public class CS_PlayerVisual : NetworkBehaviour
         }
 
         Vector3 local = Quaternion.Inverse(transform.rotation) * velocity;
-        float reference = Mathf.Max(0.01f, _stats.moveSpeed);
+        float reference = Mathf.Max(0.01f, _stats.currentMoveSpeed);
         Vector2 move = Vector2.ClampMagnitude(new Vector2(local.x, local.z) / reference, 1f);
 
         SetFloat(CS_PlayerAnimatorParams.moveXHash, move.x, deltaTime);
@@ -280,7 +283,7 @@ public class CS_PlayerVisual : NetworkBehaviour
                 SetTrigger(CS_PlayerAnimatorParams.dashHash);
                 break;
             case ActionType.Attack:
-                SetInteger(CS_PlayerAnimatorParams.comboStepHash, parameter);
+                SetInteger(CS_PlayerAnimatorParams.comboStepHash, parameter % _attackMotionCount);
                 SetTrigger(CS_PlayerAnimatorParams.attackHash);
                 break;
             case ActionType.Special:

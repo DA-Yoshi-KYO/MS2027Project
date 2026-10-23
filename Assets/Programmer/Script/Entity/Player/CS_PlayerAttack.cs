@@ -31,6 +31,7 @@ using UnityEngine;
  * ・実際のダメージ = CSO_AttackData.CalculateDamage() × CS_PlayerStats.currentAttackPower(倍率。暗躍ボーナス込み)
  * ・ヒットする度に、各段のGauge Gain分だけCS_PlayerSpecialGaugeが溜まる
  *   (仕様では通常攻撃のヒットでは溜まらないため、DB_PlayerAttack1〜3のGauge Gainは0にしている)
+ * ・奇襲(CS_PlayerAmbush): 1段目の判定で、気づかれていない悪人の背後・上から当てた時は、一撃で倒すダメージにする
  * ・動けなくなった(死亡・スタン)時はコンボを中断する
  * ・必殺技(CS_PlayerSpecialAttack)を行っている間は、通常攻撃を行わない(isAttacking/isPerformingSpecialで排他制御)
  * ・変身中(CS_PlayerTransformation.isTransformed)でないと発動できない(今は常時変身(Issue #277)のため、いつでも発動できる)
@@ -60,6 +61,7 @@ public class CS_PlayerAttack : NetworkBehaviour
     private CS_PlayerTransformation _transformation;
     private CS_PlayerScoring _scoring;
     private CS_PlayerInteractor _interactor;   // ケアパッケージなどの操作(攻撃と同じボタンを使う)。付いていなければnull
+    private CS_PlayerAmbush _ambush;           // 奇襲の判定。付いていなければ奇襲しない
     private readonly Collider[] _hitBuffer = new Collider[_hitBufferSize];
     private readonly HashSet<IDamageable> _hitTargets = new HashSet<IDamageable>();
 
@@ -87,6 +89,7 @@ public class CS_PlayerAttack : NetworkBehaviour
         _transformation = GetComponent<CS_PlayerTransformation>();
         _scoring = GetComponent<CS_PlayerScoring>();
         _interactor = GetComponent<CS_PlayerInteractor>();
+        _ambush = GetComponent<CS_PlayerAmbush>();
 
         if (HasValidSteps()) return;
 
@@ -270,7 +273,16 @@ public class CS_PlayerAttack : NetworkBehaviour
         foreach (IDamageable target in _hitTargets)
         {
             float damage = step.CalculateDamage(context, target) * _stats.currentAttackPower;
+
+            // 1段目で奇襲の条件がそろっていれば、一撃で倒すダメージにする(CS_PlayerAmbush)
+            CS_VillainHealth ambushed = null;
+            if (stepIndex == 0 && _ambush != null && _ambush.CanAmbush(target, position, out ambushed))
+            {
+                damage = Mathf.Max(damage, ambushed.currentHp);
+            }
+
             DealDamage(target, damage);
+            if (ambushed != null) _ambush.NotifyAmbush(ambushed);
             CS_AttackHitDetector.TryKnockback(target, position);   // 攻撃した位置から離れる方向へ下がる
             step.OnHit(context, target);
             _gauge.Fill(step.gaugeGain);

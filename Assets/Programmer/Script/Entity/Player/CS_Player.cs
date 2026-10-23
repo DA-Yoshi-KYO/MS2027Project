@@ -1,5 +1,6 @@
 ﻿using System;
 using Unity.Netcode;
+using Unity.Netcode.Components;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
@@ -65,6 +66,8 @@ using UnityEngine.InputSystem;
  *     「自分の画面のプレイヤーか」(HUD・ミニマップの中心など)は、IsOwnerではなくisLocalPlayerで判定すること
  * ・ボタン(攻撃・必殺技など)はCS_PlayerButtonで公開する。人かNPCかに関わらず、各部品は
  *   WasPressedThisFrame() / IsPressed() で読むだけでよい
+ * ・落下の保険(Issue #290): 操作しているプレイヤーがy = _fallResetHeightより下に落ちたら、スポーンした位置へ戻す
+ *   (床の読み込みより先に落ち始めた時などに、落ち続けないようにする。位置はNetworkTransformのTeleportで全員へ反映する)
  */
 // ========================================
 
@@ -84,6 +87,9 @@ public class CS_Player : NetworkBehaviour
     [Header("ダッシュ")]
     [SerializeField] private float _dashDuration = 0.2f;    // ダッシュが続く時間(秒)
     [SerializeField] private float _dashCooldown = 0.8f;    // 次に出せるようになるまでの時間(秒)
+
+    [Header("落下の保険")]
+    [SerializeField] private float _fallResetHeight = -30f; // これより下に落ちたら、スポーンした位置へ戻す(y座標)
 
     [Header("カメラ")]
     [SerializeField] private Transform _cameraTransform;    // プレイヤーの子のカメラ(CinemachineBrainが付いている)
@@ -107,6 +113,10 @@ public class CS_Player : NetworkBehaviour
     private CS_PlayerHealth _health;
     private CS_PlayerStats _stats;
     private CS_PlayerStun _stun;    // スタン(パリーされた時など)。付いていなければスタンしない
+    private NetworkTransform _networkTransform;
+
+    private Vector3 _spawnPosition;     // 操作を始めた時の位置と向き(落ちた時に戻す先)
+    private Quaternion _spawnRotation;
 
     private InputAction _moveAction;
     private InputAction _mouseLookAction;
@@ -200,6 +210,7 @@ public class CS_Player : NetworkBehaviour
         _health = GetComponent<CS_PlayerHealth>();
         _stats = GetComponent<CS_PlayerStats>();
         _stun = GetComponent<CS_PlayerStun>();
+        _networkTransform = GetComponent<NetworkTransform>();
 
         // 壁などとの衝突で回転しないよう、物理による回転はすべて止める
         // (向きはUpdateFacingのMoveRotationでのみ変える)
@@ -282,6 +293,9 @@ public class CS_Player : NetworkBehaviour
     private void FixedUpdate()
     {
         if (!_isControlled) return;
+
+        // 床の下へ落ちてしまったら、スポーンした位置へ戻す
+        if (ReturnToSpawnIfFallen()) return;
 
         // 死亡中・スタン中は操作を受け付けず、その時の勢いで滑り続けないよう水平方向を止める(落下は残す)
         if (_health.isDead || isStunned)
@@ -376,10 +390,43 @@ public class CS_Player : NetworkBehaviour
         _viewDirectionAnchor.SetPositionAndRotation(transform.position, Quaternion.Euler(0f, _yaw, 0f));
     }
 
+    // y = _fallResetHeightより下に落ちていたら、スポーンした位置へ戻す。戻したらtrue
+    private bool ReturnToSpawnIfFallen()
+    {
+        if (_rigidbody.position.y >= _fallResetHeight) return false;
+
+        _isDashing = false;
+        _jumpRequested = false;
+        _lungeRemaining = 0f;
+        _rigidbody.linearVelocity = Vector3.zero;
+
+        // NetworkTransformのTeleportで、他の人の画面でも補間せずにその場へ移す(操作している側が位置の権威を持つ)
+        if (IsSpawned && _networkTransform != null)
+        {
+            _networkTransform.Teleport(_spawnPosition, _spawnRotation, transform.localScale);
+        }
+        else
+        {
+            transform.SetPositionAndRotation(_spawnPosition, _spawnRotation);
+        }
+
+        _rigidbody.position = _spawnPosition;
+        _rigidbody.rotation = _spawnRotation;
+        return true;
+    }
+
+    // 落ちた時に戻す先として、今の位置と向きを覚えておく(操作を始める時に呼ぶ)
+    private void RememberSpawnPose()
+    {
+        _spawnPosition = transform.position;
+        _spawnRotation = transform.rotation;
+    }
+
     // NPCの初期化(サーバー、またはオフライン)。入力はCS_PlayerNpcInputから読み、カメラは使わない
     private void SetupAsNpc()
     {
         _isControlled = true;
+        RememberSpawnPose();
 
         _npcInput = new CS_PlayerNpcInput();
         _npcInput.yaw = transform.eulerAngles.y;
@@ -400,6 +447,7 @@ public class CS_Player : NetworkBehaviour
     private void SetupAsLocalPlayer()
     {
         _isControlled = true;
+        RememberSpawnPose();
         BindInputActions();
 
         // カメラ追従のガタつきを防ぐ

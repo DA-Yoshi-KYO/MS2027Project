@@ -5,7 +5,7 @@ using UnityEngine;
 
 /*
  * Field(フィールド)を編集している時に再生すると、MultiplayerDebugBoot から再生するクラス
- * ・Field.prefab のプレハブモード、または CreateField を開いている時だけ切り替える
+ * ・Field_Common.prefab のプレハブモード、または CreateField を開いている時だけ切り替える
  * ・CreateField に Apply していない Field の変更があれば、再生前に Apply するか聞く
  *
  * 制作者：　吉田京志郎(Claude Codeで生成)
@@ -15,7 +15,7 @@ public static class CSED_FieldPlayRedirect
 {
     private const string _enabledKey = "MS2027.FieldPlayRedirect.Enabled";
     private const string _menuPath = "Tools/Field/再生時にマルチ用のシーンで始める";
-    private const string _fieldPrefabPath = "Assets/Programmer/Prefab/Field/Field.prefab";
+    private const string _fieldPrefabPath = "Assets/Programmer/Prefab/Field/Field_Common.prefab";
     private const string _createFieldPath = "Assets/Programmer/Scene/Test/Field/CreateField.unity";
     private const string _bootScenePath = "Assets/Programmer/Scene/Test/NetworkTest/MultiplayerDebugBoot.unity";
 
@@ -52,11 +52,11 @@ public static class CSED_FieldPlayRedirect
         EditorSceneManager.playModeStartScene = null;
         if (!isEnabled) return;
 
-        // Field.prefab のプレハブモード
+        // Field_Common.prefab のプレハブモード
         var stage = PrefabStageUtility.GetCurrentPrefabStage();
         bool isFieldPrefabMode = stage != null && stage.assetPath == _fieldPrefabPath;
         if (isFieldPrefabMode && stage.scene.isDirty)
-            Debug.LogWarning("Field.prefab に保存していない変更があります。MainScene には反映されません");
+            Debug.LogWarning("Field_Common.prefab に保存していない変更があります。MainScene には反映されません");
 
         // CreateField
         bool isCreateField = !isFieldPrefabMode && EditorSceneManager.GetActiveScene().path == _createFieldPath;

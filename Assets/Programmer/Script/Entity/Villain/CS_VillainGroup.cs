@@ -14,6 +14,7 @@ using UnityEngine;
  * メモ
  * ・犯罪はグループ単位で進む。残っているメンバー全員が犯罪中(CS_VillainCrime.isCommittingCrime)の間だけ進行する
  *   1人でも臨戦態勢・帰還中になったら、グループ全体が手を止める(それまでの進行度は保持する)
+ *   実行役(見張り役ではないメンバー)が全員倒されて見張り役だけになった時も、見張り役が引き継ぐまで止める
  * ・完遂までの時間は、残っているメンバーのcrimeCompleteTimeのうち一番長いもの
  * ・完遂したら
  *   1. onAnyCrimeCompleted を1回だけ呼ぶ
@@ -159,6 +160,7 @@ public class CS_VillainGroup
         if (_isCrimeCompleted) return;
         if (!isAlive) return;
         if (!IsAllMembersCommittingCrime()) return;
+        if (!HasExecutor()) return;   // 見張り役だけ残った時は、見張り役が引き継ぐまで進めない
 
         _crimeElapsed += deltaTime;
         if (_crimeElapsed >= GetCrimeCompleteTime())
@@ -180,6 +182,16 @@ public class CS_VillainGroup
         {
             if (member != null) member.Escape();
         }
+    }
+
+    // 犯罪の実行役(見張り役ではないメンバー)が1人でも残っているか
+    public bool HasExecutor()
+    {
+        foreach (CS_VillainCombat combat in _combats)
+        {
+            if (combat != null && !combat.isWatcher) return true;
+        }
+        return false;
     }
 
     private bool IsAllMembersCommittingCrime()

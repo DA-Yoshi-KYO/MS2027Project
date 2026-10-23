@@ -28,7 +28,7 @@ using UnityEngine;
  *   攻撃ボタンはインタラクト(CS_PlayerInteractor)と共有。操作できるものの近く・操作中は攻撃を出さない
  * ・フレンドリーファイアは常に有効(チーム判定なし)。IDamageableを実装していれば
  *   プレイヤーだろうと敵だろうと関係なく当たる
- * ・実際のダメージ = CSO_AttackData.CalculateDamage() × CS_PlayerStats.attackPower(倍率)
+ * ・実際のダメージ = CSO_AttackData.CalculateDamage() × CS_PlayerStats.currentAttackPower(倍率。暗躍ボーナス込み)
  * ・ヒットする度に、各段のGauge Gain分だけCS_PlayerSpecialGaugeが溜まる
  *   (仕様では通常攻撃のヒットでは溜まらないため、DB_PlayerAttack1〜3のGauge Gainは0にしている)
  * ・動けなくなった(死亡・スタン)時はコンボを中断する
@@ -152,7 +152,7 @@ public class CS_PlayerAttack : NetworkBehaviour
         if (_currentStep == _noStep) return;
 
         CSO_AttackData step = _attackSteps[_currentStep];
-        _elapsed += Time.deltaTime;
+        _elapsed += Time.deltaTime * _stats.comboSpeedRate;   // 暗躍ボーナスでコンボのモーションが速くなる
 
         // 判定のタイミングになったら、一度だけ判定を依頼する
         if (!_hasHit && _elapsed >= step.hitDelay)
@@ -269,7 +269,7 @@ public class CS_PlayerAttack : NetworkBehaviour
 
         foreach (IDamageable target in _hitTargets)
         {
-            float damage = step.CalculateDamage(context, target) * _stats.attackPower;
+            float damage = step.CalculateDamage(context, target) * _stats.currentAttackPower;
             DealDamage(target, damage);
             CS_AttackHitDetector.TryKnockback(target, position);   // 攻撃した位置から離れる方向へ下がる
             step.OnHit(context, target);

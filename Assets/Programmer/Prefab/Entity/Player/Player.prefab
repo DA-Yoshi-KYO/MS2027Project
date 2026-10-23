@@ -4882,6 +4882,7 @@ GameObject:
   - component: {fileID: 6038915642972428042}
   - component: {fileID: 5203948171630284711}
   - component: {fileID: 6619284730158836402}
+  - component: {fileID: 3846102957716629043}
   m_Layer: 31
   m_Name: Player
   m_TagString: PlayerNoTransformation
@@ -5324,8 +5325,6 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::CS_PlayerScoring
   ShowTopMostFoldoutHeaderGroup: 1
   _defaultVillainScore: 100
-  _bonusStartCount: 5
-  _bonusStep: 0.2
   _crimeCompletedPenalty: 20
   _foundByPolicePenalty: 50
   _foundByPoliceInterval: 5
@@ -6314,3 +6313,21 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::CS_PlayerScanEffect
   _waveMaterial: {fileID: 2100000, guid: e46dddc4853c73a43a167d13b56f9853, type: 2}
+--- !u!114 &3846102957716629043
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1825699444668748530}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a5369efd22420107800fc1dea7a8853a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CS_PlayerStealthBonus
+  ShowTopMostFoldoutHeaderGroup: 1
+  _bonusStartCount: 5
+  _bonusMaxCount: 10
+  _scoreStep: 0.2
+  _statusStep: 0.1
+  _scanRadiusStep: 5

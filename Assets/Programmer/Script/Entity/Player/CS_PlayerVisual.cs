@@ -145,6 +145,7 @@ public class CS_PlayerVisual : NetworkBehaviour
         UpdateLocomotion(Time.deltaTime);
         SetBool(CS_PlayerAnimatorParams.groundedHash, _player.isGrounded);
         SetBool(CS_PlayerAnimatorParams.deadHash, _health.isDead);
+        if (Has(CS_PlayerAnimatorParams.attackSpeedHash)) _animator.SetFloat(CS_PlayerAnimatorParams.attackSpeedHash, _stats.comboSpeedRate);
     }
 
     // 変身が完了している間だけ変身後のモデルを表示し、アニメーションの送り先も切り替える
@@ -227,7 +228,7 @@ public class CS_PlayerVisual : NetworkBehaviour
         }
 
         Vector3 local = Quaternion.Inverse(transform.rotation) * velocity;
-        float reference = Mathf.Max(0.01f, _stats.moveSpeed);
+        float reference = Mathf.Max(0.01f, _stats.currentMoveSpeed);
         Vector2 move = Vector2.ClampMagnitude(new Vector2(local.x, local.z) / reference, 1f);
 
         SetFloat(CS_PlayerAnimatorParams.moveXHash, move.x, deltaTime);

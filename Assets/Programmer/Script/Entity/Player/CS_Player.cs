@@ -39,7 +39,7 @@ using UnityEngine.InputSystem;
  * ・死亡中(CS_PlayerHealth.isDead)は移動・攻撃を行わない(canActで判定)
  *   視点操作(カメラ)は死亡中も継続する
  *   死亡中は水平方向の速度を毎回0にし、死亡時の勢いで滑り続けないようにしている(落下はする)
- * ・移動速度はCS_PlayerStats.moveSpeedを使う(実際の変更はCS_PlayerStats側で行う)
+ * ・移動速度はCS_PlayerStats.currentMoveSpeed(暗躍ボーナス込み)を使う(実際の変更はCS_PlayerStats側で行う)
  * ・Colliderには摩擦0の物理マテリアル(PlayerFrictionless)を設定している
  *   (摩擦があると、空中で壁に向かって移動し続けた時に壁に張り付いて落ちなくなるため)
  * ・ジャンプ
@@ -681,7 +681,7 @@ public class CS_Player : NetworkBehaviour
 
         Vector3 direction = GetMoveDirection();
 
-        float speed = _isSprinting ? _stats.sprintSpeed : _stats.moveSpeed;
+        float speed = _isSprinting ? _stats.currentSprintSpeed : _stats.currentMoveSpeed;
         Vector3 horizontal = direction * speed;
         _rigidbody.linearVelocity = new Vector3(horizontal.x, _rigidbody.linearVelocity.y, horizontal.z);
     }
@@ -701,7 +701,7 @@ public class CS_Player : NetworkBehaviour
         if (!IsGrounded()) return;
 
         Vector3 velocity = _rigidbody.linearVelocity;
-        _rigidbody.linearVelocity = new Vector3(velocity.x, _stats.jumpPower, velocity.z);
+        _rigidbody.linearVelocity = new Vector3(velocity.x, _stats.currentJumpPower, velocity.z);
         onJumped?.Invoke();
     }
 

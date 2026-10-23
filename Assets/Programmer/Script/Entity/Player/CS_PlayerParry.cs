@@ -232,7 +232,7 @@ public class CS_PlayerParry : NetworkBehaviour
     {
         if (!_transformation.isTransformed || _counterDamage <= 0f) return;
 
-        float damage = _counterDamage * _stats.attackPower;
+        float damage = _counterDamage * _stats.currentAttackPower;
         if (_scoring != null)
         {
             _scoring.DealDamage(target, damage);

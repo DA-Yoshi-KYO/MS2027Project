@@ -202,7 +202,7 @@ public class CS_PlayerNpcBrain : NetworkBehaviour
         if (combat == null || crime == null || combat.group == null) return false;
 
         float remaining = (1f - combat.group.crimeProgress) * crime.crimeCompleteTime;
-        float travel = distance / Mathf.Max(0.1f, _stats.moveSpeed);
+        float travel = distance / Mathf.Max(0.1f, _stats.currentMoveSpeed);
         return travel > remaining;
     }
 

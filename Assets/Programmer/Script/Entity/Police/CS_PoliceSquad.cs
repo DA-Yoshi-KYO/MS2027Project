@@ -283,13 +283,14 @@ public class CS_PoliceSquad : MonoBehaviour, IPoliceGroup
         float searchSpeed = baseSpeed * status.patrolSpeedMultiplier;
         float chaseSpeed = baseSpeed * status.chaseSpeedMultiplier;
 
-        // 巡回はグループで揃えた速さ、駆け付けは追跡と同じ速さ、探索は自分の巡回の速さにする
+        // 巡回はグループで揃えた速さ、駆け付けは追跡と同じ速さ、探索・怪しんで近づくのは自分の巡回の速さにする
         return new Dictionary<CSE_PoliceMoveState, float>
         {
             { CSE_PoliceMoveState.Patrol, _groupPatrolSpeed },
             { CSE_PoliceMoveState.Chase, chaseSpeed },
             { CSE_PoliceMoveState.Rush, chaseSpeed },
             { CSE_PoliceMoveState.Search, searchSpeed },
+            { CSE_PoliceMoveState.Suspect, searchSpeed },
         };
     }
 

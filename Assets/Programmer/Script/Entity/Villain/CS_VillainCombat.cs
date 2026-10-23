@@ -57,7 +57,7 @@ using UnityEngine.AI;
  *   知らされて臨戦態勢になった仲間は、さらに知らせ直さない
  * ・攻撃の流れ
  *   ターゲットまで attackStartDistance 以内に近づくと攻撃を始める
- *   → 攻撃を始めた時にターゲットがいた位置へ向き、chargeTime 秒溜める(この間は当たらない)
+ *   → 攻撃を始めた時にターゲットがいた方向へ向き(方向で固定する)、chargeTime 秒溜める(この間は当たらない)
  *   → hitActiveTime 秒間、正面に攻撃判定を出す(その間に入ったプレイヤーに1回ずつ当たる)
  *   → attackInterval 秒待ってから、次の攻撃ができる
  * ・攻撃の段階(attackPhase)はNetworkVariableで全クライアントに同期し、CS_VillainAttackVisualが見た目に使う
@@ -202,7 +202,7 @@ public class CS_VillainCombat : NetworkBehaviour
     private float _scanTimer;
     private float _attackElapsed;         // 攻撃開始からの経過時間
     private float _attackCooldown;        // 次の攻撃までの残り時間
-    private Vector3 _attackAimPosition;   // 攻撃を始めた時にターゲットがいた位置(溜め中はここへ向く)
+    private Vector3 _attackAimDirection;  // 攻撃を始めた時にターゲットがいた方向(水平。溜め中はこの方向を向く)
     private int _alleyAreaMask;           // 路地裏AreaのNavMeshエリアマスク。0なら路地裏判定を行わない
     private bool _isTargetInAlley;        // 直前のターゲットの路地裏判定(足元のNavMeshが見つからない時に使う)
     private float _outsideAlleyTime;      // ターゲットが路地裏の外に出てからの時間
@@ -418,8 +418,9 @@ public class CS_VillainCombat : NetworkBehaviour
         _move.Stop();
         _attackElapsed += Time.fixedDeltaTime;
 
-        // 溜め中も、攻撃を始めた時にターゲットがいた位置を向き続ける(ターゲットは追いかけない)
-        _move.FaceTowards(GetFlatDirection(_attackAimPosition));
+        // 溜め中も、攻撃を始めた時にターゲットがいた方向を向き続ける(ターゲットは追いかけない)
+        // 位置ではなく方向で持つので、自分の位置が少しずれても狙いが後ろへひっくり返らない
+        _move.FaceTowards(_attackAimDirection);
 
         if (_attackElapsed < _chargeTime) return;
 
@@ -518,7 +519,8 @@ public class CS_VillainCombat : NetworkBehaviour
     {
         _state = State.Attack;
         _attackElapsed = 0f;
-        _attackAimPosition = _target.position;
+        Vector3 toTarget = GetFlatDirection(_target.position);
+        _attackAimDirection = toTarget.sqrMagnitude > 0f ? toTarget : transform.forward;
         _damagedTargets.Clear();
         _attackPhase.Value = CSE_VillainAttackPhase.Charge;
     }

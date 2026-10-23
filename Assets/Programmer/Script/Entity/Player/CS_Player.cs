@@ -128,6 +128,7 @@ public class CS_Player : NetworkBehaviour
     private CS_PlayerButton _specialButton;
     private CS_PlayerButton _dashButton;        // ダッシュボタン
     private CS_PlayerButton _useItemButton;     // アイテム使用ボタン(CS_PlayerItemSlotが使う)
+    private CS_PlayerButton _scanButton;        // スキャンボタン(CS_PlayerScanが使う)
 
     private CS_PlayerNpcInput _npcInput;    // NPCの時の入力(人が操作する時はnull)
 
@@ -165,6 +166,7 @@ public class CS_Player : NetworkBehaviour
     public CS_PlayerButton dashAction => _dashButton;       // ダッシュボタン
     public float dashDuration => _dashDuration;         // ダッシュが続く時間(秒、見た目のモーション速度合わせに使う)
     public CS_PlayerButton useItemAction => _useItemButton; // アイテム使用ボタン(CS_PlayerItemSlotが使う)
+    public CS_PlayerButton scanAction => _scanButton;       // スキャンボタン(CS_PlayerScanが使う)
     public bool isGrounded => IsGrounded();             // 接地しているか(全クライアントで判定できる。見た目用にも使う)
     public bool isSprinting => _isSprinting;            // ダッシュ後、ボタンを押し続けて速くなっているか(見た目用)
     public bool isDashing => _isDashing;                // ダッシュ(ブリンク)で高速移動している最中か(見た目用。操作しているマシンでだけ正しい)
@@ -458,6 +460,7 @@ public class CS_Player : NetworkBehaviour
         _specialButton = _npcInput.special;
         _dashButton = _npcInput.dash;
         _useItemButton = _npcInput.useItem;
+        _scanButton = _npcInput.scan;
 
         // 人のプレイヤーのカメラと取り合わないよう、カメラは消しておく(物理はこのマシンで動かす)
         DisableCamera();
@@ -578,6 +581,7 @@ public class CS_Player : NetworkBehaviour
         _specialButton = new CS_PlayerButton(player.Special);
         _dashButton = new CS_PlayerButton(player.Dash);
         _useItemButton = new CS_PlayerButton(player.UseItem);
+        _scanButton = new CS_PlayerButton(player.Scan);
     }
 
     // アクションへの参照を外す(アクション自体は共有のシングルトンが持ち続ける)
@@ -592,6 +596,7 @@ public class CS_Player : NetworkBehaviour
         _specialButton = null;
         _dashButton = null;
         _useItemButton = null;
+        _scanButton = null;
     }
 
     // 入力を読み取り、移動入力と視点(yaw/pitch)を更新する

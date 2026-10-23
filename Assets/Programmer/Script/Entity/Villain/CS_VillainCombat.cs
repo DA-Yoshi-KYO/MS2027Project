@@ -214,7 +214,7 @@ public class CS_VillainCombat : NetworkBehaviour
     public bool isEngaged => _state == State.Chase || _state == State.Attack;   // 臨戦態勢中か
     public bool isCommittingCrime => enabled && _state == State.Idle;             // スポーン位置で犯罪を進めているか
     public bool isAttacking => _state == State.Attack;                           // 攻撃中か(溜め・攻撃判定)
-    public bool isSurrounding => _state == State.Chase && _isSurrounding;         // 取り囲んで様子を見ているか(サーバーのみ)
+    public bool isSurrounding => enabled && _state == State.Chase && _isSurrounding;   // 取り囲んで様子を見ているか(サーバーのみ。倒れた・逃走中はfalse)
     public bool isWatcher => _patrol != null && _patrol.hasRoute;    // 見張り役(巡回ルートを持つ)か(サーバーのみ)
     public Transform target => _target;                                           // 標的(サーバーのみ)
     public CSE_VillainAttackPhase attackPhase => _attackPhase.Value;              // 攻撃の段階(全クライアントで参照可)

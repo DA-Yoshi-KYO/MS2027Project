@@ -22,6 +22,8 @@ using UnityEngine;
  * ・判定はダメージと同じくサーバー(またはオフライン)で行う(悪人の臨戦態勢・標的はサーバーでしか分からないため)
  *   位置は、攻撃した本人の手元の位置(CS_PlayerAttackが送ってくるもの)を使う
  * ・奇襲が決まった時はonAmbush(倒した悪人)で知らせる(サーバー、またはオフラインのみ)。演出は未実装
+ * ・今奇襲できる悪人はFindAmbushTarget()で探せる(全クライアントで呼べる)。ロックオンUI(CS_PlayerLockOnUI)が使う
+ *   悪人に気づかれているかは、CS_VillainCombat.IsTargeting(同期された標的)で判定するので、クライアントでも分かる
  */
 // ========================================
 
@@ -32,6 +34,12 @@ public class CS_PlayerAmbush : MonoBehaviour
     [SerializeField][Range(0f, 180f)] private float _backAngle = 120f;     // 悪人の正面から見て、これ以上うしろなら背後(度)
     [SerializeField][Min(0f)] private float _aboveHeight = 1.5f;           // 悪人よりこれ以上高ければ上を取っている(m)
 
+    [Header("奇襲できる悪人を探す(ロックオン表示用)")]
+    [SerializeField] private LayerMask _villainLayers = ~0;               // 悪人を探すレイヤー
+
+    private const int _searchBufferSize = 32;   // 一度に調べるコライダーの上限
+    private readonly Collider[] _searchBuffer = new Collider[_searchBufferSize];
+
     public event Action<CS_VillainHealth> onAmbush;     // 奇襲が決まった時(サーバー、またはオフラインのみ)
 
     // この相手に、attackerPositionから攻撃した時に奇襲になるか(サーバー、またはオフラインで呼ぶ)
@@ -41,17 +49,36 @@ public class CS_PlayerAmbush : MonoBehaviour
 
         CS_VillainHealth candidate = target as CS_VillainHealth;
         if (candidate == null || candidate.isDefeated) return false;
-
-        Transform villainTransform = candidate.transform;
-        Vector3 toAttacker = attackerPosition - villainTransform.position;
-        Vector3 flat = new Vector3(toAttacker.x, 0f, toAttacker.z);
-
-        if (flat.magnitude > _range) return false;
-        if (IsNoticed(candidate)) return false;
-        if (!IsAbove(toAttacker.y) && !IsBehind(villainTransform.forward, flat)) return false;
+        if (!MeetsAmbushCondition(candidate, attackerPosition)) return false;
 
         villain = candidate;
         return true;
+    }
+
+    // 今の位置から奇襲できる悪人のうち、一番近い悪人を探す(いなければnull。全クライアントで呼べる)
+    public CS_VillainHealth FindAmbushTarget()
+    {
+        Vector3 position = transform.position;
+        int count = Physics.OverlapSphereNonAlloc(position, _range, _searchBuffer, _villainLayers, QueryTriggerInteraction.Ignore);
+
+        CS_VillainHealth nearest = null;
+        float nearestSqr = float.MaxValue;
+        for (int i = 0; i < count; i++)
+        {
+            CS_VillainHealth villain = _searchBuffer[i].GetComponentInParent<CS_VillainHealth>();
+            if (villain == null || villain == nearest) continue;
+
+            // isDefeatedはサーバーのみなので、クライアントでも分かるHPでも見る
+            if (villain.isDefeated || villain.currentHp <= 0f) continue;
+            if (!MeetsAmbushCondition(villain, position)) continue;
+
+            float sqr = (villain.transform.position - position).sqrMagnitude;
+            if (sqr >= nearestSqr) continue;
+
+            nearest = villain;
+            nearestSqr = sqr;
+        }
+        return nearest;
     }
 
     // 奇襲が決まったことを知らせる(CS_PlayerAttackが、一撃で倒すダメージを与えた後に呼ぶ)
@@ -60,13 +87,25 @@ public class CS_PlayerAmbush : MonoBehaviour
         onAmbush?.Invoke(villain);
     }
 
+    // ②距離 ①気づかれていない ③背後か上、の3つがそろっているか
+    private bool MeetsAmbushCondition(CS_VillainHealth villain, Vector3 attackerPosition)
+    {
+        Transform villainTransform = villain.transform;
+        Vector3 toAttacker = attackerPosition - villainTransform.position;
+        Vector3 flat = new Vector3(toAttacker.x, 0f, toAttacker.z);
+
+        if (flat.magnitude > _range) return false;
+        if (IsNoticed(villain)) return false;
+        return IsAbove(toAttacker.y) || IsBehind(villainTransform.forward, flat);
+    }
+
     // 悪人がこちらに気づいているか(臨戦態勢で、自分を狙っている)
     private bool IsNoticed(CS_VillainHealth villain)
     {
         CS_VillainCombat combat = villain.GetComponent<CS_VillainCombat>();
-        if (combat == null || !combat.isEngaged) return false;
+        if (combat == null) return false;
 
-        return combat.target != null && combat.target.root == transform.root;
+        return combat.IsTargeting(transform.root);
     }
 
     private bool IsAbove(float heightDifference)

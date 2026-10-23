@@ -61,6 +61,8 @@ using UnityEngine.AI;
  *   → hitActiveTime 秒間、正面に攻撃判定を出す(その間に入ったプレイヤーに1回ずつ当たる)
  *   → attackInterval 秒待ってから、次の攻撃ができる
  * ・攻撃の段階(attackPhase)はNetworkVariableで全クライアントに同期し、CS_VillainAttackVisualが見た目に使う
+ * ・臨戦態勢中に狙っているプレイヤーもNetworkVariableで全クライアントに同期する(IsTargeting)
+ *   奇襲できる悪人を、クライアント側でロックオン表示するため(CS_PlayerAmbush.FindAmbushTarget)
  * ・攻撃範囲とダメージはCSO_AttackData(Attack Data)で決める(Attack DataのhitDelay・durationは使わない)
  *   判定 = 正面 hitRange 先、半径 hitRadius の球
  *   実際のダメージ = CSO_AttackData.CalculateDamage() × CS_VillainStats.attackPower
@@ -110,6 +112,7 @@ public class CS_VillainCombat : NetworkBehaviour
     private const float _surroundTolerance = 1f;  // 取り囲み中、決まった位置からこれ以上ずれたら位置を直す(m)
     private const float _navMeshSampleRadius = 1f; // ターゲットの足元のNavMeshを探す半径(m)。取り囲む位置の計算に使う
     private const float _eyeHeight = 0.6f;        // 体の中心(transform.position)から目までの高さ(m)。煙幕の視線判定に使う
+    private const ulong _noTargetPlayer = ulong.MaxValue;   // プレイヤーを狙っていない時の_targetPlayerIdの値
 
     private static bool _hasWarnedNoAlleyArea;    // 路地裏Areaが無い警告を出したか(全悪人で共有)
 
@@ -190,6 +193,9 @@ public class CS_VillainCombat : NetworkBehaviour
 
     // 攻撃の段階。書き込みはサーバーのみ(NetworkVariableのデフォルト)。見た目の切り替えに全クライアントで使う
     private readonly NetworkVariable<CSE_VillainAttackPhase> _attackPhase = new NetworkVariable<CSE_VillainAttackPhase>();
+
+    // 臨戦態勢中に狙っているプレイヤーのNetworkObjectId(狙っていない時は_noTargetPlayer)。書き込みはサーバーのみ
+    private readonly NetworkVariable<ulong> _targetPlayerId = new NetworkVariable<ulong>(_noTargetPlayer);
 
     private State _state = State.Idle;
     private bool _isSurrounding;             // 攻撃枠が無く、取り囲んで様子を見ているか
@@ -306,6 +312,8 @@ public class CS_VillainCombat : NetworkBehaviour
     private void FixedUpdate()
     {
         if (!hasAuthority) return;
+
+        SyncTargetPlayer();
 
         _attackCooldown = Mathf.Max(0f, _attackCooldown - Time.fixedDeltaTime);
 
@@ -662,6 +670,25 @@ public class CS_VillainCombat : NetworkBehaviour
         if (IsOutsideConfinedArea(target.position)) return;
 
         SetTarget(target, player, false);
+    }
+
+    // 狙っているプレイヤーを全クライアントへ知らせる(変わった時だけ送られる)
+    private void SyncTargetPlayer()
+    {
+        if (!IsSpawned) return;
+
+        ulong id = isEngaged && _targetPlayer != null ? _targetPlayer.NetworkObjectId : _noTargetPlayer;
+        if (_targetPlayerId.Value != id) _targetPlayerId.Value = id;
+    }
+
+    // playerRootのプレイヤーに気づいて狙っているか(全クライアントで参照可)
+    // サーバー・オフラインは標的をそのまま見る。クライアントは同期されたNetworkObjectIdで見る(1フレームほど遅れる)
+    public bool IsTargeting(Transform playerRoot)
+    {
+        if (hasAuthority) return isEngaged && _target != null && _target.root == playerRoot;
+        if (!playerRoot.TryGetComponent(out NetworkObject networkObject)) return false;
+
+        return _targetPlayerId.Value == networkObject.NetworkObjectId;
     }
 
     private void ClearTarget()

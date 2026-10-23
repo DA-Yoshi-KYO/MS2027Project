@@ -7,66 +7,113 @@
  * ================================================ */
 
 using System;
+using System.Collections.Generic;
+using R3;
 using UnityEngine;
 
 /// <summary>
-/// ロックオンUIのModel。
-/// 現在のロックオン対象と表示状態を保持する。
+/// ローカルPlayerのロックオン対象を保持するModel。
+/// Player側でnewし、Player番号を指定してBindする。
 /// </summary>
-public class CS_UILockOnModel : CS_BaseModel
+public sealed class CS_UILockOnModel : CS_BaseModel
 {
-    // =========================================================
-    // 内部フィールド
-    // =========================================================
+    private static readonly Dictionary<int, CS_UILockOnModel>
+        _boundModels = new();
 
-    private Transform _targetTransform;
-    private bool _isLockedOn;
+    private static int _localPlayerNumber = -1;
 
-    // =========================================================
-    // プロパティ公開（読み取り専用）
-    // =========================================================
+    private readonly ReactiveProperty<Transform> _target = new(null);
+    private int _boundPlayerNumber = -1;
+    private bool _isBound;
 
-    public Transform targetTransform => _targetTransform;
-    public bool isLockedOn => _isLockedOn;
+    public static int localPlayerNumber => _localPlayerNumber;
 
-    // =========================================================
-    // イベント
-    // =========================================================
+    public static event Action<int, CS_UILockOnModel> OnBound;
+    public static event Action<int> OnUnbound;
 
-    public event Action<bool> OnLockOnVisibilityChanged;
+    public ReadOnlyReactiveProperty<Transform> target => _target;
+    public Transform currentTarget => _target.Value;
+    public bool isLockedOn => _target.Value != null;
+    public bool isBound => _isBound;
+    public int boundPlayerNumber => _boundPlayerNumber;
 
-    // =========================================================
-    // ロックオン操作
-    // =========================================================
+    [RuntimeInitializeOnLoadMethod(
+        RuntimeInitializeLoadType.SubsystemRegistration)]
+    private static void ResetStatics()
+    {
+        _boundModels.Clear();
+        _localPlayerNumber = -1;
+        OnBound = null;
+        OnUnbound = null;
+    }
+
+    public static void SetLocalPlayerNumber(int playerNumber)
+    {
+        _localPlayerNumber = playerNumber;
+    }
+
+    public static bool TryGet(
+        int playerNumber,
+        out CS_UILockOnModel model)
+    {
+        return _boundModels.TryGetValue(playerNumber, out model);
+    }
+
+    public void Bind(int playerNumber)
+    {
+        if (_isBound && _boundPlayerNumber == playerNumber)
+            return;
+
+        Unbind();
+
+        if (_boundModels.TryGetValue(
+            playerNumber,
+            out CS_UILockOnModel oldModel) &&
+            oldModel != this)
+        {
+            oldModel.Unbind();
+        }
+
+        _boundPlayerNumber = playerNumber;
+        _isBound = true;
+        _boundModels[playerNumber] = this;
+
+        OnBound?.Invoke(playerNumber, this);
+    }
+
+    public void Unbind()
+    {
+        if (!_isBound)
+            return;
+
+        int playerNumber = _boundPlayerNumber;
+
+        if (_boundModels.TryGetValue(playerNumber, out CS_UILockOnModel model) &&
+            model == this)
+        {
+            _boundModels.Remove(playerNumber);
+        }
+
+        _boundPlayerNumber = -1;
+        _isBound = false;
+        _target.Value = null;
+
+        OnUnbound?.Invoke(playerNumber);
+    }
 
     public void SetTarget(Transform targetTransform)
     {
-        _targetTransform = targetTransform;
-
-        bool shouldShow = _targetTransform != null;
-
-        if (_isLockedOn == shouldShow)
-            return;
-
-        _isLockedOn = shouldShow;
-        OnLockOnVisibilityChanged?.Invoke(_isLockedOn);
+        _target.Value = targetTransform;
     }
 
     public void ClearTarget()
     {
-        _targetTransform = null;
-
-        if (!_isLockedOn)
-            return;
-
-        _isLockedOn = false;
-        OnLockOnVisibilityChanged?.Invoke(false);
+        _target.Value = null;
     }
 
     public override void Dispose()
     {
-        _targetTransform = null;
-        _isLockedOn = false;
-        OnLockOnVisibilityChanged = null;
+        Unbind();
+        _target.Dispose();
     }
 }

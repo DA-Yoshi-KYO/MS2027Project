@@ -4880,6 +4880,8 @@ GameObject:
   - component: {fileID: 5884805568190594611}
   - component: {fileID: 8704568956945689768}
   - component: {fileID: 6038915642972428042}
+  - component: {fileID: 5203948171630284711}
+  - component: {fileID: 6619284730158836402}
   m_Layer: 31
   m_Name: Player
   m_TagString: PlayerNoTransformation
@@ -6283,3 +6285,32 @@ Animator:
   m_AllowConstantClipSamplingOptimization: 1
   m_KeepAnimatorStateOnDisable: 0
   m_WriteDefaultValuesOnDisable: 0
+--- !u!114 &5203948171630284711
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1825699444668748530}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a28e3446266f4869a85868e54eb4c451, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CS_PlayerScan
+  _baseRadius: 30
+  _expandTime: 1
+  _fadeTime: 0.3
+  _revealDuration: 10
+--- !u!114 &6619284730158836402
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1825699444668748530}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e054647baf61efe8c7f328e470f7df97, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CS_PlayerScanEffect
+  _waveMaterial: {fileID: 2100000, guid: e46dddc4853c73a43a167d13b56f9853, type: 2}

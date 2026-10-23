@@ -26,6 +26,7 @@ public class CS_PlayerNpcInput
     public readonly CS_PlayerButton special = new CS_PlayerButton();
     public readonly CS_PlayerButton dash = new CS_PlayerButton();
     public readonly CS_PlayerButton useItem = new CS_PlayerButton();
+    public readonly CS_PlayerButton scan = new CS_PlayerButton();
 
     // すべてのボタンを離し、止まる
     public void Clear()
@@ -36,5 +37,6 @@ public class CS_PlayerNpcInput
         special.SetHeld(false);
         dash.SetHeld(false);
         useItem.SetHeld(false);
+        scan.SetHeld(false);
     }
 }

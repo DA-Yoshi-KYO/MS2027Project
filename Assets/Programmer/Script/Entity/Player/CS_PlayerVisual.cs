@@ -62,6 +62,7 @@ public class CS_PlayerVisual : NetworkBehaviour
     [SerializeField] private float _locomotionDamping = 0.08f;  // 移動パラメータのなめらかさ(小さいほど素早く追従)
     [SerializeField] private float _maxTrackedSpeed = 40f;      // これを超える座標の変化はテレポートとみなして無視する(m/秒)
     [SerializeField] private float _blinkInterval = 0.1f;       // 復活直後の無敵中に点滅する間隔(秒)
+    [SerializeField][Min(1)] private int _attackMotionCount = 3;    // Animatorにある通常攻撃のモーションの数。これを超えた段(5段コンボの4・5段目など)は先頭から使い回す
     [SerializeField] private ParticleSystem _transformingEffect;    // 変身途中に出すパーティクル(空なら出さない)
 
     private CS_Player _player;
@@ -282,7 +283,7 @@ public class CS_PlayerVisual : NetworkBehaviour
                 SetTrigger(CS_PlayerAnimatorParams.dashHash);
                 break;
             case ActionType.Attack:
-                SetInteger(CS_PlayerAnimatorParams.comboStepHash, parameter);
+                SetInteger(CS_PlayerAnimatorParams.comboStepHash, parameter % _attackMotionCount);
                 SetTrigger(CS_PlayerAnimatorParams.attackHash);
                 break;
             case ActionType.Special:

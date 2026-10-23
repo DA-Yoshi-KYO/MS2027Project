@@ -3,8 +3,8 @@ using Unity.Netcode;
 using UnityEngine;
 
 /*
- * プレイヤーの3段コンボ攻撃を行うクラス
- * 攻撃ボタンを続けて押すと、1段目 → 2段目 → 3段目と派生する
+ * プレイヤーの5段コンボ攻撃を行うクラス(仕様書「攻撃」)
+ * 攻撃ボタンを続けて押すと、1段目 → 2段目 → … → 5段目と派生する(段数はAttack Stepsの数で決まる)
  *
  * 制作者：　秋野翔太
  */
@@ -13,8 +13,9 @@ using UnityEngine;
 /*
  * メモ
  * ・各段の数値や追加効果は CSO_AttackData(ScriptableObject) で決める
- *   Attack Steps に 1段目、2段目、3段目の順で割り当てる
+ *   Attack Steps に 1段目、2段目…の順で割り当てる(DB_PlayerAttack1〜5)
  * ・派生できる受付時間は、各段の CSO_AttackData の Combo Window で変更できる
+ *   (データ表「次コンボのバッファ」1秒。モーションが終わってから1秒以内に押せば次の段へつながる)
  * ・コンボの流れ
  *   待機 → 攻撃ボタン → [n段目] → 攻撃モーション終了 → 受付時間内にボタン → [n+1段目]
  *   ・攻撃モーション中に押したボタンは「先行入力」として覚え、モーション終了と同時に派生する
@@ -30,7 +31,7 @@ using UnityEngine;
  *   プレイヤーだろうと敵だろうと関係なく当たる
  * ・実際のダメージ = CSO_AttackData.CalculateDamage() × CS_PlayerStats.currentAttackPower(倍率。暗躍ボーナス込み)
  * ・ヒットする度に、各段のGauge Gain分だけCS_PlayerSpecialGaugeが溜まる
- *   (仕様では通常攻撃のヒットでは溜まらないため、DB_PlayerAttack1〜3のGauge Gainは0にしている)
+ *   (仕様では通常攻撃のヒットでは溜まらないため、DB_PlayerAttack1〜5のGauge Gainは0にしている)
  * ・奇襲(CS_PlayerAmbush): 1段目の判定で、気づかれていない悪人の背後・上から当てた時は、一撃で倒すダメージにする
  * ・動けなくなった(死亡・スタン)時はコンボを中断する
  * ・必殺技(CS_PlayerSpecialAttack)を行っている間は、通常攻撃を行わない(isAttacking/isPerformingSpecialで排他制御)
@@ -46,7 +47,7 @@ using UnityEngine;
 public class CS_PlayerAttack : NetworkBehaviour
 {
     [Header("コンボ")]
-    [SerializeField] private CSO_AttackData[] _attackSteps;     // 1段目、2段目、3段目の順に割り当てる
+    [SerializeField] private CSO_AttackData[] _attackSteps;     // 1段目、2段目…の順に割り当てる
 
     [Header("攻撃判定")]
     [SerializeField] private LayerMask _targetLayers;           // ダメージを与える対象のレイヤー

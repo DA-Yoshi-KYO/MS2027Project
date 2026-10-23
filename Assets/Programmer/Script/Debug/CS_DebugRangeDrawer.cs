@@ -21,7 +21,7 @@ using UnityEngine.Rendering;
  * ・Toggle Key(初期値F3)で表示のON/OFFを切り替える
  * ・線はLineRendererを使い回して描く(毎フレーム、必要な本数だけ有効にする)
  * ・表示するもの
- *   警察  : 視界(扇形)、背後でも気付く距離、攻撃範囲。視界の色は行動状態で変わる
+ *   警察  : 巡回時の視界(青)と発見視界(黄色。追跡中は赤)の扇形、背後でも気付く距離、攻撃範囲
  *   巡回ドローン : 視界(扇形)を、ドローンの高さと真下の地面の両方に表示。色は状態で変わる
  *   悪人  : 攻撃判定、臨戦態勢範囲、反撃の索敵範囲、スポーン位置からの追跡限界
  *   プレイヤー : 各段の攻撃判定、必殺技の判定
@@ -85,15 +85,15 @@ public class CS_DebugRangeDrawer : MonoBehaviour
 
     [Header("＝＝＝ 色(警察) ＝＝＝")]
     [SerializeField]
-    [Tooltip("巡回中の視界")]
+    [Tooltip("巡回時の視界(判定の大きい視界。プレイヤーが入ると、怪しんで近づいてくる)。巡回ドローンの巡回中の視界にも使う")]
     private Color _policeViewPatrolColor = new Color(0.3f, 0.8f, 1.0f);
 
     [SerializeField]
-    [Tooltip("駆け付け・探索中の視界")]
+    [Tooltip("発見視界(実際に目視でき、警戒状態に移行する視界)。追跡中でない時の色。巡回ドローンの追っている(見失ったあと)時の視界にも使う")]
     private Color _policeViewAlertColor = new Color(1.0f, 0.8f, 0.2f);
 
     [SerializeField]
-    [Tooltip("追跡中の視界")]
+    [Tooltip("追跡中の発見視界。巡回ドローンの見つけている間の視界にも使う")]
     private Color _policeViewChaseColor = new Color(1.0f, 0.3f, 0.3f);
 
     [SerializeField]
@@ -172,6 +172,11 @@ public class CS_DebugRangeDrawer : MonoBehaviour
 
             if (brain.TryGetComponent(out CS_PoliceVision vision) && vision.viewDistance > 0.0f)
             {
+                // 巡回時の視界(青。発見視界より大きい時だけ)と、発見視界(黄色。追跡中は赤)を描く
+                if (vision.suspicionDistance > vision.viewDistance)
+                {
+                    DrawSector(foot, brain.transform.forward, vision.suspicionAngle, vision.suspicionDistance, _policeViewPatrolColor);
+                }
                 DrawSector(foot, brain.transform.forward, vision.viewAngle, vision.viewDistance, GetPoliceViewColor(brain.state));
                 DrawCircle(foot, vision.noticeDistance, _policeNoticeColor);
             }
@@ -283,19 +288,13 @@ public class CS_DebugRangeDrawer : MonoBehaviour
     }
 
     /// <summary>
-    /// 警察の行動状態に応じた視界の色を取得するメソッド
+    /// 警察の行動状態に応じた、発見視界の色を取得するメソッド(追跡中は赤、それ以外は黄色)
     /// </summary>
     /// <param name="state">行動状態</param>
     /// <returns>視界の色</returns>
     private Color GetPoliceViewColor(CSE_PoliceMoveState state)
     {
-        switch (state)
-        {
-            case CSE_PoliceMoveState.Chase: return _policeViewChaseColor;
-            case CSE_PoliceMoveState.Rush:
-            case CSE_PoliceMoveState.Search: return _policeViewAlertColor;
-            default: return _policeViewPatrolColor;
-        }
+        return state == CSE_PoliceMoveState.Chase ? _policeViewChaseColor : _policeViewAlertColor;
     }
 
     /// <summary>

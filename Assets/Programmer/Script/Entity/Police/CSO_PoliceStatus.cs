@@ -29,12 +29,12 @@ public class CSO_PoliceStatus : ScriptableObject
     [Header("＝＝＝ 視野 ＝＝＝")]
 
     [SerializeField, Range(0.0f, 360.0f)]
-    [Tooltip("視野角度")]
+    [Tooltip("発見視界の視野角度(実際に目視でき、見つけてしまう視界。警戒状態に移行する。ゲーム中に見える視界)")]
     private float _viewAngle;
     public float viewAngle => _viewAngle;
 
     [SerializeField, Min(0f)]
-    [Tooltip("視野距離")]
+    [Tooltip("発見視界の視野距離(実際に目視でき、見つけてしまう視界。警戒状態に移行する。ゲーム中に見える視界)")]
     private float _viewDistance;
     public float viewDistance => _viewDistance;
 
@@ -42,6 +42,16 @@ public class CSO_PoliceStatus : ScriptableObject
     [Tooltip("視野の高さ(自分の目の高さから、上下にこの距離以内にいる標的だけが見える。二階など、高さの違う場所の標的を見つけないようにする)")]
     private float _viewHeight = 3.0f;
     public float viewHeight => _viewHeight;
+
+    [SerializeField, Range(0.0f, 360.0f)]
+    [Tooltip("巡回時の視界の視野角度(判定の大きい視界。プレイヤーが入ると、怪しんで近づいてくる。見つけたことにはならない。ゲーム中には見えない)")]
+    private float _suspicionViewAngle = 120.0f;
+    public float suspicionViewAngle => _suspicionViewAngle;
+
+    [SerializeField, Min(0f)]
+    [Tooltip("巡回時の視界の視野距離(発見視界より大きくすると使われる。0または発見視界以下なら、怪しんで近づく動きはしない)")]
+    private float _suspicionViewDistance = 10.0f;
+    public float suspicionViewDistance => _suspicionViewDistance;
 
     [Header("＝＝＝ 追いかけ方 ＝＝＝")]
     [SerializeField]

@@ -173,6 +173,7 @@ public class CS_Player : NetworkBehaviour
     public int playerNumber => _playerNumber.Value;     // 何番目のプレイヤーか(0〜3。HP UIなど画面上の表示先を決めるのに使う)
     public Camera playerCamera => _cameraTransform != null ? _cameraTransform.GetComponent<Camera>() : null;   // このプレイヤーのカメラ(他人のプレイヤーでは無効化されている)
     public float viewYaw => _yaw;                       // カメラの左右の向き(度)。エイムアシストが「狙っている方向」として使う
+    public Vector3 moveDirection => GetMoveDirection();  // カメラから見た移動入力(スティック)の方向(水平、長さは入力の強さ。最大1)。エイムアシストが使う
     // 視点(カメラ)のTransform。揺れが乗る前のCinemachineCamera(無ければ実際のカメラ)。ミニマップの回転の基準に使う
     public Transform viewTransform => _virtualCameraTransform != null ? _virtualCameraTransform : _cameraTransform;
 

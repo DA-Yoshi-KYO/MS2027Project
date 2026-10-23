@@ -52,7 +52,7 @@ public static class CSED_LevelDesignLabels
         },
         { nameof(CSO_VillainTimeScaling), new Dictionary<string, string> { { "_stages", "時間経過による変化" }, { "_attackPower", "攻撃力" } } },
         { nameof(CSO_PoliceStatus), new Dictionary<string, string> { { "_viewAngle", "視野角" }, { "_attackPower", "攻撃力" } } },
-        { nameof(CSO_PoliceAlertData), new Dictionary<string, string> { { "_alertRadius", "警戒状態の付近の範囲(m)" }, { "_alertDuration", "警戒状態が続く時間(秒)" } } },
+        { nameof(CSO_PoliceAlertData), new Dictionary<string, string> { { "_alertRadius", "警戒状態の付近の範囲(m)" } } },
         { nameof(CSO_AttackData), new Dictionary<string, string>
             {
                 { "_damage", "威力" }, { "_hitDelay", "判定が出るまでの時間(秒)" }, { "_duration", "攻撃モーションの長さ(秒)" },

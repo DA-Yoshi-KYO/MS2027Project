@@ -13,19 +13,89 @@ MonoBehaviour:
   m_Name: DB_SeDataBase
   m_EditorClassIdentifier: Assembly-CSharp::CSO_SeDatabase
   _seList:
-  - _id: 100
+  - _id: 200
     _clips:
-    - {fileID: 0}
+    - {fileID: 8300000, guid: bf9c85399e4d22340b16d79bf8875eae, type: 3}
     _volume: 1
     _pitchRandom: 0
     _maxConcurrent: 4
-    _is3D: 0
+    _is3D: 1
     _minDistance: 0
     _maxDistance: 0
     _rolloff: 0
-  - _id: 101
+  - _id: 201
     _clips:
-    - {fileID: 0}
+    - {fileID: 8300000, guid: f2d8aa2eaf3b8e844bc949aab6ae24d7, type: 3}
+    _volume: 1
+    _pitchRandom: 0
+    _maxConcurrent: 4
+    _is3D: 1
+    _minDistance: 2
+    _maxDistance: 30
+    _rolloff: 0
+  - _id: 202
+    _clips:
+    - {fileID: 8300000, guid: cff4a5a3ae584ab4a8df8998fdbc3464, type: 3}
+    _volume: 1
+    _pitchRandom: 0
+    _maxConcurrent: 4
+    _is3D: 1
+    _minDistance: 2
+    _maxDistance: 30
+    _rolloff: 0
+  - _id: 203
+    _clips:
+    - {fileID: 8300000, guid: bf9c85399e4d22340b16d79bf8875eae, type: 3}
+    _volume: 1
+    _pitchRandom: 0
+    _maxConcurrent: 4
+    _is3D: 1
+    _minDistance: 2
+    _maxDistance: 30
+    _rolloff: 0
+  - _id: 204
+    _clips:
+    - {fileID: 8300000, guid: f2d8aa2eaf3b8e844bc949aab6ae24d7, type: 3}
+    _volume: 1
+    _pitchRandom: 0
+    _maxConcurrent: 4
+    _is3D: 1
+    _minDistance: 2
+    _maxDistance: 30
+    _rolloff: 0
+  - _id: 205
+    _clips:
+    - {fileID: 8300000, guid: 1d55fc7da46f7f14180e0c1196e27ddf, type: 3}
+    _volume: 1
+    _pitchRandom: 0
+    _maxConcurrent: 4
+    _is3D: 1
+    _minDistance: 2
+    _maxDistance: 30
+    _rolloff: 0
+  - _id: 206
+    _clips:
+    - {fileID: 8300000, guid: 57ca52bbe4b479345b29e180aaac9dd9, type: 3}
+    _volume: 1
+    _pitchRandom: 0
+    _maxConcurrent: 4
+    _is3D: 1
+    _minDistance: 2
+    _maxDistance: 30
+    _rolloff: 0
+  - _id: 207
+    _clips:
+    - {fileID: 8300000, guid: fb2f2b067a5cc38469d3723697dac43a, type: 3}
+    _volume: 1
+    _pitchRandom: 0
+    _maxConcurrent: 4
+    _is3D: 1
+    _minDistance: 2
+    _maxDistance: 30
+    _rolloff: 0
+  - _id: 207
+    _clips:
+    - {fileID: 8300000, guid: 6427d3b902f1c164c8c1fef0426068f0, type: 3}
     _volume: 1
     _pitchRandom: 0
     _maxConcurrent: 4

@@ -46,7 +46,13 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d6be3b9de6b19a64babbb4f6bece6275, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::CS_SoundDebug
-  _volumeController: {fileID: 0}
+  _twoDimensionalSeId: 206
+  _threeDimensionalSeId: 205
+  _followSeId: 200
+  _nearPosition: {fileID: 5042996712703500035}
+  _farPosition: {fileID: 6127654769083981742}
+  _followTarget: {fileID: 0}
+  _networkSoundPlayer: {fileID: 0}
 --- !u!1 &2781425918845887696
 GameObject:
   m_ObjectHideFlags: 0

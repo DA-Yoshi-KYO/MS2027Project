@@ -18,16 +18,21 @@ public enum CSE_SeId
     // UI：100番台
     // =========================================================
     UIDecide = 100,
-    UICancel = 101,
-    UICursor = 102,
+    UICancel,
+    UICursor,
 
     // =========================================================
     // プレイヤー：200番台
     // =========================================================
-    PlayerAttack = 200,
-    PlayerDamage = 201,
-    PlayerHeal = 202,
-    PlayerFootStep = 203,
+    PlayerAttack1 = 200,
+    PlayerAttack2,
+    PlayerAttack3,
+    PlayerAttack4,
+    PlayerAttack5,
+    PlayerSpecialAttack,
+    PlayerDamage,
+    PlayerHeal,
+    PlayerFootStep,
 
     // =========================================================
     // 警察：300番台
@@ -38,12 +43,12 @@ public enum CSE_SeId
     // 悪人：400番台
     // =========================================================
     VillainAttack = 400,
-    VillainDamage = 401,
+    VillainDamage,
 
     // =========================================================
     // アイテム：500番台
     // =========================================================
     ItemGet = 500,
-    ItemUse = 501,
-    Explosion = 502,
+    ItemUse,
+    Explosion,
 }

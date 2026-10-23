@@ -25,6 +25,7 @@ GameObject:
   - component: {fileID: 5736041829104377281}
   - component: {fileID: 3917462850172946308}
   - component: {fileID: 4051000000000000003}
+  - component: {fileID: 4061000000000000001}
   m_Layer: 31
   m_Name: Police
   m_TagString: Untagged
@@ -1499,3 +1500,16 @@ MeshRenderer:
   m_SortingLayer: 0
   m_SortingOrder: 0
   m_MaskInteraction: 0
+--- !u!114 &4061000000000000001
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 681291065592780614}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 351beaf4aa0840618d3aec60dfb0d485, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CS_PoliceStunEffect
+  _orbMaterial: {fileID: 2100000, guid: 9a13cd9135654faeb5c1609d74cc1c23, type: 2}

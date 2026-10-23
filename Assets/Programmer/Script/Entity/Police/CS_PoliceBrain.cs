@@ -152,6 +152,9 @@ public class CS_PoliceBrain : MonoBehaviour, IStunnable
     [Tooltip("1つの行き先へ歩き始めてから、この時間が経っても着かない(詰まった・遠回りしている)時は、行き先を選び直す(秒)")]
     private float _wanderMaxWalkTime = 8.0f;
 
+    // スタンしているか(サーバー、またはオフラインでだけ正しい。見た目はCS_PoliceStunEffectが、全員へ同期して出す)
+    public bool isStunned => _stunTimer > 0.0f;
+
     // 行動している警察の一覧(警戒状態の管理が、プレイヤーの付近にいる警察を探すのに使う。サーバー、またはオフラインだけ)
     private static readonly List<CS_PoliceBrain> _activeBrains = new List<CS_PoliceBrain>();
 
@@ -219,9 +222,6 @@ public class CS_PoliceBrain : MonoBehaviour, IStunnable
     }
 
     /// <summary>
-    /// 判断・移動・攻撃をすべて止めるメソッド(消える演出の間に動かないようにする)
-    /// </summary>
-    /// <summary>
     /// IStunnable実装。パリーの反撃などで、指定した時間の間、移動と攻撃(チャージ中も含む)を止める(サーバー、またはオフラインで呼ばれる)
     /// スタンしている間は判断もしない。終わったら、止まる前の状態から再開する
     /// すでにスタンしている時は、残り時間が長い方にする
@@ -236,6 +236,9 @@ public class CS_PoliceBrain : MonoBehaviour, IStunnable
         _move.SetStopped(true);
     }
 
+    /// <summary>
+    /// 判断・移動・攻撃をすべて止めるメソッド(消える演出の間に動かないようにする)
+    /// </summary>
     public void StopActing()
     {
         _move.SetStopped(true);
@@ -250,9 +253,6 @@ public class CS_PoliceBrain : MonoBehaviour, IStunnable
     {
         if (!_isInitialized) return;
 
-        // 攻撃のチャージ中はその場で止まり、チャージを始めた時に標的がいた位置の方を向く
-        // (判断は続け、チャージが終わったらその時の目的地へ移動を再開する)
-        _move.SetStopped(_attack.isCharging);
         // スタンしている間は、その場で止まったまま、何もしない
         if (_stunTimer > 0.0f)
         {
@@ -260,6 +260,9 @@ public class CS_PoliceBrain : MonoBehaviour, IStunnable
             return;
         }
 
+        // 攻撃のチャージ中はその場で止まり、チャージを始めた時に標的がいた位置の方を向く
+        // (判断は続け、チャージが終わったらその時の目的地へ移動を再開する)
+        _move.SetStopped(_attack.isCharging);
         if (_attack.isCharging) _move.TurnTowards(_attack.chargeTargetPosition);
 
         // 毎フレームではなく一定間隔で判断する(視界判定や経路計算の負荷を抑えるため)
@@ -318,9 +321,6 @@ public class CS_PoliceBrain : MonoBehaviour, IStunnable
     }
 
     /// <summary>
-    /// 状況を判断し、優先順位の高い行動を1つ選んで実行するメソッド
-    /// </summary>
-    /// <summary>
     /// スタンの残り時間を進めるメソッド(終わったら、移動を再開し、すぐ判断し直す)
     /// </summary>
     private void UpdateStun()
@@ -333,6 +333,9 @@ public class CS_PoliceBrain : MonoBehaviour, IStunnable
         _thinkTimer = 0.0f;
     }
 
+    /// <summary>
+    /// 状況を判断し、優先順位の高い行動を1つ選んで実行するメソッド
+    /// </summary>
     private void Think()
     {
         // 1. 標的が見えていれば、他の指示に関係なく追跡・攻撃する

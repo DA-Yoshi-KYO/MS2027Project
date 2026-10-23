@@ -22,12 +22,10 @@ using UnityEngine;
  *   ※ 警察に倒されたこと自体では減点しない(仕様の減点は「見つかった数」のため)
  * ・誰が倒したかは、攻撃側(CS_PlayerAttack / CS_PlayerSpecialAttack)がDealDamage経由でダメージを与え、
  *   「当てる前は生きていた相手が、当てた後に倒れたか」で判定する(悪人側・警察側のコードは変えない)
- * ・暗躍ボーナス(仕様書「プレイヤー」)
- *   連続撃破数が_bonusStartCount人目(既定5)からは、倍率が_bonusStep(既定0.2)ずつ上がる
- *   (4人目まで×1、5人目×1.2、6人目×1.4…)
- *   次のどれかで連続撃破数を0に戻す(次の撃破が1人目になる)
- *     HPが0になる / 警察に見つかる(ReportFoundByPolice)
- *     (以前の「変身を解く」は、常時変身(Issue #277)で無くなった)
+ * ・暗躍ボーナス(仕様書「暗躍ボーナス」)の連続撃破数・倍率は、CS_PlayerStealthBonusが持つ(Issue #295)
+ *   悪人を倒したらCS_PlayerStealthBonus.AddDefeat()を呼び、その時点のscoreMultiplierを撃破スコアに掛ける
+ *   (4人目まで×1、5人目×1.2、6人目×1.4 … 10人目以降×2.2)
+ *   警察に見つかった(ReportFoundByPolice)時はResetStreak()で途切れさせる(HPが0になった時はCS_PlayerStealthBonus自身が途切れさせる)
  * ・警察に見つかったことは、警察側(CS_PoliceBrain)が新しく標的にした瞬間にReportFoundByPolice()で知らせてくれる
  * ・他プレイヤーを倒した時は、倒された相手の番号をRPCで全員へ配り、各クライアントでキル通知(CS_NotificationController.ShowKill)を出す
  *   表示名は「Player{番号+1}」(仮)。NPCも同じプレハブなので同じ形で出る
@@ -39,14 +37,11 @@ using UnityEngine;
 
 [RequireComponent(typeof(CS_PlayerResultDataHolder))]
 [RequireComponent(typeof(CS_PlayerHealth))]
+[RequireComponent(typeof(CS_PlayerStealthBonus))]
 public class CS_PlayerScoring : NetworkBehaviour
 {
     [Header("悪人撃破")]
     [SerializeField] private int _defaultVillainScore = 100;    // 相手が撃破スコア(IDefeatScore)を持たない時の点数
-
-    [Header("暗躍ボーナス")]
-    [SerializeField] private int _bonusStartCount = 5;          // 倍率が上がり始める連続撃破数(この人数目から)
-    [SerializeField] private float _bonusStep = 0.2f;           // 1人ごとに上がる倍率
 
     [Header("減点")]
     [SerializeField] private int _crimeCompletedPenalty = 20;   // 犯罪を完遂された時に減る点数
@@ -58,11 +53,9 @@ public class CS_PlayerScoring : NetworkBehaviour
 
     private CS_PlayerResultDataHolder _holder;
     private CS_PlayerHealth _health;
+    private CS_PlayerStealthBonus _bonus;
 
-    private int _streak;    // 暗躍ボーナスの連続撃破数(サーバー、またはオフラインでのみ意味を持つ)
     private double _nextFoundByPoliceTime = double.MinValue;    // この時刻までは警察に見つかっても数えない(サーバー、またはオフラインのみ)
-
-    public int streak => _streak;
 
     // 自分が悪人を倒した時に発生する(サーバー、またはオフラインのみ)
     public event System.Action<CS_VillainHealth> onVillainDefeated;
@@ -71,14 +64,13 @@ public class CS_PlayerScoring : NetworkBehaviour
     {
         _holder = GetComponent<CS_PlayerResultDataHolder>();
         _health = GetComponent<CS_PlayerHealth>();
+        _bonus = GetComponent<CS_PlayerStealthBonus>();
 
-        _health.onDeath += HandleDeath;
         CS_VillainGroup.onAnyCrimeCompleted += HandleCrimeCompleted;
     }
 
     public override void OnDestroy()
     {
-        if (_health != null) _health.onDeath -= HandleDeath;
         CS_VillainGroup.onAnyCrimeCompleted -= HandleCrimeCompleted;
 
         base.OnDestroy();
@@ -105,7 +97,7 @@ public class CS_PlayerScoring : NetworkBehaviour
         if (now < _nextFoundByPoliceTime) return;
         _nextFoundByPoliceTime = now + _foundByPoliceInterval;
 
-        ResetStreak();
+        _bonus.ResetStreak();
         _holder.AddFoundByPolice(-_foundByPolicePenalty);
     }
 
@@ -116,8 +108,8 @@ public class CS_PlayerScoring : NetworkBehaviour
 
         if (target is CS_VillainHealth villain)
         {
-            _streak++;
-            int point = Mathf.RoundToInt(GetDefeatScore(villain) * GetBonusMultiplier(_streak));
+            _bonus.AddDefeat();
+            int point = Mathf.RoundToInt(GetDefeatScore(villain) * _bonus.scoreMultiplier);
             _holder.AddDefeatVillain(point);
             onVillainDefeated?.Invoke(villain);
             return;
@@ -155,27 +147,11 @@ public class CS_PlayerScoring : NetworkBehaviour
         notification.ShowKill($"Player{victimNumber + 1}");
     }
 
-    // 連続撃破数に応じた暗躍ボーナスの倍率(_bonusStartCount人目から_bonusStepずつ上がる)
-    private float GetBonusMultiplier(int count)
-    {
-        if (count < _bonusStartCount) return 1f;
-
-        return 1f + _bonusStep * (count - _bonusStartCount + 1);
-    }
-
     // 倒した悪人の撃破スコア(悪人側がIDefeatScoreを持っていなければ既定値)
     private int GetDefeatScore(CS_VillainHealth villain)
     {
         IDefeatScore source = villain.GetComponentInParent<IDefeatScore>();
         return source != null ? source.defeatScore : _defaultVillainScore;
-    }
-
-    // HPが0になったら連続撃破を途切れさせる
-    private void HandleDeath()
-    {
-        if (!CanScore()) return;
-
-        ResetStreak();
     }
 
     // どこかの悪人グループに犯罪を完遂されたら減点する
@@ -184,11 +160,6 @@ public class CS_PlayerScoring : NetworkBehaviour
         if (!CanScore()) return;
 
         _holder.AddCrimeCompleted(-_crimeCompletedPenalty);
-    }
-
-    private void ResetStreak()
-    {
-        _streak = 0;
     }
 
     // スコアを計算してよいか(サーバー、またはオフラインのみ)

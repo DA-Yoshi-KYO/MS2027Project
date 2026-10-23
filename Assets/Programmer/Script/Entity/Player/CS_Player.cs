@@ -39,7 +39,7 @@ using UnityEngine.InputSystem;
  * ・死亡中(CS_PlayerHealth.isDead)は移動・攻撃を行わない(canActで判定)
  *   視点操作(カメラ)は死亡中も継続する
  *   死亡中は水平方向の速度を毎回0にし、死亡時の勢いで滑り続けないようにしている(落下はする)
- * ・移動速度はCS_PlayerStats.moveSpeedを使う(実際の変更はCS_PlayerStats側で行う)
+ * ・移動速度はCS_PlayerStats.currentMoveSpeed(暗躍ボーナス込み)を使う(実際の変更はCS_PlayerStats側で行う)
  * ・Colliderには摩擦0の物理マテリアル(PlayerFrictionless)を設定している
  *   (摩擦があると、空中で壁に向かって移動し続けた時に壁に張り付いて落ちなくなるため)
  * ・ジャンプ
@@ -128,6 +128,7 @@ public class CS_Player : NetworkBehaviour
     private CS_PlayerButton _specialButton;
     private CS_PlayerButton _dashButton;        // ダッシュボタン
     private CS_PlayerButton _useItemButton;     // アイテム使用ボタン(CS_PlayerItemSlotが使う)
+    private CS_PlayerButton _scanButton;        // スキャンボタン(CS_PlayerScanが使う)
 
     private CS_PlayerNpcInput _npcInput;    // NPCの時の入力(人が操作する時はnull)
 
@@ -165,12 +166,14 @@ public class CS_Player : NetworkBehaviour
     public CS_PlayerButton dashAction => _dashButton;       // ダッシュボタン
     public float dashDuration => _dashDuration;         // ダッシュが続く時間(秒、見た目のモーション速度合わせに使う)
     public CS_PlayerButton useItemAction => _useItemButton; // アイテム使用ボタン(CS_PlayerItemSlotが使う)
+    public CS_PlayerButton scanAction => _scanButton;       // スキャンボタン(CS_PlayerScanが使う)
     public bool isGrounded => IsGrounded();             // 接地しているか(全クライアントで判定できる。見た目用にも使う)
     public bool isSprinting => _isSprinting;            // ダッシュ後、ボタンを押し続けて速くなっているか(見た目用)
     public bool isDashing => _isDashing;                // ダッシュ(ブリンク)で高速移動している最中か(見た目用。操作しているマシンでだけ正しい)
     public int playerNumber => _playerNumber.Value;     // 何番目のプレイヤーか(0〜3。HP UIなど画面上の表示先を決めるのに使う)
     public Camera playerCamera => _cameraTransform != null ? _cameraTransform.GetComponent<Camera>() : null;   // このプレイヤーのカメラ(他人のプレイヤーでは無効化されている)
     public float viewYaw => _yaw;                       // カメラの左右の向き(度)。エイムアシストが「狙っている方向」として使う
+    public Vector3 moveDirection => GetMoveDirection();  // カメラから見た移動入力(スティック)の方向(水平、長さは入力の強さ。最大1)。エイムアシストが使う
     // 視点(カメラ)のTransform。揺れが乗る前のCinemachineCamera(無ければ実際のカメラ)。ミニマップの回転の基準に使う
     public Transform viewTransform => _virtualCameraTransform != null ? _virtualCameraTransform : _cameraTransform;
 
@@ -458,6 +461,7 @@ public class CS_Player : NetworkBehaviour
         _specialButton = _npcInput.special;
         _dashButton = _npcInput.dash;
         _useItemButton = _npcInput.useItem;
+        _scanButton = _npcInput.scan;
 
         // 人のプレイヤーのカメラと取り合わないよう、カメラは消しておく(物理はこのマシンで動かす)
         DisableCamera();
@@ -578,6 +582,7 @@ public class CS_Player : NetworkBehaviour
         _specialButton = new CS_PlayerButton(player.Special);
         _dashButton = new CS_PlayerButton(player.Dash);
         _useItemButton = new CS_PlayerButton(player.UseItem);
+        _scanButton = new CS_PlayerButton(player.Scan);
     }
 
     // アクションへの参照を外す(アクション自体は共有のシングルトンが持ち続ける)
@@ -592,6 +597,7 @@ public class CS_Player : NetworkBehaviour
         _specialButton = null;
         _dashButton = null;
         _useItemButton = null;
+        _scanButton = null;
     }
 
     // 入力を読み取り、移動入力と視点(yaw/pitch)を更新する
@@ -676,7 +682,7 @@ public class CS_Player : NetworkBehaviour
 
         Vector3 direction = GetMoveDirection();
 
-        float speed = _isSprinting ? _stats.sprintSpeed : _stats.moveSpeed;
+        float speed = _isSprinting ? _stats.currentSprintSpeed : _stats.currentMoveSpeed;
         Vector3 horizontal = direction * speed;
         _rigidbody.linearVelocity = new Vector3(horizontal.x, _rigidbody.linearVelocity.y, horizontal.z);
     }
@@ -696,7 +702,7 @@ public class CS_Player : NetworkBehaviour
         if (!IsGrounded()) return;
 
         Vector3 velocity = _rigidbody.linearVelocity;
-        _rigidbody.linearVelocity = new Vector3(velocity.x, _stats.jumpPower, velocity.z);
+        _rigidbody.linearVelocity = new Vector3(velocity.x, _stats.currentJumpPower, velocity.z);
         onJumped?.Invoke();
     }
 

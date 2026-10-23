@@ -35,7 +35,7 @@ using UnityEngine;
  *   警察: IStunnableを持っていればStun(_policeStunTime)を呼ぶ(警察側の対応が必要。CS_IStunnable.cs参照)
  *   反撃する相手が見つからない時も、ダメージの無効・無敵・演出は入る
  * ・自分の攻撃(爆弾など)で自分が受けたダメージはパリーしない
- * ・オンラインでは、ブリンクを押したことがサーバーに届くまでに少しかかるため、受付を長め(既定0.5秒)にしている
+ * ・オンラインでは、ブリンクを押したことがサーバーに届くまでに少しかかるため、受付を長め(既定1秒。データ表「ブリンクのカウンター時間」)にしている
  * ・オフライン(NetworkManagerが動いていない)のテストシーンでも単体で動く
  */
 // ========================================
@@ -46,7 +46,7 @@ using UnityEngine;
 public class CS_PlayerParry : NetworkBehaviour
 {
     [Header("受付")]
-    [SerializeField][Min(0f)] private float _parryWindow = 0.5f;     // 攻撃が当たる何秒前までにブリンクを押していれば成功か
+    [SerializeField][Min(0f)] private float _parryWindow = 1f;       // 攻撃が当たる何秒前までにブリンクを押していれば成功か
     [SerializeField][Min(0f)] private float _searchRadius = 4f;      // 反撃する悪人を探す範囲(m)
     [SerializeField] private LayerMask _searchLayers = ~0;          // 反撃する悪人を探すレイヤー
 
@@ -232,7 +232,7 @@ public class CS_PlayerParry : NetworkBehaviour
     {
         if (!_transformation.isTransformed || _counterDamage <= 0f) return;
 
-        float damage = _counterDamage * _stats.attackPower;
+        float damage = _counterDamage * _stats.currentAttackPower;
         if (_scoring != null)
         {
             _scoring.DealDamage(target, damage);

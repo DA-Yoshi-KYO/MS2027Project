@@ -14,6 +14,13 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::CSO_PoliceStatus
   _patrolSpeedMultiplier: 0.5
   _chaseSpeedMultiplier: 1.3
-  _viewAngle: 120
+  _viewAngle: 180
   _viewDistance: 5
+  _viewHeight: 3
+  _suspicionViewAngle: 270
+  _suspicionViewDistance: 100
+  _chaseStyle: 0
+  _interceptMaxLeadTime: 2
+  _interceptCloseDistance: 5
+  _interceptMinTargetSpeed: 0.5
   _attackPower: 10000

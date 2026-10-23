@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using Unity.Netcode;
 using Unity.Netcode.Components;
 using UnityEngine;
@@ -127,7 +128,6 @@ public class CS_Player : NetworkBehaviour
     private CS_PlayerButton _specialButton;
     private CS_PlayerButton _dashButton;        // ダッシュボタン
     private CS_PlayerButton _useItemButton;     // アイテム使用ボタン(CS_PlayerItemSlotが使う)
-    private CS_PlayerButton _transformationButton;  // 変身ボタン(CS_PlayerTransformationが使う)
 
     private CS_PlayerNpcInput _npcInput;    // NPCの時の入力(人が操作する時はnull)
 
@@ -165,7 +165,6 @@ public class CS_Player : NetworkBehaviour
     public CS_PlayerButton dashAction => _dashButton;       // ダッシュボタン
     public float dashDuration => _dashDuration;         // ダッシュが続く時間(秒、見た目のモーション速度合わせに使う)
     public CS_PlayerButton useItemAction => _useItemButton; // アイテム使用ボタン(CS_PlayerItemSlotが使う)
-    public CS_PlayerButton transformationAction => _transformationButton;  // 変身ボタン(CS_PlayerTransformationが使う)
     public bool isGrounded => IsGrounded();             // 接地しているか(全クライアントで判定できる。見た目用にも使う)
     public bool isSprinting => _isSprinting;            // ダッシュ後、ボタンを押し続けて速くなっているか(見た目用)
     public bool isDashing => _isDashing;                // ダッシュ(ブリンク)で高速移動している最中か(見た目用。操作しているマシンでだけ正しい)
@@ -199,6 +198,11 @@ public class CS_Player : NetworkBehaviour
     // 警察がプレイヤーより先に出現している場合に、警察側が表示を判定し直すために購読する
     public static event Action<CS_Player> onLocalPlayerSet;
 
+    // 出現中のプレイヤー(人・NPC。全クライアント・オフラインで持つ)。NPCの判断などが、他のプレイヤーを探すのに使う
+    // (以前は手配度(CS_PlayerWantedLevel)が持っていたが、手配度が無くなったためこちらへ移した)
+    private static readonly List<CS_Player> _activePlayers = new List<CS_Player>();
+    public static IReadOnlyList<CS_Player> activePlayers => _activePlayers;
+
     // 操作しているクライアントでだけ発生する。見た目(CS_PlayerVisual)など、ゲームロジックの外から購読する
     public event Action onJumped;
     public event Action onDashStarted;
@@ -215,6 +219,23 @@ public class CS_Player : NetworkBehaviour
         // 壁などとの衝突で回転しないよう、物理による回転はすべて止める
         // (向きはUpdateFacingのMoveRotationでのみ変える)
         _rigidbody.freezeRotation = true;
+    }
+
+    private void OnEnable()
+    {
+        if (!_activePlayers.Contains(this)) _activePlayers.Add(this);
+    }
+
+    private void OnDisable()
+    {
+        _activePlayers.Remove(this);
+    }
+
+    // Domain Reloadオフ対策(再生のたびに一覧を空にする)
+    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+    private static void ResetStatics()
+    {
+        _activePlayers.Clear();
     }
 
     // オフライン(NetworkManagerが動いていない)のテストシーン用
@@ -437,7 +458,6 @@ public class CS_Player : NetworkBehaviour
         _specialButton = _npcInput.special;
         _dashButton = _npcInput.dash;
         _useItemButton = _npcInput.useItem;
-        _transformationButton = _npcInput.transformation;
 
         // 人のプレイヤーのカメラと取り合わないよう、カメラは消しておく(物理はこのマシンで動かす)
         DisableCamera();
@@ -558,7 +578,6 @@ public class CS_Player : NetworkBehaviour
         _specialButton = new CS_PlayerButton(player.Special);
         _dashButton = new CS_PlayerButton(player.Dash);
         _useItemButton = new CS_PlayerButton(player.UseItem);
-        _transformationButton = new CS_PlayerButton(player.Transformation);
     }
 
     // アクションへの参照を外す(アクション自体は共有のシングルトンが持ち続ける)
@@ -573,7 +592,6 @@ public class CS_Player : NetworkBehaviour
         _specialButton = null;
         _dashButton = null;
         _useItemButton = null;
-        _transformationButton = null;
     }
 
     // 入力を読み取り、移動入力と視点(yaw/pitch)を更新する

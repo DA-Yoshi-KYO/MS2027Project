@@ -33,9 +33,7 @@ using UnityEngine;
  *   (仕様では通常攻撃のヒットでは溜まらないため、DB_PlayerAttack1〜3のGauge Gainは0にしている)
  * ・動けなくなった(死亡・スタン)時はコンボを中断する
  * ・必殺技(CS_PlayerSpecialAttack)を行っている間は、通常攻撃を行わない(isAttacking/isPerformingSpecialで排他制御)
- * ・変身中(CS_PlayerTransformation.isTransformed)でないと発動できない
- *   変身完了中はCS_PlayerTransformation側で解除できないよう制御しているため、
- *   コンボ開始後に変身が解けることは基本的に無い(死亡時の強制解除を除く)
+ * ・変身中(CS_PlayerTransformation.isTransformed)でないと発動できない(今は常時変身(Issue #277)のため、いつでも発動できる)
  */
 // ========================================
 

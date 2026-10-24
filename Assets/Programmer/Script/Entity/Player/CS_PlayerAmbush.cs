@@ -34,6 +34,8 @@ using UnityEngine;
  *   見た目用に、onAmbushStarted(飛び込み開始)・onAmbushHitTiming(当たる瞬間)を本人の手元で出す。演出は未実装
  * ・壁越しの悪人は奇襲できない: プレイヤーの体の中心から悪人の体の中心までの間に、_obstacleLayersのもの(壁など)があれば奇襲にならない
  *   キャラクター(IDamageableを持つもの)は遮るものとして扱わない。飛び込みもこの線の上を進むので、壁をすり抜けて奇襲することもない
+ * ・飛び込んでいる間は、_dashPassThroughLayers(悪人・プレイヤー)とぶつからない(Rigidbody.excludeLayers)
+ *   間にいる他の悪人・仲間に引っかかって止まり、奇襲が中止されることがないようにするため。着いたら(攻撃に移ったら)元に戻す
  * ・今奇襲できる悪人はFindAmbushTarget()で探せる(全クライアントで呼べる)。ロックオンUI(CS_PlayerLockOnUI)が使う
  * ・_rangeを広げると、遠くから奇襲できるようになる(既定はPlayer.prefabで18m)
  *   悪人に気づかれているかは、CS_VillainCombat.IsTargeting(同期された標的)で判定するので、クライアントでも分かる
@@ -60,6 +62,7 @@ public class CS_PlayerAmbush : NetworkBehaviour
     [SerializeField][Min(0f)] private float _strikeDuration = 0.4f;       // 着いてから奇襲が終わる(動けるようになる)までの時間(秒)
     [SerializeField][Min(0f)] private float _freezeMargin = 0.5f;         // 悪人を止める時間・予約の期限に足す余裕(秒。通信の遅れの分)
     [SerializeField][Min(0f)] private float _strikeTolerance = 2f;        // 当てる時、着いたとみなす距離からさらにこれだけ離れていても許す(m)
+    [SerializeField] private LayerMask _dashPassThroughLayers = 1 << 31;  // 飛び込み中にぶつからないレイヤー(悪人・プレイヤーのいるレイヤー)
 
     private enum Phase
     {
@@ -74,6 +77,9 @@ public class CS_PlayerAmbush : NetworkBehaviour
 
     private CS_Player _player;
     private CS_PlayerScoring _scoring;       // 付いていればスコアを通してダメージを与える
+    private Rigidbody _rigidbody;
+    private LayerMask _defaultExcludeLayers;   // 飛び込む前のRigidbody.excludeLayers(飛び込み後に戻す)
+    private bool _isPassingThrough;            // 飛び込み中で、悪人・プレイヤーとぶつからないようにしているか
     private Phase _phase = Phase.None;
     private CS_VillainHealth _target;        // 奇襲している悪人
     private float _elapsed;                  // 今の段階(飛び込み・攻撃)が始まってからの時間
@@ -92,6 +98,7 @@ public class CS_PlayerAmbush : NetworkBehaviour
     {
         _player = GetComponent<CS_Player>();
         _scoring = GetComponent<CS_PlayerScoring>();
+        _rigidbody = GetComponent<Rigidbody>();
     }
 
     private void Update()
@@ -127,6 +134,7 @@ public class CS_PlayerAmbush : NetworkBehaviour
         _elapsed = 0f;
         _hasStruck = false;
         FaceTarget();
+        SetPassThrough(true);
 
         // オフラインではその場で奇襲になるかが決まり、ならなければここで終わる(その時は通常攻撃の1段目を出す)
         RequestStart(villain);
@@ -146,6 +154,7 @@ public class CS_PlayerAmbush : NetworkBehaviour
         {
             _phase = Phase.Strike;
             _elapsed = 0f;
+            SetPassThrough(false);
             return;
         }
 
@@ -186,6 +195,24 @@ public class CS_PlayerAmbush : NetworkBehaviour
         _elapsed = 0f;
         _hasStruck = false;
         _player.ClearAimFacing();
+        SetPassThrough(false);
+    }
+
+    // 飛び込み中だけ、悪人・プレイヤーとぶつからないようにする(間にいるキャラクターに引っかかって止まらないように)
+    private void SetPassThrough(bool passThrough)
+    {
+        if (_rigidbody == null || _isPassingThrough == passThrough) return;
+
+        _isPassingThrough = passThrough;
+        if (passThrough)
+        {
+            _defaultExcludeLayers = _rigidbody.excludeLayers;
+            _rigidbody.excludeLayers = _defaultExcludeLayers | _dashPassThroughLayers;
+        }
+        else
+        {
+            _rigidbody.excludeLayers = _defaultExcludeLayers;
+        }
     }
 
     // 奇襲を始めたことをサーバーへ伝える(サーバーで奇襲になるかを決め、悪人を止める)

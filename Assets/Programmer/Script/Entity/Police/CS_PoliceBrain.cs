@@ -18,7 +18,7 @@ using UnityEngine.AI;
 [RequireComponent(typeof(CS_PoliceMove))]
 [RequireComponent(typeof(CS_PoliceVision))]
 [RequireComponent(typeof(CS_PoliceAttack))]
-public class CS_PoliceBrain : MonoBehaviour
+public class CS_PoliceBrain : MonoBehaviour, IStunnable
 {
     private CS_PoliceMove _move = null;
     private CS_PoliceVision _vision = null;
@@ -100,6 +100,9 @@ public class CS_PoliceBrain : MonoBehaviour
     // 次に判断するまでの残り時間
     private float _thinkTimer = 0.0f;
 
+    // スタンされている残り時間(0以下ならスタンしていない)
+    private float _stunTimer = 0.0f;
+
     // 異常事態(詰まり・巡回ルートに戻れない)をグループに報告済みか
     private bool _hasReportedAbnormal = false;
 
@@ -148,6 +151,9 @@ public class CS_PoliceBrain : MonoBehaviour
     [SerializeField, Min(1f)]
     [Tooltip("1つの行き先へ歩き始めてから、この時間が経っても着かない(詰まった・遠回りしている)時は、行き先を選び直す(秒)")]
     private float _wanderMaxWalkTime = 8.0f;
+
+    // スタンしているか(サーバー、またはオフラインでだけ正しい。見た目はCS_PoliceStunEffectが、全員へ同期して出す)
+    public bool isStunned => _stunTimer > 0.0f;
 
     // 行動している警察の一覧(警戒状態の管理が、プレイヤーの付近にいる警察を探すのに使う。サーバー、またはオフラインだけ)
     private static readonly List<CS_PoliceBrain> _activeBrains = new List<CS_PoliceBrain>();
@@ -216,6 +222,21 @@ public class CS_PoliceBrain : MonoBehaviour
     }
 
     /// <summary>
+    /// IStunnable実装。パリーの反撃などで、指定した時間の間、移動と攻撃(チャージ中も含む)を止める(サーバー、またはオフラインで呼ばれる)
+    /// スタンしている間は判断もしない。終わったら、止まる前の状態から再開する
+    /// すでにスタンしている時は、残り時間が長い方にする
+    /// </summary>
+    /// <param name="duration">動かなくなる時間(秒)</param>
+    public void Stun(float duration)
+    {
+        if (!_isInitialized || !enabled || duration <= 0.0f || CS_PoliceSquad.IsNetworkClientOnly()) return;
+
+        _stunTimer = Mathf.Max(_stunTimer, duration);
+        _attack.CancelAttack();
+        _move.SetStopped(true);
+    }
+
+    /// <summary>
     /// 判断・移動・攻撃をすべて止めるメソッド(消える演出の間に動かないようにする)
     /// </summary>
     public void StopActing()
@@ -231,6 +252,13 @@ public class CS_PoliceBrain : MonoBehaviour
     private void Update()
     {
         if (!_isInitialized) return;
+
+        // スタンしている間は、その場で止まったまま、何もしない
+        if (_stunTimer > 0.0f)
+        {
+            UpdateStun();
+            return;
+        }
 
         // 攻撃のチャージ中はその場で止まり、チャージを始めた時に標的がいた位置の方を向く
         // (判断は続け、チャージが終わったらその時の目的地へ移動を再開する)
@@ -290,6 +318,19 @@ public class CS_PoliceBrain : MonoBehaviour
 
         CS_Player player = target.GetComponentInParent<CS_Player>();
         return player != null ? player.playerNumber : CS_PoliceDetectionSource.noPlayer;
+    }
+
+    /// <summary>
+    /// スタンの残り時間を進めるメソッド(終わったら、移動を再開し、すぐ判断し直す)
+    /// </summary>
+    private void UpdateStun()
+    {
+        _stunTimer -= Time.deltaTime;
+        if (_stunTimer > 0.0f) return;
+
+        _stunTimer = 0.0f;
+        _move.SetStopped(false);
+        _thinkTimer = 0.0f;
     }
 
     /// <summary>

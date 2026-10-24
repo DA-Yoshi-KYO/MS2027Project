@@ -44,6 +44,12 @@ using UnityEngine.AI;
  *   ・ランダムイベントで生成された悪人は、イベントの範囲(SetEventArea)の中も路地裏として扱う
  *   ・レイドのボス(SetEventAreaのconfineがtrue)は範囲の中に留まる
  *     範囲の中の標的に反応し、範囲の外の標的は見つけない。追いかける時も範囲の外へは出ない
+ * ・犯罪中・巡回中にプレイヤーに気付くのは、正面の視野(左右 noticeAngle 度)にいる時だけ
+ *   背後から臨戦態勢範囲に入ったプレイヤーには気付かない(奇襲(CS_PlayerAmbush)で背後を取れるようにするため)
+ *   → 攻撃された時の反撃・追跡中の標的探し・陽動ホログラム・警察は、今まで通り向きに関係なく気付く
+ * ・奇襲(CS_PlayerAmbush)で狙われた悪人は、Freeze(秒)でその場に止められる
+ *   止まっている間は移動・向き変え・プレイヤーへの気付き・攻撃をすべて止める(ノックバック中と同じ扱い。攻撃中なら中断する)
+ *   時間がたつか、Unfreeze()で動き出す
  * ・isEngagedがtrueの間は犯罪の手を止める(犯罪の進行側から参照する想定)
  * ・見張り役(SetWatcherで巡回ルートを渡された悪人)は、犯罪中(Idle)の間CS_VillainPatrolで路地裏を巡回する
  *   巡回中も犯罪中の扱い(グループの犯罪は進む)。臨戦態勢範囲の確認も、他のメンバーと同じように行う
@@ -61,6 +67,8 @@ using UnityEngine.AI;
  *   → hitActiveTime 秒間、正面に攻撃判定を出す(その間に入ったプレイヤーに1回ずつ当たる)
  *   → attackInterval 秒待ってから、次の攻撃ができる
  * ・攻撃の段階(attackPhase)はNetworkVariableで全クライアントに同期し、CS_VillainAttackVisualが見た目に使う
+ * ・臨戦態勢中に狙っているプレイヤーもNetworkVariableで全クライアントに同期する(IsTargeting)
+ *   奇襲できる悪人を、クライアント側でロックオン表示するため(CS_PlayerAmbush.FindAmbushTarget)
  * ・攻撃範囲とダメージはCSO_AttackData(Attack Data)で決める(Attack DataのhitDelay・durationは使わない)
  *   判定 = 正面 hitRange 先、半径 hitRadius の球
  *   実際のダメージ = CSO_AttackData.CalculateDamage() × CS_VillainStats.attackPower
@@ -110,6 +118,7 @@ public class CS_VillainCombat : NetworkBehaviour
     private const float _surroundTolerance = 1f;  // 取り囲み中、決まった位置からこれ以上ずれたら位置を直す(m)
     private const float _navMeshSampleRadius = 1f; // ターゲットの足元のNavMeshを探す半径(m)。取り囲む位置の計算に使う
     private const float _eyeHeight = 0.6f;        // 体の中心(transform.position)から目までの高さ(m)。煙幕の視線判定に使う
+    private const ulong _noTargetPlayer = ulong.MaxValue;   // プレイヤーを狙っていない時の_targetPlayerIdの値
 
     private static bool _hasWarnedNoAlleyArea;    // 路地裏Areaが無い警告を出したか(全悪人で共有)
 
@@ -161,6 +170,10 @@ public class CS_VillainCombat : NetworkBehaviour
     private LayerMask _targetLayers = ~0;
 
     [Header("索敵")]
+    [SerializeField, Range(0f, 180f)]
+    [Tooltip("犯罪中・巡回中にプレイヤーに気付く視野。正面から左右にこの角度(度)以内のプレイヤーだけ気付く(180で全方向)。奇襲の背後の角度(CS_PlayerAmbushのBack Angle)以下にしておくこと")]
+    private float _noticeAngle = 60f;   // 左右60度(全体で120度)。広くすると、円に並んだグループの隣の仲間から横で見つかる
+
     [SerializeField, Min(0f)]
     [Tooltip("攻撃された時に、反撃相手のプレイヤーを探す範囲(m)")]
     private float _counterSearchRange = 15f;
@@ -191,6 +204,9 @@ public class CS_VillainCombat : NetworkBehaviour
     // 攻撃の段階。書き込みはサーバーのみ(NetworkVariableのデフォルト)。見た目の切り替えに全クライアントで使う
     private readonly NetworkVariable<CSE_VillainAttackPhase> _attackPhase = new NetworkVariable<CSE_VillainAttackPhase>();
 
+    // 臨戦態勢中に狙っているプレイヤーのNetworkObjectId(狙っていない時は_noTargetPlayer)。書き込みはサーバーのみ
+    private readonly NetworkVariable<ulong> _targetPlayerId = new NetworkVariable<ulong>(_noTargetPlayer);
+
     private State _state = State.Idle;
     private bool _isSurrounding;             // 攻撃枠が無く、取り囲んで様子を見ているか
     private bool _isTakingOver;              // 見張り役が、実行役のいない犯行地点へ犯罪を引き継ぎに向かっているか
@@ -210,10 +226,12 @@ public class CS_VillainCombat : NetworkBehaviour
     private Vector3 _eventAreaCenter;     // ランダムイベントの範囲の中心
     private float _eventAreaRadius;       // ランダムイベントの範囲の半径(水平方向)
     private bool _isConfinedToEventArea;  // ランダムイベントの範囲の中に留まるか(レイドのボス)
+    private float _freezeRemaining;       // 奇襲で止められている残り時間(秒)
 
     public bool isEngaged => _state == State.Chase || _state == State.Attack;   // 臨戦態勢中か
     public bool isCommittingCrime => enabled && _state == State.Idle;             // スポーン位置で犯罪を進めているか
     public bool isAttacking => _state == State.Attack;                           // 攻撃中か(溜め・攻撃判定)
+    public bool isFrozen => _freezeRemaining > 0f;                                // 奇襲で止められているか(サーバーのみ)
     public bool isSurrounding => _state == State.Chase && _isSurrounding;         // 取り囲んで様子を見ているか(サーバーのみ)
     public bool isWatcher => _patrol != null && _patrol.hasRoute;    // 見張り役(巡回ルートを持つ)か(サーバーのみ)
     public Transform target => _target;                                           // 標的(サーバーのみ)
@@ -307,7 +325,17 @@ public class CS_VillainCombat : NetworkBehaviour
     {
         if (!hasAuthority) return;
 
+        SyncTargetPlayer();
+
         _attackCooldown = Mathf.Max(0f, _attackCooldown - Time.fixedDeltaTime);
+
+        // 奇襲で止められている間は、その場で何もしない
+        if (_freezeRemaining > 0f)
+        {
+            _freezeRemaining -= Time.fixedDeltaTime;
+            _move.Stop();
+            return;
+        }
 
         // ノックバック中は他の行動を止める(移動はCS_VillainKnockbackが行う)
         if (_knockback != null && _knockback.isKnockedBack) return;
@@ -544,6 +572,22 @@ public class CS_VillainCombat : NetworkBehaviour
 
     // 攻撃中にノックバックしたら、攻撃を中断して追跡に戻る(サーバーのみ呼ばれる)
     // スーパーアーマーがオンの間は攻撃中にノックバックしないので、ここで中断されるのはオフの時だけ
+    // 奇襲(CS_PlayerAmbush)で狙われた時に、duration秒その場で止める(サーバー、またはオフラインで呼ぶ)
+    public void Freeze(float duration)
+    {
+        if (!hasAuthority || duration <= 0f) return;
+
+        _freezeRemaining = Mathf.Max(_freezeRemaining, duration);
+        _move.Stop();
+        HandleKnockbackStarted();   // 攻撃中なら中断する(ノックバックと同じ)
+    }
+
+    // 止めていたのをやめて、すぐに動き出させる(奇襲が中止された時など)
+    public void Unfreeze()
+    {
+        _freezeRemaining = 0f;
+    }
+
     private void HandleKnockbackStarted()
     {
         if (_state != State.Attack) return;
@@ -576,7 +620,7 @@ public class CS_VillainCombat : NetworkBehaviour
     {
         if (!TickScanTimer()) return false;
 
-        return TryEngageInRange(engageRange, true);
+        return TryEngageInRange(engageRange, true, true);
     }
 
     // 一定間隔ごとに、臨戦態勢範囲に今の標的より優先度が高い標的がないか確認し、あれば切り替える
@@ -611,7 +655,8 @@ public class CS_VillainCombat : NetworkBehaviour
     // 指定範囲で一番近い標的を探し、見つかったら追跡を始める
     // 優先度は 陽動ホログラム > プレイヤー > 警察
     // includeHolograms: 陽動ホログラムも探すか(見つかればプレイヤーより優先する)
-    private bool TryEngageInRange(float range, bool includeHolograms)
+    // useSight: プレイヤーは正面の視野(noticeAngle)にいる時だけ気付くか(犯罪中・巡回中の確認だけtrue)
+    private bool TryEngageInRange(float range, bool includeHolograms, bool useSight = false)
     {
         Transform hologram = includeHolograms ? FindNearestHologram(range) : null;
         if (hologram != null)
@@ -620,7 +665,7 @@ public class CS_VillainCombat : NetworkBehaviour
             return true;
         }
 
-        CS_PlayerHealth player = FindNearestPlayer(range);
+        CS_PlayerHealth player = FindNearestPlayer(range, useSight);
         if (player != null)
         {
             SetTarget(player.transform, player);
@@ -664,6 +709,25 @@ public class CS_VillainCombat : NetworkBehaviour
         SetTarget(target, player, false);
     }
 
+    // 狙っているプレイヤーを全クライアントへ知らせる(変わった時だけ送られる)
+    private void SyncTargetPlayer()
+    {
+        if (!IsSpawned) return;
+
+        ulong id = isEngaged && _targetPlayer != null ? _targetPlayer.NetworkObjectId : _noTargetPlayer;
+        if (_targetPlayerId.Value != id) _targetPlayerId.Value = id;
+    }
+
+    // playerRootのプレイヤーに気づいて狙っているか(全クライアントで参照可)
+    // サーバー・オフラインは標的をそのまま見る。クライアントは同期されたNetworkObjectIdで見る(1フレームほど遅れる)
+    public bool IsTargeting(Transform playerRoot)
+    {
+        if (hasAuthority) return isEngaged && _target != null && _target.root == playerRoot;
+        if (!playerRoot.TryGetComponent(out NetworkObject networkObject)) return false;
+
+        return _targetPlayerId.Value == networkObject.NetworkObjectId;
+    }
+
     private void ClearTarget()
     {
         _target = null;
@@ -705,7 +769,8 @@ public class CS_VillainCombat : NetworkBehaviour
     }
 
     // 指定範囲で、見えている(煙幕に遮られていない)一番近いプレイヤーを探す
-    private CS_PlayerHealth FindNearestPlayer(float range)
+    // useSight: 正面の視野(noticeAngle)の外にいるプレイヤーは見つけない
+    private CS_PlayerHealth FindNearestPlayer(float range, bool useSight = false)
     {
         int count = Physics.OverlapSphereNonAlloc(
             transform.position, range, _hitBuffer, _targetLayers, QueryTriggerInteraction.Ignore);
@@ -718,6 +783,7 @@ public class CS_VillainCombat : NetworkBehaviour
             CS_PlayerHealth player = _hitBuffer[i].GetComponentInParent<CS_PlayerHealth>();
             if (!IsValidTarget(player)) continue;
             if (IsOutsideConfinedArea(player.transform.position)) continue;
+            if (useSight && !IsInSight(player.transform.position)) continue;
 
             // 煙幕の中にいる標的・煙幕越しの標的は見えない(近くにいても気付かない)
             if (CS_SmokeScreen.IsLineBlocked(eyePosition, _hitBuffer[i].bounds.center)) continue;
@@ -729,6 +795,16 @@ public class CS_VillainCombat : NetworkBehaviour
             nearestSqr = sqr;
         }
         return nearest;
+    }
+
+    // 正面の視野(左右noticeAngle度)の中か。真上・真下など水平方向に離れていない時は見えている扱い
+    private bool IsInSight(Vector3 position)
+    {
+        Vector3 toTarget = GetFlatDirection(position);
+        Vector3 forward = new Vector3(transform.forward.x, 0f, transform.forward.z);
+        if (toTarget.sqrMagnitude < 0.0001f || forward.sqrMagnitude < 0.0001f) return true;
+
+        return Vector3.Angle(forward, toTarget) <= _noticeAngle;
     }
 
     // 指定範囲で、見えている(煙幕に遮られていない)一番近い警察を探す

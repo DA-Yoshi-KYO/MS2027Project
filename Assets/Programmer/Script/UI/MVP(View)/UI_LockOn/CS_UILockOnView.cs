@@ -10,32 +10,31 @@ using UnityEngine;
 using UnityEngine.UI;
 
 /// <summary>
-/// World Spaceで表示するロックオンUIのView。
-/// LockOnCanvasのルートへアタッチする。
+/// UICanvas上のロックオンマーカーを表示するView。
 /// </summary>
 public class CS_UILockOnView :
     CS_BaseView<CS_UILockOnPresenter>
 {
-    // =========================================================
-    // Inspector
-    // =========================================================
+    [Header("ロックオンマーカー")]
+    [SerializeField] private RectTransform _markerRect;
+    [SerializeField] private Image _markerImage;
 
-    [Header("表示・非表示を切り替えるルート")]
-    [SerializeField] private GameObject _markerRoot;
+    [Header("ロックオン開始演出（任意）")]
+    [Min(0f)]
+    [SerializeField] private float _lockOnAnimDuration = 0.15f;
 
-    [Header("ロックオン画像")]
-    [SerializeField] private Image _lockOnImage;
+    [Min(1f)]
+    [SerializeField] private float _lockOnStartScale = 1.4f;
 
-    // =========================================================
-    // 初期化
-    // =========================================================
+    private float _animationElapsed;
+    private bool _isAnimating;
 
     private void Awake()
     {
-        SetVisible(false);
+        if (_markerImage != null)
+            _markerImage.raycastTarget = false;
 
-        if (_lockOnImage != null)
-            _lockOnImage.raycastTarget = false;
+        SetVisible(false, false);
     }
 
     public override void SetPresenter(
@@ -44,33 +43,69 @@ public class CS_UILockOnView :
         base.SetPresenter(presenter);
     }
 
-    // =========================================================
-    // 表示更新
-    // =========================================================
-
-    public void SetVisible(bool isVisible)
+    private void Update()
     {
-        if (_markerRoot != null)
-            _markerRoot.SetActive(isVisible);
+        if (!_isAnimating || _markerRect == null)
+            return;
+
+        if (_lockOnAnimDuration <= 0f)
+        {
+            _markerRect.localScale = Vector3.one;
+            _isAnimating = false;
+            return;
+        }
+
+        _animationElapsed += Time.unscaledDeltaTime;
+        float rate = Mathf.Clamp01(
+            _animationElapsed / _lockOnAnimDuration
+        );
+
+        float scale = Mathf.Lerp(
+            _lockOnStartScale,
+            1f,
+            rate
+        );
+
+        _markerRect.localScale = Vector3.one * scale;
+
+        if (rate >= 1f)
+            _isAnimating = false;
     }
 
-    /// <summary>
-    /// World Space Canvasをカメラの正面へ向ける。
-    /// </summary>
-    public void LookAtCamera(Camera targetCamera)
+    public void SetVisible(
+        bool isVisible,
+        bool playAnimation = true)
     {
-        if (targetCamera == null)
+        if (_markerRect == null)
             return;
 
-        Vector3 direction =
-            transform.position - targetCamera.transform.position;
+        bool wasVisible = _markerRect.gameObject.activeSelf;
+        _markerRect.gameObject.SetActive(isVisible);
 
-        if (direction.sqrMagnitude <= 0.0001f)
+        if (!isVisible)
+        {
+            _isAnimating = false;
+            _markerRect.localScale = Vector3.one;
+            return;
+        }
+
+        if (!wasVisible && playAnimation)
+            PlayLockOnAnimation();
+    }
+
+    public void SetPosition(Vector2 anchoredPosition)
+    {
+        if (_markerRect != null)
+            _markerRect.anchoredPosition = anchoredPosition;
+    }
+
+    private void PlayLockOnAnimation()
+    {
+        if (_markerRect == null)
             return;
 
-        transform.rotation = Quaternion.LookRotation(
-            direction,
-            targetCamera.transform.up
-        );
+        _animationElapsed = 0f;
+        _isAnimating = true;
+        _markerRect.localScale = Vector3.one * _lockOnStartScale;
     }
 }

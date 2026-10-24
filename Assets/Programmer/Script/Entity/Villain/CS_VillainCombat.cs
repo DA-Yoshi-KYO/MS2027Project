@@ -44,6 +44,9 @@ using UnityEngine.AI;
  *   ・ランダムイベントで生成された悪人は、イベントの範囲(SetEventArea)の中も路地裏として扱う
  *   ・レイドのボス(SetEventAreaのconfineがtrue)は範囲の中に留まる
  *     範囲の中の標的に反応し、範囲の外の標的は見つけない。追いかける時も範囲の外へは出ない
+ * ・犯罪中・巡回中にプレイヤーに気付くのは、正面の視野(左右 noticeAngle 度)にいる時だけ
+ *   背後から臨戦態勢範囲に入ったプレイヤーには気付かない(奇襲(CS_PlayerAmbush)で背後を取れるようにするため)
+ *   → 攻撃された時の反撃・追跡中の標的探し・陽動ホログラム・警察は、今まで通り向きに関係なく気付く
  * ・isEngagedがtrueの間は犯罪の手を止める(犯罪の進行側から参照する想定)
  * ・見張り役(SetWatcherで巡回ルートを渡された悪人)は、犯罪中(Idle)の間CS_VillainPatrolで路地裏を巡回する
  *   巡回中も犯罪中の扱い(グループの犯罪は進む)。臨戦態勢範囲の確認も、他のメンバーと同じように行う
@@ -164,6 +167,10 @@ public class CS_VillainCombat : NetworkBehaviour
     private LayerMask _targetLayers = ~0;
 
     [Header("索敵")]
+    [SerializeField, Range(0f, 180f)]
+    [Tooltip("犯罪中・巡回中にプレイヤーに気付く視野。正面から左右にこの角度(度)以内のプレイヤーだけ気付く(180で全方向)。奇襲の背後の角度(CS_PlayerAmbushのBack Angle)以下にしておくこと")]
+    private float _noticeAngle = 120f;
+
     [SerializeField, Min(0f)]
     [Tooltip("攻撃された時に、反撃相手のプレイヤーを探す範囲(m)")]
     private float _counterSearchRange = 15f;
@@ -584,7 +591,7 @@ public class CS_VillainCombat : NetworkBehaviour
     {
         if (!TickScanTimer()) return false;
 
-        return TryEngageInRange(engageRange, true);
+        return TryEngageInRange(engageRange, true, true);
     }
 
     // 一定間隔ごとに、臨戦態勢範囲に今の標的より優先度が高い標的がないか確認し、あれば切り替える
@@ -619,7 +626,8 @@ public class CS_VillainCombat : NetworkBehaviour
     // 指定範囲で一番近い標的を探し、見つかったら追跡を始める
     // 優先度は 陽動ホログラム > プレイヤー > 警察
     // includeHolograms: 陽動ホログラムも探すか(見つかればプレイヤーより優先する)
-    private bool TryEngageInRange(float range, bool includeHolograms)
+    // useSight: プレイヤーは正面の視野(noticeAngle)にいる時だけ気付くか(犯罪中・巡回中の確認だけtrue)
+    private bool TryEngageInRange(float range, bool includeHolograms, bool useSight = false)
     {
         Transform hologram = includeHolograms ? FindNearestHologram(range) : null;
         if (hologram != null)
@@ -628,7 +636,7 @@ public class CS_VillainCombat : NetworkBehaviour
             return true;
         }
 
-        CS_PlayerHealth player = FindNearestPlayer(range);
+        CS_PlayerHealth player = FindNearestPlayer(range, useSight);
         if (player != null)
         {
             SetTarget(player.transform, player);
@@ -732,7 +740,8 @@ public class CS_VillainCombat : NetworkBehaviour
     }
 
     // 指定範囲で、見えている(煙幕に遮られていない)一番近いプレイヤーを探す
-    private CS_PlayerHealth FindNearestPlayer(float range)
+    // useSight: 正面の視野(noticeAngle)の外にいるプレイヤーは見つけない
+    private CS_PlayerHealth FindNearestPlayer(float range, bool useSight = false)
     {
         int count = Physics.OverlapSphereNonAlloc(
             transform.position, range, _hitBuffer, _targetLayers, QueryTriggerInteraction.Ignore);
@@ -745,6 +754,7 @@ public class CS_VillainCombat : NetworkBehaviour
             CS_PlayerHealth player = _hitBuffer[i].GetComponentInParent<CS_PlayerHealth>();
             if (!IsValidTarget(player)) continue;
             if (IsOutsideConfinedArea(player.transform.position)) continue;
+            if (useSight && !IsInSight(player.transform.position)) continue;
 
             // 煙幕の中にいる標的・煙幕越しの標的は見えない(近くにいても気付かない)
             if (CS_SmokeScreen.IsLineBlocked(eyePosition, _hitBuffer[i].bounds.center)) continue;
@@ -756,6 +766,16 @@ public class CS_VillainCombat : NetworkBehaviour
             nearestSqr = sqr;
         }
         return nearest;
+    }
+
+    // 正面の視野(左右noticeAngle度)の中か。真上・真下など水平方向に離れていない時は見えている扱い
+    private bool IsInSight(Vector3 position)
+    {
+        Vector3 toTarget = GetFlatDirection(position);
+        Vector3 forward = new Vector3(transform.forward.x, 0f, transform.forward.z);
+        if (toTarget.sqrMagnitude < 0.0001f || forward.sqrMagnitude < 0.0001f) return true;
+
+        return Vector3.Angle(forward, toTarget) <= _noticeAngle;
     }
 
     // 指定範囲で、見えている(煙幕に遮られていない)一番近い警察を探す

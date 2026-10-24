@@ -25,8 +25,11 @@ using UnityEngine;
  *   3. 攻撃: 着いてから_strikeDelay秒後に、その悪人1体だけへ奇襲を当てる(範囲の当たり判定は使わないので空振りしない)
  *   4. _strikeDuration秒で奇襲が終わり、動けるようになる。この後に攻撃ボタンを押すと、通常攻撃の1段目から始まる
  * ・奇襲になった時は、その悪人の残りHP以上のダメージを与えて一撃で倒す(仕様「戦闘をすぐに終わらせる」)
- * ・ダメージはサーバー(またはオフライン)で確定させる。サーバーは、送られてきた位置から奇襲の条件がそろっているかを確かめてから倒す
- *   (悪人の臨戦態勢・標的はサーバーでしか分からないため。飛び込んだ直後はサーバー上の位置が追いついていないので、位置のずれは_range分多めに許す)
+ * ・奇襲になるかはサーバー(またはオフライン)で、奇襲を始めた瞬間に1回だけ決める(悪人の臨戦態勢・標的はサーバーでしか分からないため)
+ *   条件がそろっていれば、その悪人を予約して、その場に止める(CS_VillainCombat.Freeze)。そろっていなければ、手元へ中止を返す
+ *   止める時間・予約の期限は、飛び込みの最大時間 + 攻撃の時間 + _freezeMargin。奇襲が中止された時はすぐに解く
+ *   当てる時は「予約した悪人か」と「離れすぎていないか」だけを見て倒す(飛び込んでいる間に向きが変わって外れることがない)
+ *   飛び込んだ直後はサーバー上の位置が追いついていないので、送られてきた位置のずれは_range分多めに許す
  * ・奇襲が決まった時はonAmbush(倒した悪人)で知らせる(サーバー、またはオフラインのみ)
  *   見た目用に、onAmbushStarted(飛び込み開始)・onAmbushHitTiming(当たる瞬間)を本人の手元で出す。演出は未実装
  * ・壁越しの悪人は奇襲できない: プレイヤーの体の中心から悪人の体の中心までの間に、_obstacleLayersのもの(壁など)があれば奇襲にならない
@@ -55,6 +58,8 @@ public class CS_PlayerAmbush : NetworkBehaviour
     [SerializeField][Min(0f)] private float _strikeDistance = 1.2f;       // 悪人との水平距離がこれ以内になったら着いたとみなす(m)
     [SerializeField][Min(0f)] private float _strikeDelay = 0.1f;          // 着いてから奇襲が当たるまでの時間(秒)
     [SerializeField][Min(0f)] private float _strikeDuration = 0.4f;       // 着いてから奇襲が終わる(動けるようになる)までの時間(秒)
+    [SerializeField][Min(0f)] private float _freezeMargin = 0.5f;         // 悪人を止める時間・予約の期限に足す余裕(秒。通信の遅れの分)
+    [SerializeField][Min(0f)] private float _strikeTolerance = 2f;        // 当てる時、着いたとみなす距離からさらにこれだけ離れていても許す(m)
 
     private enum Phase
     {
@@ -73,6 +78,8 @@ public class CS_PlayerAmbush : NetworkBehaviour
     private CS_VillainHealth _target;        // 奇襲している悪人
     private float _elapsed;                  // 今の段階(飛び込み・攻撃)が始まってからの時間
     private bool _hasStruck;                 // 奇襲を当てる処理を行ったか
+    private CS_VillainHealth _reservedTarget;   // 奇襲すると決めた悪人(サーバー、またはオフラインのみ)
+    private float _reservedUntil;               // 予約の期限(Time.time。サーバー、またはオフラインのみ)
 
     public float range => _range;                   // 奇襲できる距離(m)
     public bool isAmbushing => _phase != Phase.None;   // 奇襲中か(CS_PlayerAttackが、通常攻撃・必殺技を止めるのに使う)
@@ -120,6 +127,11 @@ public class CS_PlayerAmbush : NetworkBehaviour
         _elapsed = 0f;
         _hasStruck = false;
         FaceTarget();
+
+        // オフラインではその場で奇襲になるかが決まり、ならなければここで終わる(その時は通常攻撃の1段目を出す)
+        RequestStart(villain);
+        if (!isAmbushing) return false;
+
         onAmbushStarted?.Invoke(villain);
         return true;
     }
@@ -166,11 +178,93 @@ public class CS_PlayerAmbush : NetworkBehaviour
 
     private void EndAmbush()
     {
+        // 当てる前にやめた時は、止めていた悪人を動かす
+        if (_phase != Phase.None && !_hasStruck) RequestRelease();
+
         _phase = Phase.None;
         _target = null;
         _elapsed = 0f;
         _hasStruck = false;
         _player.ClearAimFacing();
+    }
+
+    // 奇襲を始めたことをサーバーへ伝える(サーバーで奇襲になるかを決め、悪人を止める)
+    private void RequestStart(CS_VillainHealth villain)
+    {
+        Vector3 position = transform.position;
+
+        // オフライン(テストシーン)では、その場で決める
+        if (!IsSpawned)
+        {
+            if (!StartOnServer(villain, position)) EndAmbush();
+            return;
+        }
+
+        StartRpc(new NetworkObjectReference(villain.NetworkObject), position);
+    }
+
+    [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Owner)]
+    private void StartRpc(NetworkObjectReference villainReference, Vector3 position)
+    {
+        CS_VillainHealth villain = GetVillain(villainReference);
+        if (villain != null && StartOnServer(villain, position)) return;
+
+        CancelRpc();   // 奇襲にならなかったので、手元の飛び込みをやめさせる
+    }
+
+    // サーバーから、奇襲にならなかったことを本人へ伝える
+    [Rpc(SendTo.Owner)]
+    private void CancelRpc()
+    {
+        if (isAmbushing) EndAmbush();
+    }
+
+    // 奇襲の条件を確かめ、そろっていれば悪人を予約してその場に止める(サーバー、またはオフラインで実行される)
+    private bool StartOnServer(CS_VillainHealth villain, Vector3 position)
+    {
+        Vector3 forward = transform.forward;
+        CS_AttackHitDetector.ResolvePose(transform, ref position, ref forward);
+
+        if (!CanAmbush(villain, position, out CS_VillainHealth ambushed)) return false;
+
+        ReleaseOnServer();   // 前の予約が残っていれば解く
+
+        float duration = _maxDashTime + Mathf.Max(_strikeDelay, _strikeDuration) + _freezeMargin;
+        _reservedTarget = ambushed;
+        _reservedUntil = Time.time + duration;
+        if (ambushed.TryGetComponent(out CS_VillainCombat combat)) combat.Freeze(duration);
+        return true;
+    }
+
+    // 奇襲をやめたことをサーバーへ伝える(止めていた悪人を動かす)
+    private void RequestRelease()
+    {
+        if (!IsSpawned)
+        {
+            ReleaseOnServer();
+            return;
+        }
+
+        ReleaseRpc();
+    }
+
+    [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Owner)]
+    private void ReleaseRpc()
+    {
+        ReleaseOnServer();
+    }
+
+    // 予約を消し、止めていた悪人を動かす(サーバー、またはオフラインで実行される)
+    private void ReleaseOnServer()
+    {
+        if (_reservedTarget != null && _reservedTarget.TryGetComponent(out CS_VillainCombat combat)) combat.Unfreeze();
+        _reservedTarget = null;
+    }
+
+    private static CS_VillainHealth GetVillain(NetworkObjectReference villainReference)
+    {
+        if (!villainReference.TryGet(out NetworkObject villainObject)) return null;
+        return villainObject.TryGetComponent(out CS_VillainHealth villain) ? villain : null;
     }
 
     // 奇襲を当てる処理を依頼する(ダメージはサーバーで確定させる)
@@ -192,25 +286,27 @@ public class CS_PlayerAmbush : NetworkBehaviour
     [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Owner)]
     private void StrikeRpc(NetworkObjectReference villainReference, Vector3 position)
     {
-        if (!villainReference.TryGet(out NetworkObject villainObject)) return;
-        if (!villainObject.TryGetComponent(out CS_VillainHealth villain)) return;
-
-        ExecuteStrike(villain, position);
+        CS_VillainHealth villain = GetVillain(villainReference);
+        if (villain != null) ExecuteStrike(villain, position);
     }
 
-    // 奇襲の条件がそろっているか確かめてから、残りHP分のダメージで倒す(サーバー、またはオフラインで実行される)
+    // 予約した悪人に、残りHP分のダメージを与えて倒す(サーバー、またはオフラインで実行される)
+    // 奇襲になるかは始めた時に決めているので、ここでは予約した悪人か・離れすぎていないかだけを見る
     private void ExecuteStrike(CS_VillainHealth villain, Vector3 position)
     {
+        bool isReserved = villain == _reservedTarget && Time.time <= _reservedUntil;
+        ReleaseOnServer();
+        if (!isReserved || villain.isDefeated) return;
+
         // 送られてきた位置が、サーバー上の位置から大きく離れていないか確かめてから使う
         // 飛び込んだ直後はサーバー上の位置が追いついていないので、奇襲できる距離の分だけ多めに許す
         Vector3 forward = transform.forward;
         CS_AttackHitDetector.ResolvePose(transform, ref position, ref forward, _range);
+        if (HorizontalDistance(villain.transform.position, position) > _strikeDistance + _strikeTolerance) return;
 
-        if (!CanAmbush(villain, position, out CS_VillainHealth ambushed)) return;
-
-        DealDamage(ambushed, ambushed.currentHp);
-        CS_AttackHitDetector.TryKnockback(ambushed, position);
-        NotifyAmbush(ambushed);
+        DealDamage(villain, villain.currentHp);
+        CS_AttackHitDetector.TryKnockback(villain, position);
+        NotifyAmbush(villain);
     }
 
     // ダメージを与える。スコア(CS_PlayerScoring)があればそれを通し、誰が倒したかをスコアに反映する
@@ -247,7 +343,12 @@ public class CS_PlayerAmbush : NetworkBehaviour
 
     private float HorizontalDistance(Vector3 targetPosition)
     {
-        Vector3 offset = targetPosition - transform.position;
+        return HorizontalDistance(targetPosition, transform.position);
+    }
+
+    private static float HorizontalDistance(Vector3 a, Vector3 b)
+    {
+        Vector3 offset = a - b;
         offset.y = 0f;
         return offset.magnitude;
     }

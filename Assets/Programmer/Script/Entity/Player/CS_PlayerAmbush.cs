@@ -32,7 +32,8 @@ using UnityEngine;
  *   飛び込んだ直後はサーバー上の位置が追いついていないので、送られてきた位置のずれは_range分多めに許す
  * ・奇襲が決まった時はonAmbush(倒した悪人)で知らせる(サーバー、またはオフラインのみ)
  *   見た目用に、onAmbushStarted(飛び込み開始)・onAmbushHitTiming(当たる瞬間)を本人の手元で出す。演出は未実装
- * ・壁越しの悪人は奇襲できない: プレイヤーの体の中心から悪人の体の中心までの間に、_obstacleLayersのもの(壁など)があれば奇襲にならない
+ * ・壁越しの悪人は奇襲できない: プレイヤーの体の中心から悪人の体の中心までを、半径_clearRadiusの球でなぞり、_obstacleLayersのもの(壁など)があれば奇襲にならない
+ *   体の幅で調べるので、線は通っても体が壁の角に引っかかる、ということがない
  *   キャラクター(IDamageableを持つもの)は遮るものとして扱わない。飛び込みもこの線の上を進むので、壁をすり抜けて奇襲することもない
  * ・飛び込んでいる間は、_dashPassThroughLayers(悪人・プレイヤー)とぶつからない(Rigidbody.excludeLayers)
  *   間にいる他の悪人・仲間に引っかかって止まり、奇襲が中止されることがないようにするため。着いたら(攻撃に移ったら)元に戻す
@@ -53,6 +54,7 @@ public class CS_PlayerAmbush : NetworkBehaviour
     [Header("奇襲できる悪人を探す(ロックオン表示用)")]
     [SerializeField] private LayerMask _villainLayers = ~0;               // 悪人を探すレイヤー
     [SerializeField] private LayerMask _obstacleLayers = ~0;              // 悪人との間にあると奇襲できなくなるもの(壁など)のレイヤー
+    [SerializeField][Min(0f)] private float _clearRadius = 0.4f;          // 壁が無いかを調べる太さ(m。体の半径より少し小さく)
 
     [Header("奇襲攻撃")]
     [SerializeField][Min(0.1f)] private float _dashSpeed = 30f;           // 飛び込む速さ(m/秒)
@@ -442,7 +444,7 @@ public class CS_PlayerAmbush : NetworkBehaviour
         return IsClearLine(attackerPosition, villainTransform);
     }
 
-    // fromから悪人の体の中心までの間に、壁など(_obstacleLayers)が無いか
+    // fromから悪人の体の中心までの間に、壁など(_obstacleLayers)が無いか(体の幅の分、半径_clearRadiusの球でなぞって調べる)
     // 悪人自身・プレイヤー・他の悪人などのキャラクター(IDamageableを持つもの)は遮るものとして扱わない
     private bool IsClearLine(Vector3 from, Transform villain)
     {
@@ -450,7 +452,7 @@ public class CS_PlayerAmbush : NetworkBehaviour
         float distance = toVillain.magnitude;
         if (distance <= 0.0001f) return true;
 
-        int count = Physics.RaycastNonAlloc(from, toVillain / distance, _obstacleBuffer, distance, _obstacleLayers, QueryTriggerInteraction.Ignore);
+        int count = Physics.SphereCastNonAlloc(from, _clearRadius, toVillain / distance, _obstacleBuffer, distance, _obstacleLayers, QueryTriggerInteraction.Ignore);
         for (int i = 0; i < count; i++)
         {
             Collider hit = _obstacleBuffer[i].collider;

@@ -25,9 +25,11 @@ public static class CS_AttackHitDetector
 
     // 攻撃した本人から送られてきた位置・向きを確かめる(サーバーで使う)
     // サーバー上の位置から大きく離れている時(不正・大きな遅延)は、サーバー上の位置・向きを使う。向きは水平にそろえる
-    public static void ResolvePose(Transform origin, ref Vector3 position, ref Vector3 forward)
+    // extraTolerance: 許すずれを増やす距離(m)。奇襲で遠くから飛び込んだ時など、手元の位置がサーバーより大きく先に進む時に使う
+    public static void ResolvePose(Transform origin, ref Vector3 position, ref Vector3 forward, float extraTolerance = 0f)
     {
-        if ((position - origin.position).sqrMagnitude > _maxPoseError * _maxPoseError)
+        float maxError = _maxPoseError + Mathf.Max(0f, extraTolerance);
+        if ((position - origin.position).sqrMagnitude > maxError * maxError)
         {
             position = origin.position;
             forward = origin.forward;

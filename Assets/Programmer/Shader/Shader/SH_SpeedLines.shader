@@ -113,6 +113,8 @@ Shader "Hidden/Shader/SH_SpeedLines"
         float headFade = 1.0 - smoothstep(0.46, 0.5, flow);   // 外側の先端をわずかにぼかす
         float streakMask = step(flow, 0.5) * saturate(flow / 0.5) * headFade;
 
+        //---------------ここまで完了
+
         // 中心付近には出さない(内側の端の位置は本ごとにずらす)
         float inner = _InnerRadius * lerp(0.8, 1.3, randomShape);
         float radialMask = smoothstep(inner, inner + _Softness, distFromCenter);

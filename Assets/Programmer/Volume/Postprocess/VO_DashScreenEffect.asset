@@ -10,11 +10,12 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: d7fd9488000d3734a9e00ee676215985, type: 3}
-  m_Name: VO_DashSpeedLines
+  m_Name: VO_DashScreenEffect
   m_EditorClassIdentifier: Unity.RenderPipelines.Core.Runtime::UnityEngine.Rendering.VolumeProfile
   components:
   - {fileID: 5713184258960347303}
   - {fileID: 8074616241615446153}
+  - {fileID: 6184029375510273946}
 --- !u!114 &5713184258960347303
 MonoBehaviour:
   m_ObjectHideFlags: 3
@@ -112,3 +113,31 @@ MonoBehaviour:
       m_PreInfinity: 2
       m_PostInfinity: 2
       m_RotationOrder: 4
+--- !u!114 &6184029375510273946
+MonoBehaviour:
+  m_ObjectHideFlags: 3
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d37baf52a0464e7b9221d8466528be29, type: 3}
+  m_Name: CSV_EdgeBlur
+  m_EditorClassIdentifier: Assembly-CSharp::CSV_EdgeBlur
+  active: 1
+  intensity:
+    m_OverrideState: 1
+    m_Value: 1
+  blurRadius:
+    m_OverrideState: 1
+    m_Value: 0.015
+  center:
+    m_OverrideState: 1
+    m_Value: {x: 0.5, y: 0.5}
+  innerRadius:
+    m_OverrideState: 1
+    m_Value: 0.75
+  softness:
+    m_OverrideState: 1
+    m_Value: 0.15

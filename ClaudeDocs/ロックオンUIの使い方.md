@@ -58,6 +58,7 @@ Player.prefab に付いている `CS_PlayerLockOnUI` が、今奇襲できる悪
   1. 悪人がこちらに気づいていない（臨戦態勢で自分を狙っていない）
   2. 悪人との水平距離が `_range`（既定 18m）以内
   3. 背後（`_backAngle`）か上（`_aboveHeight`）を取っている
+  4. 間に壁が無い（プレイヤーの体の中心から悪人の体の中心までの線上に、`_obstacleLayers` のものが無い。キャラクターは遮らない）
 - 悪人を探すレイヤーは `CS_PlayerAmbush` の `_villainLayers`（既定は全部）
 
 ### 「気づかれていない」をクライアントで判定するしくみ
@@ -142,6 +143,7 @@ _lockOnModel.Dispose();
 | `CS_PlayerLockOnUI._searchInterval` | 奇襲できる悪人を探し直す間隔（秒） | 0.1 |
 | `CS_PlayerAmbush._range` / `_backAngle` / `_aboveHeight` | 奇襲の条件（ロックオンも同じ条件を使う） | 18m / 120度 / 1.5m |
 | `CS_PlayerAmbush._villainLayers` | 悪人を探すレイヤー | 全部 |
+| `CS_PlayerAmbush._obstacleLayers` | 間にあると奇襲できなくなるもの（壁など）のレイヤー | 全部 |
 
 ---
 

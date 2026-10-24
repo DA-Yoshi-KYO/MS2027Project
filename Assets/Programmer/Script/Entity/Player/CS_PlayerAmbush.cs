@@ -22,6 +22,8 @@ using UnityEngine;
  * ・判定はダメージと同じくサーバー(またはオフライン)で行う(悪人の臨戦態勢・標的はサーバーでしか分からないため)
  *   位置は、攻撃した本人の手元の位置(CS_PlayerAttackが送ってくるもの)を使う
  * ・奇襲が決まった時はonAmbush(倒した悪人)で知らせる(サーバー、またはオフラインのみ)。演出は未実装
+ * ・壁越しの悪人は奇襲できない: プレイヤーの体の中心から悪人の体の中心までの間に、_obstacleLayersのもの(壁など)があれば奇襲にならない
+ *   キャラクター(IDamageableを持つもの)は遮るものとして扱わない。飛び込みもこの線の上を進むので、壁をすり抜けて奇襲することもない
  * ・今奇襲できる悪人はFindAmbushTarget()で探せる(全クライアントで呼べる)。ロックオンUI(CS_PlayerLockOnUI)が使う
  * ・1段目を出した時に奇襲できる悪人がいれば、エイムアシスト(CS_PlayerAimAssist)がその悪人へ_rangeまで飛び込む
  *   なので_rangeを広げると、遠くから奇襲できるようになる(既定はPlayer.prefabで18m)
@@ -38,9 +40,11 @@ public class CS_PlayerAmbush : MonoBehaviour
 
     [Header("奇襲できる悪人を探す(ロックオン表示用)")]
     [SerializeField] private LayerMask _villainLayers = ~0;               // 悪人を探すレイヤー
+    [SerializeField] private LayerMask _obstacleLayers = ~0;              // 悪人との間にあると奇襲できなくなるもの(壁など)のレイヤー
 
     private const int _searchBufferSize = 32;   // 一度に調べるコライダーの上限
     private readonly Collider[] _searchBuffer = new Collider[_searchBufferSize];
+    private readonly RaycastHit[] _obstacleBuffer = new RaycastHit[_searchBufferSize];
 
     public float range => _range;   // 奇襲できる距離(m)。エイムアシストの飛び込み・攻撃判定の位置チェックにも使う
 
@@ -91,7 +95,7 @@ public class CS_PlayerAmbush : MonoBehaviour
         onAmbush?.Invoke(villain);
     }
 
-    // ②距離 ①気づかれていない ③背後か上、の3つがそろっているか
+    // ②距離 ①気づかれていない ③背後か上 ④間に壁が無い、がそろっているか
     private bool MeetsAmbushCondition(CS_VillainHealth villain, Vector3 attackerPosition)
     {
         Transform villainTransform = villain.transform;
@@ -100,7 +104,28 @@ public class CS_PlayerAmbush : MonoBehaviour
 
         if (flat.magnitude > _range) return false;
         if (IsNoticed(villain)) return false;
-        return IsAbove(toAttacker.y) || IsBehind(villainTransform.forward, flat);
+        if (!IsAbove(toAttacker.y) && !IsBehind(villainTransform.forward, flat)) return false;
+        return IsClearLine(attackerPosition, villainTransform);
+    }
+
+    // fromから悪人の体の中心までの間に、壁など(_obstacleLayers)が無いか
+    // 悪人自身・プレイヤー・他の悪人などのキャラクター(IDamageableを持つもの)は遮るものとして扱わない
+    private bool IsClearLine(Vector3 from, Transform villain)
+    {
+        Vector3 toVillain = villain.position - from;
+        float distance = toVillain.magnitude;
+        if (distance <= 0.0001f) return true;
+
+        int count = Physics.RaycastNonAlloc(from, toVillain / distance, _obstacleBuffer, distance, _obstacleLayers, QueryTriggerInteraction.Ignore);
+        for (int i = 0; i < count; i++)
+        {
+            Collider hit = _obstacleBuffer[i].collider;
+            if (hit.transform.IsChildOf(villain) || hit.transform.IsChildOf(transform)) continue;
+            if (hit.GetComponentInParent<IDamageable>() != null) continue;
+
+            return false;
+        }
+        return true;
     }
 
     // 悪人がこちらに気づいているか(臨戦態勢で、自分を狙っている)

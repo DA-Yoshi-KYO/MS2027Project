@@ -24,7 +24,7 @@ using UnityEngine;
  * ・奇襲が決まった時はonAmbush(倒した悪人)で知らせる(サーバー、またはオフラインのみ)。演出は未実装
  * ・今奇襲できる悪人はFindAmbushTarget()で探せる(全クライアントで呼べる)。ロックオンUI(CS_PlayerLockOnUI)が使う
  * ・1段目を出した時に奇襲できる悪人がいれば、エイムアシスト(CS_PlayerAimAssist)がその悪人へ_rangeまで飛び込む
- *   なので_rangeを広げると、遠くから奇襲できるようになる(既定はPlayer.prefabで6m)
+ *   なので_rangeを広げると、遠くから奇襲できるようになる(既定はPlayer.prefabで18m)
  *   悪人に気づかれているかは、CS_VillainCombat.IsTargeting(同期された標的)で判定するので、クライアントでも分かる
  */
 // ========================================

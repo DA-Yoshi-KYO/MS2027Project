@@ -25,8 +25,6 @@
  *   _targetPlayersをオフにすると、プレイヤーは補正しない(悪人だけ)
  * ・警察は倒せない(IDamageableではない)ため、補正の対象にならない
  * ・補正が終わった後も、体は相手の方を向いたまま(移動キーを押すと進む方向へ回る。CS_Player.UpdateFacing)
- * ・奇襲(CS_PlayerAmbush): 1段目の開始時に奇襲できる悪人(ロックオンUIに出ている悪人)がいれば、普段の相手選びよりその悪人を優先し、
- *   踏み込みの最大距離も_maxLungeDistanceではなく奇襲できる距離(CS_PlayerAmbush.range)まで伸ばす(遠くから一気に飛び込んで奇襲する)
  */
 // ========================================
 
@@ -55,7 +53,6 @@ public class CS_PlayerAimAssist : MonoBehaviour
     private CS_Player _player;
     private CS_PlayerAttack _attack;
     private CS_PlayerSpecialAttack _special;
-    private CS_PlayerAmbush _ambush;   // 奇襲の判定。付いていなければ奇襲の飛び込みはしない
     private readonly Collider[] _buffer = new Collider[_bufferSize];
 
     private Transform _target;       // 補正している相手
@@ -67,7 +64,6 @@ public class CS_PlayerAimAssist : MonoBehaviour
         _player = GetComponent<CS_Player>();
         _attack = GetComponent<CS_PlayerAttack>();
         _special = GetComponent<CS_PlayerSpecialAttack>();
-        _ambush = GetComponent<CS_PlayerAmbush>();
     }
 
     private void OnEnable()
@@ -118,9 +114,6 @@ public class CS_PlayerAimAssist : MonoBehaviour
         var steps = _attack.attackSteps;
         if (stepIndex < 0 || stepIndex >= steps.Count) return;
 
-        // 1段目で奇襲できる悪人がいれば、その悪人へ奇襲できる距離まで飛び込む
-        if (stepIndex == 0 && TryBeginAmbush(steps[stepIndex])) return;
-
         Begin(steps[stepIndex]);
     }
 
@@ -154,23 +147,7 @@ public class CS_PlayerAimAssist : MonoBehaviour
 
         _isTracking = true;
         FaceTarget();
-        TryLunge(data, _maxLungeDistance);
-    }
-
-    // 奇襲できる悪人がいれば、その悪人を相手にして向きを補正し、奇襲できる距離まで踏み込む(いなければfalse)
-    private bool TryBeginAmbush(CSO_AttackData data)
-    {
-        if (!_isAssistEnabled || data == null || _ambush == null) return false;
-
-        CS_VillainHealth villain = _ambush.FindAmbushTarget();
-        if (villain == null) return false;
-
-        Release();
-        _target = villain.transform;
-        _isTracking = true;
-        FaceTarget();
-        TryLunge(data, _ambush.range);
-        return true;
+        TryLunge(data);
     }
 
     // 判定が出たので相手を追うのをやめ、少しだけ向きを保ってから戻す
@@ -200,10 +177,9 @@ public class CS_PlayerAimAssist : MonoBehaviour
 
     // 判定が届かない距離なら、届く距離まで踏み込む(判定が出るまでに着くように)
     // 通常攻撃: 判定の球(正面hitRange先)の中心が相手に重なる距離まで / 必殺技(自分中心): 範囲の半分の距離まで
-    // maxDistance: 踏み込む最大の距離(普段は_maxLungeDistance、奇襲の時は奇襲できる距離)
-    private void TryLunge(CSO_AttackData data, float maxDistance)
+    private void TryLunge(CSO_AttackData data)
     {
-        if (maxDistance <= 0f) return;
+        if (_maxLungeDistance <= 0f) return;
 
         float distance = HorizontalDistance(_target.position);
         bool isForward = data.hitRange > 0f;
@@ -211,7 +187,7 @@ public class CS_PlayerAimAssist : MonoBehaviour
         if (distance <= reach) return;
 
         float stopDistance = isForward ? data.hitRange : data.hitRadius * 0.5f;
-        float lungeDistance = Mathf.Min(distance - stopDistance, maxDistance);
+        float lungeDistance = Mathf.Min(distance - stopDistance, _maxLungeDistance);
         float duration = Mathf.Max(Time.fixedDeltaTime, data.hitDelay * _lungeTimeRate);
 
         _player.Lunge(HorizontalDirection(_target.position), lungeDistance, duration);

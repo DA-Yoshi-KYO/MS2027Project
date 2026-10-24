@@ -69,15 +69,19 @@ Player.prefab に付いている `CS_PlayerLockOnUI` が、今奇襲できる悪
 - サーバー・オフラインでは標的をそのまま見る（今までの奇襲の判定と同じ結果）
 - クライアントでは同期を待つので、ほんの少し（1フレームほど）遅れることがあります
 
-### 遠くからの奇襲（飛び込み）
+### 奇襲攻撃（通常攻撃とは別の攻撃）
 
-マーカーが出ている時に攻撃（1段目）を出すと、エイムアシスト（`CS_PlayerAimAssist`）が **その悪人へ一気に飛び込んで奇襲** します。
+奇襲は5段コンボ（`CS_PlayerAttack`）とは別の攻撃で、`CS_PlayerAmbush` が行います。
+マーカーが出ている時に攻撃ボタンを押すと、1段目の代わりに奇襲が始まります（マーカーが出ていなければ、今まで通り1段目から）。
 
-- 普段の相手選びより、奇襲できる悪人を優先する
-- 踏み込みの最大距離は、普段の `_maxLungeDistance`（5m）ではなく、奇襲できる距離（`CS_PlayerAmbush._range`、18m）まで伸びる
-- 飛び込みは1段目の判定が出るまで（`DB_PlayerAttack1` の Hit Delay × `_lungeTimeRate`）に終わる。ゆっくり飛び込ませたい時は Hit Delay を長くする
-- サーバーは、送られてきた攻撃位置がサーバー上の位置から大きく離れていると信用しないが、1段目だけは奇襲できる距離の分だけ多めに許す（`CS_AttackHitDetector.ResolvePose` の `extraTolerance`）
-- エイムアシストをオフ（`_isAssistEnabled`）にすると、飛び込みもしない
+1. **飛び込み**：悪人の今の位置を毎フレーム追いながら、`_dashSpeed`（既定 秒速 30m）で `_strikeDistance`（1.2m）まで近づく
+   - `_maxDashTime`（1 秒）以内に着かない（何かに引っかかった）時や、悪人が倒れた・動けなくなった時は中止
+2. **攻撃**：着いてから `_strikeDelay`（0.1 秒）後に、その悪人1体だけへ奇襲を当てて一撃で倒す（範囲の当たり判定は使わないので空振りしない）
+3. **終わり**：着いてから `_strikeDuration`（0.4 秒）で奇襲が終わる。この後に攻撃ボタンを押すと、通常攻撃の1段目から始まる
+
+- 奇襲中は通常攻撃・必殺技を出さない（`CS_PlayerAttack.isAttacking` が奇襲中も true になる）
+- ダメージはサーバーで確定させる。サーバーは送られてきた位置で奇襲の条件がそろっているか確かめてから倒す（飛び込んだ直後はサーバー上の位置が追いついていないので、位置のずれは `_range` の分だけ多めに許す。`CS_AttackHitDetector.ResolvePose` の `extraTolerance`）
+- 見た目用のイベント（本人の手元のみ）：`onAmbushStarted`（飛び込み開始）、`onAmbushHitTiming`（当たる瞬間）。決まった時の `onAmbush` はサーバー（またはオフライン）のみ
 
 ### 悪人の視野
 
@@ -144,6 +148,8 @@ _lockOnModel.Dispose();
 | `CS_PlayerAmbush._range` / `_backAngle` / `_aboveHeight` | 奇襲の条件（ロックオンも同じ条件を使う） | 18m / 120度 / 1.5m |
 | `CS_PlayerAmbush._villainLayers` | 悪人を探すレイヤー | 全部 |
 | `CS_PlayerAmbush._obstacleLayers` | 間にあると奇襲できなくなるもの（壁など）のレイヤー | 全部 |
+| `CS_PlayerAmbush._dashSpeed` / `_maxDashTime` | 奇襲の飛び込みの速さ（m/秒）/ これ以上かかったら中止（秒） | 30 / 1 |
+| `CS_PlayerAmbush._strikeDistance` / `_strikeDelay` / `_strikeDuration` | 着いたとみなす距離（m）/ 着いてから当たるまで（秒）/ 着いてから終わるまで（秒） | 1.2 / 0.1 / 0.4 |
 
 ---
 

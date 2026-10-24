@@ -32,8 +32,9 @@ using UnityEngine;
  * ・実際のダメージ = CSO_AttackData.CalculateDamage() × CS_PlayerStats.currentAttackPower(倍率。暗躍ボーナス込み)
  * ・ヒットする度に、各段のGauge Gain分だけCS_PlayerSpecialGaugeが溜まる
  *   (仕様では通常攻撃のヒットでは溜まらないため、DB_PlayerAttack1〜5のGauge Gainは0にしている)
- * ・奇襲(CS_PlayerAmbush): 1段目の判定で、気づかれていない悪人の背後・上から当てた時は、一撃で倒すダメージにする
- *   奇襲ではエイムアシストが遠く(CS_PlayerAmbush.range)から飛び込むため、1段目だけ送られてきた位置のずれをその分多めに許す
+ * ・奇襲(CS_PlayerAmbush)はこの5段コンボとは別の攻撃
+ *   待機中に攻撃ボタンを押した時、奇襲できる悪人がいれば1段目の代わりに奇襲を始める(いなければ1段目から)
+ *   奇襲中は通常攻撃を出さない。奇襲が終わった後にボタンを押すと、1段目から始まる
  * ・動けなくなった(死亡・スタン)時はコンボを中断する
  * ・必殺技(CS_PlayerSpecialAttack)を行っている間は、通常攻撃を行わない(isAttacking/isPerformingSpecialで排他制御)
  * ・変身中(CS_PlayerTransformation.isTransformed)でないと発動できない(今は常時変身(Issue #277)のため、いつでも発動できる)
@@ -63,7 +64,7 @@ public class CS_PlayerAttack : NetworkBehaviour
     private CS_PlayerTransformation _transformation;
     private CS_PlayerScoring _scoring;
     private CS_PlayerInteractor _interactor;   // ケアパッケージなどの操作(攻撃と同じボタンを使う)。付いていなければnull
-    private CS_PlayerAmbush _ambush;           // 奇襲の判定。付いていなければ奇襲しない
+    private CS_PlayerAmbush _ambush;           // 奇襲(コンボとは別の攻撃)。付いていなければ奇襲しない
     private readonly Collider[] _hitBuffer = new Collider[_hitBufferSize];
     private readonly HashSet<IDamageable> _hitTargets = new HashSet<IDamageable>();
 
@@ -72,7 +73,8 @@ public class CS_PlayerAttack : NetworkBehaviour
     private bool _hasHit;                   // 現在の段の攻撃判定を行ったか
     private bool _isInputBuffered;          // 攻撃モーション中に次の入力があったか(先行入力)
 
-    public bool isAttacking => _currentStep != _noStep;   // コンボ中か(CS_PlayerSpecialAttackが参照)
+    public bool isAttacking => _currentStep != _noStep || isAmbushing;   // コンボ中・奇襲中か(CS_PlayerSpecialAttackが参照)
+    private bool isAmbushing => _ambush != null && _ambush.isAmbushing;
 
     // 操作しているクライアントでだけ発生する(引数は何段目か、0始まり)。見た目などが購読する
     public event System.Action<int> onStepStarted;
@@ -108,8 +110,8 @@ public class CS_PlayerAttack : NetworkBehaviour
             return;
         }
 
-        // 必殺技中、変身していない間は何もしない
-        if (_specialAttack.isPerformingSpecial || !_transformation.isTransformed) return;
+        // 必殺技中、奇襲中、変身していない間は何もしない
+        if (_specialAttack.isPerformingSpecial || isAmbushing || !_transformation.isTransformed) return;
 
         // ゲームパッドは攻撃(RT)と必殺技(RT+LT)が同じRTを共有するため、
         // LTを押しながらの場合は必殺技の合図とみなし、攻撃としては発動させない
@@ -133,9 +135,11 @@ public class CS_PlayerAttack : NetworkBehaviour
     // 攻撃ボタンが押されたときの処理
     private void OnAttackPressed()
     {
-        // 待機中 → 1段目から開始する
+        // 待機中 → 奇襲できる悪人がいれば奇襲、いなければ1段目から開始する
         if (_currentStep == _noStep)
         {
+            if (_ambush != null && _ambush.TryStartAmbush()) return;
+
             StartStep(0);
             return;
         }
@@ -269,24 +273,14 @@ public class CS_PlayerAttack : NetworkBehaviour
         AttackContext context = new AttackContext(transform, stepIndex);
 
         // 送られてきた位置・向きが、サーバー上の位置から大きく離れていないか確かめてから使う
-        // 1段目は奇襲で遠くから飛び込むことがあり、サーバー上の位置が追いついていないので、奇襲できる距離の分だけ多めに許す
-        float extraTolerance = stepIndex == 0 && _ambush != null ? _ambush.range : 0f;
-        CS_AttackHitDetector.ResolvePose(transform, ref position, ref forward, extraTolerance);
+        CS_AttackHitDetector.ResolvePose(transform, ref position, ref forward);
         CS_AttackHitDetector.FindTargets(transform, position, forward, step, _targetLayers, _hitBuffer, _hitTargets);
 
         foreach (IDamageable target in _hitTargets)
         {
             float damage = step.CalculateDamage(context, target) * _stats.currentAttackPower;
 
-            // 1段目で奇襲の条件がそろっていれば、一撃で倒すダメージにする(CS_PlayerAmbush)
-            CS_VillainHealth ambushed = null;
-            if (stepIndex == 0 && _ambush != null && _ambush.CanAmbush(target, position, out ambushed))
-            {
-                damage = Mathf.Max(damage, ambushed.currentHp);
-            }
-
             DealDamage(target, damage);
-            if (ambushed != null) _ambush.NotifyAmbush(ambushed);
             CS_AttackHitDetector.TryKnockback(target, position);   // 攻撃した位置から離れる方向へ下がる
             step.OnHit(context, target);
             _gauge.Fill(step.gaugeGain);

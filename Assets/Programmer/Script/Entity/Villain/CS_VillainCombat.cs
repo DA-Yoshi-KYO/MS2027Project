@@ -788,6 +788,9 @@ public class CS_VillainCombat : NetworkBehaviour
             // 煙幕の中にいる標的・煙幕越しの標的は見えない(近くにいても気付かない)
             if (CS_SmokeScreen.IsLineBlocked(eyePosition, _hitBuffer[i].bounds.center)) continue;
 
+            // ハイドポイントに張り付いているプレイヤーには気付かない(ハイドを抜けるか、近づくと気付く)
+            if (CS_PlayerHide.IsConcealedFrom(player.transform, transform.position)) continue;
+
             float sqr = (player.transform.position - transform.position).sqrMagnitude;
             if (sqr >= nearestSqr) continue;
 

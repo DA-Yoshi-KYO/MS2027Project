@@ -4885,6 +4885,8 @@ GameObject:
   - component: {fileID: 3846102957716629043}
   - component: {fileID: 7731590264018837125}
   - component: {fileID: 4718293045561290871}
+  - component: {fileID: 6660456579872789801}
+  - component: {fileID: 5684253229926721997}
   m_Layer: 31
   m_Name: Player
   m_TagString: PlayerNoTransformation
@@ -6364,3 +6366,38 @@ MonoBehaviour:
   _range: 18
   _backAngle: 120
   _aboveHeight: 1.5
+--- !u!114 &6660456579872789801
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1825699444668748530}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0a843cced13a44a4b36951ea2ab60ea6, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CS_PlayerHide
+  _searchRange: 10
+  _sightHeight: 1.3
+  _pointHeight: 1
+  _flySpeed: 25
+  _arriveDistance: 0.3
+  _maxFlyTime: 1
+  _exitInputThreshold: 0.5
+  _revealDistance: 2
+--- !u!114 &5684253229926721997
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1825699444668748530}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 98ae5aa3d0ce4b05a64ce2824ea519fb, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CS_PlayerHideMarker
+  _markerColor: {r: 0.3, g: 0.9, b: 1, a: 0.9}
+  _markerSize: 28
+  _markerHeight: 1.6

@@ -69,6 +69,9 @@ using UnityEngine.InputSystem;
  *   WasPressedThisFrame() / IsPressed() で読むだけでよい
  * ・落下の保険(Issue #290): 操作しているプレイヤーがy = _fallResetHeightより下に落ちたら、スポーンした位置へ戻す
  *   (床の読み込みより先に落ち始めた時などに、落ち続けないようにする。位置はNetworkTransformのTeleportで全員へ反映する)
+ * ・ハイド(CS_PlayerHide。付いていなければ使わない)
+ *   飛べるハイドポイントがある時のダッシュボタンは、ダッシュの代わりにハイドポイントへ飛ぶ(TryBeginHide)
+ *   ハイド中(飛んでいる・張り付いている)は、ダッシュ・スプリント・通常の移動をしない。ジャンプボタンでハイドを抜けてジャンプする
  */
 // ========================================
 
@@ -114,6 +117,7 @@ public class CS_Player : NetworkBehaviour
     private CS_PlayerHealth _health;
     private CS_PlayerStats _stats;
     private CS_PlayerStun _stun;    // スタン(パリーされた時など)。付いていなければスタンしない
+    private CS_PlayerHide _hide;    // ハイド(ハイドポイントに張り付いて隠れる)。付いていなければハイドしない
     private NetworkTransform _networkTransform;
 
     private Vector3 _spawnPosition;     // 操作を始めた時の位置と向き(落ちた時に戻す先)
@@ -154,6 +158,7 @@ public class CS_Player : NetworkBehaviour
     public bool isControlled => _isControlled;          // このプレイヤーを自分(このマシン)が操作しているか(NPCはサーバーでtrue)
     public bool canAct => _isControlled && !_health.isDead && !isStunned;   // 移動・攻撃してよいか(CS_PlayerAttackも参照)
     public bool isStunned => _stun != null && _stun.isStunned;   // スタン中か(パリーされた時など。死亡中と同じく行動できない)
+    public bool isHiding => _hide != null && _hide.isHiding;     // ハイドポイントへ飛んでいる・張り付いている最中か(操作しているマシンでだけ正しい)
     public bool isNpc => _isNpc.Value;                  // NPCか(全クライアントで分かる)
     // 自分の画面のプレイヤー(このマシンで人が操作しているプレイヤー)か。HUD・ミニマップの中心などに使う
     // NPCはホストではIsOwnerがtrueになるため、IsOwnerではなくこちらを使う
@@ -217,6 +222,7 @@ public class CS_Player : NetworkBehaviour
         _health = GetComponent<CS_PlayerHealth>();
         _stats = GetComponent<CS_PlayerStats>();
         _stun = GetComponent<CS_PlayerStun>();
+        _hide = GetComponent<CS_PlayerHide>();
         _networkTransform = GetComponent<NetworkTransform>();
 
         // 壁などとの衝突で回転しないよう、物理による回転はすべて止める
@@ -302,16 +308,26 @@ public class CS_Player : NetworkBehaviour
         // ジャンプ・ダッシュは死亡中に予約されても復帰後に発動しないよう、ここでもcanActを見る
         if (canAct && _jumpButton.WasPressedThisFrame())
         {
+            // ハイド中はハイドを抜けてからジャンプする
+            if (isHiding) _hide.ExitHide();
             _jumpRequested = true;
         }
 
-        if (canAct && !_isDashing && _dashCooldownRemaining <= 0f && _dashButton.WasPressedThisFrame())
+        // 飛べるハイドポイントがあれば、ダッシュの代わりにそこへ飛ぶ(クールタイム中でも飛べる)
+        if (canAct && !isHiding && _dashButton.WasPressedThisFrame())
         {
-            StartDash();
+            if (_hide != null && _hide.TryBeginHide())
+            {
+                _isDashing = false;
+            }
+            else if (!_isDashing && _dashCooldownRemaining <= 0f)
+            {
+                StartDash();
+            }
         }
 
         // ダッシュ中でない間にダッシュボタンを押し続けていればスプリント(ZZZのような挙動。クールタイムとは無関係)
-        _isSprinting = canAct && !_isDashing && _dashButton.IsPressed();
+        _isSprinting = canAct && !isHiding && !_isDashing && _dashButton.IsPressed();
     }
 
     private void FixedUpdate()
@@ -346,6 +362,11 @@ public class CS_Player : NetworkBehaviour
         else if (_lungeRemaining > 0f)
         {
             UpdateLunge();
+        }
+        else if (isHiding)
+        {
+            // ハイドポイントに張り付いている間は動かない(落下は残す)
+            StopHorizontalVelocity();
         }
         else
         {
@@ -384,6 +405,17 @@ public class CS_Player : NetworkBehaviour
 
         _lungeVelocity = direction.normalized * (distance / duration);
         _lungeRemaining = duration;
+    }
+
+    // 水平方向の位置だけを指定した位置へ合わせ、踏み込みを止める(ハイドポイントに張り付く時に使う。高さはそのまま)
+    public void SnapHorizontalPosition(Vector3 position)
+    {
+        _lungeRemaining = 0f;
+        StopHorizontalVelocity();
+
+        Vector3 snapped = new Vector3(position.x, _rigidbody.position.y, position.z);
+        _rigidbody.position = snapped;
+        transform.position = snapped;
     }
 
     // 踏み込み中は、決めた速さで直進する(垂直速度はそのまま)

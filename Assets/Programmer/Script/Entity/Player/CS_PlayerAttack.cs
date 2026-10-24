@@ -35,6 +35,7 @@ using UnityEngine;
  * ・奇襲(CS_PlayerAmbush)はこの5段コンボとは別の攻撃
  *   待機中に攻撃ボタンを押した時、奇襲できる悪人がいれば1段目の代わりに奇襲を始める(いなければ1段目から)
  *   奇襲中は通常攻撃を出さない。奇襲が終わった後にボタンを押すと、1段目から始まる
+ * ・ハイド中(CS_PlayerHide。ハイドポイントへ飛んでいる・張り付いている間)は通常攻撃を出さない
  * ・動けなくなった(死亡・スタン)時はコンボを中断する
  * ・必殺技(CS_PlayerSpecialAttack)を行っている間は、通常攻撃を行わない(isAttacking/isPerformingSpecialで排他制御)
  * ・変身中(CS_PlayerTransformation.isTransformed)でないと発動できない(今は常時変身(Issue #277)のため、いつでも発動できる)
@@ -110,8 +111,8 @@ public class CS_PlayerAttack : NetworkBehaviour
             return;
         }
 
-        // 必殺技中、奇襲中、変身していない間は何もしない
-        if (_specialAttack.isPerformingSpecial || isAmbushing || !_transformation.isTransformed) return;
+        // 必殺技中、奇襲中、ハイド中、変身していない間は何もしない
+        if (_specialAttack.isPerformingSpecial || isAmbushing || _player.isHiding || !_transformation.isTransformed) return;
 
         // ゲームパッドは攻撃(RT)と必殺技(RT+LT)が同じRTを共有するため、
         // LTを押しながらの場合は必殺技の合図とみなし、攻撃としては発動させない

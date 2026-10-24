@@ -33,6 +33,7 @@ using UnityEngine;
  * ・ヒットする度に、各段のGauge Gain分だけCS_PlayerSpecialGaugeが溜まる
  *   (仕様では通常攻撃のヒットでは溜まらないため、DB_PlayerAttack1〜5のGauge Gainは0にしている)
  * ・奇襲(CS_PlayerAmbush): 1段目の判定で、気づかれていない悪人の背後・上から当てた時は、一撃で倒すダメージにする
+ *   奇襲ではエイムアシストが遠く(CS_PlayerAmbush.range)から飛び込むため、1段目だけ送られてきた位置のずれをその分多めに許す
  * ・動けなくなった(死亡・スタン)時はコンボを中断する
  * ・必殺技(CS_PlayerSpecialAttack)を行っている間は、通常攻撃を行わない(isAttacking/isPerformingSpecialで排他制御)
  * ・変身中(CS_PlayerTransformation.isTransformed)でないと発動できない(今は常時変身(Issue #277)のため、いつでも発動できる)
@@ -268,7 +269,9 @@ public class CS_PlayerAttack : NetworkBehaviour
         AttackContext context = new AttackContext(transform, stepIndex);
 
         // 送られてきた位置・向きが、サーバー上の位置から大きく離れていないか確かめてから使う
-        CS_AttackHitDetector.ResolvePose(transform, ref position, ref forward);
+        // 1段目は奇襲で遠くから飛び込むことがあり、サーバー上の位置が追いついていないので、奇襲できる距離の分だけ多めに許す
+        float extraTolerance = stepIndex == 0 && _ambush != null ? _ambush.range : 0f;
+        CS_AttackHitDetector.ResolvePose(transform, ref position, ref forward, extraTolerance);
         CS_AttackHitDetector.FindTargets(transform, position, forward, step, _targetLayers, _hitBuffer, _hitTargets);
 
         foreach (IDamageable target in _hitTargets)

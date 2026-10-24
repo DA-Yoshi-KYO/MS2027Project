@@ -56,7 +56,7 @@ Player.prefab に付いている `CS_PlayerLockOnUI` が、今奇襲できる悪
 - `_searchInterval` 秒ごと（既定 0.1 秒）に `CS_PlayerAmbush.FindAmbushTarget()` を呼び、一番近い「奇襲できる悪人」をロックオンする。いなければ外す
 - 「奇襲できる」の条件は、攻撃した時の奇襲の判定（`CS_PlayerAmbush.CanAmbush`）と同じ
   1. 悪人がこちらに気づいていない（臨戦態勢で自分を狙っていない）
-  2. 悪人との水平距離が `_range`（既定 3m）以内
+  2. 悪人との水平距離が `_range`（既定 6m）以内
   3. 背後（`_backAngle`）か上（`_aboveHeight`）を取っている
 - 悪人を探すレイヤーは `CS_PlayerAmbush` の `_villainLayers`（既定は全部）
 
@@ -68,12 +68,23 @@ Player.prefab に付いている `CS_PlayerLockOnUI` が、今奇襲できる悪
 - サーバー・オフラインでは標的をそのまま見る（今までの奇襲の判定と同じ結果）
 - クライアントでは同期を待つので、ほんの少し（1フレームほど）遅れることがあります
 
+### 遠くからの奇襲（飛び込み）
+
+マーカーが出ている時に攻撃（1段目）を出すと、エイムアシスト（`CS_PlayerAimAssist`）が **その悪人へ一気に飛び込んで奇襲** します。
+
+- 普段の相手選びより、奇襲できる悪人を優先する
+- 踏み込みの最大距離は、普段の `_maxLungeDistance`（5m）ではなく、奇襲できる距離（`CS_PlayerAmbush._range`、6m）まで伸びる
+- 飛び込みは1段目の判定が出るまで（`DB_PlayerAttack1` の Hit Delay × `_lungeTimeRate`）に終わる。ゆっくり飛び込ませたい時は Hit Delay を長くする
+- サーバーは、送られてきた攻撃位置がサーバー上の位置から大きく離れていると信用しないが、1段目だけは奇襲できる距離の分だけ多めに許す（`CS_AttackHitDetector.ResolvePose` の `extraTolerance`）
+- エイムアシストをオフ（`_isAssistEnabled`）にすると、飛び込みもしない
+
 ### 悪人の視野
 
-悪人は犯罪中・巡回中、**正面の視野（`CS_VillainCombat._noticeAngle`、既定は左右 120 度）にいるプレイヤーにだけ気づきます。**
+悪人は犯罪中・巡回中、**正面の視野（`CS_VillainCombat._noticeAngle`、既定は左右 60 度、全体で 120 度）にいるプレイヤーにだけ気づきます。**
 背後から臨戦態勢範囲に入っても気づかないので、背後を取れば奇襲（とロックオン）ができます。
 
 - `_noticeAngle` は `CS_PlayerAmbush._backAngle`（既定 120 度）以下にしておく（大きくすると、背後を取っても気づかれて奇襲できない）
+- 悪人のグループは円に並んで中心を向いているので、視野を広げすぎると、背後を取った悪人の隣の仲間から横で見つかります
 - 攻撃された時の反撃、追跡中の標的探し、陽動ホログラム・警察への気づき方は今まで通り（向きに関係なく気づく）
 
 ---
@@ -129,7 +140,7 @@ _lockOnModel.Dispose();
 | 項目 | 内容 | 既定値 |
 |---|---|---|
 | `CS_PlayerLockOnUI._searchInterval` | 奇襲できる悪人を探し直す間隔（秒） | 0.1 |
-| `CS_PlayerAmbush._range` / `_backAngle` / `_aboveHeight` | 奇襲の条件（ロックオンも同じ条件を使う） | 3m / 120度 / 1.5m |
+| `CS_PlayerAmbush._range` / `_backAngle` / `_aboveHeight` | 奇襲の条件（ロックオンも同じ条件を使う） | 6m / 120度 / 1.5m |
 | `CS_PlayerAmbush._villainLayers` | 悪人を探すレイヤー | 全部 |
 
 ---

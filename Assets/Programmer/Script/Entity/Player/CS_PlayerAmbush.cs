@@ -23,6 +23,8 @@ using UnityEngine;
  *   位置は、攻撃した本人の手元の位置(CS_PlayerAttackが送ってくるもの)を使う
  * ・奇襲が決まった時はonAmbush(倒した悪人)で知らせる(サーバー、またはオフラインのみ)。演出は未実装
  * ・今奇襲できる悪人はFindAmbushTarget()で探せる(全クライアントで呼べる)。ロックオンUI(CS_PlayerLockOnUI)が使う
+ * ・1段目を出した時に奇襲できる悪人がいれば、エイムアシスト(CS_PlayerAimAssist)がその悪人へ_rangeまで飛び込む
+ *   なので_rangeを広げると、遠くから奇襲できるようになる(既定はPlayer.prefabで6m)
  *   悪人に気づかれているかは、CS_VillainCombat.IsTargeting(同期された標的)で判定するので、クライアントでも分かる
  */
 // ========================================
@@ -39,6 +41,8 @@ public class CS_PlayerAmbush : MonoBehaviour
 
     private const int _searchBufferSize = 32;   // 一度に調べるコライダーの上限
     private readonly Collider[] _searchBuffer = new Collider[_searchBufferSize];
+
+    public float range => _range;   // 奇襲できる距離(m)。エイムアシストの飛び込み・攻撃判定の位置チェックにも使う
 
     public event Action<CS_VillainHealth> onAmbush;     // 奇襲が決まった時(サーバー、またはオフラインのみ)
 

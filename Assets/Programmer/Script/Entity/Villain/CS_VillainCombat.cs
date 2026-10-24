@@ -169,7 +169,7 @@ public class CS_VillainCombat : NetworkBehaviour
     [Header("索敵")]
     [SerializeField, Range(0f, 180f)]
     [Tooltip("犯罪中・巡回中にプレイヤーに気付く視野。正面から左右にこの角度(度)以内のプレイヤーだけ気付く(180で全方向)。奇襲の背後の角度(CS_PlayerAmbushのBack Angle)以下にしておくこと")]
-    private float _noticeAngle = 120f;
+    private float _noticeAngle = 60f;   // 左右60度(全体で120度)。広くすると、円に並んだグループの隣の仲間から横で見つかる
 
     [SerializeField, Min(0f)]
     [Tooltip("攻撃された時に、反撃相手のプレイヤーを探す範囲(m)")]

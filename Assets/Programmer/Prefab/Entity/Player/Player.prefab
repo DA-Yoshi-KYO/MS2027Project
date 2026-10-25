@@ -4887,6 +4887,7 @@ GameObject:
   - component: {fileID: 4718293045561290871}
   - component: {fileID: 6660456579872789801}
   - component: {fileID: 5684253229926721997}
+  - component: {fileID: 8473531523518073818}
   m_Layer: 31
   m_Name: Player
   m_TagString: PlayerNoTransformation
@@ -6401,3 +6402,16 @@ MonoBehaviour:
   _markerColor: {r: 0.3, g: 0.9, b: 1, a: 0.9}
   _markerSize: 28
   _markerHeight: 1.6
+--- !u!114 &8473531523518073818
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1825699444668748530}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 52467ef75cb84e01a71cb2bf1eb20ffd, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CS_PlayerHideScreenEffect
+  _hideEffect: {fileID: 11400000, guid: 105e1c159b4c433faa2cce73892ffa49, type: 2}

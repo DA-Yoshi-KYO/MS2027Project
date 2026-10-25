@@ -18,6 +18,7 @@ using UnityEngine;
  *   ③ 背後か上を取っている
  *      背後: 悪人の正面から見て、自分のいる方向が_backAngle度(既定120度)以上うしろ(真後ろを中心に左右60度ずつ)
  *      上  : 自分が悪人より_aboveHeight(既定1.5m)以上高い位置にいる
+ *      ハイドポイントに張り付いて隠れている時(CS_PlayerHide)は、③を見ない(正面からでも奇襲できる。ペルソナ5のカバーからの奇襲)
  * ・奇襲の流れ(攻撃している本人の手元で進める)
  *   1. 待機中に攻撃ボタン → 奇襲できる悪人(FindAmbushTarget)がいれば奇襲を始める(いなければCS_PlayerAttackが1段目を出す)
  *   2. 飛び込み: 悪人の今の位置を毎フレーム追いながら、_dashSpeedで_strikeDistanceの距離まで近づく(CS_Player.Lunge)
@@ -32,8 +33,11 @@ using UnityEngine;
  *   飛び込んだ直後はサーバー上の位置が追いついていないので、送られてきた位置のずれは_range分多めに許す
  * ・奇襲が決まった時はonAmbush(倒した悪人)で知らせる(サーバー、またはオフラインのみ)
  *   見た目用に、onAmbushStarted(飛び込み開始)・onAmbushHitTiming(当たる瞬間)を本人の手元で出す。演出は未実装
- * ・壁越しの悪人は奇襲できない: プレイヤーの体の中心から悪人の体の中心までの間に、_obstacleLayersのもの(壁など)があれば奇襲にならない
+ * ・壁越しの悪人は奇襲できない: プレイヤーの体の中心から悪人の体の中心までを、半径_clearRadiusの球でなぞり、_obstacleLayersのもの(壁など)があれば奇襲にならない
+ *   体の幅で調べるので、線は通っても体が壁の角に引っかかる、ということがない
  *   キャラクター(IDamageableを持つもの)は遮るものとして扱わない。飛び込みもこの線の上を進むので、壁をすり抜けて奇襲することもない
+ * ・飛び込んでいる間は、_dashPassThroughLayers(悪人・プレイヤー)とぶつからない(Rigidbody.excludeLayers)
+ *   間にいる他の悪人・仲間に引っかかって止まり、奇襲が中止されることがないようにするため。着いたら(攻撃に移ったら)元に戻す
  * ・今奇襲できる悪人はFindAmbushTarget()で探せる(全クライアントで呼べる)。ロックオンUI(CS_PlayerLockOnUI)が使う
  * ・_rangeを広げると、遠くから奇襲できるようになる(既定はPlayer.prefabで18m)
  *   悪人に気づかれているかは、CS_VillainCombat.IsTargeting(同期された標的)で判定するので、クライアントでも分かる
@@ -51,6 +55,7 @@ public class CS_PlayerAmbush : NetworkBehaviour
     [Header("奇襲できる悪人を探す(ロックオン表示用)")]
     [SerializeField] private LayerMask _villainLayers = ~0;               // 悪人を探すレイヤー
     [SerializeField] private LayerMask _obstacleLayers = ~0;              // 悪人との間にあると奇襲できなくなるもの(壁など)のレイヤー
+    [SerializeField][Min(0f)] private float _clearRadius = 0.4f;          // 壁が無いかを調べる太さ(m。体の半径より少し小さく)
 
     [Header("奇襲攻撃")]
     [SerializeField][Min(0.1f)] private float _dashSpeed = 30f;           // 飛び込む速さ(m/秒)
@@ -60,6 +65,7 @@ public class CS_PlayerAmbush : NetworkBehaviour
     [SerializeField][Min(0f)] private float _strikeDuration = 0.4f;       // 着いてから奇襲が終わる(動けるようになる)までの時間(秒)
     [SerializeField][Min(0f)] private float _freezeMargin = 0.5f;         // 悪人を止める時間・予約の期限に足す余裕(秒。通信の遅れの分)
     [SerializeField][Min(0f)] private float _strikeTolerance = 2f;        // 当てる時、着いたとみなす距離からさらにこれだけ離れていても許す(m)
+    [SerializeField] private LayerMask _dashPassThroughLayers = 1 << 31;  // 飛び込み中にぶつからないレイヤー(悪人・プレイヤーのいるレイヤー)
 
     private enum Phase
     {
@@ -74,6 +80,10 @@ public class CS_PlayerAmbush : NetworkBehaviour
 
     private CS_Player _player;
     private CS_PlayerScoring _scoring;       // 付いていればスコアを通してダメージを与える
+    private CS_PlayerHide _hide;             // ハイド。隠れている時は「背後か上」を見ない(付いていなければ見る)
+    private Rigidbody _rigidbody;
+    private LayerMask _defaultExcludeLayers;   // 飛び込む前のRigidbody.excludeLayers(飛び込み後に戻す)
+    private bool _isPassingThrough;            // 飛び込み中で、悪人・プレイヤーとぶつからないようにしているか
     private Phase _phase = Phase.None;
     private CS_VillainHealth _target;        // 奇襲している悪人
     private float _elapsed;                  // 今の段階(飛び込み・攻撃)が始まってからの時間
@@ -92,6 +102,8 @@ public class CS_PlayerAmbush : NetworkBehaviour
     {
         _player = GetComponent<CS_Player>();
         _scoring = GetComponent<CS_PlayerScoring>();
+        _hide = GetComponent<CS_PlayerHide>();
+        _rigidbody = GetComponent<Rigidbody>();
     }
 
     private void Update()
@@ -127,6 +139,7 @@ public class CS_PlayerAmbush : NetworkBehaviour
         _elapsed = 0f;
         _hasStruck = false;
         FaceTarget();
+        SetPassThrough(true);
 
         // オフラインではその場で奇襲になるかが決まり、ならなければここで終わる(その時は通常攻撃の1段目を出す)
         RequestStart(villain);
@@ -146,6 +159,7 @@ public class CS_PlayerAmbush : NetworkBehaviour
         {
             _phase = Phase.Strike;
             _elapsed = 0f;
+            SetPassThrough(false);
             return;
         }
 
@@ -186,6 +200,24 @@ public class CS_PlayerAmbush : NetworkBehaviour
         _elapsed = 0f;
         _hasStruck = false;
         _player.ClearAimFacing();
+        SetPassThrough(false);
+    }
+
+    // 飛び込み中だけ、悪人・プレイヤーとぶつからないようにする(間にいるキャラクターに引っかかって止まらないように)
+    private void SetPassThrough(bool passThrough)
+    {
+        if (_rigidbody == null || _isPassingThrough == passThrough) return;
+
+        _isPassingThrough = passThrough;
+        if (passThrough)
+        {
+            _defaultExcludeLayers = _rigidbody.excludeLayers;
+            _rigidbody.excludeLayers = _defaultExcludeLayers | _dashPassThroughLayers;
+        }
+        else
+        {
+            _rigidbody.excludeLayers = _defaultExcludeLayers;
+        }
     }
 
     // 奇襲を始めたことをサーバーへ伝える(サーバーで奇襲になるかを決め、悪人を止める)
@@ -411,11 +443,11 @@ public class CS_PlayerAmbush : NetworkBehaviour
 
         if (flat.magnitude > _range) return false;
         if (IsNoticed(villain)) return false;
-        if (!IsAbove(toAttacker.y) && !IsBehind(villainTransform.forward, flat)) return false;
+        if (!IsHidingAttacker() && !IsAbove(toAttacker.y) && !IsBehind(villainTransform.forward, flat)) return false;
         return IsClearLine(attackerPosition, villainTransform);
     }
 
-    // fromから悪人の体の中心までの間に、壁など(_obstacleLayers)が無いか
+    // fromから悪人の体の中心までの間に、壁など(_obstacleLayers)が無いか(体の幅の分、半径_clearRadiusの球でなぞって調べる)
     // 悪人自身・プレイヤー・他の悪人などのキャラクター(IDamageableを持つもの)は遮るものとして扱わない
     private bool IsClearLine(Vector3 from, Transform villain)
     {
@@ -423,7 +455,7 @@ public class CS_PlayerAmbush : NetworkBehaviour
         float distance = toVillain.magnitude;
         if (distance <= 0.0001f) return true;
 
-        int count = Physics.RaycastNonAlloc(from, toVillain / distance, _obstacleBuffer, distance, _obstacleLayers, QueryTriggerInteraction.Ignore);
+        int count = Physics.SphereCastNonAlloc(from, _clearRadius, toVillain / distance, _obstacleBuffer, distance, _obstacleLayers, QueryTriggerInteraction.Ignore);
         for (int i = 0; i < count; i++)
         {
             Collider hit = _obstacleBuffer[i].collider;
@@ -442,6 +474,12 @@ public class CS_PlayerAmbush : NetworkBehaviour
         if (combat == null) return false;
 
         return combat.IsTargeting(transform.root);
+    }
+
+    // ハイドポイントに張り付いて隠れているか(本人の手元は張り付いた時点で、サーバー・他の人は同期された状態で分かる)
+    private bool IsHidingAttacker()
+    {
+        return _hide != null && (_hide.isAttached || _hide.isHidden);
     }
 
     private bool IsAbove(float heightDifference)

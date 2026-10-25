@@ -19,38 +19,43 @@ using UnityEngine;
  *   2. 飛べるハイドポイントがある時にダッシュボタン(RT/SHIFT)を押すと、ダッシュの代わりに飛ぶ(CS_PlayerがTryBeginHideを呼ぶ)
  *      無い時は今まで通りダッシュになる。張り付いている間に押すと、張り付いたまま次のハイドポイントへ飛び移る(無ければ何もしない)
  *      飛び移る時は、新しいハイドポイントを予約し直す(前のハイドポイントは空く)。飛んでいる間は見つかる
- *   3. 飛ぶ: ハイドポイントの立つ位置へ_flySpeedで直進する(CS_Player.Lunge)。着いたら位置を合わせ、ハイドポイントの正面を向く
- *      _maxFlyTime秒以内に着けなかった(何かに引っかかった)時はやめる
- *   4. 張り付く: その場から動かない。カメラは自由に動かせる。通常攻撃は出さない(CS_PlayerAttackがisHidingを見る)
+ *   3. 飛ぶ: ハイドポイントの立つ位置へ、高さも含めて_flySpeedでまっすぐ飛ぶ(CS_Player.Fly)。街灯の上・車の上などにも飛べる
+ *      着いたら位置(高さ込み)を合わせ、ハイドポイントの正面を向く。_maxFlyTime秒以内に着けなかった時はやめる
+ *      飛んでいる間は物にぶつからない(Rigidbody.detectCollisionsを切る)。途中の車の側面などに引っかからないように
+ *      (飛べるのは、壁などに遮られず見えているハイドポイントだけなので、壁を抜けて飛ぶことはない)
+ *   4. 張り付く: その場から動かない。重力も切る(足場の狭い街灯の上などから落ちないように)
+ *      カメラは自由に動かせる。通常攻撃は出さない(CS_PlayerAttackがisHidingを見る)
  *   5. 抜ける: スティックでハイドポイントの正面(隠れている物)以外の方向へ倒す・ジャンプ(CS_PlayerがExitHideを呼ぶ)
  *      動けなくなった(倒れた・スタン)時も抜ける
  * ・見つからない判定はサーバーで行う(警察・悪人のAIはサーバーで動くため)
  *   張り付いたことをサーバーへ伝え、サーバーがisHidden(NetworkVariable)をtrueにする。飛んでいる間はまだ見つかる
  *   警察(CS_PoliceVision)・悪人(CS_VillainCombat)は、IsConcealedFromで「ハイド中で、_revealDistanceより離れているか」を問い合わせる
  *   _revealDistance(既定2m)まで近づかれると、ハイド中でも見つかる
+ * ・距離(探す範囲・着いた判定・見つかる距離)は、すべて高さも含めた距離で見る
  * ・1か所のハイドポイントに入れるのは1人だけ。飛び始めた時にサーバーで予約し、他の人が使っていれば手元の飛びをやめさせる
  * ・NPCは使わない(人のプレイヤーだけ)
  */
 // ========================================
 
 [RequireComponent(typeof(CS_Player))]
+[RequireComponent(typeof(Rigidbody))]
 public class CS_PlayerHide : NetworkBehaviour
 {
     [Header("飛べるハイドポイントを探す")]
-    [SerializeField][Min(0f)] private float _searchRange = 10f;         // ハイドポイントとの水平距離がこれ以内(m)
+    [SerializeField][Min(0f)] private float _searchRange = 10f;         // ハイドポイントとの距離がこれ以内(m。高さ込み)
     [SerializeField] private float _sightHeight = 1.3f;                 // 遮るものを調べる視線の高さ(足元から。カメラの高さに合わせる)
     [SerializeField] private float _pointHeight = 1f;                   // ハイドポイントの立つ位置から、視線を通す先の高さ(m)
 
     [Header("飛ぶ")]
     [SerializeField][Min(0.1f)] private float _flySpeed = 25f;          // 飛ぶ速さ(m/秒)
-    [SerializeField][Min(0f)] private float _arriveDistance = 0.3f;     // 立つ位置との水平距離がこれ以内になったら着いたとみなす(m)
+    [SerializeField][Min(0f)] private float _arriveDistance = 0.3f;     // 立つ位置との距離がこれ以内になったら着いたとみなす(m。高さ込み)
     [SerializeField][Min(0f)] private float _maxFlyTime = 1f;           // これ以上かかっても着かなければやめる(秒)
 
     [Header("抜ける")]
     [SerializeField][Range(0f, 1f)] private float _exitInputThreshold = 0.5f;  // スティックをこれ以上倒したら抜ける
 
     [Header("見つかる距離")]
-    [SerializeField][Min(0f)] private float _revealDistance = 2f;       // ハイド中でも、警察・悪人とこの水平距離以内なら見つかる(m)
+    [SerializeField][Min(0f)] private float _revealDistance = 2f;       // ハイド中でも、警察・悪人とこの距離以内なら見つかる(m。高さ込み)
 
     private const float _findTolerance = 0.5f;  // サーバーが、伝えられた位置からハイドポイントを探す時に許すずれ(m)
 
@@ -65,6 +70,7 @@ public class CS_PlayerHide : NetworkBehaviour
     private readonly NetworkVariable<bool> _isHidden = new NetworkVariable<bool>();
 
     private CS_Player _player;
+    private Rigidbody _rigidbody;
     private CS_PlayerAmbush _ambush;    // 奇襲。奇襲の飛び込み中はハイドしない(付いていなければ見ない)
 
     // 本人の手元の状態
@@ -72,6 +78,7 @@ public class CS_PlayerHide : NetworkBehaviour
     private CS_HidePoint _point;            // 飛んでいる先・張り付いているハイドポイント
     private CS_HidePoint _candidate;        // 今ダッシュボタンを押したら飛ぶハイドポイント
     private float _elapsed;
+    private bool _isFloating;               // 重力を切っているか(元に戻すため)
 
     // サーバー(またはオフライン)で予約しているハイドポイント
     private CS_HidePoint _reservedPoint;
@@ -83,6 +90,7 @@ public class CS_PlayerHide : NetworkBehaviour
     private void Awake()
     {
         _player = GetComponent<CS_Player>();
+        _rigidbody = GetComponent<Rigidbody>();
         _ambush = GetComponent<CS_PlayerAmbush>();
     }
 
@@ -163,9 +171,7 @@ public class CS_PlayerHide : NetworkBehaviour
     {
         if (targetRoot == null || !targetRoot.TryGetComponent(out CS_PlayerHide hide) || !hide.isHidden) return false;
 
-        Vector3 offset = targetRoot.position - observerPosition;
-        offset.y = 0f;
-        return offset.sqrMagnitude > hide._revealDistance * hide._revealDistance;
+        return (targetRoot.position - observerPosition).sqrMagnitude > hide._revealDistance * hide._revealDistance;
     }
 
     // ========================================
@@ -193,7 +199,7 @@ public class CS_PlayerHide : NetworkBehaviour
             if (point == exclude) continue;
 
             Vector3 target = point.standPosition + Vector3.up * _pointHeight;
-            if (HorizontalDistance(point.standPosition) > _searchRange) continue;
+            if (Vector3.Distance(transform.position, point.standPosition) > _searchRange) continue;
             if (!IsOnScreen(viewCamera, target)) continue;
 
             float angle = Vector3.Angle(cameraForward, target - viewCamera.transform.position);
@@ -213,7 +219,8 @@ public class CS_PlayerHide : NetworkBehaviour
     {
         _elapsed += Time.deltaTime;
 
-        float distance = HorizontalDistance(_point.standPosition);
+        Vector3 toPoint = _point.standPosition - transform.position;
+        float distance = toPoint.magnitude;
         if (distance <= _arriveDistance)
         {
             Arrive();
@@ -227,15 +234,18 @@ public class CS_PlayerHide : NetworkBehaviour
             return;
         }
 
-        // 毎フレーム向きと距離を決め直す(引っかかって少しずれても、立つ位置へ向かう)
-        _player.Lunge(HorizontalDirection(_point.standPosition), distance, distance / _flySpeed);
+        // 毎フレーム向きと距離を決め直す(少しずれても、立つ位置へ向かう)
+        SetFloating(true);
+        _rigidbody.detectCollisions = false;
+        _player.Fly(toPoint / distance, distance, distance / _flySpeed);
     }
 
-    // 着いた: 位置を立つ位置に合わせ、ハイドポイントの正面を向いて張り付く
+    // 着いた: 位置(高さ込み)を立つ位置に合わせ、ハイドポイントの正面を向いて張り付く
     private void Arrive()
     {
         _phase = Phase.Hidden;
-        _player.SnapHorizontalPosition(_point.standPosition);
+        _player.SnapPosition(_point.standPosition);
+        _rigidbody.detectCollisions = true;   // 張り付いたら当たり判定は戻す(重力は切ったまま)
 
         Vector3 forward = _point.standForward;
         if (forward.sqrMagnitude > 0.0001f) _player.SetAimFacing(Quaternion.LookRotation(forward).eulerAngles.y);
@@ -259,6 +269,7 @@ public class CS_PlayerHide : NetworkBehaviour
         _point = null;
         _elapsed = 0f;
         _player.ClearAimFacing();
+        SetFloating(false);
 
         if (wasHiding) RequestRelease();
     }
@@ -269,11 +280,15 @@ public class CS_PlayerHide : NetworkBehaviour
         return viewport.z > 0f && viewport.x >= 0f && viewport.x <= 1f && viewport.y >= 0f && viewport.y <= 1f;
     }
 
-    private float HorizontalDistance(Vector3 position)
+    // 飛んでいる・張り付いている間は重力を切る(floatingがfalseで元に戻し、当たり判定も戻す)
+    // 当たり判定は飛んでいる間だけ切る(UpdateFly / Arriveで切り替える)
+    private void SetFloating(bool floating)
     {
-        Vector3 offset = position - transform.position;
-        offset.y = 0f;
-        return offset.magnitude;
+        if (!floating) _rigidbody.detectCollisions = true;
+        if (_isFloating == floating) return;
+
+        _isFloating = floating;
+        _rigidbody.useGravity = !floating;
     }
 
     private Vector3 HorizontalDirection(Vector3 position)

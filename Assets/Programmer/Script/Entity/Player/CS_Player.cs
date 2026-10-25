@@ -73,6 +73,7 @@ using UnityEngine.InputSystem;
  *   飛べるハイドポイントがある時のダッシュボタンは、ダッシュの代わりにハイドポイントへ飛ぶ(TryBeginHide)
  *   張り付いている間のダッシュボタンは、次のハイドポイントへ飛び移る(無ければ何もしない)
  *   ハイド中(飛んでいる・張り付いている)は、ダッシュ・スプリント・通常の移動をしない。ジャンプボタンでハイドを抜けてジャンプする
+ *   飛ぶ時は高さも含めてまっすぐ進む(Fly)。張り付いている間は速度を0にする(重力はCS_PlayerHideが切る)
  */
 // ========================================
 
@@ -155,6 +156,7 @@ public class CS_Player : NetworkBehaviour
     private float _aimFacingYaw;
     private Vector3 _lungeVelocity; // エイムアシストの踏み込みの速度
     private float _lungeRemaining;  // 踏み込みの残り時間(秒)
+    private bool _isLungeVertical;  // 踏み込みが高さも含めて進むか(Fly)。falseなら水平だけ進む(Lunge)
 
     public bool isControlled => _isControlled;          // このプレイヤーを自分(このマシン)が操作しているか(NPCはサーバーでtrue)
     public bool canAct => _isControlled && !_health.isDead && !isStunned;   // 移動・攻撃してよいか(CS_PlayerAttackも参照)
@@ -366,8 +368,8 @@ public class CS_Player : NetworkBehaviour
         }
         else if (isHiding)
         {
-            // ハイドポイントに張り付いている間は動かない(落下は残す)
-            StopHorizontalVelocity();
+            // ハイドポイントに張り付いている間は動かない(街灯の上などから落ちないよう、縦も止める)
+            _rigidbody.linearVelocity = Vector3.zero;
         }
         else
         {
@@ -406,28 +408,39 @@ public class CS_Player : NetworkBehaviour
 
         _lungeVelocity = direction.normalized * (distance / duration);
         _lungeRemaining = duration;
+        _isLungeVertical = false;
     }
 
-    // 水平方向の位置だけを指定した位置へ合わせ、踏み込みを止める(ハイドポイントに張り付く時に使う。高さはそのまま)
-    public void SnapHorizontalPosition(Vector3 position)
+    // 指定した方向へ、高さも含めてまっすぐ進む(ハイドポイントへ飛ぶ時に使う)。ダッシュを始めると打ち切られる
+    public void Fly(Vector3 direction, float distance, float duration)
+    {
+        if (direction.sqrMagnitude < 0.0001f || distance <= 0f || duration <= 0f) return;
+
+        _lungeVelocity = direction.normalized * (distance / duration);
+        _lungeRemaining = duration;
+        _isLungeVertical = true;
+    }
+
+    // 位置を指定した位置へ合わせ、踏み込みと速度を止める(ハイドポイントに張り付く時に使う)
+    public void SnapPosition(Vector3 position)
     {
         _lungeRemaining = 0f;
-        StopHorizontalVelocity();
-
-        Vector3 snapped = new Vector3(position.x, _rigidbody.position.y, position.z);
-        _rigidbody.position = snapped;
-        transform.position = snapped;
+        _rigidbody.linearVelocity = Vector3.zero;
+        _rigidbody.position = position;
+        transform.position = position;
     }
 
     // 踏み込み中は、決めた速さで直進する(垂直速度はそのまま)
     private void UpdateLunge()
     {
         _lungeRemaining -= Time.fixedDeltaTime;
-        _rigidbody.linearVelocity = new Vector3(_lungeVelocity.x, _rigidbody.linearVelocity.y, _lungeVelocity.z);
+        float verticalVelocity = _isLungeVertical ? _lungeVelocity.y : _rigidbody.linearVelocity.y;
+        _rigidbody.linearVelocity = new Vector3(_lungeVelocity.x, verticalVelocity, _lungeVelocity.z);
 
         if (_lungeRemaining <= 0f)
         {
-            StopHorizontalVelocity();
+            if (_isLungeVertical) _rigidbody.linearVelocity = Vector3.zero;
+            else StopHorizontalVelocity();
         }
     }
 

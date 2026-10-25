@@ -71,6 +71,7 @@ using UnityEngine.InputSystem;
  *   (床の読み込みより先に落ち始めた時などに、落ち続けないようにする。位置はNetworkTransformのTeleportで全員へ反映する)
  * ・ハイド(CS_PlayerHide。付いていなければ使わない)
  *   飛べるハイドポイントがある時のダッシュボタンは、ダッシュの代わりにハイドポイントへ飛ぶ(TryBeginHide)
+ *   張り付いている間のダッシュボタンは、次のハイドポイントへ飛び移る(無ければ何もしない)
  *   ハイド中(飛んでいる・張り付いている)は、ダッシュ・スプリント・通常の移動をしない。ジャンプボタンでハイドを抜けてジャンプする
  */
 // ========================================
@@ -313,14 +314,14 @@ public class CS_Player : NetworkBehaviour
             _jumpRequested = true;
         }
 
-        // 飛べるハイドポイントがあれば、ダッシュの代わりにそこへ飛ぶ(クールタイム中でも飛べる)
-        if (canAct && !isHiding && _dashButton.WasPressedThisFrame())
+        // 飛べるハイドポイントがあれば、ダッシュの代わりにそこへ飛ぶ(クールタイム中でも飛べる。張り付いている間は次のハイドポイントへ)
+        if (canAct && _dashButton.WasPressedThisFrame())
         {
             if (_hide != null && _hide.TryBeginHide())
             {
                 _isDashing = false;
             }
-            else if (!_isDashing && _dashCooldownRemaining <= 0f)
+            else if (!isHiding && !_isDashing && _dashCooldownRemaining <= 0f)
             {
                 StartDash();
             }

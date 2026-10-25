@@ -12,13 +12,13 @@ using UnityEngine;
 /*
  * メモ
  * ・仕様は方針ドキュメント「ハイドポイントの作り方の方針」(仕様書「プレイヤー」のSA ②隠密ポイント)
- *   今は段階1(飛んで張り付き、抜けられる。張り付いている間は見つからない)まで
- *   段階2(張り付いたまま次のハイドポイントへ飛び移る)・段階3(ハイド中から奇襲)はまだ
+ *   今は段階2(張り付いたまま次のハイドポイントへ飛び移る)まで。段階3(ハイド中から奇襲)はまだ
  * ・流れ(本人の手元で進める)
- *   1. ハイドしていない間、飛べるハイドポイント(currentCandidate)を探す
+ *   1. ハイドしていない間・張り付いている間、飛べるハイドポイント(currentCandidate)を探す(張り付いているハイドポイントは除く)
  *      条件: _searchRange以内(水平)・画面に映っている・カメラの高さから見て壁などに遮られていない・カメラの正面に一番近い
  *   2. 飛べるハイドポイントがある時にダッシュボタン(RT/SHIFT)を押すと、ダッシュの代わりに飛ぶ(CS_PlayerがTryBeginHideを呼ぶ)
- *      無い時は今まで通りダッシュになる
+ *      無い時は今まで通りダッシュになる。張り付いている間に押すと、張り付いたまま次のハイドポイントへ飛び移る(無ければ何もしない)
+ *      飛び移る時は、新しいハイドポイントを予約し直す(前のハイドポイントは空く)。飛んでいる間は見つかる
  *   3. 飛ぶ: ハイドポイントの立つ位置へ_flySpeedで直進する(CS_Player.Lunge)。着いたら位置を合わせ、ハイドポイントの正面を向く
  *      _maxFlyTime秒以内に着けなかった(何かに引っかかった)時はやめる
  *   4. 張り付く: その場から動かない。カメラは自由に動かせる。通常攻撃は出さない(CS_PlayerAttackがisHidingを見る)
@@ -109,15 +109,20 @@ public class CS_PlayerHide : NetworkBehaviour
         switch (_phase)
         {
             case Phase.None:
-                _candidate = FindCandidate();
+                _candidate = FindCandidate(null);
                 break;
             case Phase.Fly:
                 _candidate = null;
                 UpdateFly();
                 break;
             case Phase.Hidden:
-                _candidate = null;
-                if (WantsToExit()) EndHide();
+                if (WantsToExit())
+                {
+                    _candidate = null;
+                    EndHide();
+                    break;
+                }
+                _candidate = FindCandidate(_point);
                 break;
         }
     }
@@ -127,9 +132,10 @@ public class CS_PlayerHide : NetworkBehaviour
     // ========================================
 
     // 飛べるハイドポイントがあれば、そこへ飛び始める(始めたらtrue)。ダッシュボタンが押された時に呼ぶ
+    // 張り付いている間に呼ぶと、次のハイドポイントへ飛び移る
     public bool TryBeginHide()
     {
-        if (_phase != Phase.None || !CanUse() || _candidate == null) return false;
+        if (_phase == Phase.Fly || !CanUse() || _candidate == null) return false;
         if (_ambush != null && _ambush.isAmbushing) return false;
 
         _point = _candidate;
@@ -172,8 +178,8 @@ public class CS_PlayerHide : NetworkBehaviour
         return _player.isLocalPlayer && _player.canAct;
     }
 
-    // 飛べるハイドポイントのうち、カメラの正面に一番近いもの(無ければnull)
-    private CS_HidePoint FindCandidate()
+    // 飛べるハイドポイントのうち、カメラの正面に一番近いもの(無ければnull)。exclude(張り付いているハイドポイント)は除く
+    private CS_HidePoint FindCandidate(CS_HidePoint exclude)
     {
         Camera viewCamera = _player.playerCamera;
         if (viewCamera == null) return null;
@@ -184,6 +190,8 @@ public class CS_PlayerHide : NetworkBehaviour
         float bestAngle = float.MaxValue;
         foreach (CS_HidePoint point in CS_HidePoint.activePoints)
         {
+            if (point == exclude) continue;
+
             Vector3 target = point.standPosition + Vector3.up * _pointHeight;
             if (HorizontalDistance(point.standPosition) > _searchRange) continue;
             if (!IsOnScreen(viewCamera, target)) continue;

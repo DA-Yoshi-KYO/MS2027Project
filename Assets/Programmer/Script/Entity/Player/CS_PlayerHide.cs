@@ -12,7 +12,7 @@ using UnityEngine;
 /*
  * メモ
  * ・仕様は方針ドキュメント「ハイドポイントの作り方の方針」(仕様書「プレイヤー」のSA ②隠密ポイント)
- *   今は段階2(張り付いたまま次のハイドポイントへ飛び移る)まで。段階3(ハイド中から奇襲)はまだ
+ *   段階3(ハイド中から奇襲)まで。見た目の演出(段階4)は、画面の端を暗くする(CS_PlayerHideScreenEffect)だけ
  * ・流れ(本人の手元で進める)
  *   1. ハイドしていない間・張り付いている間、飛べるハイドポイント(currentCandidate)を探す(張り付いているハイドポイントは除く)
  *      条件: _searchRange以内(水平)・画面に映っている・カメラの高さから見て壁などに遮られていない・カメラの正面に一番近い
@@ -25,6 +25,8 @@ using UnityEngine;
  *      (飛べるのは、壁などに遮られず見えているハイドポイントだけなので、壁を抜けて飛ぶことはない)
  *   4. 張り付く: その場から動かない。重力も切る(足場の狭い街灯の上などから落ちないように)
  *      カメラは自由に動かせる。通常攻撃は出さない(CS_PlayerAttackがisHidingを見る)
+ *      攻撃ボタンを押すと、奇襲できる悪人がいれば奇襲を始めてハイドを抜ける(TryAmbush。CS_PlayerAttackが呼ぶ)
+ *      隠れている間は奇襲の「背後か上」の条件を見ない(CS_PlayerAmbush)。サーバーが隠れているうちに判定するよう、奇襲を始めてから抜ける
  *   5. 抜ける: スティックでハイドポイントの正面(隠れている物)以外の方向へ倒す・ジャンプ(CS_PlayerがExitHideを呼ぶ)
  *      動けなくなった(倒れた・スタン)時も抜ける
  * ・見つからない判定はサーバーで行う(警察・悪人のAIはサーバーで動くため)
@@ -85,6 +87,7 @@ public class CS_PlayerHide : NetworkBehaviour
 
     public bool isHiding => _phase != Phase.None;           // 飛んでいる・張り付いている最中か(本人の手元)
     public bool isHidden => _isHidden.Value;                // 見つからない状態か(全員で分かる。サーバーが決める)
+    public bool isAttached => _phase == Phase.Hidden;       // ハイドポイントに張り付いているか(本人の手元。サーバーへ伝わる前から分かる)
     public CS_HidePoint currentCandidate => _candidate;     // 今ダッシュボタンを押したら飛ぶハイドポイント(本人の手元。アイコン表示用)
 
     private void Awake()
@@ -154,6 +157,17 @@ public class CS_PlayerHide : NetworkBehaviour
 
         RequestReserve(_point);
         return _phase != Phase.None;   // オフラインでは、その場で予約できなければここで終わる
+    }
+
+    // 張り付いている間に、奇襲できる悪人がいれば奇襲を始めてハイドを抜ける(始めたらtrue)。攻撃ボタンが押された時に呼ぶ
+    // 奇襲の依頼を先にサーバーへ送り、隠れているうちに判定してもらう(抜けた知らせはその後に届く)
+    public bool TryAmbush()
+    {
+        if (_phase != Phase.Hidden || _ambush == null) return false;
+        if (!_ambush.TryStartAmbush()) return false;
+
+        EndHide();
+        return true;
     }
 
     // ハイドをやめる(ジャンプボタンが押された時など)

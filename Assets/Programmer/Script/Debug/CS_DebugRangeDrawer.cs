@@ -242,6 +242,11 @@ public class CS_DebugRangeDrawer : MonoBehaviour
             case CSE_SecurityDroneState.Detected: return _policeViewChaseColor;
             case CSE_SecurityDroneState.Chase: return _policeViewAlertColor;
             case CSE_SecurityDroneState.Stunned: return _securityStunnedColor;
+            case CSE_SecurityDroneState.Recovery: return _securityStunnedColor;
+            case CSE_SecurityDroneState.TaserCharge:
+            case CSE_SecurityDroneState.TaserAim:
+            case CSE_SecurityDroneState.KillApproach:
+            case CSE_SecurityDroneState.KillCharge: return _policeViewChaseColor;
             default: return _policeViewPatrolColor;
         }
     }

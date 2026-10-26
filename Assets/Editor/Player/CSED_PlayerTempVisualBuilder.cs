@@ -3,7 +3,6 @@ using System.IO;
 using UnityEditor;
 using UnityEditor.Animations;
 using UnityEngine;
-using UnityEngine.Rendering.HighDefinition;
 
 /*
  * 仮アセット(Mannequin)をPlayerの見た目として組み込むエディタ拡張
@@ -15,18 +14,15 @@ using UnityEngine.Rendering.HighDefinition;
 // ========================================
 /*
  * メモ
- * ・通常の見た目(Mannequin_Medium)と、変身後の見た目(Mannequin_Large)の2体を組み込む
- *   ボーン構成(Rig_Medium / Rig_Large)が違い、アニメーションを共有できないため、見た目ごとに
- *   アニメーションとAnimator Controllerを分けている(RigSetupで見た目ごとの違いをまとめている)
+ * ・見た目(Mannequin_Large)を1体組み込む
+ *   常時変身(Issue #277)になったため、以前の通常の見た目(Mannequin_Medium)と変身途中のパーティクルは組み込まない
+ *   (以前のPlayer.prefabに残っている場合は、実行すると取り除く)
  * ・やること
  *   1. 使うアニメーションのループ設定(FBXのImport設定)
- *   2. Animator Controller(PlayerTempAnimator.controller / PlayerTempAnimator_Transformed.controller)の生成
- *      パラメータ名はCS_PlayerAnimatorParamsの定数を使う(2つとも同じパラメータ・同じ状態の構成)
- *   3. マテリアル(MT_PlayerMannequin.mat)の生成(2体で共用)
- *   4. Player.prefabへModel / TransformedModelを追加し、CS_PlayerVisualに2つのAnimatorを設定する
- *      (カプセルの描画は外す。TransformedModelは非表示で置き、変身中だけCS_PlayerVisualが表示する)
- *   5. 変身途中のパーティクル(TransformingEffect)と、そのマテリアル(MT_PlayerTransformingParticle.mat)を作り、
- *      CS_PlayerVisualに設定する(足元から光の粒が立ち上る仮の演出)
+ *   2. Animator Controller(PlayerTempAnimator_Transformed.controller)の生成
+ *      パラメータ名はCS_PlayerAnimatorParamsの定数を使う
+ *   3. マテリアル(MT_PlayerMannequin.mat)の生成
+ *   4. Player.prefabへModelを追加し、CS_PlayerVisualにAnimatorを設定する(カプセルの描画は外す)
  * ・Large用のアニメーションには後退・横移動・ジャンプが無いため、近いモーションで代用している
  * ・本番アセットに差し替えるときは、このツールは不要になる(ClaudeUsers/プレイヤー見た目の差し替えガイド.md)
  * ・攻撃モーションの再生速度は、CSO_AttackDataのDurationに収まるよう自動で決める
@@ -35,12 +31,11 @@ using UnityEngine.Rendering.HighDefinition;
 
 public static class CSED_PlayerTempVisualBuilder
 {
-    // 見た目ごとに違う設定(モデル、アニメーション、使うモーション名)
+    // 見た目の設定(モデル、アニメーション、使うモーション名)
     private class RigSetup
     {
         public string modelPath;
         public string modelName;            // Player.prefab内での子オブジェクト名
-        public bool active;                 // Prefab上で表示しておくか
         public string controllerPath;
         public string animFolder;
         public string[] clipFiles;
@@ -61,47 +56,19 @@ public static class CSED_PlayerTempVisualBuilder
         public string special;
     }
 
-    private const string _tempRoot = "Assets/Programmer/TempAssets/Player";
+    private const string _tempRoot = "Assets/Programmer/PlaceholderAsset/Player";
     private const string _texturePath = _tempRoot + "/Mannequin Character/Textures/mannequin_texture.png";
-    private const string _outputFolder = "Assets/Programmer/TempAssets/Generated";
+    private const string _outputFolder = "Assets/Programmer/PlaceholderAsset/Generated";
     private const string _materialPath = _outputFolder + "/MT_PlayerMannequin.mat";
-    private const string _particleMaterialPath = _outputFolder + "/MT_PlayerTransformingParticle.mat";
-    private const string _transformingEffectName = "TransformingEffect";
-    private static readonly Color _transformingColor = new Color(0.3f, 0.8f, 1f);
+    private static readonly string[] _oldChildNames = { "TransformedModel", "TransformingEffect" };    // 以前組み込んでいた子オブジェクト
     private const string _prefabPath = "Assets/Programmer/Prefab/Entity/Player/Player.prefab";
     private const float _transitionTime = 0.1f;
 
-    // 通常の見た目
-    private static readonly RigSetup _normalRig = new RigSetup
-    {
-        modelPath = _tempRoot + "/Mannequin Character/characters/Mannequin_Medium.fbx",
-        modelName = "Model",
-        active = true,
-        controllerPath = _outputFolder + "/PlayerTempAnimator.controller",
-        animFolder = _tempRoot + "/Animations/fbx/Rig_Medium/",
-        clipFiles = new[] { "Rig_Medium_General", "Rig_Medium_MovementBasic", "Rig_Medium_MovementAdvanced", "Rig_Medium_CombatMelee" },
-        loopClips = new[] { "Idle_A", "Running_A", "Walking_Backwards", "Running_Strafe_Left", "Running_Strafe_Right", "Jump_Idle" },
-        idle = "Idle_A",
-        forward = "Running_A",
-        backward = "Walking_Backwards",
-        strafeLeft = "Running_Strafe_Left",
-        strafeRight = "Running_Strafe_Right",
-        jumpStart = "Jump_Start",
-        jumpAir = "Jump_Idle",
-        jumpLand = "Jump_Land",
-        dash = "Dodge_Forward",
-        hit = "Hit_A",
-        death = "Death_A",
-        attacks = new[] { "Melee_Unarmed_Attack_Punch_A", "Melee_Unarmed_Attack_Kick", "Melee_1H_Attack_Jump_Chop" },
-        special = "Melee_2H_Attack_Spinning",
-    };
-
-    // 変身後の見た目(後退・横移動・ジャンプのモーションが無いので代用する)
-    private static readonly RigSetup _transformedRig = new RigSetup
+    // 見た目(後退・横移動・ジャンプのモーションが無いので代用する)
+    private static readonly RigSetup _rig = new RigSetup
     {
         modelPath = _tempRoot + "/Mannequin Character/characters/Mannequin_Large.fbx",
-        modelName = "TransformedModel",
-        active = false,
+        modelName = "Model",
         controllerPath = _outputFolder + "/PlayerTempAnimator_Transformed.controller",
         animFolder = _tempRoot + "/Animations/fbx/Rig_Large/",
         clipFiles = new[] { "Rig_Large_General", "Rig_Large_MovementBasic", "Rig_Large_MovementAdvanced", "Rig_Large_CombatMelee" },
@@ -125,12 +92,10 @@ public static class CSED_PlayerTempVisualBuilder
     public static void Build()
     {
         EnsureFolder(_outputFolder);
-        SetLoopSettings(_normalRig);
-        SetLoopSettings(_transformedRig);
+        SetLoopSettings(_rig);
 
         Material material = CreateMaterial();
-        Material particleMaterial = CreateParticleMaterial();
-        ApplyToPrefab(material, particleMaterial);
+        ApplyToPrefab(material);
 
         AssetDatabase.SaveAssets();
         Debug.Log("CSED_PlayerTempVisualBuilder: 仮の見た目を組み込みました");
@@ -211,28 +176,6 @@ public static class CSED_PlayerTempVisualBuilder
         material.SetTexture("_BaseColorMap", texture);
         material.SetColor("_BaseColor", Color.white);
         material.SetFloat("_Smoothness", 0.2f);
-        EditorUtility.SetDirty(material);
-        return material;
-    }
-
-    // 変身途中のパーティクル用。加算合成で光って見えるよう、露出の影響を受けない発光色を使う
-    private static Material CreateParticleMaterial()
-    {
-        Material material = AssetDatabase.LoadAssetAtPath<Material>(_particleMaterialPath);
-        if (material == null)
-        {
-            material = new Material(Shader.Find("HDRP/Unlit"));
-            AssetDatabase.CreateAsset(material, _particleMaterialPath);
-        }
-
-        Texture2D texture = AssetDatabase.GetBuiltinExtraResource<Texture2D>("Default-Particle.psd");
-        material.SetTexture("_UnlitColorMap", texture);
-        material.SetColor("_UnlitColor", _transformingColor);
-        material.SetFloat("_BlendMode", 1f);      // 加算合成
-        material.SetFloat("_EmissiveExposureWeight", 0f);
-        HDMaterial.SetSurfaceType(material, true);
-        HDMaterial.SetEmissiveColor(material, _transformingColor * 2f);
-        HDMaterial.ValidateMaterial(material);
         EditorUtility.SetDirty(material);
         return material;
     }
@@ -439,7 +382,7 @@ public static class CSED_PlayerTempVisualBuilder
 
     // ---- Prefab ----
 
-    private static void ApplyToPrefab(Material material, Material particleMaterial)
+    private static void ApplyToPrefab(Material material)
     {
         GameObject root = PrefabUtility.LoadPrefabContents(_prefabPath);
 
@@ -453,10 +396,9 @@ public static class CSED_PlayerTempVisualBuilder
             float dashDuration = player != null ? player.dashDuration : 0f;
 
             RemoveCapsuleRenderer(root);
-            Animator normal = AttachModel(root, _normalRig, CreateController(_normalRig, steps, specialData, dashDuration), material);
-            Animator transformed = AttachModel(root, _transformedRig, CreateController(_transformedRig, steps, specialData, dashDuration), material);
-            ParticleSystem effect = AttachTransformingEffect(root, particleMaterial);
-            AttachVisual(root, normal, transformed, effect);
+            RemoveOldChildren(root);
+            Animator animator = AttachModel(root, _rig, CreateController(_rig, steps, specialData, dashDuration), material);
+            AttachVisual(root, animator);
 
             PrefabUtility.SaveAsPrefabAsset(root, _prefabPath);
         }
@@ -474,6 +416,15 @@ public static class CSED_PlayerTempVisualBuilder
         if (filter != null) Object.DestroyImmediate(filter);
     }
 
+    private static void RemoveOldChildren(GameObject root)
+    {
+        foreach (string name in _oldChildNames)
+        {
+            Transform old = root.transform.Find(name);
+            if (old != null) Object.DestroyImmediate(old.gameObject);
+        }
+    }
+
     private static Animator AttachModel(GameObject root, RigSetup rig, AnimatorController controller, Material material)
     {
         Transform old = root.transform.Find(rig.modelName);
@@ -484,7 +435,6 @@ public static class CSED_PlayerTempVisualBuilder
         model.name = rig.modelName;
         model.transform.localPosition = new Vector3(0f, -1f, 0f);   // カプセル(高さ2)の足元に合わせる
         model.transform.localRotation = Quaternion.identity;
-        model.SetActive(rig.active);
 
         foreach (Renderer renderer in model.GetComponentsInChildren<Renderer>(true))
         {
@@ -499,57 +449,13 @@ public static class CSED_PlayerTempVisualBuilder
         return animator;
     }
 
-    // 足元から光の粒が立ち上る、変身途中の仮エフェクト
-    private static ParticleSystem AttachTransformingEffect(GameObject root, Material material)
-    {
-        Transform old = root.transform.Find(_transformingEffectName);
-        if (old != null) Object.DestroyImmediate(old.gameObject);
-
-        GameObject effectObject = new GameObject(_transformingEffectName);
-        effectObject.transform.SetParent(root.transform, false);
-        effectObject.transform.localPosition = new Vector3(0f, -1f, 0f);        // カプセルの足元
-        effectObject.transform.localRotation = Quaternion.Euler(-90f, 0f, 0f);  // 上向きに放出する
-
-        ParticleSystem particle = effectObject.AddComponent<ParticleSystem>();
-        particle.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
-
-        ParticleSystem.MainModule main = particle.main;
-        main.playOnAwake = false;
-        main.loop = true;
-        main.duration = 1f;
-        main.startLifetime = 1.2f;
-        main.startSpeed = new ParticleSystem.MinMaxCurve(1.5f, 3f);
-        main.startSize = new ParticleSystem.MinMaxCurve(0.1f, 0.25f);
-        main.startColor = _transformingColor;
-        main.simulationSpace = ParticleSystemSimulationSpace.World;
-        main.maxParticles = 300;
-
-        ParticleSystem.EmissionModule emission = particle.emission;
-        emission.rateOverTime = 60f;
-
-        ParticleSystem.ShapeModule shape = particle.shape;
-        shape.shapeType = ParticleSystemShapeType.Cone;
-        shape.angle = 5f;
-        shape.radius = 0.7f;
-
-        ParticleSystem.SizeOverLifetimeModule size = particle.sizeOverLifetime;
-        size.enabled = true;
-        size.size = new ParticleSystem.MinMaxCurve(1f, AnimationCurve.Linear(0f, 1f, 1f, 0f));
-
-        ParticleSystemRenderer renderer = effectObject.GetComponent<ParticleSystemRenderer>();
-        renderer.sharedMaterial = material;
-        return particle;
-    }
-
-    private static void AttachVisual(GameObject root, Animator normal, Animator transformed, ParticleSystem transformingEffect)
+    private static void AttachVisual(GameObject root, Animator animator)
     {
         CS_PlayerVisual visual = root.GetComponent<CS_PlayerVisual>();
         if (visual == null) visual = root.AddComponent<CS_PlayerVisual>();
 
         SerializedObject serialized = new SerializedObject(visual);
-        serialized.FindProperty("_animator").objectReferenceValue = normal;
-        serialized.FindProperty("_transformedAnimator").objectReferenceValue = transformed;
-        serialized.FindProperty("_transformingEffect").objectReferenceValue = transformingEffect;
+        serialized.FindProperty("_animator").objectReferenceValue = animator;
         serialized.ApplyModifiedPropertiesWithoutUndo();
     }
 }

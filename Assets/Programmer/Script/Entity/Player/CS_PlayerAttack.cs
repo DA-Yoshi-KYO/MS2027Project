@@ -39,7 +39,6 @@ using UnityEngine;
  *   張り付いている間に攻撃ボタンを押すと、奇襲できる悪人がいれば奇襲する(CS_PlayerHide.TryAmbush)
  * ・動けなくなった(死亡・スタン)時はコンボを中断する
  * ・必殺技(CS_PlayerSpecialAttack)を行っている間は、通常攻撃を行わない(isAttacking/isPerformingSpecialで排他制御)
- * ・変身中(CS_PlayerTransformation.isTransformed)でないと発動できない(今は常時変身(Issue #277)のため、いつでも発動できる)
  */
 // ========================================
 
@@ -47,7 +46,6 @@ using UnityEngine;
 [RequireComponent(typeof(CS_PlayerStats))]
 [RequireComponent(typeof(CS_PlayerSpecialGauge))]
 [RequireComponent(typeof(CS_PlayerSpecialAttack))]
-[RequireComponent(typeof(CS_PlayerTransformation))]
 public class CS_PlayerAttack : NetworkBehaviour
 {
     [Header("コンボ")]
@@ -63,7 +61,6 @@ public class CS_PlayerAttack : NetworkBehaviour
     private CS_PlayerStats _stats;
     private CS_PlayerSpecialGauge _gauge;
     private CS_PlayerSpecialAttack _specialAttack;
-    private CS_PlayerTransformation _transformation;
     private CS_PlayerScoring _scoring;
     private CS_PlayerInteractor _interactor;   // ケアパッケージなどの操作(攻撃と同じボタンを使う)。付いていなければnull
     private CS_PlayerHide _hide;               // ハイド。張り付いている間は通常攻撃の代わりに奇襲だけ出す。付いていなければnull
@@ -93,7 +90,6 @@ public class CS_PlayerAttack : NetworkBehaviour
         _stats = GetComponent<CS_PlayerStats>();
         _gauge = GetComponent<CS_PlayerSpecialGauge>();
         _specialAttack = GetComponent<CS_PlayerSpecialAttack>();
-        _transformation = GetComponent<CS_PlayerTransformation>();
         _scoring = GetComponent<CS_PlayerScoring>();
         _interactor = GetComponent<CS_PlayerInteractor>();
         _ambush = GetComponent<CS_PlayerAmbush>();
@@ -114,8 +110,8 @@ public class CS_PlayerAttack : NetworkBehaviour
             return;
         }
 
-        // 必殺技中、奇襲中、変身していない間は何もしない
-        if (_specialAttack.isPerformingSpecial || isAmbushing || !_transformation.isTransformed) return;
+        // 必殺技中、奇襲中は何もしない
+        if (_specialAttack.isPerformingSpecial || isAmbushing) return;
 
         // ハイド中は通常攻撃を出さない。張り付いている間の攻撃ボタンは、奇襲できる悪人がいれば奇襲する
         if (_player.isHiding)
@@ -276,9 +272,6 @@ public class CS_PlayerAttack : NetworkBehaviour
     {
         // 不正な段番号は無視する(クライアントからの値は信用しない)
         if (stepIndex < 0 || stepIndex >= _attackSteps.Length) return;
-
-        // 判定タイミングまでの間に変身が解けていた場合は不発にする(死亡時の強制解除など)
-        if (!_transformation.isTransformed) return;
 
         CSO_AttackData step = _attackSteps[stepIndex];
         AttackContext context = new AttackContext(transform, stepIndex);

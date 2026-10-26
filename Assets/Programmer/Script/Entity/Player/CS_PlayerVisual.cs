@@ -16,8 +16,11 @@ using UnityEngine;
  * ■ ネットワークの考え方
  *   Animatorは全クライアントが「自分のもの」をローカルで動かす(NetworkAnimatorは使わない)。
  *   ・移動、接地、死亡 : 全クライアントで、座標の変化や同期済みのHPから自分で計算する(通信なし)
+ *     走っているか(Sprint)も、座標の変化の速さが通常の移動より速いかで決める
+ *     (CS_Player.isSprinting / isDashingは操作している本人の手元にしか無いため)
  *   ・被弾           : 同期済みのHPが減ったのを各クライアントが検知して再生する(通信なし)
- *   ・ジャンプ、ダッシュ、攻撃、必殺技 : 操作している本人が再生し、同時にRPCで他クライアントへ通知する
+ *   ・ジャンプ、ダッシュ、攻撃、必殺技、奇襲 : 操作している本人が再生し、同時にRPCで他クライアントへ通知する
+ *   ・パリー(反撃) : CS_PlayerParry.onParriedが全クライアントで発生するので、各クライアントが再生する(通信なし)
  *   後から参加したクライアントには単発の動作は再生されないが、死亡は状態から判定するので反映される
  *   ・復活直後の無敵の点滅 : 同期済みの無敵終了時刻(CS_PlayerRespawn.isRespawnInvincible)から全クライアントで判定する
  *
@@ -47,6 +50,8 @@ public class CS_PlayerVisual : NetworkBehaviour
         Dash,
         Attack,
         Special,
+        Parry,
+        Ambush,
     }
 
     [SerializeField] private Animator _animator;                // 見た目のAnimator(空なら子オブジェクトから探す)
@@ -61,6 +66,8 @@ public class CS_PlayerVisual : NetworkBehaviour
     private CS_PlayerAttack _attack;
     private CS_PlayerSpecialAttack _special;
     private CS_PlayerRespawn _respawn;
+    private CS_PlayerParry _parry;
+    private CS_PlayerAmbush _ambush;
     private Renderer[] _renderers;
     private bool _isHidden;     // 点滅で隠している最中か
 
@@ -76,6 +83,8 @@ public class CS_PlayerVisual : NetworkBehaviour
         _attack = GetComponent<CS_PlayerAttack>();
         _special = GetComponent<CS_PlayerSpecialAttack>();
         _respawn = GetComponent<CS_PlayerRespawn>();
+        _parry = GetComponent<CS_PlayerParry>();
+        _ambush = GetComponent<CS_PlayerAmbush>();
         _renderers = GetComponentsInChildren<Renderer>(true);
 
         if (_animator == null)
@@ -100,6 +109,8 @@ public class CS_PlayerVisual : NetworkBehaviour
 
         if (_attack != null) _attack.onStepStarted += HandleAttackStepStarted;
         if (_special != null) _special.onSpecialStarted += HandleSpecialStarted;
+        if (_parry != null) _parry.onParried += HandleParried;
+        if (_ambush != null) _ambush.onAmbushStarted += HandleAmbushStarted;
     }
 
     private void OnDisable()
@@ -110,6 +121,8 @@ public class CS_PlayerVisual : NetworkBehaviour
 
         if (_attack != null) _attack.onStepStarted -= HandleAttackStepStarted;
         if (_special != null) _special.onSpecialStarted -= HandleSpecialStarted;
+        if (_parry != null) _parry.onParried -= HandleParried;
+        if (_ambush != null) _ambush.onAmbushStarted -= HandleAmbushStarted;
     }
 
     private void LateUpdate()
@@ -176,12 +189,20 @@ public class CS_PlayerVisual : NetworkBehaviour
         SetFloat(CS_PlayerAnimatorParams.moveXHash, move.x, deltaTime);
         SetFloat(CS_PlayerAnimatorParams.moveZHash, move.y, deltaTime);
         SetFloat(CS_PlayerAnimatorParams.speedHash, move.magnitude, deltaTime);
+
+        // 通常の移動の速さと、走る速さ(ダッシュボタンを押し続けている間)の中間より速ければ走っている
+        float sprintThreshold = Mathf.Max(reference * 1.1f, (reference + _stats.currentSprintSpeed) * 0.5f);
+        SetBool(CS_PlayerAnimatorParams.sprintHash, velocity.magnitude > sprintThreshold);
     }
 
     private void HandleJumped() => PerformOwnerAction(ActionType.Jump, 0);
     private void HandleDashStarted() => PerformOwnerAction(ActionType.Dash, 0);
     private void HandleAttackStepStarted(int step) => PerformOwnerAction(ActionType.Attack, step);
     private void HandleSpecialStarted() => PerformOwnerAction(ActionType.Special, 0);
+    private void HandleAmbushStarted(CS_VillainHealth villain) => PerformOwnerAction(ActionType.Ambush, 0);
+
+    // パリー(反撃)は全クライアントで発生するので、通知せずにそれぞれで再生する
+    private void HandleParried(GameObject target) => PlayAction(ActionType.Parry, 0);
 
     // HPが減ったら被弾。全クライアントで同期済みのHPの変化から検知する
     private void HandleHpChanged(float current, float max)
@@ -229,6 +250,12 @@ public class CS_PlayerVisual : NetworkBehaviour
                 break;
             case ActionType.Special:
                 SetTrigger(CS_PlayerAnimatorParams.specialHash);
+                break;
+            case ActionType.Parry:
+                SetTrigger(CS_PlayerAnimatorParams.parryHash);
+                break;
+            case ActionType.Ambush:
+                SetTrigger(CS_PlayerAnimatorParams.ambushHash);
                 break;
         }
     }

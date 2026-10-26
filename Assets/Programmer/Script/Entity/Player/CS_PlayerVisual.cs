@@ -25,20 +25,12 @@ using UnityEngine;
  *   復活直後の無敵中は、子のRenderer(モデル)を_blinkInterval秒ごとに表示/非表示する
  *   Renderer.enabledは触らず、forceRenderingOffで隠す(他の処理が設定した表示状態を壊さないため)
  *
- * ■ 変身後の見た目
- *   変身が完了している間(CS_PlayerTransformation.isTransformed)は、_animatorのモデルを隠して
- *   _transformedAnimatorのモデルを表示し、以降のアニメーションは表示中の方のAnimatorへ送る
- *   変身状態は同期済みなので、全クライアント(途中参加も含む)で同じ見た目になる
- *   _transformedAnimatorが空なら、変身しても見た目は変わらない
- *
- * ■ 変身途中のエフェクト
- *   変身途中(CS_PlayerTransformation.isTransforming)の間だけ_transformingEffectを再生する(全クライアント)
- *   終わったら放出だけ止め、出ている粒は自然に消えるのを待つ。_transformingEffectが空なら何も出さない
- *   ※ 常時変身(Issue #277)になり変身途中が無くなったため、今は再生されない
+ * ■ 見た目は1つ
+ *   常時変身(Issue #277)になったため、通常の見た目と変身後の見た目の切り替え、変身途中のエフェクトは無くした
+ *   見た目は_animatorのモデル(Player.prefabのModel)だけ
  *
  * ■ 差し替え
  *   ・Animatorは自動で子オブジェクトから探す(_animatorが空のとき)。Modelの子を差し替えるだけでよい
- *   ・変身後の見た目はTransformedModel(_transformedAnimator)。通常の見た目と同じパラメータを持つControllerを使う
  *   ・Controller側に用意するパラメータはCS_PlayerAnimatorParamsを参照。無いパラメータは無視される
  *   ・ルートモーションは使わない(移動はRigidbodyが行うため、強制的にオフにする)
  *   ・詳しくは ClaudeUsers/プレイヤー見た目の差し替えガイド.md
@@ -57,13 +49,11 @@ public class CS_PlayerVisual : NetworkBehaviour
         Special,
     }
 
-    [SerializeField] private Animator _animator;                // 通常の見た目のAnimator
-    [SerializeField] private Animator _transformedAnimator;     // 変身後の見た目のAnimator(空なら変身しても見た目は変わらない)
+    [SerializeField] private Animator _animator;                // 見た目のAnimator(空なら子オブジェクトから探す)
     [SerializeField] private float _locomotionDamping = 0.08f;  // 移動パラメータのなめらかさ(小さいほど素早く追従)
     [SerializeField] private float _maxTrackedSpeed = 40f;      // これを超える座標の変化はテレポートとみなして無視する(m/秒)
     [SerializeField] private float _blinkInterval = 0.1f;       // 復活直後の無敵中に点滅する間隔(秒)
     [SerializeField][Min(1)] private int _attackMotionCount = 3;    // Animatorにある通常攻撃のモーションの数。これを超えた段(5段コンボの4・5段目など)は先頭から使い回す
-    [SerializeField] private ParticleSystem _transformingEffect;    // 変身途中に出すパーティクル(空なら出さない)
 
     private CS_Player _player;
     private CS_PlayerStats _stats;
@@ -71,10 +61,6 @@ public class CS_PlayerVisual : NetworkBehaviour
     private CS_PlayerAttack _attack;
     private CS_PlayerSpecialAttack _special;
     private CS_PlayerRespawn _respawn;
-    private CS_PlayerTransformation _transformation;
-    private Animator _normalAnimator;       // 通常の見た目のAnimator(_animatorは表示中の方を指す)
-    private bool _isShowingTransformed;     // 変身後の見た目を表示しているか
-    private bool _isPlayingTransformingEffect;  // 変身途中のエフェクトを再生しているか
     private Renderer[] _renderers;
     private bool _isHidden;     // 点滅で隠している最中か
 
@@ -90,20 +76,11 @@ public class CS_PlayerVisual : NetworkBehaviour
         _attack = GetComponent<CS_PlayerAttack>();
         _special = GetComponent<CS_PlayerSpecialAttack>();
         _respawn = GetComponent<CS_PlayerRespawn>();
-        _transformation = GetComponent<CS_PlayerTransformation>();
         _renderers = GetComponentsInChildren<Renderer>(true);
 
         if (_animator == null)
         {
             _animator = GetComponentInChildren<Animator>();
-        }
-
-        _normalAnimator = _animator;
-
-        // 変身後の見た目は、変身するまで隠しておく
-        if (_transformedAnimator != null)
-        {
-            _transformedAnimator.gameObject.SetActive(false);
         }
 
         CacheAnimatorParams();
@@ -137,8 +114,6 @@ public class CS_PlayerVisual : NetworkBehaviour
 
     private void LateUpdate()
     {
-        UpdateModel();
-        UpdateTransformingEffect();
         UpdateBlink();
 
         if (_animator == null) return;
@@ -147,40 +122,6 @@ public class CS_PlayerVisual : NetworkBehaviour
         SetBool(CS_PlayerAnimatorParams.groundedHash, _player.isGrounded);
         SetBool(CS_PlayerAnimatorParams.deadHash, _health.isDead);
         if (Has(CS_PlayerAnimatorParams.attackSpeedHash)) _animator.SetFloat(CS_PlayerAnimatorParams.attackSpeedHash, _stats.comboSpeedRate);
-    }
-
-    // 変身が完了している間だけ変身後のモデルを表示し、アニメーションの送り先も切り替える
-    private void UpdateModel()
-    {
-        if (_normalAnimator == null || _transformedAnimator == null) return;
-
-        bool transformed = _transformation != null && _transformation.isTransformed;
-        if (transformed == _isShowingTransformed) return;
-
-        _isShowingTransformed = transformed;
-        _normalAnimator.gameObject.SetActive(!transformed);
-        _transformedAnimator.gameObject.SetActive(transformed);
-
-        _animator = transformed ? _transformedAnimator : _normalAnimator;
-        CacheAnimatorParams();
-    }
-
-    // 変身途中の間だけエフェクトを再生する
-    private void UpdateTransformingEffect()
-    {
-        if (_transformingEffect == null) return;
-
-        bool transforming = _transformation != null && _transformation.isTransforming;
-        if (transforming == _isPlayingTransformingEffect) return;
-
-        _isPlayingTransformingEffect = transforming;
-        if (transforming)
-        {
-            _transformingEffect.Play(true);
-            return;
-        }
-
-        _transformingEffect.Stop(true, ParticleSystemStopBehavior.StopEmitting);
     }
 
     // 復活直後の無敵中は点滅させ、無敵が終わったら表示に戻す

@@ -81,6 +81,7 @@ using UnityEngine.InputSystem;
 [RequireComponent(typeof(CapsuleCollider))]
 [RequireComponent(typeof(CS_PlayerHealth))]
 [RequireComponent(typeof(CS_PlayerStats))]
+[RequireComponent(typeof(CS_PlayerTransformation))]  // 警察に見つかるためのタグを付ける
 public class CS_Player : NetworkBehaviour
 {
     [Header("移動")]

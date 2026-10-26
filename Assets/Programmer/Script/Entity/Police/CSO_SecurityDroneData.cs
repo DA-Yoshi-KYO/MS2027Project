@@ -47,9 +47,35 @@ public class CSO_SecurityDroneData : ScriptableObject
     private float _chaseDuration = 6.0f;
     public float chaseDuration => _chaseDuration;
 
+    [Header("＝＝＝ 制圧モード(プレイヤーを攻撃する) ＝＝＝")]
+    [SerializeField, Min(0f)]
+    [Tooltip("モード移行にかかる時間(秒)。プレイヤーを見ている時間がこの長さたまると、制圧モードに入る")]
+    private float _modeTransitionTime = 15.0f;
+    public float modeTransitionTime => _modeTransitionTime;
+
+    [SerializeField, Min(0f)]
+    [Tooltip("テーザーの攻撃の溜め時間(秒)。プレイヤーを追いながら溜める")]
+    private float _taserChargeTime = 2.0f;
+    public float taserChargeTime => _taserChargeTime;
+
+    [SerializeField, Min(0f)]
+    [Tooltip("テーザーが当たったプレイヤーが、スタン(動けない状態)になる時間(秒)")]
+    private float _taserStunTime = 10.0f;
+    public float taserStunTime => _taserStunTime;
+
+    [SerializeField, Min(0f)]
+    [Tooltip("即死攻撃の溜め時間(秒)。この間に範囲から逃げられなかったプレイヤーは即死する")]
+    private float _killChargeTime = 5.0f;
+    public float killChargeTime => _killChargeTime;
+
+    [SerializeField, Min(0f)]
+    [Tooltip("攻撃後の隙(秒)。この間、ドローンは動かず、攻撃もしない")]
+    private float _recoveryTime = 5.0f;
+    public float recoveryTime => _recoveryTime;
+
     [Header("＝＝＝ スタン ＝＝＝")]
     [SerializeField, Min(0.1f)]
-    [Tooltip("背中から攻撃された時に、動かなくなる時間(秒)")]
+    [Tooltip("背中から攻撃された時に、ドローンが動かなくなる時間(秒。停止によるスタン時間)")]
     private float _stunDuration = 5.0f;
     public float stunDuration => _stunDuration;
 

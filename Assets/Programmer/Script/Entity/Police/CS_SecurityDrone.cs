@@ -11,7 +11,9 @@ using UnityEngine;
 
 /// <summary>
 /// 巡回ドローン(警察陣営の防犯装置)のクラス
-/// ・足が遅く、攻撃もできない。空中に浮いているので、3Dの巡回ポイントを順に回る(立体的に巡回できる)
+/// ・足が遅い。空中に浮いているので、3Dの巡回ポイントを順に回る(立体的に巡回できる)
+///   プレイヤーを見ている時間が一定の長さたまると、制圧モードに入り、プレイヤーを攻撃する(テーザーで動けなくして、即死攻撃を溜める)
+///   制圧モードの動きは、CS_SecurityDroneSuppressionが行う
 /// ・警察と同じ視界(視野角・距離・高さ)を持つ。プレイヤーを見つけたら、警察陣営を警戒状態にする
 ///   見つけている間は、目が青と赤で点滅する。見失ったあとも、しばらく(設定の時間)ついてくる
 /// ・背中から攻撃されると、一定時間動かなくなる(スタン)。目も消える。パリーの反撃(IStunnable)でもスタンする
@@ -64,6 +66,12 @@ public class CS_SecurityDrone : NetworkBehaviour, IDamageable, IStunnable
     // 障害物を避ける時に、まっすぐな向きから外す角度(度。小さい角度から順に試す)と、上へ避ける角度(度)
     private static readonly float[] _detourYawAngles = { 30.0f, 60.0f, 90.0f, 120.0f };
     private const float _detourPitchAngle = 45.0f;
+
+    // プレイヤーを見ている時間の合計(秒。制圧モードに入る条件。巡回に戻る・スタンされる・制圧モードを終えると、0に戻す)
+    private float _detectedTime = 0.0f;
+
+    // 制圧モード(プレイヤーを攻撃する動き)を管理するクラス(付いていなければ、攻撃しない)
+    private CS_SecurityDroneSuppression _suppression = null;
 
     // 初期化済みか(Settingが呼ばれた=サーバー、またはオフラインだけがtrue)
     private bool _isInitialized = false;
@@ -125,9 +133,14 @@ public class CS_SecurityDrone : NetworkBehaviour, IDamageable, IStunnable
     // 今の状態(全クライアントで分かる。ネットワークに出現していない時は、判断に使っている状態)
     public CSE_SecurityDroneState state => IsSpawned ? _state.Value : _currentState;
 
+    // 制圧モードのクラスが使う: ドローンのデータ・追跡速度
+    public CSO_SecurityDroneData data => _data;
+    public float chaseSpeed => _chaseSpeed;
+
     private void Awake()
     {
         _vision = GetComponent<CS_PoliceVision>();
+        _suppression = GetComponent<CS_SecurityDroneSuppression>();
         CreateHitColumn();
     }
 
@@ -173,6 +186,13 @@ public class CS_SecurityDrone : NetworkBehaviour, IDamageable, IStunnable
             return;
         }
 
+        // 制圧モード中は、制圧モードのクラスが動かす(終わったら、追跡に戻る)
+        if (_suppression != null && _suppression.isActive)
+        {
+            UpdateSuppression();
+            return;
+        }
+
         // 見つけたかの判断は、一定間隔で行う(視界判定の負荷を抑えるため)
         _thinkTimer -= Time.deltaTime;
         if (_thinkTimer <= 0.0f)
@@ -213,6 +233,8 @@ public class CS_SecurityDrone : NetworkBehaviour, IDamageable, IStunnable
 
         _stunTimer = duration;
         _target = null;
+        _detectedTime = 0.0f;
+        if (_suppression != null) _suppression.Cancel();
         SetState(CSE_SecurityDroneState.Stunned);
     }
 
@@ -259,6 +281,24 @@ public class CS_SecurityDrone : NetworkBehaviour, IDamageable, IStunnable
         SetState(CSE_SecurityDroneState.Detected);
 
         CS_PoliceAlertManager.Report(player.GetComponent<CS_PlayerHealth>(), player.position);
+
+        // 見ている時間がたまったら、制圧モードに入る(プレイヤーを攻撃する)
+        _detectedTime += _thinkInterval;
+        if (_suppression != null && _detectedTime >= _data.modeTransitionTime) _suppression.Begin(player);
+    }
+
+    /// <summary>
+    /// 制圧モードを進めるメソッド(毎フレーム。制圧モードが終わったら、プレイヤーを見失った状態で、追跡に戻る)
+    /// </summary>
+    private void UpdateSuppression()
+    {
+        _suppression.Tick(Time.deltaTime);
+        UpdateHitColumn();
+        if (_suppression.isActive) return;
+
+        _detectedTime = 0.0f;
+        _chaseTimer = _data.chaseDuration;
+        SetState(CSE_SecurityDroneState.Chase);
     }
 
     /// <summary>
@@ -267,6 +307,7 @@ public class CS_SecurityDrone : NetworkBehaviour, IDamageable, IStunnable
     private void EndChase()
     {
         _target = null;
+        _detectedTime = 0.0f;
         _patrolIndex = FindNearestPatrolPoint();
         SetState(CSE_SecurityDroneState.Patrol);
     }
@@ -318,6 +359,38 @@ public class CS_SecurityDrone : NetworkBehaviour, IDamageable, IStunnable
     }
 
     /// <summary>
+    /// 制圧モードのクラスが使う: 目的地へ、1フレーム分進むメソッド(壁を避ける・巡回範囲から出ない)
+    /// </summary>
+    public void SteerTo(Vector3 destination, float speed)
+    {
+        MoveToward(destination, speed);
+    }
+
+    /// <summary>
+    /// 制圧モードのクラスが使う: 指定した位置の方へ、水平方向に少しずつ向きを変えるメソッド
+    /// </summary>
+    public void FaceToward(Vector3 position)
+    {
+        TurnToward(position - transform.position);
+    }
+
+    /// <summary>
+    /// 制圧モードのクラスが使う: 状態(見た目)を変えるメソッド
+    /// </summary>
+    public void ChangeState(CSE_SecurityDroneState newState)
+    {
+        SetState(newState);
+    }
+
+    /// <summary>
+    /// 制圧モードのクラスが使う: 追う相手を変えるメソッド(テーザーが当たったプレイヤーへ変える)
+    /// </summary>
+    public void SetTarget(Transform target)
+    {
+        _target = target;
+    }
+
+    /// <summary>
     /// 状態に応じた目的地へ、移動するメソッド
     /// </summary>
     private void UpdateMovement()
@@ -334,7 +407,7 @@ public class CS_SecurityDrone : NetworkBehaviour, IDamageable, IStunnable
     /// <summary>
     /// 追う時の目的地を求めるメソッド(プレイヤーの少し上。水平方向に近づきすぎたら、その場で止まる)
     /// </summary>
-    private Vector3 GetChaseDestination()
+    public Vector3 GetChaseDestination()
     {
         Vector3 targetPosition = _target != null ? _target.position : _lastSeenPosition;
         Vector3 destination = targetPosition + Vector3.up * _hoverHeight;
@@ -528,8 +601,11 @@ public class CS_SecurityDrone : NetworkBehaviour, IDamageable, IStunnable
         if (_faceRenderer != null) _faceRenderer.enabled = current != CSE_SecurityDroneState.Stunned;
         if (_faceBlink == null) return;
 
-        if (current == CSE_SecurityDroneState.Detected && !_faceBlink.isFlashing) _faceBlink.StartFlash(float.MaxValue);
-        else if (current != CSE_SecurityDroneState.Detected) _faceBlink.StopFlash();
+        // 見つけている間と、制圧モードで攻撃している間(攻撃後の隙は除く)は、目が点滅する
+        bool isFlashing = current != CSE_SecurityDroneState.Patrol && current != CSE_SecurityDroneState.Chase
+            && current != CSE_SecurityDroneState.Stunned && current != CSE_SecurityDroneState.Recovery;
+        if (isFlashing && !_faceBlink.isFlashing) _faceBlink.StartFlash(float.MaxValue);
+        else if (!isFlashing) _faceBlink.StopFlash();
     }
 
     private void OnDrawGizmosSelected()

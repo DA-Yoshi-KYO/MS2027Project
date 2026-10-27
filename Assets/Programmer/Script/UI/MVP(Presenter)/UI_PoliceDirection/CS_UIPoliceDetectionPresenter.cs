@@ -10,20 +10,16 @@ using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
-/// ローカルプレイヤーから見た警察の角度・距離を計算し、
-/// 近い方向・距離の警察をまとめてViewへ渡すPresenter。
-/// 状態はReactivePropertyに保持され、方向・距離だけ毎フレーム計算する。
+/// Safe以外の警察について、プレイヤーから見た方向と距離を計算するPresenter。
 /// </summary>
 public class CS_UIPoliceDetectionPresenter : CS_BasePresenter
 {
     [Header("近い警察を1アイコンへまとめる")]
     [SerializeField] private bool _combineNearbyPolice = true;
 
-    [Header("まとめる最大角度差（度）")]
     [Range(0f, 180f)]
     [SerializeField] private float _combineAngleThreshold = 15f;
 
-    [Header("まとめる最大距離差（m）")]
     [Min(0f)]
     [SerializeField] private float _combineDistanceThreshold = 5f;
 
@@ -42,7 +38,8 @@ public class CS_UIPoliceDetectionPresenter : CS_BasePresenter
         if (_view == null)
         {
             Debug.LogError(
-                "[CS_UIPoliceDetectionPresenter] Viewがありません。"
+                "[CS_UIPoliceDetectionPresenter] Viewがありません。",
+                this
             );
             return;
         }
@@ -62,12 +59,8 @@ public class CS_UIPoliceDetectionPresenter : CS_BasePresenter
 
     private void LateUpdate()
     {
-        if (_model == null ||
-            _view == null ||
-            _playerTransform == null)
-        {
+        if (_model == null || _view == null || _playerTransform == null)
             return;
-        }
 
         BuildCalculatedPolice();
         BuildGroups();
@@ -79,32 +72,29 @@ public class CS_UIPoliceDetectionPresenter : CS_BasePresenter
     {
         _calculatedPolice.Clear();
 
-        foreach (var pair in _model.GetVisiblePoliceMap())
+        foreach (var pair in _model.GetPoliceMap())
         {
-            CS_PoliceDetectionData policeData = pair.Value;
+            CS_PoliceDetectionData data = pair.Value;
 
-            if (policeData == null ||
-                policeData.policeTransform == null ||
-                policeData.currentPoliceState ==
-                    CSE_PoliceDetectionState.Hidden)
+            if (data == null ||
+                data.policeTransform == null ||
+                data.currentState == CSE_PlayerDetectionState.Safe)
             {
                 continue;
             }
 
-            Vector3 worldDirection =
-                policeData.policeTransform.position -
-                _playerTransform.position;
+            Vector3 direction =
+                data.policeTransform.position - _playerTransform.position;
 
-            worldDirection.y = 0f;
+            direction.y = 0f;
 
-            if (worldDirection.sqrMagnitude <= 0.0001f)
+            if (direction.sqrMagnitude <= 0.0001f)
                 continue;
 
-            float distance = worldDirection.magnitude;
-
+            float distance = direction.magnitude;
             Vector3 localDirection =
                 _playerTransform.InverseTransformDirection(
-                    worldDirection.normalized
+                    direction.normalized
                 );
 
             float angle = Mathf.Atan2(
@@ -114,10 +104,10 @@ public class CS_UIPoliceDetectionPresenter : CS_BasePresenter
 
             _calculatedPolice.Add(
                 new CalculatedPolice(
-                    policeData.policeId,
+                    data.policeId,
                     angle,
                     distance,
-                    policeData.currentPoliceState
+                    data.currentState
                 )
             );
         }
@@ -129,32 +119,26 @@ public class CS_UIPoliceDetectionPresenter : CS_BasePresenter
 
         foreach (CalculatedPolice police in _calculatedPolice)
         {
-            if (!_combineNearbyPolice)
-            {
-                _groups.Add(new PoliceGroup(police));
-                continue;
-            }
-
             PoliceGroup targetGroup = null;
 
-            foreach (PoliceGroup group in _groups)
+            if (_combineNearbyPolice)
             {
-                float angleDifference = Mathf.Abs(
-                    Mathf.DeltaAngle(
-                        group.averageAngle,
-                        police.angle
-                    )
-                );
-
-                float distanceDifference = Mathf.Abs(
-                    group.averageDistance - police.distance
-                );
-
-                if (angleDifference <= _combineAngleThreshold &&
-                    distanceDifference <= _combineDistanceThreshold)
+                foreach (PoliceGroup group in _groups)
                 {
-                    targetGroup = group;
-                    break;
+                    float angleDifference = Mathf.Abs(
+                        Mathf.DeltaAngle(group.averageAngle, police.angle)
+                    );
+
+                    float distanceDifference = Mathf.Abs(
+                        group.averageDistance - police.distance
+                    );
+
+                    if (angleDifference <= _combineAngleThreshold &&
+                        distanceDifference <= _combineDistanceThreshold)
+                    {
+                        targetGroup = group;
+                        break;
+                    }
                 }
             }
 
@@ -183,85 +167,64 @@ public class CS_UIPoliceDetectionPresenter : CS_BasePresenter
         }
     }
 
-    protected override void OnDestroy()
-    {
-        _calculatedPolice.Clear();
-        _groups.Clear();
-        _renderData.Clear();
-        base.OnDestroy();
-    }
-
     private readonly struct CalculatedPolice
     {
-        private readonly string _policeId;
-        private readonly float _angle;
-        private readonly float _distance;
-        private readonly CSE_PoliceDetectionState _policeState;
-
-        public string policeId => _policeId;
-        public float angle => _angle;
-        public float distance => _distance;
-        public CSE_PoliceDetectionState policeState => _policeState;
+        public string id { get; }
+        public float angle { get; }
+        public float distance { get; }
+        public CSE_PlayerDetectionState state { get; }
 
         public CalculatedPolice(
-            string policeId,
+            string id,
             float angle,
             float distance,
-            CSE_PoliceDetectionState policeState)
+            CSE_PlayerDetectionState state)
         {
-            _policeId = policeId;
-            _angle = angle;
-            _distance = distance;
-            _policeState = policeState;
+            this.id = id;
+            this.angle = angle;
+            this.distance = distance;
+            this.state = state;
         }
     }
 
-    private class PoliceGroup
+    private sealed class PoliceGroup
     {
-        private readonly string _groupId;
         private float _directionX;
         private float _directionY;
         private float _totalDistance;
-        private float _nearestDistance;
-        private CSE_PoliceDetectionState _displayState;
-        private int _count;
 
-        public string groupId => _groupId;
-        public int count => _count;
-        public float nearestDistance => _nearestDistance;
-        public CSE_PoliceDetectionState displayState => _displayState;
+        public string groupId { get; }
+        public int count { get; private set; }
+        public float nearestDistance { get; private set; } = float.MaxValue;
+        public CSE_PlayerDetectionState displayState { get; private set; }
 
         public float averageAngle =>
             Mathf.Atan2(_directionX, _directionY) * Mathf.Rad2Deg;
 
         public float averageDistance =>
-            _count > 0 ? _totalDistance / _count : 0f;
+            count > 0 ? _totalDistance / count : 0f;
 
         public PoliceGroup(CalculatedPolice police)
         {
-            _groupId = police.policeId;
-            _nearestDistance = float.MaxValue;
-            _displayState = CSE_PoliceDetectionState.Hidden;
+            groupId = police.id;
+            displayState = CSE_PlayerDetectionState.Safe;
             Add(police);
         }
 
         public void Add(CalculatedPolice police)
         {
-            float angleRadians = police.angle * Mathf.Deg2Rad;
+            float radians = police.angle * Mathf.Deg2Rad;
 
-            _directionX += Mathf.Sin(angleRadians);
-            _directionY += Mathf.Cos(angleRadians);
+            _directionX += Mathf.Sin(radians);
+            _directionY += Mathf.Cos(radians);
             _totalDistance += police.distance;
+            nearestDistance = Mathf.Min(nearestDistance, police.distance);
 
-            _nearestDistance = Mathf.Min(
-                _nearestDistance,
-                police.distance
-            );
+            // SpottedをTrackedより優先する。
+            if ((int)police.state > (int)displayState)
+                displayState = police.state;
 
-            if ((int)police.policeState > (int)_displayState)
-                _displayState = police.policeState;
-
-            _count++;
+            count++;
         }
     }
 }

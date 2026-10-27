@@ -7,7 +7,6 @@
  * ================================================ */
 
 using Unity.Netcode;
-using UnityEngine;
 
 /// <summary>
 /// 警察が自分に気付いているかを、警戒UI(CS_PoliceDetectionController)へ知らせるクラス
@@ -42,7 +41,7 @@ public class CS_PoliceDetectionSource : NetworkBehaviour
     private string _id = null;
 
     // 警戒UIに今反映している状態(Hiddenは登録していない状態)
-    private CSE_PoliceDetectionState _appliedState = CSE_PoliceDetectionState.Hidden;
+    private CSE_PlayerDetectionState _appliedState = CSE_PlayerDetectionState.Safe;
 
     // オフラインのテストシーン用
     private void Start()
@@ -124,9 +123,9 @@ public class CS_PoliceDetectionSource : NetworkBehaviour
         if (_id == null) return;
 
         CS_Player.onLocalPlayerSet -= OnLocalPlayerSet;
-        if (_controller != null && _appliedState != CSE_PoliceDetectionState.Hidden) _controller.UnregisterPolice(_id);
+        if (_controller != null && _appliedState != CSE_PlayerDetectionState.Safe) _controller.UnregisterPolice(_id);
 
-        _appliedState = CSE_PoliceDetectionState.Hidden;
+        _appliedState = CSE_PlayerDetectionState.Safe;
         _id = null;
     }
 
@@ -138,14 +137,14 @@ public class CS_PoliceDetectionSource : NetworkBehaviour
     {
         if (_id == null) return;
 
-        CSE_PoliceDetectionState state = GetState();
+        CSE_PlayerDetectionState state = GetState();
         if (state == _appliedState) return;
 
         if (_controller == null) _controller = FindAnyObjectByType<CS_PoliceDetectionController>();
         if (_controller == null) return;
 
         _appliedState = state;
-        if (state == CSE_PoliceDetectionState.Hidden) _controller.UnregisterPolice(_id);
+        if (state == CSE_PlayerDetectionState.Safe) _controller.UnregisterPolice(_id);
         else _controller.RegisterPolice(_id, transform, state);
     }
 
@@ -153,17 +152,17 @@ public class CS_PoliceDetectionSource : NetworkBehaviour
     /// 自分(ローカルプレイヤー)から見た、この警察の表示の状態を求めるメソッド
     /// </summary>
     /// <returns>追跡中の相手が自分ならFound、駆け付け・探索中の相手が自分ならSignalDetected、どちらでもなければHidden</returns>
-    private CSE_PoliceDetectionState GetState()
+    private CSE_PlayerDetectionState GetState()
     {
         CS_Player localPlayer = CS_Player.localPlayer;
-        if (localPlayer == null) return CSE_PoliceDetectionState.Hidden;
+        if (localPlayer == null) return CSE_PlayerDetectionState.Safe;
 
         int myNumber = localPlayer.playerNumber;
         int foundNumber = IsSpawned ? _foundPlayerNumber.Value : _offlineFoundNumber;
         int signalNumber = IsSpawned ? _signalPlayerNumber.Value : _offlineSignalNumber;
 
-        if (foundNumber == myNumber) return CSE_PoliceDetectionState.Found;
-        if (signalNumber == myNumber) return CSE_PoliceDetectionState.SignalDetected;
-        return CSE_PoliceDetectionState.Hidden;
+        if (foundNumber == myNumber) return CSE_PlayerDetectionState.Spotted;
+        if (signalNumber == myNumber) return CSE_PlayerDetectionState.Tracked;
+        return CSE_PlayerDetectionState.Safe;
     }
 }

@@ -10,50 +10,30 @@ using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
-/// 警察視認警告UIのController。
-/// ・本番ではPlayerとPoliceから登録を受ける
-/// ・デバッグモードではPlayer・Police側の実装なしで表示確認できる
+/// 警察方向UIのController。
+/// 本番APIとデバッグ確認機能を持つ。
 /// </summary>
 public class CS_PoliceDetectionController : MonoBehaviour
 {
-    // =========================================================
-    // Inspector
-    // =========================================================
-
-    [Header("警察視認警告UIのPresenter")]
-    [SerializeField]
-    private CS_UIPoliceDetectionPresenter _presenter;
+    [Header("Presenter")]
+    [SerializeField] private CS_UIPoliceDetectionPresenter _presenter;
 
     [Header("デバッグ機能")]
-    [SerializeField] private bool _enableDebugMode = true;
-
-    [Header("デバッグ基準位置（未設定ならController自身）")]
+    [SerializeField] private bool _enableDebugMode;
     [SerializeField] private Transform _debugPlayerTransform;
 
-    [Header("デバッグ警察との距離")]
     [Min(0.1f)]
     [SerializeField] private float _debugPoliceDistance = 15f;
 
-    [Header("デバッグ警察の回転速度（度/秒）")]
     [SerializeField] private float _debugRotateSpeed = 30f;
-
-    // =========================================================
-    // 内部フィールド
-    // =========================================================
 
     private CS_UIPoliceDetectionModel _model;
     private Transform _playerTransform;
+    private Transform _debugPoliceRoot;
+    private float _debugRotationOffset;
 
     private readonly Dictionary<string, DebugPoliceInfo>
         _debugPoliceMap = new();
-
-    private Transform _debugPoliceRoot;
-    private float _debugRotationOffset;
-    private float _savedDebugRotateSpeed = 30f;
-
-    // =========================================================
-    // 初期化
-    // =========================================================
 
     private void Awake()
     {
@@ -65,7 +45,8 @@ public class CS_PoliceDetectionController : MonoBehaviour
         if (_presenter == null)
         {
             Debug.LogError(
-                "[CS_PoliceDetectionController] Presenterが未設定です。"
+                "[CS_PoliceDetectionController] Presenterが未設定です。",
+                this
             );
             return;
         }
@@ -73,13 +54,8 @@ public class CS_PoliceDetectionController : MonoBehaviour
         _presenter.BindModel(_model);
 
         if (_enableDebugMode)
-        {
             SetupDebugMode();
-            return;
-        }
-
-        // PlayerがControllerのStartより先に登録された場合にも対応する。
-        if (_playerTransform != null)
+        else if (_playerTransform != null)
             _presenter.SetPlayerTransform(_playerTransform);
     }
 
@@ -92,9 +68,50 @@ public class CS_PoliceDetectionController : MonoBehaviour
         HandleDebugInput();
     }
 
-    // =========================================================
-    // デバッグモード
-    // =========================================================
+    public void SetPlayerTransform(Transform playerTransform)
+    {
+        if (playerTransform == null)
+            return;
+
+        _playerTransform = playerTransform;
+        _presenter?.SetPlayerTransform(playerTransform);
+    }
+
+    /// <summary>
+    /// 警察生成時に登録する。巡回状態ならUIには表示されない。
+    /// </summary>
+    public void RegisterPolice(
+        string policeId,
+        Transform policeTransform,
+        CSE_PoliceDetectionState initialState =
+            CSE_PoliceDetectionState.Patrol)
+    {
+        if (string.IsNullOrWhiteSpace(policeId) ||
+            policeTransform == null)
+        {
+            return;
+        }
+
+        _model.RegisterPolice(
+            new CS_PoliceDetectionData(
+                policeId,
+                policeTransform,
+                initialState
+            )
+        );
+    }
+
+    public void SetPoliceState(
+        string policeId,
+        CSE_PoliceDetectionState state)
+    {
+        _model.SetPoliceState(policeId, state);
+    }
+
+    public void UnregisterPolice(string policeId)
+    {
+        _model.UnregisterPolice(policeId);
+    }
 
     private void SetupDebugMode()
     {
@@ -109,293 +126,145 @@ public class CS_PoliceDetectionController : MonoBehaviour
         _debugPoliceRoot = rootObject.transform;
         _debugPoliceRoot.SetParent(transform, false);
 
-        _savedDebugRotateSpeed =
-            Mathf.Approximately(_debugRotateSpeed, 0f)
-                ? 30f
-                : _debugRotateSpeed;
-
-        // 初期状態として、前・右・後ろへシグナル検知中の警察を配置する。
         CreateDebugPolice(
-            "DebugPolice_Front",
+            "DebugPatrol",
             0f,
-            _debugPoliceDistance,
-            CSE_PoliceDetectionState.SignalDetected
+            10f,
+            CSE_PoliceDetectionState.Patrol
         );
 
         CreateDebugPolice(
-            "DebugPolice_Right",
+            "DebugTracking",
             90f,
-            _debugPoliceDistance,
-            CSE_PoliceDetectionState.SignalDetected
+            15f,
+            CSE_PoliceDetectionState.Tracking
         );
+    }
 
-        CreateDebugPolice(
-            "DebugPolice_Back",
-            180f,
-            _debugPoliceDistance,
-            CSE_PoliceDetectionState.SignalDetected
-        );
+    private void HandleDebugInput()
+    {
+        // 1：巡回中。表示なし
+        if (Input.GetKeyDown(KeyCode.Alpha1))
+        {
+            ClearDebugPolice();
+            CreateDebugPolice(
+                "DebugPatrol",
+                0f,
+                10f,
+                CSE_PoliceDetectionState.Patrol
+            );
+        }
 
-        Debug.Log(
-            "[PoliceDetection Debug] " +
-            "1:前方追加 / 2:右追加 / 3:後方追加 / " +
-            "4:全削除 / 5:結合確認 / 6:発見状態 / " +
-            "7:5m以内赤色 / Space:回転停止・再開"
-        );
+        // 2：追跡中・5mより遠い。黄色
+        if (Input.GetKeyDown(KeyCode.Alpha2))
+        {
+            ClearDebugPolice();
+            CreateDebugPolice(
+                "DebugTrackingYellow",
+                0f,
+                10f,
+                CSE_PoliceDetectionState.Tracking
+            );
+        }
+
+        // 3：追跡中・5m以内。赤
+        if (Input.GetKeyDown(KeyCode.Alpha3))
+        {
+            ClearDebugPolice();
+            CreateDebugPolice(
+                "DebugTrackingRed",
+                0f,
+                4f,
+                CSE_PoliceDetectionState.Tracking
+            );
+        }
+
+        // 4：全削除
+        if (Input.GetKeyDown(KeyCode.Alpha4))
+            ClearDebugPolice();
+
+        // 5：同方向・近距離の2体を結合
+        if (Input.GetKeyDown(KeyCode.Alpha5))
+        {
+            ClearDebugPolice();
+            CreateDebugPolice(
+                "DebugGroupA",
+                0f,
+                8f,
+                CSE_PoliceDetectionState.Tracking
+            );
+            CreateDebugPolice(
+                "DebugGroupB",
+                5f,
+                9f,
+                CSE_PoliceDetectionState.Tracking
+            );
+        }
     }
 
     private void CreateDebugPolice(
-        string policeId,
-        float baseAngleDegree,
+        string id,
+        float angle,
         float distance,
-        CSE_PoliceDetectionState policeState)
+        CSE_PoliceDetectionState state)
     {
-        if (_debugPoliceMap.ContainsKey(policeId))
-            return;
-
         if (_debugPoliceRoot == null)
             return;
 
-        var policeObject = new GameObject(policeId);
-        Transform policeTransform = policeObject.transform;
-        policeTransform.SetParent(_debugPoliceRoot, false);
+        var policeObject = new GameObject(id);
+        policeObject.transform.SetParent(_debugPoliceRoot, false);
 
-        var debugInfo = new DebugPoliceInfo(
-            policeTransform,
-            baseAngleDegree,
-            distance,
-            policeState
+        var info = new DebugPoliceInfo(
+            policeObject.transform,
+            angle,
+            distance
         );
 
-        _debugPoliceMap.Add(policeId, debugInfo);
-
-        UpdateDebugPolicePosition(debugInfo);
-
-        RegisterPolice(
-            policeId,
-            policeTransform,
-            policeState
-        );
-    }
-
-    private void UpdateDebugPolicePosition(DebugPoliceInfo debugInfo)
-    {
-        if (_playerTransform == null ||
-            debugInfo == null ||
-            debugInfo.transform == null)
-        {
-            return;
-        }
-
-        float angleDegree =
-            debugInfo.baseAngleDegree +
-            _debugRotationOffset;
-
-        float angleRadians = angleDegree * Mathf.Deg2Rad;
-
-        Vector3 localDirection = new Vector3(
-            Mathf.Sin(angleRadians),
-            0f,
-            Mathf.Cos(angleRadians)
-        );
-
-        Vector3 worldDirection =
-            _playerTransform.TransformDirection(localDirection);
-
-        debugInfo.transform.position =
-            _playerTransform.position +
-            worldDirection * debugInfo.distance;
+        _debugPoliceMap[id] = info;
+        UpdateDebugPolicePosition(info);
+        RegisterPolice(id, info.transform, state);
     }
 
     private void UpdateDebugPolice()
     {
-        if (_playerTransform == null)
-            return;
-
-        _debugRotationOffset +=
-            _debugRotateSpeed * Time.deltaTime;
+        _debugRotationOffset += _debugRotateSpeed * Time.deltaTime;
 
         foreach (var pair in _debugPoliceMap)
             UpdateDebugPolicePosition(pair.Value);
     }
 
-    private void HandleDebugInput()
+    private void UpdateDebugPolicePosition(DebugPoliceInfo info)
     {
-        if (Input.GetKeyDown(KeyCode.Alpha1))
-        {
-            CreateDebugPolice(
-                $"DebugPolice_Front_{_debugPoliceMap.Count}",
-                0f,
-                _debugPoliceDistance,
-                CSE_PoliceDetectionState.SignalDetected
-            );
-        }
+        if (_playerTransform == null || info.transform == null)
+            return;
 
-        if (Input.GetKeyDown(KeyCode.Alpha2))
-        {
-            CreateDebugPolice(
-                $"DebugPolice_Right_{_debugPoliceMap.Count}",
-                90f,
-                _debugPoliceDistance,
-                CSE_PoliceDetectionState.SignalDetected
-            );
-        }
+        float radians =
+            (info.baseAngle + _debugRotationOffset) * Mathf.Deg2Rad;
 
-        if (Input.GetKeyDown(KeyCode.Alpha3))
-        {
-            CreateDebugPolice(
-                $"DebugPolice_Back_{_debugPoliceMap.Count}",
-                180f,
-                _debugPoliceDistance,
-                CSE_PoliceDetectionState.SignalDetected
-            );
-        }
+        Vector3 localDirection = new(
+            Mathf.Sin(radians),
+            0f,
+            Mathf.Cos(radians)
+        );
 
-        // 仮警察と対応するUIをすべて削除する。
-        if (Input.GetKeyDown(KeyCode.Alpha4))
-            ClearDebugPolice();
-
-        // 角度差5度、距離差1mの2体を作成して「×2」を確認する。
-        if (Input.GetKeyDown(KeyCode.Alpha5))
-        {
-            ClearDebugPolice();
-
-            CreateDebugPolice(
-                "DebugPolice_GroupA",
-                0f,
-                8f,
-                CSE_PoliceDetectionState.SignalDetected
-            );
-
-            CreateDebugPolice(
-                "DebugPolice_GroupB",
-                5f,
-                9f,
-                CSE_PoliceDetectionState.SignalDetected
-            );
-
-            CreateDebugPolice(
-                "DebugPolice_Back",
-                180f,
-                20f,
-                CSE_PoliceDetectionState.SignalDetected
-            );
-        }
-
-        // 発見状態を登録する。アニメーション関数呼び出し確認用。
-        if (Input.GetKeyDown(KeyCode.Alpha6))
-        {
-            ClearDebugPolice();
-
-            CreateDebugPolice(
-                "DebugPolice_Found",
-                0f,
-                10f,
-                CSE_PoliceDetectionState.Found
-            );
-        }
-
-        // 5m以内を登録して赤色表示を確認する。
-        if (Input.GetKeyDown(KeyCode.Alpha7))
-        {
-            ClearDebugPolice();
-
-            CreateDebugPolice(
-                "DebugPolice_Danger",
-                0f,
-                4f,
-                CSE_PoliceDetectionState.SignalDetected
-            );
-        }
-
-        if (Input.GetKeyDown(KeyCode.Space))
-            ToggleDebugRotation();
-    }
-
-    private void ToggleDebugRotation()
-    {
-        if (Mathf.Approximately(_debugRotateSpeed, 0f))
-        {
-            _debugRotateSpeed = _savedDebugRotateSpeed;
-        }
-        else
-        {
-            _savedDebugRotateSpeed = _debugRotateSpeed;
-            _debugRotateSpeed = 0f;
-        }
+        info.transform.position =
+            _playerTransform.position +
+            _playerTransform.TransformDirection(localDirection) *
+            info.distance;
     }
 
     private void ClearDebugPolice()
     {
         foreach (var pair in _debugPoliceMap)
         {
-            _model?.UnregisterPolice(pair.Key);
+            _model.UnregisterPolice(pair.Key);
 
-            if (pair.Value != null &&
-                pair.Value.transform != null)
-            {
+            if (pair.Value.transform != null)
                 Destroy(pair.Value.transform.gameObject);
-            }
         }
 
         _debugPoliceMap.Clear();
     }
-
-    // =========================================================
-    // 本番用 外部API
-    // =========================================================
-
-    public void SetPlayerTransform(Transform playerTransform)
-    {
-        if (playerTransform == null)
-            return;
-
-        _playerTransform = playerTransform;
-
-        if (_presenter != null)
-            _presenter.SetPlayerTransform(_playerTransform);
-    }
-
-    /// <summary>
-    /// シグナル検知または発見時に登録する。
-    /// Hiddenを渡した場合は表示しない。
-    /// </summary>
-    public void RegisterPolice(
-        string policeId,
-        Transform policeTransform,
-        CSE_PoliceDetectionState policeState)
-    {
-        if (_model == null ||
-            policeTransform == null ||
-            string.IsNullOrWhiteSpace(policeId))
-        {
-            return;
-        }
-
-        _model.RegisterPolice(
-            new CS_PoliceDetectionData(
-                policeId,
-                policeTransform,
-                policeState
-            )
-        );
-    }
-
-    public void UnregisterPolice(string policeId)
-    {
-        _model?.UnregisterPolice(policeId);
-    }
-
-    public void SetPoliceState(
-        string policeId,
-        CSE_PoliceDetectionState policeState)
-    {
-        _model?.SetPoliceState(policeId, policeState);
-    }
-
-    // =========================================================
-    // 終了処理
-    // =========================================================
 
     private void OnDestroy()
     {
@@ -403,32 +272,24 @@ public class CS_PoliceDetectionController : MonoBehaviour
         _model?.Dispose();
     }
 
-    // =========================================================
-    // デバッグ用データ
-    // =========================================================
-
-    private class DebugPoliceInfo
+    private sealed class DebugPoliceInfo
     {
         private readonly Transform _transform;
-        private readonly float _baseAngleDegree;
+        private readonly float _baseAngle;
         private readonly float _distance;
-        private readonly CSE_PoliceDetectionState _policeState;
 
         public Transform transform => _transform;
-        public float baseAngleDegree => _baseAngleDegree;
+        public float baseAngle => _baseAngle;
         public float distance => _distance;
-        public CSE_PoliceDetectionState policeState => _policeState;
 
         public DebugPoliceInfo(
             Transform transform,
-            float baseAngleDegree,
-            float distance,
-            CSE_PoliceDetectionState policeState)
+            float baseAngle,
+            float distance)
         {
             _transform = transform;
-            _baseAngleDegree = baseAngleDegree;
+            _baseAngle = baseAngle;
             _distance = distance;
-            _policeState = policeState;
         }
     }
 }

@@ -7,7 +7,6 @@
  * ================================================ */
 
 using Unity.Netcode;
-using UnityEngine;
 
 /// <summary>
 /// 警察が自分に気付いているかを、警戒UI(CS_PoliceDetectionController)へ知らせるクラス
@@ -42,7 +41,7 @@ public class CS_PoliceDetectionSource : NetworkBehaviour
     private string _id = null;
 
     // 警戒UIに今反映している状態(Hiddenは登録していない状態)
-    private CSE_PoliceDetectionState _appliedState = CSE_PoliceDetectionState.Hidden;
+    private CSE_PoliceDetectionState _appliedState = CSE_PoliceDetectionState.Patrol;
 
     // オフラインのテストシーン用
     private void Start()
@@ -124,9 +123,9 @@ public class CS_PoliceDetectionSource : NetworkBehaviour
         if (_id == null) return;
 
         CS_Player.onLocalPlayerSet -= OnLocalPlayerSet;
-        if (_controller != null && _appliedState != CSE_PoliceDetectionState.Hidden) _controller.UnregisterPolice(_id);
+        if (_controller != null && _appliedState != CSE_PoliceDetectionState.Patrol) _controller.UnregisterPolice(_id);
 
-        _appliedState = CSE_PoliceDetectionState.Hidden;
+        _appliedState = CSE_PoliceDetectionState.Patrol;
         _id = null;
     }
 
@@ -145,7 +144,7 @@ public class CS_PoliceDetectionSource : NetworkBehaviour
         if (_controller == null) return;
 
         _appliedState = state;
-        if (state == CSE_PoliceDetectionState.Hidden) _controller.UnregisterPolice(_id);
+        if (state == CSE_PoliceDetectionState.Patrol) _controller.UnregisterPolice(_id);
         else _controller.RegisterPolice(_id, transform, state);
     }
 
@@ -156,14 +155,14 @@ public class CS_PoliceDetectionSource : NetworkBehaviour
     private CSE_PoliceDetectionState GetState()
     {
         CS_Player localPlayer = CS_Player.localPlayer;
-        if (localPlayer == null) return CSE_PoliceDetectionState.Hidden;
+        if (localPlayer == null) return CSE_PoliceDetectionState.Patrol;
 
         int myNumber = localPlayer.playerNumber;
         int foundNumber = IsSpawned ? _foundPlayerNumber.Value : _offlineFoundNumber;
         int signalNumber = IsSpawned ? _signalPlayerNumber.Value : _offlineSignalNumber;
 
-        if (foundNumber == myNumber) return CSE_PoliceDetectionState.Found;
-        if (signalNumber == myNumber) return CSE_PoliceDetectionState.SignalDetected;
-        return CSE_PoliceDetectionState.Hidden;
+        if (foundNumber == myNumber) return CSE_PoliceDetectionState.Detected;
+        if (signalNumber == myNumber) return CSE_PoliceDetectionState.Tracking;
+        return CSE_PoliceDetectionState.Patrol;
     }
 }

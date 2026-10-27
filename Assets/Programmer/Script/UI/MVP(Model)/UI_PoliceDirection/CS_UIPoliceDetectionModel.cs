@@ -9,8 +9,7 @@
 using System.Collections.Generic;
 
 /// <summary>
-/// 警察方向UIのModel。
-/// Patrolを含めて警察データを保持し、Presenter側でTrackingのみ描画する。
+/// 警察ごとのプレイヤー検知状態を保持するModel。
 /// </summary>
 public sealed class CS_UIPoliceDetectionModel : CS_BaseModel
 {
@@ -51,7 +50,7 @@ public sealed class CS_UIPoliceDetectionModel : CS_BaseModel
 
     public void SetPoliceState(
         string policeId,
-        CSE_PoliceDetectionState state)
+        CSE_PlayerDetectionState state)
     {
         if (_policeMap.TryGetValue(
             policeId,

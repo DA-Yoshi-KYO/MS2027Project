@@ -11,6 +11,9 @@ using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 
+/// <summary>
+/// プレイヤー検知UIを非表示の楕円軌道上へ表示するView。
+/// </summary>
 public class CS_UIPoliceDetectionView :
     CS_BaseView<CS_UIPoliceDetectionPresenter>
 {
@@ -24,33 +27,37 @@ public class CS_UIPoliceDetectionView :
     [Header("色設定")]
     [Min(0f)]
     [SerializeField] private float _dangerDistance = 5f;
-    [SerializeField] private Color _trackingColor = Color.yellow;
+    [SerializeField] private Color _trackedColor = Color.yellow;
     [SerializeField] private Color _dangerColor = Color.red;
 
     private readonly Dictionary<string, EyeIconInstance> _iconMap = new();
-    private readonly HashSet<string> _activeIds = new();
-    private readonly List<string> _removeIds = new();
+    private readonly HashSet<string> _activeGroupIds = new();
+    private readonly List<string> _removeGroupIds = new();
 
-    public override void SetPresenter(CS_UIPoliceDetectionPresenter presenter)
+    public override void SetPresenter(
+        CS_UIPoliceDetectionPresenter presenter)
     {
         base.SetPresenter(presenter);
     }
 
-    public void Render(IReadOnlyList<CS_PoliceDetectionIconData> dataList)
+    public void Render(
+        IReadOnlyList<CS_PoliceDetectionIconData> iconDataList)
     {
-        _activeIds.Clear();
+        _activeGroupIds.Clear();
 
-        foreach (CS_PoliceDetectionIconData data in dataList)
+        foreach (CS_PoliceDetectionIconData data in iconDataList)
         {
-            if (data.state == CSE_PoliceDetectionState.Patrol)
+            if (data.state == CSE_PlayerDetectionState.Safe)
                 continue;
 
             EyeIconInstance icon = GetOrCreateIcon(data.groupId);
+
             if (icon == null)
                 continue;
 
-            _activeIds.Add(data.groupId);
+            _activeGroupIds.Add(data.groupId);
             icon.root.gameObject.SetActive(true);
+
             icon.root.anchoredPosition = new Vector2(
                 Mathf.Sin(data.angle) * _ellipseRadiusX,
                 Mathf.Cos(data.angle) * _ellipseRadiusY
@@ -67,82 +74,92 @@ public class CS_UIPoliceDetectionView :
         CS_PoliceDetectionIconData data,
         EyeIconInstance icon)
     {
-        if (data.state == CSE_PoliceDetectionState.Detected)
+        if (data.state == CSE_PlayerDetectionState.Spotted)
         {
             icon.image.color = _dangerColor;
-            ApplyDetectedAnimation(icon.root, icon.image);
+            ApplySpottedAnimation(icon.root, icon.image);
             return;
         }
 
+        // Trackedは距離で黄色と赤を切り替える。
         icon.image.color = data.distance <= _dangerDistance
             ? _dangerColor
-            : _trackingColor;
+            : _trackedColor;
 
-        ApplyNormalAnimation(icon.root, icon.image);
+        ApplyTrackedAnimation(icon.root, icon.image);
     }
 
-    private void ApplyDetectedAnimation(
+    private void ApplySpottedAnimation(
         RectTransform iconRect,
         Image iconImage)
     {
-        // TODO: 視認中のUIアニメーション確定後に実装する。
+        // TODO: 直接視認中のUIアニメーション確定後に実装する。
     }
 
-    private void ApplyNormalAnimation(
+    private void ApplyTrackedAnimation(
         RectTransform iconRect,
         Image iconImage)
     {
-        // TODO: Detected用アニメーション実装後、通常状態へ戻す処理を書く。
+        // TODO: Spotted用アニメーション実装後、通常表示へ戻す処理を書く。
     }
 
-    private static void ApplyPoliceCount(int count, TextMeshProUGUI countText)
+    private static void ApplyPoliceCount(
+        int policeCount,
+        TextMeshProUGUI countText)
     {
         if (countText == null)
             return;
 
-        bool visible = count > 1;
-        countText.gameObject.SetActive(visible);
-        if (visible)
-            countText.text = $"×{count}";
+        bool showCount = policeCount > 1;
+        countText.gameObject.SetActive(showCount);
+
+        if (showCount)
+            countText.text = $"×{policeCount}";
     }
 
-    private EyeIconInstance GetOrCreateIcon(string id)
+    private EyeIconInstance GetOrCreateIcon(string groupId)
     {
-        if (_iconMap.TryGetValue(id, out EyeIconInstance existing))
+        if (_iconMap.TryGetValue(groupId, out EyeIconInstance existing))
             return existing;
 
         if (_iconRoot == null || _eyeIconPrefab == null)
             return null;
 
-        GameObject go = Instantiate(_eyeIconPrefab, _iconRoot);
-        RectTransform rect = go.GetComponent<RectTransform>();
-        Image image = go.GetComponentInChildren<Image>(true);
-        TextMeshProUGUI countText = go.GetComponentInChildren<TextMeshProUGUI>(true);
+        GameObject iconObject = Instantiate(_eyeIconPrefab, _iconRoot);
+        RectTransform iconRect = iconObject.GetComponent<RectTransform>();
+        Image iconImage = iconObject.GetComponentInChildren<Image>(true);
+        TextMeshProUGUI countText =
+            iconObject.GetComponentInChildren<TextMeshProUGUI>(true);
 
-        if (rect == null || image == null)
+        if (iconRect == null || iconImage == null)
         {
-            Destroy(go);
+            Destroy(iconObject);
             return null;
         }
 
-        image.raycastTarget = false;
-        var instance = new EyeIconInstance(rect, image, countText);
-        _iconMap[id] = instance;
+        iconImage.raycastTarget = false;
+
+        var instance = new EyeIconInstance(iconRect, iconImage, countText);
+        _iconMap[groupId] = instance;
         return instance;
     }
 
     private void RemoveUnusedIcons()
     {
-        _removeIds.Clear();
-        foreach (var pair in _iconMap)
-            if (!_activeIds.Contains(pair.Key))
-                _removeIds.Add(pair.Key);
+        _removeGroupIds.Clear();
 
-        foreach (string id in _removeIds)
+        foreach (var pair in _iconMap)
         {
-            if (_iconMap[id].root != null)
-                Destroy(_iconMap[id].root.gameObject);
-            _iconMap.Remove(id);
+            if (!_activeGroupIds.Contains(pair.Key))
+                _removeGroupIds.Add(pair.Key);
+        }
+
+        foreach (string groupId in _removeGroupIds)
+        {
+            if (_iconMap[groupId].root != null)
+                Destroy(_iconMap[groupId].root.gameObject);
+
+            _iconMap.Remove(groupId);
         }
     }
 
@@ -152,7 +169,10 @@ public class CS_UIPoliceDetectionView :
         public Image image { get; }
         public TextMeshProUGUI countText { get; }
 
-        public EyeIconInstance(RectTransform root, Image image, TextMeshProUGUI countText)
+        public EyeIconInstance(
+            RectTransform root,
+            Image image,
+            TextMeshProUGUI countText)
         {
             this.root = root;
             this.image = image;

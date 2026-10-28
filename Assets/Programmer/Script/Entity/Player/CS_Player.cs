@@ -183,6 +183,7 @@ public class CS_Player : NetworkBehaviour
     public Camera playerCamera => _cameraTransform != null ? _cameraTransform.GetComponent<Camera>() : null;   // このプレイヤーのカメラ(他人のプレイヤーでは無効化されている)
     public float viewYaw => _yaw;                       // カメラの左右の向き(度)。エイムアシストが「狙っている方向」として使う
     public Vector3 moveDirection => GetMoveDirection();  // カメラから見た移動入力(スティック)の方向(水平、長さは入力の強さ。最大1)。エイムアシストが使う
+    public Vector2 moveInput => _moveInput;              // 移動入力そのもの(x: 左右, y: 前後。-1〜1)。スタン中のコマンド入力(CS_PlayerStunEscape)が使う
     // 視点(カメラ)のTransform。揺れが乗る前のCinemachineCamera(無ければ実際のカメラ)。ミニマップの回転の基準に使う
     public Transform viewTransform => _virtualCameraTransform != null ? _virtualCameraTransform : _cameraTransform;
 

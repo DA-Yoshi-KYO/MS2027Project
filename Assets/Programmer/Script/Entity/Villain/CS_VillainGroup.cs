@@ -23,6 +23,7 @@ using UnityEngine;
  * ・ランダムイベント(大量発生)で生成したグループは、スポーン位置を持たない(spawnPointがnull)
  *   スポナーがTickを呼ばないので途中で犯罪は進まず、イベントの時間切れでCompleteCrimeが呼ばれて完遂する
  * ・メンバーが撃退・逃走でDestroyされるとnull扱いになる。全員いなくなったらisAliveがfalseになる
+ *   撃退されて倒れている(死亡モーション中で、まだ消えていない)メンバーも、いないものとして扱う(IsActive)
  * ・同時に攻撃できるのは、グループのうち maxAttackers 人まで(攻撃枠)
  *   臨戦態勢になったメンバーは攻撃枠を取れたら攻撃し、取れなければつかず離れずで様子を見る
  *   攻撃枠は臨戦態勢が終わる(帰還する)・撃退される・逃走する時に空き、様子見のメンバーが代わりに取る
@@ -48,8 +49,8 @@ public class CS_VillainGroup
     public IReadOnlyList<CS_VillainCrime> members => _members;
     public bool usesTimeScaling => _usesTimeScaling;   // 時間経過の段階でステータスを変えるか   // 撃退・逃走で消えたメンバーはnullになっている
 
-    // Destroyされたメンバーはnull扱いになるので、1人でも残っていれば生存
-    public bool isAlive => _members.Exists(member => member != null);
+    // Destroyされたメンバーはnull扱いになるので、撃退されていないメンバーが1人でも残っていれば生存
+    public bool isAlive => _members.Exists(IsActive);
 
     // 犯罪の進行度(0～1)
     public float crimeProgress
@@ -180,7 +181,7 @@ public class CS_VillainGroup
 
         foreach (CS_VillainCrime member in _members)
         {
-            if (member != null) member.Escape();
+            if (IsActive(member)) member.Escape();
         }
     }
 
@@ -189,16 +190,22 @@ public class CS_VillainGroup
     {
         foreach (CS_VillainCombat combat in _combats)
         {
-            if (combat != null && !combat.isWatcher) return true;
+            if (combat != null && combat.enabled && !combat.isWatcher) return true;   // 倒れている・逃走中のメンバーは数えない
         }
         return false;
+    }
+
+    // まだ残っていて、撃退されていない(倒れていない)メンバーか
+    private static bool IsActive(CS_VillainCrime member)
+    {
+        return member != null && !member.isDefeated;
     }
 
     private bool IsAllMembersCommittingCrime()
     {
         foreach (CS_VillainCrime member in _members)
         {
-            if (member != null && !member.isCommittingCrime) return false;
+            if (IsActive(member) && !member.isCommittingCrime) return false;
         }
         return true;
     }
@@ -208,7 +215,7 @@ public class CS_VillainGroup
         float completeTime = 0f;
         foreach (CS_VillainCrime member in _members)
         {
-            if (member != null) completeTime = Math.Max(completeTime, member.crimeCompleteTime);
+            if (IsActive(member)) completeTime = Math.Max(completeTime, member.crimeCompleteTime);
         }
         return completeTime;
     }

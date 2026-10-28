@@ -21,6 +21,11 @@ using UnityEngine.AI;
  *   出現点は遊び方ごとのプレハブ(Field_Multi・Field_Solo1など)に直接置いてあり、
  *   選ばれた遊び方のものだけが有効になっている(CS_GameModeSwitcher)ので、全部使えばよい
  *   使用中(グループが残っている)のスポーン位置には生成しない
+ * ・同時にいるグループ数
+ *   次の2つの多い方を保つ(倒された・犯罪を完遂して逃げた分は補充する)
+ *     1. プレイヤーの数(NPCを含む) + extraGroupCount
+ *     2. 湧ける場所の数 × 今の経過時間の段階の spawnPercent(%)を四捨五入した数(データ表「スポーン数」)
+ *   湧ける場所が足りなければ、生成できる分だけになる
  * ・ゲームの経過時間による変化(timeScaling)
  *   設定されていれば、生成時の経過時間の段階で、1グループの人数・HP・犯罪完遂時間・攻撃力を決める
  *   (HPなどは生成する悪人のCS_VillainStatsに、Spawnより前に設定する)
@@ -35,9 +40,8 @@ using UnityEngine.AI;
  *   ランダムイベントのグループ(スポーン位置が無い)には見張り役を付けない
  * ・グループのメンバーが全員いなくなったら(撃退・逃走でDestroyされたら)、そのスポーン位置は空く
  * ・グループがいなくなった(全員撃退された、または犯罪を完遂して逃走した)位置には、respawnCooldown 秒間リスポーンしない
- *   ただし「プレイヤーの数 + 追加グループ数」を保てない場合は、待ち中の位置にも生成する
+ *   ただし同時にいるグループ数を保てない場合は、待ち中の位置にも生成する(グループ数を優先する)
  *   (待ち中の位置からは、待ちが早く終わる位置を選ぶ)
- *   時間経過による追加では、待ち中の位置には生成しない
  * ・ランダムイベント(大量発生)用に、スポーン位置を使わずにグループを生成する SpawnEventGroup がある
  *   イベントのグループは通常のグループ数に数えず、犯罪も進めない(時間経過の段階の反映は通常と同じ)
  * ・グループ単位の犯罪の進行は、生成したCS_VillainGroupのTickを毎フレーム呼んで進める
@@ -80,28 +84,18 @@ public class CS_VillainSpawner : MonoBehaviour
     private int _extraGroupCount = 1;
 
     [SerializeField, Min(0f)]
-    [Tooltip("グループがいなくなった(全滅・犯罪完遂)位置に、次のグループを生成しない時間(秒)。最低グループ数を保てない場合は例外")]
+    [Tooltip("グループがいなくなった(全滅・犯罪完遂)位置に、次のグループを生成しない時間(秒)。同時にいるグループ数を保てない場合は例外")]
     private float _respawnCooldown = 20f;
-
-    [Header("時間経過による追加")]
-    [SerializeField, Min(0f)]
-    [Tooltip("グループを追加する間隔(秒)。0で時間経過による追加をしない")]
-    private float _spawnInterval = 60f;
-
-    [SerializeField, Min(0)]
-    [Tooltip("時間経過で追加する場合のグループ数の上限")]
-    private int _maxGroupCount = 8;
 
     [Header("オフライン用")]
     [SerializeField, Min(1)]
-    [Tooltip("NetworkManagerが動いていないテストシーンで想定するプレイヤーの数")]
+    [Tooltip("NetworkManagerが動いていないテストシーンで、プレイヤーがまだ出現していない間に想定するプレイヤーの数")]
     private int _offlinePlayerCount = 1;
 
     private CS_VillainSpawnPoint[] _spawnPoints;
     private readonly List<CS_VillainGroup> _groups = new List<CS_VillainGroup>();
     private readonly List<CS_VillainGroup> _eventGroups = new List<CS_VillainGroup>();   // ランダムイベントで生成したグループ
     private float _checkTimer;
-    private float _spawnTimer;
     private bool _isRunning;
     private bool _hasWarnedNoPoint;   // 空きポイント不足の警告を毎回出さないためのフラグ
     private CS_TimerController _timer;   // ゲームのタイマー(経過時間の取得用)。テストシーンなどで無ければnull
@@ -114,8 +108,8 @@ public class CS_VillainSpawner : MonoBehaviour
     private static bool hasAuthority =>
         NetworkManager.Singleton == null || !NetworkManager.Singleton.IsListening || NetworkManager.Singleton.IsServer;
 
-    // 常に存在させるグループ数(プレイヤーの数 + 追加グループ数)
-    private int requiredGroupCount => GetPlayerCount() + _extraGroupCount;
+    // 同時に存在させるグループ数(「プレイヤーの数 + 追加グループ数」と「湧ける場所の数 × スポーン数(%)」の多い方)
+    private int requiredGroupCount => Mathf.Max(GetPlayerCount() + _extraGroupCount, GetPercentGroupCount());
 
     private void Start()
     {
@@ -152,7 +146,6 @@ public class CS_VillainSpawner : MonoBehaviour
             SetGauge(group.spawnPoint, group.crimeProgress, !group.isCrimeCompleted);
         }
 
-        _spawnTimer += Time.deltaTime;
         _checkTimer += Time.deltaTime;
         if (_checkTimer < _checkInterval) return;
         _checkTimer = 0f;
@@ -160,7 +153,6 @@ public class CS_VillainSpawner : MonoBehaviour
         RemoveDeadGroups();
         UpdateStage();
         FillRequiredGroups();
-        SpawnByInterval();
     }
 
     // 経過時間の段階が変わったら、既にフィールドにいる悪人のステータスを新しい段階の値にする
@@ -269,36 +261,34 @@ public class CS_VillainSpawner : MonoBehaviour
         if (point.TryGetComponent(out CS_VillainCrimeGauge gauge)) gauge.SetProgress(progress, isVisible);
     }
 
-    // 最低グループ数を下回っていたら、空きがある限り生成する(足りなければリスポーン待ちの位置も使う)
+    // 同時に存在させるグループ数を下回っていたら、空きがある限り生成する(足りなければリスポーン待ちの位置も使う)
     private void FillRequiredGroups()
     {
         while (_groups.Count < requiredGroupCount)
         {
-            if (!TrySpawnGroup(true)) return;
+            if (!TrySpawnGroup()) return;
         }
     }
 
-    // 一定時間ごとに、上限までグループを1つ追加する
-    private void SpawnByInterval()
+    // 湧ける場所の数 × 今の経過時間の段階のスポーン数(%)。四捨五入する(Time Scalingが未設定なら0)
+    private int GetPercentGroupCount()
     {
-        if (_spawnInterval <= 0f) return;
-        if (_spawnTimer < _spawnInterval) return;
+        if (_timeScaling == null) return 0;
 
-        _spawnTimer = 0f;
-        if (_groups.Count >= _maxGroupCount) return;
+        CSO_VillainTimeScaling.Stage stage = _timeScaling.GetStage(GetElapsedTime());
+        if (stage == null) return 0;
 
-        TrySpawnGroup(false);
+        // Mathf.RoundToIntは x.5 を偶数側へ丸める(14.5 → 14)ので、0.5を足して切り捨てる
+        return Mathf.FloorToInt(_spawnPoints.Length * stage.spawnPercent / 100f + 0.5f);
     }
 
     // 空いているスポーン位置から1つ選び、グループを生成する
-    // allowCoolingDown: リスポーン待ちの位置しか空いていない時に、そこへ生成してよいか
-    private bool TrySpawnGroup(bool allowCoolingDown)
+    private bool TrySpawnGroup()
     {
-        CS_VillainSpawnPoint point = GetFreePoint(allowCoolingDown);
+        CS_VillainSpawnPoint point = GetFreePoint();
         if (point == null)
         {
-            // 時間経過による追加(allowCoolingDownがfalse)は、空きが無ければ見送るだけなので警告しない
-            if (allowCoolingDown && !_hasWarnedNoPoint)
+            if (!_hasWarnedNoPoint)
             {
                 Debug.LogWarning("CS_VillainSpawner: 空いているスポーン位置が足りないため、グループを生成できません", this);
                 _hasWarnedNoPoint = true;
@@ -365,8 +355,8 @@ public class CS_VillainSpawner : MonoBehaviour
     }
 
     // 空いていてリスポーン待ちでない位置からランダムに選ぶ
-    // 無ければ、allowCoolingDownの時だけ、リスポーン待ちの位置のうち待ちが一番早く終わる位置を選ぶ
-    private CS_VillainSpawnPoint GetFreePoint(bool allowCoolingDown)
+    // 無ければ、リスポーン待ちの位置のうち待ちが一番早く終わる位置を選ぶ(グループ数を保つことを優先する)
+    private CS_VillainSpawnPoint GetFreePoint()
     {
         List<CS_VillainSpawnPoint> readyPoints = new List<CS_VillainSpawnPoint>();
         CS_VillainSpawnPoint earliestCoolingPoint = null;
@@ -387,7 +377,7 @@ public class CS_VillainSpawner : MonoBehaviour
         }
 
         if (readyPoints.Count > 0) return readyPoints[Random.Range(0, readyPoints.Count)];
-        return allowCoolingDown ? earliestCoolingPoint : null;
+        return earliestCoolingPoint;
     }
 
     // プレハブが設定されていて、全てにCS_VillainCrimeが付いているか
@@ -410,8 +400,11 @@ public class CS_VillainSpawner : MonoBehaviour
         return true;
     }
 
+    // プレイヤーの数(NPCを含む)。出現中のプレイヤーで数える
+    // まだ誰も出現していない間(開始直後)は、オンラインなら接続している人の数、オフラインなら offlinePlayerCount を使う
     private int GetPlayerCount()
     {
+        if (CS_Player.activePlayers.Count > 0) return CS_Player.activePlayers.Count;
         if (NetworkManager.Singleton == null || !NetworkManager.Singleton.IsListening) return _offlinePlayerCount;
 
         return NetworkManager.Singleton.ConnectedClientsIds.Count;

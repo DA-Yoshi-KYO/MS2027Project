@@ -26,6 +26,12 @@ using UnityEngine;
  *   3. 攻撃: 着いてから_strikeDelay秒後に、その悪人1体だけへ奇襲を当てる(範囲の当たり判定は使わないので空振りしない)
  *   4. _strikeDuration秒で奇襲が終わり、動けるようになる。この後に攻撃ボタンを押すと、通常攻撃の1段目から始まる
  * ・奇襲になった時は、その悪人の残りHP以上のダメージを与えて一撃で倒す(仕様「戦闘をすぐに終わらせる」)
+ * ・巻き込み(Issue #337。データ表「奇襲攻撃時の巻き込み範囲」5m): 奇襲で倒した悪人の位置から半径_splashRadius以内にいる悪人も、
+ *   残りHPに関係なく一撃で倒す(仕様「敵の体力を問わず一定範囲にいる敵を一撃で倒す」)
+ *   巻き込むのは悪人だけ(他のプレイヤー・警察・防犯装置は巻き込まない)。壁越しでも巻き込む
+ *   レイドボスは_splashIncludesRaidBossがオフ(既定)なら巻き込まない(一撃で倒せてしまうため。狙った1体がボスの場合は今まで通り倒す)
+ *   巻き込んだ悪人もスコアを通して倒すので、撃破スコア・暗躍ボーナスの連続撃破数・必殺ゲージに1体ずつ数えられる
+ *   onAmbushは狙った悪人の分だけ発生する(巻き込んだ悪人ではonAmbushSplashが発生する。サーバー、またはオフラインのみ)
  * ・奇襲になるかはサーバー(またはオフライン)で、奇襲を始めた瞬間に1回だけ決める(悪人の臨戦態勢・標的はサーバーでしか分からないため)
  *   条件がそろっていれば、その悪人を予約して、その場に止める(CS_VillainCombat.Freeze)。そろっていなければ、手元へ中止を返す
  *   止める時間・予約の期限は、飛び込みの最大時間 + 攻撃の時間 + _freezeMargin。奇襲が中止された時はすぐに解く
@@ -68,6 +74,10 @@ public class CS_PlayerAmbush : NetworkBehaviour
     [SerializeField][Min(0f)] private float _strikeTolerance = 2f;        // 当てる時、着いたとみなす距離からさらにこれだけ離れていても許す(m)
     [SerializeField] private LayerMask _dashPassThroughLayers = 1 << 31;  // 飛び込み中にぶつからないレイヤー(悪人・プレイヤーのいるレイヤー)
 
+    [Header("巻き込み")]
+    [SerializeField][Min(0f)] private float _splashRadius = 5f;           // 奇襲で倒した悪人から、この半径以内の悪人も一撃で倒す(m。0で巻き込まない)
+    [SerializeField] private bool _splashIncludesRaidBoss = false;        // レイドボスも巻き込むか
+
     private enum Phase
     {
         None,     // 奇襲していない
@@ -97,6 +107,7 @@ public class CS_PlayerAmbush : NetworkBehaviour
     public bool isLunging => _phase == Phase.Dash || (_phase == Phase.Strike && !_hasStruck);   // 飛び込み〜当たる瞬間か(本人の手元。見た目用)
 
     public event Action<CS_VillainHealth> onAmbush;     // 奇襲が決まった時(サーバー、またはオフラインのみ)
+    public event Action<CS_VillainHealth> onAmbushSplash;      // 奇襲に巻き込んで悪人を倒した時(サーバー、またはオフラインのみ)
     public event Action<CS_VillainHealth> onAmbushStarted;     // 飛び込みを始めた時(本人の手元のみ)。見た目用
     public event Action<CS_VillainHealth> onAmbushHitTiming;   // 奇襲が当たる瞬間(本人の手元のみ)。見た目・カメラの揺れ用
 
@@ -338,9 +349,31 @@ public class CS_PlayerAmbush : NetworkBehaviour
         CS_AttackHitDetector.ResolvePose(transform, ref position, ref forward, _range);
         if (HorizontalDistance(villain.transform.position, position) > _strikeDistance + _strikeTolerance) return;
 
+        Vector3 center = villain.transform.position;
         DealDamage(villain, villain.currentHp);
         CS_AttackHitDetector.TryKnockback(villain, position);
         NotifyAmbush(villain);
+
+        DefeatVillainsAround(center, villain);
+    }
+
+    // centerから半径_splashRadius以内にいる悪人(exclude以外)を、残りHP分のダメージで倒す(サーバー、またはオフラインで実行される)
+    private void DefeatVillainsAround(Vector3 center, CS_VillainHealth exclude)
+    {
+        if (_splashRadius <= 0f) return;
+
+        int count = Physics.OverlapSphereNonAlloc(center, _splashRadius, _searchBuffer, _villainLayers, QueryTriggerInteraction.Ignore);
+        for (int i = 0; i < count; i++)
+        {
+            CS_VillainHealth villain = _searchBuffer[i].GetComponentInParent<CS_VillainHealth>();
+            if (villain == null || villain == exclude) continue;
+            if (villain.isDefeated || villain.currentHp <= 0f) continue;   // 倒れている・同じ悪人の別のコライダー
+            if (!_splashIncludesRaidBoss && villain.TryGetComponent(out CS_VillainRaidBoss _)) continue;
+
+            DealDamage(villain, villain.currentHp);
+            CS_AttackHitDetector.TryKnockback(villain, center);
+            onAmbushSplash?.Invoke(villain);
+        }
     }
 
     // ダメージを与える。スコア(CS_PlayerScoring)があればそれを通し、誰が倒したかをスコアに反映する

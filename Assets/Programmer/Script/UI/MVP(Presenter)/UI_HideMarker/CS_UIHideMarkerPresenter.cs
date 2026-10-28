@@ -68,24 +68,39 @@ public class CS_UIHideMarkerPresenter : CS_BasePresenter
 
     private void LateUpdate()
     {
-        Transform target = _model != null ? _model.currentTarget : null;
+        Transform target =
+            _model != null
+                ? _model.currentTarget
+                : null;
+
         if (target == null)
+        {
+            _view.SetVisible(false);
             return;
+        }
 
         if (_targetCamera == null)
             _targetCamera = Camera.main;
 
-        bool isVisible = CS_UIWorldToCanvas.TryConvert(
-            _targetCamera,
-            _canvas,
-            _canvasRect,
-            target.position + _worldOffset,
-            out Vector2 localPosition);
+        bool isVisible =
+            CS_UIWorldToCanvas.TryConvert(
+                _targetCamera,
+                _canvas,
+                _canvasRect,
+                target.position + _worldOffset,
+                out Vector2 localPosition
+            );
 
         if (isVisible)
-            _view.SetPosition(localPosition);
+        {
+            _view.SetPosition(
+                localPosition
+            );
+        }
 
-        _view.SetVisible(isVisible);
+        _view.SetVisible(
+            isVisible
+        );
     }
 
     //Modelの目印を購読する(目印が無くなったら隠す。位置はLateUpdateで追う)

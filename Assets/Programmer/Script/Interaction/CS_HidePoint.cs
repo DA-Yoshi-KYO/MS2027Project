@@ -33,7 +33,7 @@ public class CS_HidePoint : MonoBehaviour
     private static readonly List<CS_HidePoint> _activePoints = new List<CS_HidePoint>();
     public static IReadOnlyList<CS_HidePoint> activePoints => _activePoints;
 
-    private Transform standTransform => _standPoint != null ? _standPoint : transform;
+    public Transform standTransform => _standPoint != null ? _standPoint : transform;     // 張り付く位置と向き(UIの目印の位置にも使う)
     public Vector3 standPosition => standTransform.position;
     // 張り付いている時に向く方向(水平)
     public Vector3 standForward => Vector3.ProjectOnPlane(standTransform.forward, Vector3.up).normalized;

@@ -12,9 +12,16 @@ using UnityEngine.Rendering;
 // ========================================
 /*
  * メモ
- * ・かける条件はCS_PlayerCameraFov(ダッシュ中に画角を広げる)と同じ
+ * ・かける条件はCS_PlayerCameraFov(ダッシュ中に画角を広げる)と同じ。次のどれかの時にかける
  *   ブリンク中(CS_Player.isDashing) または スプリント中(isSprinting)で実際に動いている時
  *   (止まってダッシュボタンを押しているだけの時はかけない)
+ *   SAでハイドポイントへ飛んでいる時(CS_PlayerHide.isHiding で、まだ張り付いていない時)
+ *   奇襲の飛び込み〜当たる瞬間(CS_PlayerAmbush.isLunging)
+ *   CS_PlayerHide・CS_PlayerAmbushは付いていなければ見ない
+ * ・SA・奇襲は短いので、SetHeldではなく毎フレームPlayして、すぐ最大の強さで出す
+ *   (SetHeldだとFade In Timeの途中で終わり、弱い強さから一瞬で消えたように見えるため)
+ *   消える速さはCSV_ScreenEffectTimingのPlay Duration / Play Weight Curveで調整する
+ * ・同じProfileを別のクラスからSetHeldすると、後に呼んだ方で上書きされてしまうので、条件はこのクラスにまとめる
  * ・ダッシュ中の効果は1つのVolume Profile(_dashEffect)にまとめ、Playerの子のVolume1つでかける
  *   見た目も出し入れの速さも、このProfileで調整する
  *   集中線: CSV_SpeedLines
@@ -38,18 +45,26 @@ public class CS_PlayerDashScreenEffect : MonoBehaviour
     private CS_Player _player;
     private Rigidbody _rigidbody;
     private CS_PlayerScreenEffect _screenEffect;
+    private CS_PlayerHide _hide;       // ハイド(付いていなければ見ない)
+    private CS_PlayerAmbush _ambush;   // 奇襲(付いていなければ見ない)
 
     private void Awake()
     {
         _player = GetComponent<CS_Player>();
         _rigidbody = GetComponent<Rigidbody>();
         _screenEffect = GetComponent<CS_PlayerScreenEffect>();
+        _hide = GetComponent<CS_PlayerHide>();
+        _ambush = GetComponent<CS_PlayerAmbush>();
     }
 
     private void LateUpdate()
     {
         bool isFast = _player.isDashing || (_player.isSprinting && IsMoving());
         _screenEffect.SetHeld(_dashEffect, isFast);
+
+        // SA・奇襲は短い(0.3〜0.6秒)ので、Fade In Timeを待たずに最大の強さで出す
+        // 毎フレームPlayし直して強さ1を保ち、終わったらPlay Duration秒かけてPlay Weight Curveで消える
+        if (IsHideFlying() || IsAmbushLunging()) _screenEffect.Play(_dashEffect);
     }
 
     private void OnDisable()
@@ -64,5 +79,17 @@ public class CS_PlayerDashScreenEffect : MonoBehaviour
         Vector3 velocity = _rigidbody.linearVelocity;
         velocity.y = 0f;
         return velocity.sqrMagnitude >= _minSprintSpeed * _minSprintSpeed;
+    }
+
+    // SAでハイドポイントへ飛んでいるか(張り付いた後はCS_PlayerHideScreenEffectの効果に切り替わる)
+    private bool IsHideFlying()
+    {
+        return _hide != null && _hide.isHiding && !_hide.isAttached;
+    }
+
+    // 奇襲で飛び込んでいるか(当たる瞬間まで)
+    private bool IsAmbushLunging()
+    {
+        return _ambush != null && _ambush.isLunging;
     }
 }

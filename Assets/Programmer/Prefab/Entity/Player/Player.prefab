@@ -52,6 +52,7 @@ GameObject:
   - component: {fileID: 6660456579872789801}
   - component: {fileID: 5684253229926721997}
   - component: {fileID: 8473531523518073818}
+  - component: {fileID: 3958217640385529173}
   m_Layer: 31
   m_Name: Player
   m_TagString: PlayerNoTransformation
@@ -779,9 +780,6 @@ MonoBehaviour:
   _waveWidth: 0.3
   _waveSegments: 96
   _waveHeight: 0.2
-  _markerColor: {r: 1, g: 0.25, b: 0.2, a: 0.9}
-  _markerSize: 22
-  _markerHeight: 2.2
 --- !u!114 &3846102957716629043
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -879,10 +877,19 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 98ae5aa3d0ce4b05a64ce2824ea519fb, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::CS_PlayerHideMarker
-  _markerColor: {r: 0.3, g: 0.9, b: 1, a: 0.9}
-  _markerSize: 28
-  _markerHeight: 1.6
+  m_EditorClassIdentifier: Assembly-CSharp::CS_PlayerHideMarkerUI
+--- !u!114 &3958217640385529173
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1825699444668748530}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1bfdfffef64447a5845471342577469d, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CS_PlayerScanMarkerUI
 --- !u!114 &8473531523518073818
 MonoBehaviour:
   m_ObjectHideFlags: 0

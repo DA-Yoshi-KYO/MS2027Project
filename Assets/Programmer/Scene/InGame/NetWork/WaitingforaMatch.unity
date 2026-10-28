@@ -1197,6 +1197,8 @@ GameObject:
   m_Component:
   - component: {fileID: 1576724029}
   - component: {fileID: 1576724028}
+  - component: {fileID: 1576724030}
+  - component: {fileID: 1576724031}
   m_Layer: 0
   m_Name: MatchingWaitingUI
   m_TagString: Untagged
@@ -1215,12 +1217,37 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 8318fd06b219074428b73ed2edc5b7d8, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::CS_MatchingWaitingUI
+  m_EditorClassIdentifier: Assembly-CSharp::CS_MatchingWaitingController
   _sceneTransitioner: {fileID: 277560654}
+  _view: {fileID: 1576724030}
+  _roomConnectionSceneName: RoomConnection
+--- !u!114 &1576724030
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1576724027}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: fdf51de194524f6eab28fc036b9680ea, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CS_UIMatchingWaitingView
   _playerCountText: {fileID: 1403136392}
   _startButton: {fileID: 1508104128}
   _backButton: {fileID: 706364004}
-  _roomConnectionSceneName: RoomConnection
+--- !u!114 &1576724031
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1576724027}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3ce5b3c69c9c47df82b1c6bae50bbbf2, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CS_UIMatchingWaitingPresenter
 --- !u!4 &1576724029
 Transform:
   m_ObjectHideFlags: 0

@@ -17,6 +17,8 @@ using UnityEngine;
  *                            スプリントは動いている時だけ(止まってボタンを押しているだけでは広げない)
  *   それ以外               : 元のFOVへ_returnSpeedでゆっくり戻す
  *   ブリンク → スプリントと続けると、広がったままボタンを離すまで保つ
+ *   SAでハイドポイントへ飛んでいる時(CS_PlayerHide)・奇襲の飛び込み〜当たる瞬間(CS_PlayerAmbush.isLunging)も、ブリンクと同じ広さにする
+ *   (CS_PlayerHide・CS_PlayerAmbushは付いていなければ見ない)
  * ・変化は指数的になめらかにする(速さは「1秒あたりに目標へ近づく割合」の目安。大きいほど速い)
  * ・自分の画面のプレイヤー(CS_Player.isLocalPlayer)のカメラだけを変える
  *   (他人のプレイヤー・NPCのカメラは無効化されている。ブリンク中かどうかも操作しているマシンでしか分からない)
@@ -41,6 +43,8 @@ public class CS_PlayerCameraFov : MonoBehaviour
     private CS_Player _player;
     private Rigidbody _rigidbody;
     private CinemachineCamera _camera;
+    private CS_PlayerHide _hide;       // ハイド(付いていなければ見ない)
+    private CS_PlayerAmbush _ambush;   // 奇襲(付いていなければ見ない)
     private float _baseFov;
     private float _currentFov;
 
@@ -48,6 +52,8 @@ public class CS_PlayerCameraFov : MonoBehaviour
     {
         _player = GetComponent<CS_Player>();
         _rigidbody = GetComponent<Rigidbody>();
+        _hide = GetComponent<CS_PlayerHide>();
+        _ambush = GetComponent<CS_PlayerAmbush>();
         _camera = GetComponentInChildren<CinemachineCamera>(true);
 
         if (_camera == null) return;
@@ -63,8 +69,8 @@ public class CS_PlayerCameraFov : MonoBehaviour
         float target = _baseFov;
         float speed = _returnSpeed;
 
-        // ブリンク中・スプリント中(動いている時)は同じ広さにする
-        if (_player.isDashing || (_player.isSprinting && IsMoving()))
+        // ブリンク中・スプリント中(動いている時)・SAで飛んでいる時・奇襲で飛び込んでいる時は同じ広さにする
+        if (_player.isDashing || (_player.isSprinting && IsMoving()) || IsHideFlying() || IsAmbushLunging())
         {
             target += _dashFovAdd;
             speed = _widenSpeed;
@@ -90,5 +96,17 @@ public class CS_PlayerCameraFov : MonoBehaviour
         Vector3 velocity = _rigidbody.linearVelocity;
         velocity.y = 0f;
         return velocity.sqrMagnitude >= _minSprintSpeed * _minSprintSpeed;
+    }
+
+    // SAでハイドポイントへ飛んでいるか(張り付いたら戻す)
+    private bool IsHideFlying()
+    {
+        return _hide != null && _hide.isHiding && !_hide.isAttached;
+    }
+
+    // 奇襲で飛び込んでいるか(当たる瞬間まで)
+    private bool IsAmbushLunging()
+    {
+        return _ambush != null && _ambush.isLunging;
     }
 }

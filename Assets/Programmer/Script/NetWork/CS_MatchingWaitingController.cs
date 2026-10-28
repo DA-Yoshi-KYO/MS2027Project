@@ -4,20 +4,23 @@
  * 制作者：吉田京志郎
  * ------------------------------------------------
  * 2026-10-11 | 初回作成
+ * 2026-10-28 | UIをMVPに分け、CS_MatchingWaitingUIから名前を変えた(表示はCS_UIMatchingWaitingModel/Presenter/View)
  * ================================================ */
 
-using TMPro;
+using R3;
 using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.SceneManagement;
-using UnityEngine.UI;
 
 /// <summary>
-/// 待機シーン(WaitingforaMatch)のUIを担当するクラス
+/// 待機シーン(WaitingforaMatch)の処理を担当するクラス
+/// 画面の表示はMVP(CS_UIMatchingWaitingModel/Presenter/View)に任せ、このクラスはModelに状態を書くだけ
 /// </summary>
 // ========================================
 /*
  * メモ
+ * ・Modelをnewして持ち、Viewと同じGameObjectのPresenterに渡す(CS_DefeatVillainCountControllerと同じ形)
+ *   ボタンが押されたことはPresenterから受け取る
  * ・参加人数を表示する(ConnectedClientsIdsはクライアント側でも参照できる)
  * ・開始ボタンはホストだけに表示し、押すと入室受付を締め切ってゲームシーンへ移動する
  *   シーン移動はCS_SceneTransitioner経由(ホストのみNetworkSceneManagerで遷移)
@@ -25,29 +28,37 @@ using UnityEngine.UI;
  *   ホストが抜けた・切断されたクライアントも同じく部屋に入るシーンへ戻る
  */
 // ========================================
-public class CS_MatchingWaitingUI : MonoBehaviour
+public class CS_MatchingWaitingController : MonoBehaviour
 {
     [SerializeField][Tooltip("ゲームシーンへの遷移")] private CS_SceneTransitioner _sceneTransitioner;
-    [SerializeField][Tooltip("参加人数の表示")] private TMP_Text _playerCountText;
-    [SerializeField][Tooltip("開始ボタン(ホストのみ表示)")] private Button _startButton;
-    [SerializeField][Tooltip("戻るボタン")] private Button _backButton;
+    [SerializeField][Tooltip("画面のView(同じGameObjectのPresenterを使う)")] private CS_UIMatchingWaitingView _view;
     [SerializeField][Tooltip("戻り先のシーン名")] private string _roomConnectionSceneName = "RoomConnection";
 
+    private CS_UIMatchingWaitingModel _model;
+    private DisposableBag _disposables;
     private bool _isLeaving;
+
+    void Awake()
+    {
+        _model = new CS_UIMatchingWaitingModel();
+    }
 
     void Start()
     {
         NetworkManager networkManager = NetworkManager.Singleton;
 
+        CS_UIMatchingWaitingPresenter presenter = _view.GetComponent<CS_UIMatchingWaitingPresenter>();
+        presenter.BindModel(_model);
+        presenter.onStartRequested.Subscribe(_ => OnStartRequested()).AddTo(ref _disposables);
+        presenter.onBackRequested.Subscribe(_ => Leave()).AddTo(ref _disposables);
+
         // ホストだけ開始ボタンを出し、待機中は入室を受け付ける
-        _startButton.gameObject.SetActive(networkManager.IsHost);
+        _model.SetStartVisible(networkManager.IsHost);
         if (networkManager.IsHost)
         {
             SetAcceptingConnections(true);
         }
 
-        _startButton.onClick.AddListener(OnClickStart);
-        _backButton.onClick.AddListener(Leave);
         networkManager.OnConnectionEvent += OnConnectionEvent;
 
         RefreshPlayerCount();
@@ -59,12 +70,13 @@ public class CS_MatchingWaitingUI : MonoBehaviour
         {
             NetworkManager.Singleton.OnConnectionEvent -= OnConnectionEvent;
         }
+        _disposables.Dispose();
+        _model?.Dispose();
     }
 
-    private void OnClickStart()
+    private void OnStartRequested()
     {
-        _startButton.interactable = false;
-        _backButton.interactable = false;
+        _model.SetInteractable(false);
 
         // 開始後は途中参加させない
         SetAcceptingConnections(false);
@@ -102,7 +114,7 @@ public class CS_MatchingWaitingUI : MonoBehaviour
         CS_ConnectionGate gate = networkManager.GetComponent<CS_ConnectionGate>();
         if (gate != null) maxPlayers = gate.MaxPlayers;
 
-        _playerCountText.text = $"Players {networkManager.ConnectedClientsIds.Count} / {maxPlayers}";
+        _model.SetPlayerCount(networkManager.ConnectedClientsIds.Count, maxPlayers);
     }
 
     private void SetAcceptingConnections(bool value)

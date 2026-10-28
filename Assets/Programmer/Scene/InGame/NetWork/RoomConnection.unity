@@ -1119,6 +1119,8 @@ GameObject:
   m_Component:
   - component: {fileID: 808572454}
   - component: {fileID: 808572453}
+  - component: {fileID: 808572455}
+  - component: {fileID: 808572456}
   m_Layer: 0
   m_Name: RoomConnectionUI
   m_TagString: Untagged
@@ -1137,15 +1139,40 @@ MonoBehaviour:
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 258591af334dba84cba1333f56edb9ff, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::CS_RoomConnectionUI
+  m_EditorClassIdentifier: Assembly-CSharp::CS_RoomConnectionController
   _matching: {fileID: 254647582}
+  _view: {fileID: 808572455}
+  _defaultAddress: 127.0.0.1
+  _soloSceneName: MainScene
+--- !u!114 &808572455
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 808572452}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b118b073ebce40fba639e2d08f7e965a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CS_UIRoomConnectionView
   _roomInput: {fileID: 1554396371}
   _hostButton: {fileID: 1647646161}
   _joinButton: {fileID: 1215167134}
-  _statusText: {fileID: 739708095}
-  _defaultAddress: 127.0.0.1
   _soloButton: {fileID: 1398131732}
-  _soloSceneName: MainScene
+  _statusText: {fileID: 739708095}
+--- !u!114 &808572456
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 808572452}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e84748af2a134a01b4b33c9d91993bdf, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CS_UIRoomConnectionPresenter
 --- !u!4 &808572454
 Transform:
   m_ObjectHideFlags: 0

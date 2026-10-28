@@ -18,7 +18,8 @@ using UnityEngine;
  *   なし / 捜索中 → 発見中: 警察陣営がNotifyDetected()を呼んだ時
  *   発見中 → 捜索中: NotifyDetected()が_lostDelay秒(既定0.5秒)呼ばれなくなった時(見失われた)
  *   捜索中 → なし: 最後に見つかってから_clearTime秒(既定20秒)、新たに見つからなかった時
- *   どの状態 → なし: 警察に倒された時(倒した相手にCS_PoliceAttackが付いていれば警察とみなす)
+ *   どの状態 → なし: 警察陣営に倒された時(倒した相手にCS_PoliceAttack(警察)かCS_SecurityDrone(巡回ドローン)が付いていれば警察陣営とみなす)
+ *                    悪人・他のプレイヤーに倒された時は解除しない(仕様「警察に負けリスポーン」)
  * ・NotifyDetected()は、見えている間は呼び続けてもらう(毎フレームでも、一定間隔でもよい。間隔は_lostDelayより短くする)
  *   死亡中は見つかっても無視する
  * ・警戒状態はNetworkVariableで持つ(書き込みはサーバーのみ、読み取りは全員可)
@@ -113,12 +114,14 @@ public class CS_PlayerAlert : NetworkBehaviour
         SetState(CSE_PlayerAlertState.None);
     }
 
-    // 倒した相手が警察か(警察の攻撃はCS_PoliceAttackが付いたオブジェクトを攻撃者として渡してくる)
+    // 倒した相手が警察陣営か
+    // 警察の攻撃はCS_PoliceAttackが、巡回ドローンの即死攻撃はCS_SecurityDroneが付いたオブジェクトを攻撃者として渡してくる
     private static bool IsPolice(GameObject attacker)
     {
         if (attacker == null) return false;
 
-        return attacker.GetComponentInParent<CS_PoliceAttack>() != null;
+        return attacker.GetComponentInParent<CS_PoliceAttack>() != null
+            || attacker.GetComponentInParent<CS_SecurityDrone>() != null;
     }
 
     private void SetState(CSE_PlayerAlertState next)

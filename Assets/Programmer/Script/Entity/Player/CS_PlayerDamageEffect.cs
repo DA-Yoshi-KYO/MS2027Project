@@ -16,14 +16,16 @@ using UnityEngine;
  * ・HPは全員に同期されている(NetworkVariable)ので、各クライアントが自分の画面に出す(通信しない)
  * ・HPが減ったかは毎フレーム前のHPと比べて調べる
  *   (オフラインやスポーン時の同期では変更の通知が来ないことがあるため。回復・復活では出さない)
- * ・出す位置は体の中心(Colliderがあればその中心、無ければ足元から Height の高さ)
+ * ・出す位置は体の中心(Colliderがあればその中心、無ければ足元から Height の高さ)から、カメラの方へ Camera Offset だけ近づけた所
+ *   (体の中心のままだと、エフェクトが体のモデルに隠れてしまうため)
  */
 // ========================================
 
 [RequireComponent(typeof(CS_PlayerHealth))]
 public class CS_PlayerDamageEffect : MonoBehaviour
 {
-    [SerializeField] private float _height = 1f;   // Colliderが無い時に、エフェクトを出す高さ(足元から。m)
+    [SerializeField] private float _height = 1f;         // Colliderが無い時に、エフェクトを出す高さ(足元から。m)
+    [SerializeField] private float _cameraOffset = 0.5f; // 体の中心から、カメラの方へ近づける距離(m)
 
     private CS_PlayerHealth _health;
     private Collider _bodyCollider;
@@ -51,7 +53,21 @@ public class CS_PlayerDamageEffect : MonoBehaviour
         CS_EffectManager manager = CS_EffectManager.instance;
         if (manager == null) return;
 
-        manager.Play(CSE_EffectId.PlayerDamage, GetBodyCenter(), transform.rotation);
+        manager.Play(CSE_EffectId.PlayerDamage, GetEffectPosition(), transform.rotation);
+    }
+
+    // 体の中心から、カメラの方へ少し近づけた位置(体に隠れないように)
+    private Vector3 GetEffectPosition()
+    {
+        Vector3 center = GetBodyCenter();
+
+        Camera mainCamera = Camera.main;
+        if (mainCamera == null) return center;
+
+        Vector3 toCamera = mainCamera.transform.position - center;
+        if (toCamera.sqrMagnitude < 0.0001f) return center;
+
+        return center + toCamera.normalized * Mathf.Min(_cameraOffset, toCamera.magnitude);
     }
 
     private Vector3 GetBodyCenter()

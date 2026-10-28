@@ -1,5 +1,7 @@
 ﻿using System;
+using System.Collections.Generic;
 using Unity.Netcode;
+using Unity.Netcode.Components;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
@@ -27,6 +29,8 @@ using UnityEngine.InputSystem;
  *   カメラを回しただけでは体は回らない。移動キーを押している間だけ、進む方向(カメラから見た入力の方向)へ_rotationSpeedで回る
  *   移動は押した方向へすぐ始まり、体の向きは回りながら追いつく(以前のように「向き終わるまで動かない」ことはない)
  *   例外: エイムアシスト中は攻撃する相手の方、ダッシュ中はダッシュの方向、NPCは止まっている間も指定された向きへ回る
+ *   体の向きとカメラの向きがずれるため、警戒UI(CS_PoliceDetectionController)の方向の基準には、プレイヤー本体ではなく
+ *   「位置はプレイヤー、向きはカメラの左右の向き」の基準(_viewDirectionAnchor)を渡す(画面の上 = カメラの正面になる)
  *   3. LateUpdate   : カメラをプレイヤーの周りに配置する
  * ・カメラはプレイヤーの子だが、回転がプレイヤーに引っ張られないよう
  *   LateUpdateでワールド座標を直接指定している
@@ -35,7 +39,7 @@ using UnityEngine.InputSystem;
  * ・死亡中(CS_PlayerHealth.isDead)は移動・攻撃を行わない(canActで判定)
  *   視点操作(カメラ)は死亡中も継続する
  *   死亡中は水平方向の速度を毎回0にし、死亡時の勢いで滑り続けないようにしている(落下はする)
- * ・移動速度はCS_PlayerStats.moveSpeedを使う(実際の変更はCS_PlayerStats側で行う)
+ * ・移動速度はCS_PlayerStats.currentMoveSpeed(暗躍ボーナス込み)を使う(実際の変更はCS_PlayerStats側で行う)
  * ・Colliderには摩擦0の物理マテリアル(PlayerFrictionless)を設定している
  *   (摩擦があると、空中で壁に向かって移動し続けた時に壁に張り付いて落ちなくなるため)
  * ・ジャンプ
@@ -63,6 +67,13 @@ using UnityEngine.InputSystem;
  *     「自分の画面のプレイヤーか」(HUD・ミニマップの中心など)は、IsOwnerではなくisLocalPlayerで判定すること
  * ・ボタン(攻撃・必殺技など)はCS_PlayerButtonで公開する。人かNPCかに関わらず、各部品は
  *   WasPressedThisFrame() / IsPressed() で読むだけでよい
+ * ・落下の保険(Issue #290): 操作しているプレイヤーがy = _fallResetHeightより下に落ちたら、スポーンした位置へ戻す
+ *   (床の読み込みより先に落ち始めた時などに、落ち続けないようにする。位置はNetworkTransformのTeleportで全員へ反映する)
+ * ・ハイド(CS_PlayerHide。付いていなければ使わない)
+ *   飛べるハイドポイントがある時のダッシュボタンは、ダッシュの代わりにハイドポイントへ飛ぶ(TryBeginHide)
+ *   張り付いている間のダッシュボタンは、次のハイドポイントへ飛び移る(無ければ何もしない)
+ *   ハイド中(飛んでいる・張り付いている)は、ダッシュ・スプリント・通常の移動をしない。ジャンプボタンでハイドを抜けてジャンプする
+ *   飛ぶ時は高さも含めてまっすぐ進む(Fly)。張り付いている間は速度を0にする(重力はCS_PlayerHideが切る)
  */
 // ========================================
 
@@ -70,6 +81,7 @@ using UnityEngine.InputSystem;
 [RequireComponent(typeof(CapsuleCollider))]
 [RequireComponent(typeof(CS_PlayerHealth))]
 [RequireComponent(typeof(CS_PlayerStats))]
+[RequireComponent(typeof(CS_PlayerTransformation))]  // 警察に見つかるためのタグを付ける
 public class CS_Player : NetworkBehaviour
 {
     [Header("移動")]
@@ -82,6 +94,9 @@ public class CS_Player : NetworkBehaviour
     [Header("ダッシュ")]
     [SerializeField] private float _dashDuration = 0.2f;    // ダッシュが続く時間(秒)
     [SerializeField] private float _dashCooldown = 0.8f;    // 次に出せるようになるまでの時間(秒)
+
+    [Header("落下の保険")]
+    [SerializeField] private float _fallResetHeight = -30f; // これより下に落ちたら、スポーンした位置へ戻す(y座標)
 
     [Header("カメラ")]
     [SerializeField] private Transform _cameraTransform;    // プレイヤーの子のカメラ(CinemachineBrainが付いている)
@@ -104,6 +119,12 @@ public class CS_Player : NetworkBehaviour
     private CapsuleCollider _collider;
     private CS_PlayerHealth _health;
     private CS_PlayerStats _stats;
+    private CS_PlayerStun _stun;    // スタン(パリーされた時など)。付いていなければスタンしない
+    private CS_PlayerHide _hide;    // ハイド(ハイドポイントに張り付いて隠れる)。付いていなければハイドしない
+    private NetworkTransform _networkTransform;
+
+    private Vector3 _spawnPosition;     // 操作を始めた時の位置と向き(落ちた時に戻す先)
+    private Quaternion _spawnRotation;
 
     private InputAction _moveAction;
     private InputAction _mouseLookAction;
@@ -114,7 +135,7 @@ public class CS_Player : NetworkBehaviour
     private CS_PlayerButton _specialButton;
     private CS_PlayerButton _dashButton;        // ダッシュボタン
     private CS_PlayerButton _useItemButton;     // アイテム使用ボタン(CS_PlayerItemSlotが使う)
-    private CS_PlayerButton _transformationButton;  // 変身ボタン(CS_PlayerTransformationが使う)
+    private CS_PlayerButton _scanButton;        // スキャンボタン(CS_PlayerScanが使う)
 
     private CS_PlayerNpcInput _npcInput;    // NPCの時の入力(人が操作する時はnull)
 
@@ -130,13 +151,18 @@ public class CS_Player : NetworkBehaviour
     private Vector3 _dashDirection;
     private bool _isSprinting;      // ダッシュ後、ダッシュボタンを押し続けている間か
 
+    private Transform _viewDirectionAnchor;     // 位置はプレイヤー、向きはカメラの左右の向き。警戒UIの方向の基準(自分のプレイヤーのみ)
+
     private bool _hasAimFacing;     // エイムアシストで、攻撃する相手の方を向いている間か
     private float _aimFacingYaw;
     private Vector3 _lungeVelocity; // エイムアシストの踏み込みの速度
     private float _lungeRemaining;  // 踏み込みの残り時間(秒)
+    private bool _isLungeVertical;  // 踏み込みが高さも含めて進むか(Fly)。falseなら水平だけ進む(Lunge)
 
     public bool isControlled => _isControlled;          // このプレイヤーを自分(このマシン)が操作しているか(NPCはサーバーでtrue)
-    public bool canAct => _isControlled && !_health.isDead;   // 移動・攻撃してよいか(CS_PlayerAttackも参照)
+    public bool canAct => _isControlled && !_health.isDead && !isStunned;   // 移動・攻撃してよいか(CS_PlayerAttackも参照)
+    public bool isStunned => _stun != null && _stun.isStunned;   // スタン中か(パリーされた時など。死亡中と同じく行動できない)
+    public bool isHiding => _hide != null && _hide.isHiding;     // ハイドポイントへ飛んでいる・張り付いている最中か(操作しているマシンでだけ正しい)
     public bool isNpc => _isNpc.Value;                  // NPCか(全クライアントで分かる)
     // 自分の画面のプレイヤー(このマシンで人が操作しているプレイヤー)か。HUD・ミニマップの中心などに使う
     // NPCはホストではIsOwnerがtrueになるため、IsOwnerではなくこちらを使う
@@ -149,13 +175,14 @@ public class CS_Player : NetworkBehaviour
     public CS_PlayerButton dashAction => _dashButton;       // ダッシュボタン
     public float dashDuration => _dashDuration;         // ダッシュが続く時間(秒、見た目のモーション速度合わせに使う)
     public CS_PlayerButton useItemAction => _useItemButton; // アイテム使用ボタン(CS_PlayerItemSlotが使う)
-    public CS_PlayerButton transformationAction => _transformationButton;  // 変身ボタン(CS_PlayerTransformationが使う)
+    public CS_PlayerButton scanAction => _scanButton;       // スキャンボタン(CS_PlayerScanが使う)
     public bool isGrounded => IsGrounded();             // 接地しているか(全クライアントで判定できる。見た目用にも使う)
     public bool isSprinting => _isSprinting;            // ダッシュ後、ボタンを押し続けて速くなっているか(見た目用)
     public bool isDashing => _isDashing;                // ダッシュ(ブリンク)で高速移動している最中か(見た目用。操作しているマシンでだけ正しい)
     public int playerNumber => _playerNumber.Value;     // 何番目のプレイヤーか(0〜3。HP UIなど画面上の表示先を決めるのに使う)
     public Camera playerCamera => _cameraTransform != null ? _cameraTransform.GetComponent<Camera>() : null;   // このプレイヤーのカメラ(他人のプレイヤーでは無効化されている)
     public float viewYaw => _yaw;                       // カメラの左右の向き(度)。エイムアシストが「狙っている方向」として使う
+    public Vector3 moveDirection => GetMoveDirection();  // カメラから見た移動入力(スティック)の方向(水平、長さは入力の強さ。最大1)。エイムアシストが使う
     // 視点(カメラ)のTransform。揺れが乗る前のCinemachineCamera(無ければ実際のカメラ)。ミニマップの回転の基準に使う
     public Transform viewTransform => _virtualCameraTransform != null ? _virtualCameraTransform : _cameraTransform;
 
@@ -175,6 +202,19 @@ public class CS_Player : NetworkBehaviour
         _isNpc.Value = true;
     }
 
+    // 自分の画面のプレイヤー(このマシンで人が操作しているプレイヤー)。いなければnull
+    // 警察の警戒UI(CS_PoliceDetectionSource)が、「自分への信号か」を判定するのに使う
+    public static CS_Player localPlayer { get; private set; }
+
+    // 自分の画面のプレイヤーが決まった(出現した)時と、いなくなった(nullで渡される)時に発生する
+    // 警察がプレイヤーより先に出現している場合に、警察側が表示を判定し直すために購読する
+    public static event Action<CS_Player> onLocalPlayerSet;
+
+    // 出現中のプレイヤー(人・NPC。全クライアント・オフラインで持つ)。NPCの判断などが、他のプレイヤーを探すのに使う
+    // (以前は手配度(CS_PlayerWantedLevel)が持っていたが、手配度が無くなったためこちらへ移した)
+    private static readonly List<CS_Player> _activePlayers = new List<CS_Player>();
+    public static IReadOnlyList<CS_Player> activePlayers => _activePlayers;
+
     // 操作しているクライアントでだけ発生する。見た目(CS_PlayerVisual)など、ゲームロジックの外から購読する
     public event Action onJumped;
     public event Action onDashStarted;
@@ -185,10 +225,30 @@ public class CS_Player : NetworkBehaviour
         _collider = GetComponent<CapsuleCollider>();
         _health = GetComponent<CS_PlayerHealth>();
         _stats = GetComponent<CS_PlayerStats>();
+        _stun = GetComponent<CS_PlayerStun>();
+        _hide = GetComponent<CS_PlayerHide>();
+        _networkTransform = GetComponent<NetworkTransform>();
 
         // 壁などとの衝突で回転しないよう、物理による回転はすべて止める
         // (向きはUpdateFacingのMoveRotationでのみ変える)
         _rigidbody.freezeRotation = true;
+    }
+
+    private void OnEnable()
+    {
+        if (!_activePlayers.Contains(this)) _activePlayers.Add(this);
+    }
+
+    private void OnDisable()
+    {
+        _activePlayers.Remove(this);
+    }
+
+    // Domain Reloadオフ対策(再生のたびに一覧を空にする)
+    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+    private static void ResetStatics()
+    {
+        _activePlayers.Clear();
     }
 
     // オフライン(NetworkManagerが動いていない)のテストシーン用
@@ -252,24 +312,37 @@ public class CS_Player : NetworkBehaviour
         // ジャンプ・ダッシュは死亡中に予約されても復帰後に発動しないよう、ここでもcanActを見る
         if (canAct && _jumpButton.WasPressedThisFrame())
         {
+            // ハイド中はハイドを抜けてからジャンプする
+            if (isHiding) _hide.ExitHide();
             _jumpRequested = true;
         }
 
-        if (canAct && !_isDashing && _dashCooldownRemaining <= 0f && _dashButton.WasPressedThisFrame())
+        // 飛べるハイドポイントがあれば、ダッシュの代わりにそこへ飛ぶ(クールタイム中でも飛べる。張り付いている間は次のハイドポイントへ)
+        if (canAct && _dashButton.WasPressedThisFrame())
         {
-            StartDash();
+            if (_hide != null && _hide.TryBeginHide())
+            {
+                _isDashing = false;
+            }
+            else if (!isHiding && !_isDashing && _dashCooldownRemaining <= 0f)
+            {
+                StartDash();
+            }
         }
 
         // ダッシュ中でない間にダッシュボタンを押し続けていればスプリント(ZZZのような挙動。クールタイムとは無関係)
-        _isSprinting = canAct && !_isDashing && _dashButton.IsPressed();
+        _isSprinting = canAct && !isHiding && !_isDashing && _dashButton.IsPressed();
     }
 
     private void FixedUpdate()
     {
         if (!_isControlled) return;
 
-        // 死亡中は操作を受け付けず、死亡時の勢いで滑り続けないよう水平方向を止める(落下は残す)
-        if (_health.isDead)
+        // 床の下へ落ちてしまったら、スポーンした位置へ戻す
+        if (ReturnToSpawnIfFallen()) return;
+
+        // 死亡中・スタン中は操作を受け付けず、その時の勢いで滑り続けないよう水平方向を止める(落下は残す)
+        if (_health.isDead || isStunned)
         {
             _isDashing = false;
             _jumpRequested = false;
@@ -293,6 +366,11 @@ public class CS_Player : NetworkBehaviour
         else if (_lungeRemaining > 0f)
         {
             UpdateLunge();
+        }
+        else if (isHiding)
+        {
+            // ハイドポイントに張り付いている間は動かない(街灯の上などから落ちないよう、縦も止める)
+            _rigidbody.linearVelocity = Vector3.zero;
         }
         else
         {
@@ -331,17 +409,39 @@ public class CS_Player : NetworkBehaviour
 
         _lungeVelocity = direction.normalized * (distance / duration);
         _lungeRemaining = duration;
+        _isLungeVertical = false;
+    }
+
+    // 指定した方向へ、高さも含めてまっすぐ進む(ハイドポイントへ飛ぶ時に使う)。ダッシュを始めると打ち切られる
+    public void Fly(Vector3 direction, float distance, float duration)
+    {
+        if (direction.sqrMagnitude < 0.0001f || distance <= 0f || duration <= 0f) return;
+
+        _lungeVelocity = direction.normalized * (distance / duration);
+        _lungeRemaining = duration;
+        _isLungeVertical = true;
+    }
+
+    // 位置を指定した位置へ合わせ、踏み込みと速度を止める(ハイドポイントに張り付く時に使う)
+    public void SnapPosition(Vector3 position)
+    {
+        _lungeRemaining = 0f;
+        _rigidbody.linearVelocity = Vector3.zero;
+        _rigidbody.position = position;
+        transform.position = position;
     }
 
     // 踏み込み中は、決めた速さで直進する(垂直速度はそのまま)
     private void UpdateLunge()
     {
         _lungeRemaining -= Time.fixedDeltaTime;
-        _rigidbody.linearVelocity = new Vector3(_lungeVelocity.x, _rigidbody.linearVelocity.y, _lungeVelocity.z);
+        float verticalVelocity = _isLungeVertical ? _lungeVelocity.y : _rigidbody.linearVelocity.y;
+        _rigidbody.linearVelocity = new Vector3(_lungeVelocity.x, verticalVelocity, _lungeVelocity.z);
 
         if (_lungeRemaining <= 0f)
         {
-            StopHorizontalVelocity();
+            if (_isLungeVertical) _rigidbody.linearVelocity = Vector3.zero;
+            else StopHorizontalVelocity();
         }
     }
 
@@ -350,12 +450,54 @@ public class CS_Player : NetworkBehaviour
         if (!_isControlled || _npcInput != null) return;   // NPCはカメラを使わない
 
         UpdateCameraTransform();
+        UpdateViewDirectionAnchor();
+    }
+
+    // 警戒UIの方向の基準を、プレイヤーの位置とカメラの左右の向きに合わせる
+    private void UpdateViewDirectionAnchor()
+    {
+        if (_viewDirectionAnchor == null) return;
+
+        _viewDirectionAnchor.SetPositionAndRotation(transform.position, Quaternion.Euler(0f, _yaw, 0f));
+    }
+
+    // y = _fallResetHeightより下に落ちていたら、スポーンした位置へ戻す。戻したらtrue
+    private bool ReturnToSpawnIfFallen()
+    {
+        if (_rigidbody.position.y >= _fallResetHeight) return false;
+
+        _isDashing = false;
+        _jumpRequested = false;
+        _lungeRemaining = 0f;
+        _rigidbody.linearVelocity = Vector3.zero;
+
+        // NetworkTransformのTeleportで、他の人の画面でも補間せずにその場へ移す(操作している側が位置の権威を持つ)
+        if (IsSpawned && _networkTransform != null)
+        {
+            _networkTransform.Teleport(_spawnPosition, _spawnRotation, transform.localScale);
+        }
+        else
+        {
+            transform.SetPositionAndRotation(_spawnPosition, _spawnRotation);
+        }
+
+        _rigidbody.position = _spawnPosition;
+        _rigidbody.rotation = _spawnRotation;
+        return true;
+    }
+
+    // 落ちた時に戻す先として、今の位置と向きを覚えておく(操作を始める時に呼ぶ)
+    private void RememberSpawnPose()
+    {
+        _spawnPosition = transform.position;
+        _spawnRotation = transform.rotation;
     }
 
     // NPCの初期化(サーバー、またはオフライン)。入力はCS_PlayerNpcInputから読み、カメラは使わない
     private void SetupAsNpc()
     {
         _isControlled = true;
+        RememberSpawnPose();
 
         _npcInput = new CS_PlayerNpcInput();
         _npcInput.yaw = transform.eulerAngles.y;
@@ -366,7 +508,7 @@ public class CS_Player : NetworkBehaviour
         _specialButton = _npcInput.special;
         _dashButton = _npcInput.dash;
         _useItemButton = _npcInput.useItem;
-        _transformationButton = _npcInput.transformation;
+        _scanButton = _npcInput.scan;
 
         // 人のプレイヤーのカメラと取り合わないよう、カメラは消しておく(物理はこのマシンで動かす)
         DisableCamera();
@@ -376,6 +518,7 @@ public class CS_Player : NetworkBehaviour
     private void SetupAsLocalPlayer()
     {
         _isControlled = true;
+        RememberSpawnPose();
         BindInputActions();
 
         // カメラ追従のガタつきを防ぐ
@@ -386,6 +529,27 @@ public class CS_Player : NetworkBehaviour
 
         Cursor.lockState = CursorLockMode.Locked;
         Cursor.visible = false;
+
+        RegisterAsLocalPlayer();
+    }
+
+    // 自分の画面のプレイヤーとして公開し、警戒UIの方向の基準に登録する
+    // 体はカメラと別の方向を向くため、カメラの左右の向きを持つ基準(_viewDirectionAnchor)を作って渡す
+    // (プレイヤーの子にすると体の回転に引っ張られるので、親は持たせずLateUpdateで追従させる)
+    private void RegisterAsLocalPlayer()
+    {
+        localPlayer = this;
+
+        if (_viewDirectionAnchor == null)
+        {
+            _viewDirectionAnchor = new GameObject($"{name}_ViewDirectionAnchor").transform;
+        }
+        UpdateViewDirectionAnchor();
+
+        CS_PoliceDetectionController detection = FindAnyObjectByType<CS_PoliceDetectionController>();
+        if (detection != null) detection.SetPlayerTransform(_viewDirectionAnchor);
+
+        onLocalPlayerSet?.Invoke(this);
     }
 
     // 自分のプレイヤーの後片付け(入力参照の解放、カーソル解除)
@@ -403,6 +567,18 @@ public class CS_Player : NetworkBehaviour
         _lungeRemaining = 0f;
         _hasAimFacing = false;
         UnbindInputActions();
+
+        if (localPlayer == this)
+        {
+            localPlayer = null;
+            onLocalPlayerSet?.Invoke(null);
+        }
+
+        if (_viewDirectionAnchor != null)
+        {
+            Destroy(_viewDirectionAnchor.gameObject);
+            _viewDirectionAnchor = null;
+        }
 
         // NPCはカーソルを触っていない
         if (_npcInput != null)
@@ -453,7 +629,7 @@ public class CS_Player : NetworkBehaviour
         _specialButton = new CS_PlayerButton(player.Special);
         _dashButton = new CS_PlayerButton(player.Dash);
         _useItemButton = new CS_PlayerButton(player.UseItem);
-        _transformationButton = new CS_PlayerButton(player.Transformation);
+        _scanButton = new CS_PlayerButton(player.Scan);
     }
 
     // アクションへの参照を外す(アクション自体は共有のシングルトンが持ち続ける)
@@ -468,7 +644,7 @@ public class CS_Player : NetworkBehaviour
         _specialButton = null;
         _dashButton = null;
         _useItemButton = null;
-        _transformationButton = null;
+        _scanButton = null;
     }
 
     // 入力を読み取り、移動入力と視点(yaw/pitch)を更新する
@@ -553,7 +729,7 @@ public class CS_Player : NetworkBehaviour
 
         Vector3 direction = GetMoveDirection();
 
-        float speed = _isSprinting ? _stats.sprintSpeed : _stats.moveSpeed;
+        float speed = _isSprinting ? _stats.currentSprintSpeed : _stats.currentMoveSpeed;
         Vector3 horizontal = direction * speed;
         _rigidbody.linearVelocity = new Vector3(horizontal.x, _rigidbody.linearVelocity.y, horizontal.z);
     }
@@ -573,7 +749,7 @@ public class CS_Player : NetworkBehaviour
         if (!IsGrounded()) return;
 
         Vector3 velocity = _rigidbody.linearVelocity;
-        _rigidbody.linearVelocity = new Vector3(velocity.x, _stats.jumpPower, velocity.z);
+        _rigidbody.linearVelocity = new Vector3(velocity.x, _stats.currentJumpPower, velocity.z);
         onJumped?.Invoke();
     }
 

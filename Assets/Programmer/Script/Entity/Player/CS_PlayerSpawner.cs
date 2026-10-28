@@ -5,12 +5,14 @@
  * ------------------------------------------------
  * 2026-09-24 | 初回作成
  * 2026-10-14 | 4人に満たない枠をNPCで埋めるようにした(秋野)
+ * 2026-10-23 | 全員のシーン読み込みが終わってから生成するようにした(秋野、Issue #290)
  * ================================================ */
 
 using System.Collections;
 using System.Collections.Generic;
 using Unity.Netcode;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 
 /// <summary>
 /// 接続したクライアントごとにプレイヤーを生成し、4人に満たない枠はNPCで埋めるクラス
@@ -31,6 +33,12 @@ using UnityEngine;
  *   性格は_npcPersonalitiesの順に割り当てる(1体目は[0]、2体目は[1]…。足りなければ先頭から使い回す)
  *   後から人が接続して枠が足りない時は、NPCを1体消してその番号を人に譲る
  *   人が切断して枠が空いた時は、またNPCで埋める
+ * ・生成するタイミング(Issue #290)
+ *   オンラインでは、全員のゲームシーンの読み込みが終わった時(NetworkSceneManager.OnLoadEventCompleted)に生成する
+ *   (読み込みの遅いクライアントのプレイヤーが、床ができる前に落ち始めて床の下へ抜けるのを防ぐ)
+ *   ホスト1人だけの時はStartより前に完了が届くことがあるため、購読はAwakeで行い、届いていればStartで生成する
+ *   シーン管理を使わずに始めた時など完了が届かない場合は、_loadWaitTimeout秒後に生成する
+ *   読み込みが時間切れになったクライアントの分も生成する(落ちた場合はCS_Playerの落下の保険でスポーン位置へ戻る)
  * ・切断したクライアントのプレイヤーはNetcodeが自動で破棄する
  * ・プレイヤーのプレハブはNetworkPrefabsList(DefaultNetworkPrefabs)に登録しておくこと
  */
@@ -44,6 +52,9 @@ public class CS_PlayerSpawner : MonoBehaviour
     [SerializeField][Tooltip("オフライン(テストシーン)でもNPCで埋める")] private bool _fillWithNpcOffline = false;
     [SerializeField][Tooltip("空き枠に入れるNPCの性格(入れる順)")] private CSO_NpcPersonality[] _npcPersonalities;
 
+    [Header("生成のタイミング")]
+    [SerializeField][Tooltip("全員のシーン読み込みの完了を待つ最大秒数(届かない時はこの秒数後に生成する)")] private float _loadWaitTimeout = 10f;
+
     private const int _playerNumberCap = 4;   // プレイヤー番号(0〜3)の数(最大人数)
 
     private readonly List<CS_Player> _players = new List<CS_Player>();   // 生成したプレイヤー(人・NPC)
@@ -51,12 +62,29 @@ public class CS_PlayerSpawner : MonoBehaviour
     private int _spawnCount;    // 生成した人数(番号が足りない時の予備)
     private NetworkManager _networkManager;
 
+    private bool _isWaitingLoad;        // 全員のシーン読み込みの完了を待っているか(購読中か)
+    private bool _isLoadCompleted;      // 全員のシーン読み込みが終わったか
+    private bool _isReady;              // Startで生成の準備(生成位置の取得)が終わったか
+    private bool _hasSpawnedPlayers;    // 最初の生成を済ませたか
+
     // このマシンが生成の権威を持つか(オフライン、またはサーバー/ホスト)
     private static bool HasAuthority =>
         NetworkManager.Singleton == null || !NetworkManager.Singleton.IsListening || NetworkManager.Singleton.IsServer;
 
     private static bool IsOnline =>
         NetworkManager.Singleton != null && NetworkManager.Singleton.IsListening;
+
+    // 全員のシーン読み込みの完了は、ホスト1人だとStartより前に届くことがあるため、ここで購読しておく
+    void Awake()
+    {
+        if (!IsOnline || !HasAuthority) return;
+
+        _networkManager = NetworkManager.Singleton;
+        if (_networkManager.SceneManager == null || !_networkManager.NetworkConfig.EnableSceneManagement) return;
+
+        _isWaitingLoad = true;
+        _networkManager.SceneManager.OnLoadEventCompleted += OnLoadEventCompleted;
+    }
 
     void Start()
     {
@@ -66,6 +94,7 @@ public class CS_PlayerSpawner : MonoBehaviour
         if (_playerPrefab == null)
         {
             Debug.LogError("CS_PlayerSpawner: Player Prefab が未設定です", this);
+            StopWaitingLoad();
             return;
         }
 
@@ -74,6 +103,7 @@ public class CS_PlayerSpawner : MonoBehaviour
         {
             _spawnPoints[i] = transform.GetChild(i);
         }
+        _isReady = true;
 
         if (!IsOnline)
         {
@@ -82,8 +112,70 @@ public class CS_PlayerSpawner : MonoBehaviour
             return;
         }
 
-        // 既に接続しているクライアント(ホスト自身、マッチングで集まったクライアント)の分を生成する
         _networkManager = NetworkManager.Singleton;
+
+        // シーン管理を使っていない、またはもう全員の読み込みが終わっていれば、すぐに生成する
+        if (!_isWaitingLoad || _isLoadCompleted)
+        {
+            SpawnPlayers();
+            return;
+        }
+
+        StartCoroutine(SpawnPlayersAfterTimeout());
+    }
+
+    void OnDestroy()
+    {
+        StopWaitingLoad();
+
+        if (_networkManager != null)
+        {
+            _networkManager.OnClientConnectedCallback -= OnClientConnected;
+            _networkManager.OnClientDisconnectCallback -= OnClientDisconnected;
+        }
+    }
+
+    // 全員(時間切れのクライアントを除く)のシーン読み込みが終わった時(サーバーで呼ばれる)
+    private void OnLoadEventCompleted(string sceneName, LoadSceneMode loadSceneMode, List<ulong> clientsCompleted, List<ulong> clientsTimedOut)
+    {
+        // このスポナーがいるシーン以外の読み込みは関係ない
+        if (sceneName != gameObject.scene.name) return;
+
+        _isLoadCompleted = true;
+        if (_isReady) SpawnPlayers();
+    }
+
+    // 完了が届かないまま_loadWaitTimeout秒経ったら、待つのをやめて生成する
+    private IEnumerator SpawnPlayersAfterTimeout()
+    {
+        yield return new WaitForSecondsRealtime(_loadWaitTimeout);
+
+        if (_hasSpawnedPlayers) yield break;
+
+        Debug.LogWarning("CS_PlayerSpawner: 全員のシーン読み込みの完了が届かないため、待たずにプレイヤーを生成します", this);
+        SpawnPlayers();
+    }
+
+    private void StopWaitingLoad()
+    {
+        if (!_isWaitingLoad) return;
+
+        _isWaitingLoad = false;
+        if (_networkManager != null && _networkManager.SceneManager != null)
+        {
+            _networkManager.SceneManager.OnLoadEventCompleted -= OnLoadEventCompleted;
+        }
+    }
+
+    // 接続中の全員の分を生成し、空いた枠をNPCで埋める(オンラインで最初の1回だけ)
+    private void SpawnPlayers()
+    {
+        if (_hasSpawnedPlayers) return;
+
+        _hasSpawnedPlayers = true;
+        StopWaitingLoad();
+
+        // 既に接続しているクライアント(ホスト自身、マッチングで集まったクライアント)の分を生成する
         foreach (ulong clientId in new List<ulong>(_networkManager.ConnectedClientsIds))
         {
             Spawn(clientId);
@@ -95,15 +187,6 @@ public class CS_PlayerSpawner : MonoBehaviour
         // 後から接続・切断したクライアントの分
         _networkManager.OnClientConnectedCallback += OnClientConnected;
         _networkManager.OnClientDisconnectCallback += OnClientDisconnected;
-    }
-
-    void OnDestroy()
-    {
-        if (_networkManager != null)
-        {
-            _networkManager.OnClientConnectedCallback -= OnClientConnected;
-            _networkManager.OnClientDisconnectCallback -= OnClientDisconnected;
-        }
     }
 
     private void OnClientConnected(ulong clientId)

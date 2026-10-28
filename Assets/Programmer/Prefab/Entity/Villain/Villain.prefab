@@ -23,6 +23,7 @@ GameObject:
   - component: {fileID: 1872172813661465890}
   - component: {fileID: 487590664383712497}
   - component: {fileID: 5997323292010348831}
+  - component: {fileID: 3196402215840117245}
   m_Layer: 31
   m_Name: Villain
   m_TagString: Untagged
@@ -82,7 +83,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Unity.Netcode.Runtime::Unity.Netcode.NetworkObject
-  GlobalObjectIdHash: 3719260668
+  GlobalObjectIdHash: 3523242444
   InScenePlacedSourceGlobalObjectIdHash: 0
   m_InScenePlacedDisabledByDefault: 0
   DeferredDespawnTick: 0
@@ -139,11 +140,14 @@ MonoBehaviour:
   ShowTopMostFoldoutHeaderGroup: 1
   _playerBaseStats: {fileID: 11400000, guid: 817504dae6f859c46802b52e2c8274fb, type: 2}
   _attackData: {fileID: 11400000, guid: 1f9371c6037126d45bef0bd08c2472de, type: 2}
-  _attackStartDistance: 1
-  _chargeTime: 1
-  _hitActiveTime: 1
+  _attackStartDistance: 2
+  _chargeTime: 0.8
+  _hitActiveTime: 0.5
   _attackInterval: 1
-  _watchDistance: 3
+  _watchDistance: 5
+  _surroundArcAngle: 60
+  _surroundStepAngle: 30
+  _surroundSpeedMultiplier: 0.6
   _targetLayers:
     serializedVersion: 2
     m_Bits: 4294967295
@@ -259,7 +263,12 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: e7d97246124b85046b9aa845113a1499, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::CS_VillainAttackVisual
-  _chargeColor: {r: 1, g: 0.5, b: 0, a: 1}
+  _chargeColor: {r: 1, g: 1, b: 0, a: 1}
+  _warningLeadTime: 0.2
+  _warningColor: {r: 1, g: 0, b: 0, a: 1}
+  _warningEffectPrefab: {fileID: 1670149408417146658, guid: 8d1fbbdb91edce54385c9d2ace9c6a7f, type: 3}
+  _warningEffectBone: hand.r
+  _warningEffectOffset: {x: 0, y: 0, z: 0.1}
   _showHitArea: 1
   _hitAreaMaterial: {fileID: 2100000, guid: 3d9867fd319368a40a143a64644529cb, type: 2}
 --- !u!114 &5853495017623006576
@@ -308,6 +317,9 @@ MonoBehaviour:
   _playerBaseStats: {fileID: 11400000, guid: 817504dae6f859c46802b52e2c8274fb, type: 2}
   _locomotionDamping: 0.08
   _maxTrackedSpeed: 40
+  _windupTime: 0.275
+  _strikeTime: 0.44166666
+  _strikeDuration: 0.08
 --- !u!114 &5997323292010348831
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -467,3 +479,18 @@ RectTransform:
   m_CorrespondingSourceObject: {fileID: 3024163532033439586, guid: 19e0c61570e93e84095382a8a7d69d69, type: 3}
   m_PrefabInstance: {fileID: 8843079239888452314}
   m_PrefabAsset: {fileID: 0}
+--- !u!114 &3196402215840117245
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 942901870687269662}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5df700a2e024420effa86ce5bb0dccdf, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CS_VillainPatrol
+  _lookAroundTime: 3
+  _lookAroundAngle: 60
+  _lookAroundPeriod: 2

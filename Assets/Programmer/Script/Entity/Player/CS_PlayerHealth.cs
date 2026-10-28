@@ -23,8 +23,9 @@ using UnityEngine;
  *   → ダメージ処理は必ずサーバーで実行される(CS_PlayerAttack側の設計による)
  * ・フレンドリーファイアは常に有効。誰の攻撃でも当たる(このクラスでは区別しない)
  * ・onHpChanged / onDeath は、HPバーなどのUIやリスポーン処理から購読して使う
+ * ・攻撃が当たる直前にブリンクを押していた時は、パリー(CS_PlayerParry.TryParryHit)が成功してダメージを受けない
  * ・無敵中はダメージを受けない。無敵は要因(呼び出し元)ごとにSetInvincible(要因, true/false)で管理し、
- *   1つでも無敵の要因が残っていれば無敵(変身途中: CS_PlayerTransformation / 復活直後: CS_PlayerRespawn /
+ *   1つでも無敵の要因が残っていれば無敵(復活直後: CS_PlayerRespawn /
  *   被弾直後: このクラス自身)
  *   ダメージ処理はサーバーだけで行うため、無敵の状態もサーバー(またはオフライン)だけが持つ
  * ・被弾すると(致死でなければ)、_postDamageInvincibleDuration秒(既定3秒、Inspectorで調整可能)だけ無敵になる
@@ -43,6 +44,7 @@ public class CS_PlayerHealth : NetworkBehaviour, IDamageable, IHealable
     [SerializeField] private float _postDamageInvincibleDuration = 3f;   // 被弾後、無敵になる秒数(0以下で無効)
 
     private CS_PlayerStats _stats;
+    private CS_PlayerParry _parry;   // パリー(当たる直前にブリンクを押していればダメージを無効にする)。付いていなければnull
     private bool _isHpInitialized;   // 現在HPを満タンで初期化したか(サーバー、またはオフラインのみ)
 
     // 書き込みはサーバーのみ(NetworkVariableのデフォルト)。読み取りは全員可
@@ -66,6 +68,7 @@ public class CS_PlayerHealth : NetworkBehaviour, IDamageable, IHealable
     private void Awake()
     {
         _stats = GetComponent<CS_PlayerStats>();
+        _parry = GetComponent<CS_PlayerParry>();
     }
 
     // オフライン(NetworkManagerが動いていない)のテストシーン用
@@ -112,6 +115,9 @@ public class CS_PlayerHealth : NetworkBehaviour, IDamageable, IHealable
         if (_isDead.Value) return;
         if (isInvincible) return;
         if (damage <= 0f) return;
+
+        // 当たる直前にブリンクを押していれば、パリー成功としてこの攻撃を無効にする(反撃・無敵はCS_PlayerParryが行う)
+        if (_parry != null && _parry.TryParryHit(attacker)) return;
 
         _lastAttacker = attacker;
         _currentHp.Value = Mathf.Max(0f, _currentHp.Value - damage);

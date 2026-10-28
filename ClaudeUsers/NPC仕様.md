@@ -22,7 +22,7 @@ CS_PlayerNpcInput(移動・向き・各ボタン) ── CS_Player と各部品�
 CS_Player / CS_PlayerAttack / CS_PlayerTransformation / ...(人と全く同じ部品・数値・ルール)
 ```
 
-- **NPCはプレイヤーと同じ部品をそのまま使う**(移動・攻撃・変身・必殺技・アイテム・インタラクト・手配度・スコア・HUD・リザルト)。判断側は「ボタンを押す・スティックを倒す」だけを行う
+- **NPCはプレイヤーと同じ部品をそのまま使う**(移動・攻撃・必殺技・アイテム・インタラクト・スコア・HUD・リザルト)。判断側は「ボタンを押す・スティックを倒す」だけを行う
 - 基本パラメーター(HP・移動速度・攻撃力など)はプレイヤーと同じ(仕様書「基本パラメーターはプレイヤーと同様」)。性格で変えるのは、敵の位置の把握(索敵範囲)と頭の良さ(判断の間隔・反応の遅れ・行動の選び方)だけ
 - NPCはサーバー(ホスト)が所有・操作する。他のクライアントからは他人のプレイヤーと同じに見える(位置は`NetworkTransform`で同期)
 
@@ -38,7 +38,7 @@ CS_Player / CS_PlayerAttack / CS_PlayerTransformation / ...(人と全く同じ�
 | [`Npc/CS_NpcWorld.cs`](../Assets/Programmer/Script/Entity/Player/Npc/CS_NpcWorld.cs) | 悪人・警察・アイテムの一覧(全NPCで共有。1秒に1回だけ取り直す) |
 | `Assets/Programmer/Database/Npc/DB_NpcPersonality_Lv1〜3.asset` | 3種類の性格のデータ |
 
-## 生成: `CS_PlayerSpawner`(`Field.prefab`)
+## 生成: `CS_PlayerSpawner`(`Field_Multi.prefab` / `Field_Solo1.prefab`)
 
 - ゲーム開始時(シーンの`Start`)に、接続済みの人の分を生成した後、空いている番号(0〜3)をNPCで埋める
 - 後から人が接続して枠が足りない時は、NPCを1体(番号の大きいもの)消して、その番号を人に譲る
@@ -54,19 +54,19 @@ CS_Player / CS_PlayerAttack / CS_PlayerTransformation / ...(人と全く同じ�
 
 | 行動 | 内容 | 主な数値 |
 |---|---|---|
-| 悪人を倒す | 近づき、`Transform Distance`以内で変身、届く距離なら攻撃。範囲内に`Special Min Targets`人以上いれば必殺技 | `Villain Weight` |
+| 悪人を倒す | 近づき、届く距離なら攻撃。範囲内に`Special Min Targets`人以上いれば必殺技 | `Villain Weight` |
 | アイテムを拾う | 触れて拾う(スロットが埋まっていれば携帯型は狙わない。HPが低い時は回復などの即時型を優先) | `Item Weight` |
 | イベントに参加 | ケアパッケージなどに近づき、通常攻撃ボタン(=インタラクト)を押し続ける | `Event Weight` |
 | 他のプレイヤーを邪魔する | `Harass Range`以内のプレイヤーに近づいて攻撃・アイテム・必殺技(人のプレイヤーを優先) | `Harass Weight` |
-| 警察から逃げる | 追跡中の警察が`Flee Range`以内にいたら、変身を解いて(仕様「変形を解けばバレない」)反対側へダッシュで逃げる | `Flee Weight` |
+| 警察から逃げる | 追跡中の警察が`Flee Range`以内にいたら、反対側へダッシュで逃げる | `Flee Weight` |
 | うろつく | 何も無い時に、近くのランダムな場所へ歩く | `Wander Weight` |
 
 - 行動を変えた時は`Reaction Delay`秒待ってから動き出す(反応の遅さ)
 - 今の標的は点数を少し上乗せし(×1.2)、似た点数の標的の間で行ったり来たりしないようにしている
 - HPが`Flee Hp Ratio`以下の時は、逃げる点数が2倍・悪人を狙う点数が半分になる
-- 変身は、手配度が`Max Wanted Level`以上になった時、または標的が無い状態が`Untransform Idle Time`秒続いた時に解く
+- プレイヤーは常に変身している(仕様変更、Issue #277)ため、変身・解除の判断は行わない(以前の`Transform Distance` / `Untransform Idle Time` / `Max Wanted Level`は削除した)
 - アイテムは、逃げている時・標的が`Item Use Distance`以内の時に、`Item Use Chance`の確率で使う(爆弾は一番近い悪人・プレイヤーへ自動で飛ぶ)
-- `Skips Late Crimes`がオンだと、向かっても犯罪の完遂に間に合わない悪人には向かわない(データ表 Lv.3)。見積もりは「距離 ÷ 移動速度 + 変身の時間(未変身なら約5秒)」と「残り時間(悪人グループの`crimeProgress`から計算)」の比較
+- `Skips Late Crimes`がオンだと、向かっても犯罪の完遂に間に合わない悪人には向かわない(データ表 Lv.3)。見積もりは「距離 ÷ 移動速度」と「残り時間(悪人グループの`crimeProgress`から計算)」の比較
 - 引っかかって進めない時はジャンプして経路を計算し直す。3回続いたら、その行動をあきらめて別の場所へうろつく
 
 ## 性格: `CSO_NpcPersonality`(データ表 Lv.1〜3)
@@ -96,5 +96,5 @@ CS_Player / CS_PlayerAttack / CS_PlayerTransformation / ...(人と全く同じ�
 - **スコアに応じた強さの調整(#167)**: クローズ済みのため入れていない。ライバルの「プレイヤーと同等のスコアを維持」、雑魚の「プレイヤーを最下位にさせない」は、今は性格の固定の数値だけで表している
 - **リザルトでのNPCの表示**: `isNpc`と性格の`Display Name`はあるが、リザルト側(`CS_ResultData`)への受け渡しは未対応
 - **警察から逃げる判定**: 警察が「誰を」追っているかは外から分からないため、「追跡中の警察が近くにいる」ことで判断している(他人を追っている警察からも逃げることがある)
-- **ブリンクのオートカウンター**: プレイヤー側に仕組みが無いため、NPCも使わない
+- **ブリンクのオートカウンター(パリー)**: プレイヤー側に実装済み(`CS_PlayerParry`)。NPCは攻撃に合わせてブリンクボタンを押す判断はしていない(移動のダッシュがたまたま合えば成功する)
 - **動作確認**: コンパイルは確認済み。プレイしての確認(特にNavMesh上の移動、ケアパッケージの開封)はまだ

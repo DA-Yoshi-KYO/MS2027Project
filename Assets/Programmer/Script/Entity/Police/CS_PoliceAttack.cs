@@ -29,17 +29,17 @@ public class CS_PoliceAttack : MonoBehaviour
     // 今回のチャージにかける時間(溜め始めた時の溜め時間。途中で溜め時間が変わっても、進み具合が飛ばないよう覚えておく)
     private float _chargingDuration = 1.0f;
 
-    // 次のチャージから使う溜め時間(手配度などで変わる)
+    // 次のチャージから使う溜め時間
     private float _chargeTime = 0.0f;
 
     // チャージを始めた時に標的がいた位置(攻撃判定はこの位置に向かって出す)
     private Vector3 _chargeTargetPosition = Vector3.zero;
 
+    // 今出している攻撃判定(消えるまで覚えておく。スタンされた時に、すぐ消すため)
+    private CS_PoliceAttackHitbox _activeHitbox = null;
+
     // 初期化処理を行わずに攻撃するのを防ぐためのフラグ
     private bool _isInitialized = false;
-
-    // 溜め時間の下限(秒)。手配度で短くしても、攻撃を見てから避けられる時間を残す
-    private const float _minChargeTime = 0.3f;
 
     [Header("＝＝＝ 攻撃 ＝＝＝")]
     [SerializeField, Min(0f)]
@@ -51,7 +51,7 @@ public class CS_PoliceAttack : MonoBehaviour
     private float _attackInterval = 1.0f;
 
     [SerializeField, Min(1f)]
-    [Tooltip("攻撃をするまでの溜め時間(秒)。手配度で出現した増援は、手配度データの溜め時間を使う")]
+    [Tooltip("攻撃をするまでの溜め時間(秒)")]
     private float _attackChargeTime = 2.0f;
 
     [Header("＝＝＝ 攻撃判定 ＝＝＝")]
@@ -76,6 +76,9 @@ public class CS_PoliceAttack : MonoBehaviour
     // チャージ中か
     public bool isCharging => _isCharging;
 
+    // 攻撃判定が出るまでの残り時間(秒。チャージしていない時は0)
+    public float chargeRemaining => _isCharging ? Mathf.Max(0.0f, _chargeTimer) : 0.0f;
+
     // チャージの進み具合(0:開始直後 〜 1:溜め終わり。チャージしていない時は0)
     public float chargeProgress => _isCharging ? 1.0f - Mathf.Clamp01(_chargeTimer / _chargingDuration) : 0.0f;
 
@@ -93,16 +96,6 @@ public class CS_PoliceAttack : MonoBehaviour
         _isInitialized = true;
     }
 
-    /// <summary>
-    /// 次のチャージから使う溜め時間を変更するメソッド(手配度の変化など)
-    /// チャージ中の場合、その回の溜め時間は変わらない
-    /// </summary>
-    /// <param name="chargeTime">溜め時間(秒)。0以下なら、Inspectorの溜め時間に戻す</param>
-    public void ChangeChargeTime(float chargeTime)
-    {
-        _chargeTime = chargeTime > 0.0f ? Mathf.Max(_minChargeTime, chargeTime) : _attackChargeTime;
-    }
-
     private void Update()
     {
         if (_cooldownTimer > 0.0f) _cooldownTimer -= Time.deltaTime;
@@ -116,6 +109,21 @@ public class CS_PoliceAttack : MonoBehaviour
         _isCharging = false;
         SpawnHitbox();
         _cooldownTimer = _attackInterval;
+    }
+
+    /// <summary>
+    /// 今の攻撃(チャージ中と、出している攻撃判定)を中断するメソッド(スタンされた時に使う。チャージしていなくても呼んでよい)
+    /// 中断した後は、攻撃の間隔が経つまで、新しいチャージを始められない
+    /// </summary>
+    public void CancelAttack()
+    {
+        _isCharging = false;
+        _chargeTimer = 0.0f;
+        _cooldownTimer = _attackInterval;
+
+        // 攻撃判定は、消えるまでの時間が残っていても、すぐ消す(Unityのnullチェックで、消えている場合は何もしない)
+        if (_activeHitbox != null) Destroy(_activeHitbox.gameObject);
+        _activeHitbox = null;
     }
 
     /// <summary>
@@ -151,7 +159,7 @@ public class CS_PoliceAttack : MonoBehaviour
 
         // 攻撃判定には攻撃を出した位置(警察の中心)を渡し、そこから壁越しになる相手には当たらないようにする
         // 攻撃した警察(自分)も渡し、プレイヤー側が「警察に倒された」と判定できるようにする
-        CS_PoliceAttackHitbox.Create(center, transform.position, gameObject, _attackPower, _hitboxRadius, _hitboxLifetime);
+        _activeHitbox = CS_PoliceAttackHitbox.Create(center, transform.position, gameObject, _attackPower, _hitboxRadius, _hitboxLifetime);
     }
 
     /// <summary>

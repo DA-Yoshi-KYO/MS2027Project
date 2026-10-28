@@ -13,20 +13,16 @@ using UnityEngine;
 using UnityEngine.AI;
 
 /// <summary>
-/// 警察のグループ(2〜3人)を管理するクラス
+/// 警察のグループ(1〜3人)を管理するクラス
 /// ・指定した位置に、メンバーごとのステータスで警察を出現させる
 /// ・巡回ルートと隊列(先頭がルートを進み、他の警察は先頭の通った道筋をたどる)を管理する
 /// ・メンバーが見つけた標的をグループ内で共有する
-/// ・警備エリア内で起きた事件をメンバーに伝え、現場へ駆け付けさせる
 /// ・詰まったメンバーを出現位置から出し直す(再スポーン)
 /// 出現と判断はサーバー(またはオフライン)だけで行う
 /// 巡回ルートのScene上の表示はCSED_PoliceSquadGizmoが行う
 /// </summary>
 public class CS_PoliceSquad : MonoBehaviour, IPoliceGroup
 {
-    // 出現中の全グループ(事件の通知を全グループに届けるため)
-    private static readonly List<CS_PoliceSquad> _activeSquads = new List<CS_PoliceSquad>();
-
     // 先頭の回避の優先度(NavMeshAgentは値が小さいほど優先され、ぶつかった時に相手が道を譲る)
     // 後ろの警察ほど値を大きくし、先頭の進路を譲らせる
     private const int _leaderAvoidancePriority = 30;
@@ -39,12 +35,6 @@ public class CS_PoliceSquad : MonoBehaviour, IPoliceGroup
 
     // メンバーが見つけた標的の共有情報(共有時間は設定値を使うためStartで作る)
     private CS_PoliceSharedTarget _sharedTarget = null;
-
-    // 警備エリア内でのプレイヤーの変身の検知
-    private readonly CS_PoliceTransformationWatcher _transformationWatcher = new CS_PoliceTransformationWatcher();
-
-    // 変身したばかりのプレイヤーの位置を受け取る際に使い回すリスト
-    private readonly List<Vector3> _transformedPositions = new List<Vector3>();
 
     // グループ全員で合わせる巡回速度(メンバーの中で一番遅い巡回速度。隊列がばらけないように揃える)
     private float _groupPatrolSpeed = 0.0f;
@@ -75,10 +65,6 @@ public class CS_PoliceSquad : MonoBehaviour, IPoliceGroup
     [Tooltip("巡回ルート(順番に回り、最後まで行ったら最初に戻る)")]
     private Transform[] _patrolPoints = new Transform[0];
 
-    [SerializeField]
-    [Tooltip("警備エリア(この中で起きた事件に駆け付ける。Trigger推奨)")]
-    private Collider _guardArea = null;
-
     [SerializeField, Min(0f)]
     [Tooltip("先頭の警察が巡回ポイントにこの距離まで近づいたら、止まらずに次のポイントへ向かう")]
     private float _patrolPointPassDistance = 1.0f;
@@ -88,6 +74,10 @@ public class CS_PoliceSquad : MonoBehaviour, IPoliceGroup
     private float _formationSpacing = 1.5f;
 
     [Header("＝＝＝ 巡回ルートの表示(エディタのみ) ＝＝＝")]
+    [SerializeField]
+    [Tooltip("オンにすると、巡回ルートをSceneビューに表示する")]
+    private bool _showRoute = false;
+
     [SerializeField]
     [Tooltip("巡回ルートの線の色(始点のポイント→最後のポイント→始点に戻る、の順に変化する)")]
     private Gradient _routeGradient = CreateDefaultRouteGradient();
@@ -103,6 +93,7 @@ public class CS_PoliceSquad : MonoBehaviour, IPoliceGroup
 
     // 巡回ルートの表示用(CSED_PoliceSquadGizmoが参照する)
     public IReadOnlyList<Transform> patrolPoints => _patrolPoints;
+    public bool showRoute => _showRoute;
     public Gradient routeGradient => _routeGradient;
     public float routeLineThickness => _routeLineThickness;
 
@@ -117,43 +108,6 @@ public class CS_PoliceSquad : MonoBehaviour, IPoliceGroup
         return manager != null && manager.IsListening && !manager.IsServer;
     }
 
-    /// <summary>
-    /// 事件が起きたことを全グループに知らせるメソッド
-    /// 警備エリア内で起きた場合のみ、そのグループが現場へ駆け付ける(サーバーで呼ぶこと)
-    /// ※プレイヤーの変身は各グループが自動で検知するので、それ以外の事件を知らせたい時に使う
-    /// </summary>
-    /// <param name="position">事件の現場</param>
-    public static void NotifyIncident(Vector3 position)
-    {
-        NotifySquads(new CS_PoliceGatherPoint(position));
-    }
-
-    /// <summary>
-    /// プレイヤーが出した信号を知らせるメソッド(サーバーで呼ぶこと)
-    /// 警備エリア内のグループが駆け付けるのに加えて、そのプレイヤーの手配度で出現した増援も駆け付ける
-    /// </summary>
-    /// <param name="position">信号を出した位置</param>
-    /// <param name="source">信号を出したプレイヤー</param>
-    public static void NotifyIncident(Vector3 position, CS_PlayerHealth source)
-    {
-        // 巡回グループと増援には同じ現場を渡し、全員が現場の周りの別々の位置へ向かうようにする
-        CS_PoliceGatherPoint point = new CS_PoliceGatherPoint(position);
-        NotifySquads(point);
-        CS_PoliceWantedManager.ReceiveSignal(source, point);
-    }
-
-    /// <summary>
-    /// 事件が起きたことを全グループに知らせるメソッド(警備エリア内のグループだけが駆け付ける)
-    /// </summary>
-    /// <param name="point">事件の現場</param>
-    private static void NotifySquads(CS_PoliceGatherPoint point)
-    {
-        foreach (CS_PoliceSquad squad in _activeSquads)
-        {
-            squad.ReceiveIncident(point);
-        }
-    }
-
     private void Start()
     {
         if (IsNetworkClientOnly()) return;
@@ -164,9 +118,9 @@ public class CS_PoliceSquad : MonoBehaviour, IPoliceGroup
             return;
         }
 
-        if (_memberStatuses.Length < 2 || _memberStatuses.Length > 3)
+        if (_memberStatuses.Length < 1 || _memberStatuses.Length > 3)
         {
-            Debug.LogWarning($"CS_PoliceSquad: グループの人数は2〜3人の想定です(現在 {_memberStatuses.Length} 人)", this);
+            Debug.LogWarning($"CS_PoliceSquad: グループの人数は1〜3人の想定です(現在 {_memberStatuses.Length} 人)", this);
         }
 
         _sharedTarget = new CS_PoliceSharedTarget(_shareDuration);
@@ -176,7 +130,6 @@ public class CS_PoliceSquad : MonoBehaviour, IPoliceGroup
             _members.Add(SpawnMember(i));
         }
 
-        _activeSquads.Add(this);
     }
 
     private void Update()
@@ -187,19 +140,6 @@ public class CS_PoliceSquad : MonoBehaviour, IPoliceGroup
 
         // 一番後ろの警察がたどる距離の分だけ、先頭の道筋を記録しておく
         _formation.RecordLeaderPosition(_members[0].transform.position, _formationSpacing * (_members.Count - 1));
-
-        // 警備エリア内でプレイヤーが変身したら、その場所へ駆け付ける
-        if (_guardArea == null) return;
-        _transformationWatcher.Update(Time.deltaTime, _guardArea, _transformedPositions);
-        foreach (Vector3 position in _transformedPositions)
-        {
-            ReceiveIncident(new CS_PoliceGatherPoint(position));
-        }
-    }
-
-    private void OnDestroy()
-    {
-        _activeSquads.Remove(this);
     }
 
     /// <summary>
@@ -304,20 +244,6 @@ public class CS_PoliceSquad : MonoBehaviour, IPoliceGroup
     }
 
     /// <summary>
-    /// 事件の通知を受け取り、警備エリア内ならメンバーを駆け付けさせるメソッド
-    /// </summary>
-    /// <param name="point">事件の現場</param>
-    private void ReceiveIncident(CS_PoliceGatherPoint point)
-    {
-        if (_guardArea == null || !CS_PoliceTransformationWatcher.IsInsideArea(_guardArea, point.position)) return;
-
-        foreach (CS_PoliceBrain member in _members)
-        {
-            member.RequestRush(point);
-        }
-    }
-
-    /// <summary>
     /// 必要な項目がすべて設定されているかを判定するメソッド
     /// </summary>
     /// <returns>設定されていればtrue</returns>
@@ -357,13 +283,14 @@ public class CS_PoliceSquad : MonoBehaviour, IPoliceGroup
         float searchSpeed = baseSpeed * status.patrolSpeedMultiplier;
         float chaseSpeed = baseSpeed * status.chaseSpeedMultiplier;
 
-        // 巡回はグループで揃えた速さ、駆け付けは追跡と同じ速さ、探索は自分の巡回の速さにする
+        // 巡回はグループで揃えた速さ、駆け付けは追跡と同じ速さ、探索・怪しんで近づくのは自分の巡回の速さにする
         return new Dictionary<CSE_PoliceMoveState, float>
         {
             { CSE_PoliceMoveState.Patrol, _groupPatrolSpeed },
             { CSE_PoliceMoveState.Chase, chaseSpeed },
             { CSE_PoliceMoveState.Rush, chaseSpeed },
             { CSE_PoliceMoveState.Search, searchSpeed },
+            { CSE_PoliceMoveState.Suspect, searchSpeed },
         };
     }
 

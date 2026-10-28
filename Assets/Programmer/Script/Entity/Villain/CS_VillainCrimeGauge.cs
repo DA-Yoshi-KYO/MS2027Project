@@ -19,6 +19,11 @@ using UnityEngine;
  * ・ゲージ(VillainCrimeGaugeCanvas)はスポーン位置の直下に置く
  *   ゲージのPresenterは「親のTransform」でModelを探すので、孫や別の場所に置くと紐づかない
  * ・ゲージは表示中、常にカメラの方を向く
+ * ・路地裏(BackAlley)のScaleを変えても、ゲージの大きさ・高さが変わらないようにする
+ *   起動時に、スポーン位置(このオブジェクト)のScaleを親のScaleの逆数にして、見た目のScaleを1に戻す
+ *   (ゲージ側のScaleで打ち消すと、カメラの方へ回した時に親の縦横の拡大率の違いで形がゆがむため、親側で打ち消す)
+ *   → スポーン位置は位置だけを使うので、Scaleを変えても悪人の出現には影響しない
+ *   → エディタ上(実行前)では、ゲージは親のScaleの分だけ大きく表示される
  * ・シーンへの組み込みは Tools/Villain/犯罪完遂ゲージをスポーン位置に組み込む で行う
  *   (NetworkObject・このコンポーネント・ゲージをまとめて付ける)
  */
@@ -39,6 +44,8 @@ public class CS_VillainCrimeGauge : NetworkBehaviour
 
     private void Awake()
     {
+        CancelParentScale();
+
         // 進行度(crimeProgress)は0〜1なので、最大値1で作る
         _model = new CS_UICrimeGaugeModel(1f);
 
@@ -73,6 +80,18 @@ public class CS_VillainCrimeGauge : NetworkBehaviour
 
         // オフラインではOnValueChangedが呼ばれないので、ここで直接反映する
         if (!IsSpawned) Apply();
+    }
+
+    // 自分のScaleを親のScaleの逆数にし、見た目のScale(lossyScale)を1にする(ゲージが路地裏のScaleで伸び縮みしないため)
+    private void CancelParentScale()
+    {
+        Transform parent = transform.parent;
+        if (parent == null) return;
+
+        Vector3 parentScale = parent.lossyScale;
+        if (parentScale.x == 0f || parentScale.y == 0f || parentScale.z == 0f) return;
+
+        transform.localScale = new Vector3(1f / parentScale.x, 1f / parentScale.y, 1f / parentScale.z);
     }
 
     // ゲージ(World SpaceのCanvas)を常にカメラの方へ向ける(悪人のHPゲージと同じ)

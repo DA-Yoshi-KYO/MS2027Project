@@ -17,7 +17,9 @@ using UnityEngine.AI;
  * ・生成の権威はサーバーのみが持つ
  *   オンライン: サーバー/ホスト以外は何もしない(生成したNetworkObjectが同期されてくる)
  *   オフライン(NetworkManagerが動いていないテストシーン): その場で生成する
- * ・スポーン位置はシーン上のCS_VillainSpawnPointを起動時に1回だけ取得する
+ * ・スポーン位置はシーン上の有効なCS_VillainSpawnPointを起動時に1回だけ取得する
+ *   出現点は遊び方ごとのプレハブ(Field_Multi・Field_Solo1など)に直接置いてあり、
+ *   選ばれた遊び方のものだけが有効になっている(CS_GameModeSwitcher)ので、全部使えばよい
  *   使用中(グループが残っている)のスポーン位置には生成しない
  * ・ゲームの経過時間による変化(timeScaling)
  *   設定されていれば、生成時の経過時間の段階で、1グループの人数・HP・犯罪完遂時間・攻撃力を決める
@@ -28,6 +30,9 @@ using UnityEngine.AI;
  * ・timeScalingが未設定なら、1グループの人数は minMembers ～ maxMembers 人(両端を含む)からランダム
  *   各メンバーの種類は villainPrefabs からランダムに選ぶ
  * ・グループのうち同時に攻撃してくるのは maxAttackersPerGroup 人まで(残りは様子見。CS_VillainGroup参照)
+ * ・グループが2人以上なら、最後に生成した1人を見張り役にする(CS_VillainCombat.SetWatcher)
+ *   見張り役はスポーン位置の巡回ルート(CS_VillainSpawnPoint.GetPatrolEnds)を巡回する。残りは犯罪を実行する
+ *   ランダムイベントのグループ(スポーン位置が無い)には見張り役を付けない
  * ・グループのメンバーが全員いなくなったら(撃退・逃走でDestroyされたら)、そのスポーン位置は空く
  * ・グループがいなくなった(全員撃退された、または犯罪を完遂して逃走した)位置には、respawnCooldown 秒間リスポーンしない
  *   ただし「プレイヤーの数 + 追加グループ数」を保てない場合は、待ち中の位置にも生成する
@@ -119,10 +124,11 @@ public class CS_VillainSpawner : MonoBehaviour
 
         if (!HasValidPrefabs()) return;
 
+        // シーンの有効なスポーン位置を全部使う
         _spawnPoints = FindObjectsByType<CS_VillainSpawnPoint>(FindObjectsSortMode.None);
         if (_spawnPoints.Length == 0)
         {
-            Debug.LogError("CS_VillainSpawner: シーンにCS_VillainSpawnPointがありません", this);
+            Debug.LogError("CS_VillainSpawner: 使えるCS_VillainSpawnPointがありません", this);
             return;
         }
 
@@ -313,11 +319,20 @@ public class CS_VillainSpawner : MonoBehaviour
         CSO_VillainTimeScaling.Stage stage = _timeScaling != null ? _timeScaling.GetStage(GetElapsedTime()) : null;
         int memberCount = stage != null ? stage.memberCount : Random.Range(_minMembers, _maxMembers + 1);
 
+        CS_VillainCombat lastMember = null;
         for (int i = 0; i < memberCount; i++)
         {
             Vector3 position = point.GetMemberPosition(i, memberCount);
             NetworkObject villain = SpawnVillain(position, point.transform.position, stage);
             group.AddMember(villain.GetComponent<CS_VillainCrime>());
+            lastMember = villain.GetComponent<CS_VillainCombat>();
+        }
+
+        // 2人以上なら、1人を見張り役にして路地裏を巡回させる(残りは犯罪を実行する)
+        if (memberCount >= 2 && lastMember != null)
+        {
+            point.GetPatrolEnds(out Vector3 endA, out Vector3 endB);
+            lastMember.SetWatcher(endA, endB);
         }
 
         point.isOccupied = true;

@@ -3,8 +3,8 @@ using Unity.Netcode;
 using UnityEngine;
 
 /*
- * プレイヤーの3段コンボ攻撃を行うクラス
- * 攻撃ボタンを続けて押すと、1段目 → 2段目 → 3段目と派生する
+ * プレイヤーの5段コンボ攻撃を行うクラス(仕様書「攻撃」)
+ * 攻撃ボタンを続けて押すと、1段目 → 2段目 → … → 5段目と派生する(段数はAttack Stepsの数で決まる)
  *
  * 制作者：　秋野翔太
  */
@@ -13,8 +13,9 @@ using UnityEngine;
 /*
  * メモ
  * ・各段の数値や追加効果は CSO_AttackData(ScriptableObject) で決める
- *   Attack Steps に 1段目、2段目、3段目の順で割り当てる
+ *   Attack Steps に 1段目、2段目…の順で割り当てる(DB_PlayerAttack1〜5)
  * ・派生できる受付時間は、各段の CSO_AttackData の Combo Window で変更できる
+ *   (データ表「次コンボのバッファ」1秒。モーションが終わってから1秒以内に押せば次の段へつながる)
  * ・コンボの流れ
  *   待機 → 攻撃ボタン → [n段目] → 攻撃モーション終了 → 受付時間内にボタン → [n+1段目]
  *   ・攻撃モーション中に押したボタンは「先行入力」として覚え、モーション終了と同時に派生する
@@ -28,13 +29,16 @@ using UnityEngine;
  *   攻撃ボタンはインタラクト(CS_PlayerInteractor)と共有。操作できるものの近く・操作中は攻撃を出さない
  * ・フレンドリーファイアは常に有効(チーム判定なし)。IDamageableを実装していれば
  *   プレイヤーだろうと敵だろうと関係なく当たる
- * ・実際のダメージ = CSO_AttackData.CalculateDamage() × CS_PlayerStats.attackPower(倍率)
+ * ・実際のダメージ = CSO_AttackData.CalculateDamage() × CS_PlayerStats.currentAttackPower(倍率。暗躍ボーナス込み)
  * ・ヒットする度に、各段のGauge Gain分だけCS_PlayerSpecialGaugeが溜まる
- *   (仕様では通常攻撃のヒットでは溜まらないため、DB_PlayerAttack1〜3のGauge Gainは0にしている)
+ *   (仕様では通常攻撃のヒットでは溜まらないため、DB_PlayerAttack1〜5のGauge Gainは0にしている)
+ * ・奇襲(CS_PlayerAmbush)はこの5段コンボとは別の攻撃
+ *   待機中に攻撃ボタンを押した時、奇襲できる悪人がいれば1段目の代わりに奇襲を始める(いなければ1段目から)
+ *   奇襲中は通常攻撃を出さない。奇襲が終わった後にボタンを押すと、1段目から始まる
+ * ・ハイド中(CS_PlayerHide。ハイドポイントへ飛んでいる・張り付いている間)は通常攻撃を出さない
+ *   張り付いている間に攻撃ボタンを押すと、奇襲できる悪人がいれば奇襲する(CS_PlayerHide.TryAmbush)
+ * ・動けなくなった(死亡・スタン)時はコンボを中断する
  * ・必殺技(CS_PlayerSpecialAttack)を行っている間は、通常攻撃を行わない(isAttacking/isPerformingSpecialで排他制御)
- * ・変身中(CS_PlayerTransformation.isTransformed)でないと発動できない
- *   変身完了中はCS_PlayerTransformation側で解除できないよう制御しているため、
- *   コンボ開始後に変身が解けることは基本的に無い(死亡時の強制解除を除く)
  */
 // ========================================
 
@@ -42,11 +46,10 @@ using UnityEngine;
 [RequireComponent(typeof(CS_PlayerStats))]
 [RequireComponent(typeof(CS_PlayerSpecialGauge))]
 [RequireComponent(typeof(CS_PlayerSpecialAttack))]
-[RequireComponent(typeof(CS_PlayerTransformation))]
 public class CS_PlayerAttack : NetworkBehaviour
 {
     [Header("コンボ")]
-    [SerializeField] private CSO_AttackData[] _attackSteps;     // 1段目、2段目、3段目の順に割り当てる
+    [SerializeField] private CSO_AttackData[] _attackSteps;     // 1段目、2段目…の順に割り当てる
 
     [Header("攻撃判定")]
     [SerializeField] private LayerMask _targetLayers;           // ダメージを与える対象のレイヤー
@@ -58,9 +61,10 @@ public class CS_PlayerAttack : NetworkBehaviour
     private CS_PlayerStats _stats;
     private CS_PlayerSpecialGauge _gauge;
     private CS_PlayerSpecialAttack _specialAttack;
-    private CS_PlayerTransformation _transformation;
     private CS_PlayerScoring _scoring;
     private CS_PlayerInteractor _interactor;   // ケアパッケージなどの操作(攻撃と同じボタンを使う)。付いていなければnull
+    private CS_PlayerHide _hide;               // ハイド。張り付いている間は通常攻撃の代わりに奇襲だけ出す。付いていなければnull
+    private CS_PlayerAmbush _ambush;           // 奇襲(コンボとは別の攻撃)。付いていなければ奇襲しない
     private readonly Collider[] _hitBuffer = new Collider[_hitBufferSize];
     private readonly HashSet<IDamageable> _hitTargets = new HashSet<IDamageable>();
 
@@ -69,7 +73,8 @@ public class CS_PlayerAttack : NetworkBehaviour
     private bool _hasHit;                   // 現在の段の攻撃判定を行ったか
     private bool _isInputBuffered;          // 攻撃モーション中に次の入力があったか(先行入力)
 
-    public bool isAttacking => _currentStep != _noStep;   // コンボ中か(CS_PlayerSpecialAttackが参照)
+    public bool isAttacking => _currentStep != _noStep || isAmbushing;   // コンボ中・奇襲中か(CS_PlayerSpecialAttackが参照)
+    private bool isAmbushing => _ambush != null && _ambush.isAmbushing;
 
     // 操作しているクライアントでだけ発生する(引数は何段目か、0始まり)。見た目などが購読する
     public event System.Action<int> onStepStarted;
@@ -85,9 +90,10 @@ public class CS_PlayerAttack : NetworkBehaviour
         _stats = GetComponent<CS_PlayerStats>();
         _gauge = GetComponent<CS_PlayerSpecialGauge>();
         _specialAttack = GetComponent<CS_PlayerSpecialAttack>();
-        _transformation = GetComponent<CS_PlayerTransformation>();
         _scoring = GetComponent<CS_PlayerScoring>();
         _interactor = GetComponent<CS_PlayerInteractor>();
+        _ambush = GetComponent<CS_PlayerAmbush>();
+        _hide = GetComponent<CS_PlayerHide>();
 
         if (HasValidSteps()) return;
 
@@ -97,8 +103,22 @@ public class CS_PlayerAttack : NetworkBehaviour
 
     private void Update()
     {
-        // 自分が操作していないプレイヤー、必殺技中、変身していない間は何もしない
-        if (!_player.canAct || _specialAttack.isPerformingSpecial || !_transformation.isTransformed) return;
+        // 動けなくなった(死亡・スタン)ら、コンボを中断する(止まっていた判定が、動けるようになった後に出ないように)
+        if (!_player.canAct)
+        {
+            if (isAttacking) ResetCombo();
+            return;
+        }
+
+        // 必殺技中、奇襲中は何もしない
+        if (_specialAttack.isPerformingSpecial || isAmbushing) return;
+
+        // ハイド中は通常攻撃を出さない。張り付いている間の攻撃ボタンは、奇襲できる悪人がいれば奇襲する
+        if (_player.isHiding)
+        {
+            if (_player.attackAction.WasPressedThisFrame() && !_player.isSpecialModifierHeld) _hide.TryAmbush();
+            return;
+        }
 
         // ゲームパッドは攻撃(RT)と必殺技(RT+LT)が同じRTを共有するため、
         // LTを押しながらの場合は必殺技の合図とみなし、攻撃としては発動させない
@@ -122,9 +142,11 @@ public class CS_PlayerAttack : NetworkBehaviour
     // 攻撃ボタンが押されたときの処理
     private void OnAttackPressed()
     {
-        // 待機中 → 1段目から開始する
+        // 待機中 → 奇襲できる悪人がいれば奇襲、いなければ1段目から開始する
         if (_currentStep == _noStep)
         {
+            if (_ambush != null && _ambush.TryStartAmbush()) return;
+
             StartStep(0);
             return;
         }
@@ -146,7 +168,7 @@ public class CS_PlayerAttack : NetworkBehaviour
         if (_currentStep == _noStep) return;
 
         CSO_AttackData step = _attackSteps[_currentStep];
-        _elapsed += Time.deltaTime;
+        _elapsed += Time.deltaTime * _stats.comboSpeedRate;   // 暗躍ボーナスでコンボのモーションが速くなる
 
         // 判定のタイミングになったら、一度だけ判定を依頼する
         if (!_hasHit && _elapsed >= step.hitDelay)
@@ -251,9 +273,6 @@ public class CS_PlayerAttack : NetworkBehaviour
         // 不正な段番号は無視する(クライアントからの値は信用しない)
         if (stepIndex < 0 || stepIndex >= _attackSteps.Length) return;
 
-        // 判定タイミングまでの間に変身が解けていた場合は不発にする(死亡時の強制解除など)
-        if (!_transformation.isTransformed) return;
-
         CSO_AttackData step = _attackSteps[stepIndex];
         AttackContext context = new AttackContext(transform, stepIndex);
 
@@ -263,7 +282,8 @@ public class CS_PlayerAttack : NetworkBehaviour
 
         foreach (IDamageable target in _hitTargets)
         {
-            float damage = step.CalculateDamage(context, target) * _stats.attackPower;
+            float damage = step.CalculateDamage(context, target) * _stats.currentAttackPower;
+
             DealDamage(target, damage);
             CS_AttackHitDetector.TryKnockback(target, position);   // 攻撃した位置から離れる方向へ下がる
             step.OnHit(context, target);

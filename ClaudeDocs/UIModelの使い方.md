@@ -13,6 +13,8 @@ Presenter / View は UI のプレハブに最初から付いているので、�
 | 必殺技ゲージ | `CS_UISpecialGaugeModel` | `Bind(プレイヤー番号)` | `UICanvas` の `SpecialGaugePlayer0〜3` |
 | 敵HP | `CS_UIVillainHpModel` | `Bind(親のTransform)` | `VillainHpBarCanvas`（Villain の直下に置く） |
 | アイテムスロット | `CS_UIItemSlotModel` | `Bind()`（番号なし） | `UICanvas` の `ItemSlot` |
+| ハイドマーカー | `CS_UIHideMarkerModel` | `Bind()`（番号なし） | `UICanvas` の `HideMarker` |
+| スキャンの目印 | `CS_UIScanMarkerModel` | `Bind()`（番号なし） | `UICanvas` の `ScanMarker` |
 
 プレハブはすべて `Assets/Programmer/Prefab/UI/` にあります。
 

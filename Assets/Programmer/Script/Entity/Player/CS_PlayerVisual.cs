@@ -17,6 +17,8 @@ using UnityEngine;
  *   Animatorは全クライアントが「自分のもの」をローカルで動かす(NetworkAnimatorは使わない)。
  *   ・移動、接地、死亡 : 全クライアントで、座標の変化や同期済みのHPから自分で計算する(通信なし)
  *     走っているか(Sprint)も、座標の変化の速さが通常の移動より速いかで決める
+ *     接地(Grounded)は、ちょっとした段差を下りただけで空中のモーションにならないよう、
+ *     落ちている(上がっていない)間は足元から_stepHeight以内に地面があれば接地とみなす(見た目だけ。ゲームの接地判定は変えない)
  *     (CS_Player.isSprinting / isDashingは操作している本人の手元にしか無いため)
  *   ・被弾           : 同期済みのHPが減ったのを各クライアントが検知して再生する(通信なし)
  *   ・ジャンプ、ダッシュ、攻撃、必殺技、奇襲 : 操作している本人が再生し、同時にRPCで他クライアントへ通知する
@@ -61,6 +63,8 @@ public class CS_PlayerVisual : NetworkBehaviour
     [SerializeField] private float _locomotionDamping = 0.08f;  // 移動パラメータのなめらかさ(小さいほど素早く追従)
     [SerializeField] private float _maxTrackedSpeed = 40f;      // これを超える座標の変化はテレポートとみなして無視する(m/秒)
     [SerializeField] private float _blinkInterval = 0.1f;       // 復活直後の無敵中に点滅する間隔(秒)
+    [SerializeField][Min(0f)] private float _stepHeight = 0.4f; // この高さまでの段差は、下りても空中のモーションにしない(m)
+    [SerializeField] private LayerMask _stepGroundLayers = ~0;  // 段差の判定で地面とみなすレイヤー
     [SerializeField][Min(1)] private int _attackMotionCount = 3;    // Animatorにある通常攻撃のモーションの数。これを超えた段(5段コンボの4・5段目など)は先頭から使い回す
     [SerializeField] private int[] _attackMotionForStep;          // 通常攻撃の各段に使うモーションの番号(空なら段の番号をAttack Motion Countで割った余り)。ツールが書き込む
     [SerializeField][Min(0f)] private float _ambushImpactTime = 0.5f;  // 奇襲のモーションの頭から当たる瞬間までの秒数(等倍の時)。ツールが書き込む
@@ -73,6 +77,7 @@ public class CS_PlayerVisual : NetworkBehaviour
     private CS_PlayerAttack _attack;
     private CS_PlayerSpecialAttack _special;
     private CS_PlayerRespawn _respawn;
+    private Collider _collider;
     private CS_PlayerParry _parry;
     private CS_PlayerAmbush _ambush;
     private Renderer[] _renderers;
@@ -90,6 +95,7 @@ public class CS_PlayerVisual : NetworkBehaviour
         _attack = GetComponent<CS_PlayerAttack>();
         _special = GetComponent<CS_PlayerSpecialAttack>();
         _respawn = GetComponent<CS_PlayerRespawn>();
+        _collider = GetComponent<Collider>();
         _parry = GetComponent<CS_PlayerParry>();
         _ambush = GetComponent<CS_PlayerAmbush>();
         _renderers = GetComponentsInChildren<Renderer>(true);
@@ -138,10 +144,23 @@ public class CS_PlayerVisual : NetworkBehaviour
 
         if (_animator == null) return;
 
+        float verticalSpeed = Time.deltaTime > 0f ? (transform.position.y - _lastPosition.y) / Time.deltaTime : 0f;
         UpdateLocomotion(Time.deltaTime);
-        SetBool(CS_PlayerAnimatorParams.groundedHash, _player.isGrounded);
+        SetBool(CS_PlayerAnimatorParams.groundedHash, IsVisuallyGrounded(verticalSpeed));
         SetBool(CS_PlayerAnimatorParams.deadHash, _health.isDead);
         if (Has(CS_PlayerAnimatorParams.attackSpeedHash)) _animator.SetFloat(CS_PlayerAnimatorParams.attackSpeedHash, _stats.comboSpeedRate);
+    }
+
+    // 見た目の上での接地。本当に接地しているか、落ちている(上がっていない)間に足元から_stepHeight以内に地面があれば接地とみなす
+    // (ジャンプで上がっている間は地面が近くても接地にしないので、ジャンプのモーションは今まで通り再生される)
+    private bool IsVisuallyGrounded(float verticalSpeed)
+    {
+        if (_player.isGrounded) return true;
+        if (_stepHeight <= 0f || verticalSpeed > 0.1f) return false;
+
+        Vector3 origin = transform.position + Vector3.up * 0.1f;
+        float footOffset = _collider != null ? transform.position.y - _collider.bounds.min.y : 0f;
+        return Physics.Raycast(origin, Vector3.down, 0.1f + footOffset + _stepHeight, _stepGroundLayers, QueryTriggerInteraction.Ignore);
     }
 
     // 復活直後の無敵中は点滅させ、無敵が終わったら表示に戻す

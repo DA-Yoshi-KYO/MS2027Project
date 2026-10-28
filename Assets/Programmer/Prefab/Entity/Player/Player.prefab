@@ -349,6 +349,10 @@ MonoBehaviour:
   _maxTrackedSpeed: 40
   _blinkInterval: 0.1
   _attackMotionCount: 3
+  _attackMotionForStep: 0000000001000000020000000000000002000000
+  _ambushImpactTime: 1.0666667
+  _minAmbushSpeed: 0.3
+  _maxAmbushSpeed: 6
 --- !u!114 &6914253087416032519
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -881,18 +885,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 98ae5aa3d0ce4b05a64ce2824ea519fb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::CS_PlayerHideMarkerUI
---- !u!114 &3958217640385529173
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1825699444668748530}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 1bfdfffef64447a5845471342577469d, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::CS_PlayerScanMarkerUI
 --- !u!114 &8473531523518073818
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -906,6 +898,34 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::CS_PlayerHideScreenEffect
   _hideEffect: {fileID: 11400000, guid: 105e1c159b4c433faa2cce73892ffa49, type: 2}
+--- !u!114 &3958217640385529173
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1825699444668748530}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1bfdfffef64447a5845471342577469d, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CS_PlayerScanMarkerUI
+--- !u!114 &2958174630182749316
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1825699444668748530}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 96ed42d50c3575d838780a10d71d31ff, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CS_PlayerStunEscape
+  ShowTopMostFoldoutHeaderGroup: 1
+  _shortenPerCycle: 0.5
+  _inputThreshold: 0.5
+  _snapAngle: 150
 --- !u!1 &3298430547158640491
 GameObject:
   m_ObjectHideFlags: 0
@@ -1472,19 +1492,3 @@ RectTransform:
   m_CorrespondingSourceObject: {fileID: 6224474525827248880, guid: da07e20c2bfc65e4ca8fe6762518ce3a, type: 3}
   m_PrefabInstance: {fileID: 7554633143963106841}
   m_PrefabAsset: {fileID: 0}
---- !u!114 &2958174630182749316
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1825699444668748530}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 96ed42d50c3575d838780a10d71d31ff, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::CS_PlayerStunEscape
-  ShowTopMostFoldoutHeaderGroup: 1
-  _shortenPerCycle: 0.5
-  _inputThreshold: 0.5
-  _snapAngle: 150

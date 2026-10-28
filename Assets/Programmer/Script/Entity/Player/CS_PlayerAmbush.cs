@@ -162,6 +162,16 @@ public class CS_PlayerAmbush : NetworkBehaviour
         return true;
     }
 
+    // 飛び込みを始めてから奇襲が当たるまでの見込みの時間(秒)。見た目(CS_PlayerVisual)が、当たる瞬間にモーションの打撃を合わせるのに使う
+    // 飛び込む距離 ÷ 飛び込む速さ + 着いてから当たるまでの時間(悪人は止めているので、始めた時の距離で見積もれる)
+    public float EstimateTimeToHit(CS_VillainHealth villain)
+    {
+        if (villain == null) return _strikeDelay;
+
+        float moveDistance = Mathf.Max(0f, HorizontalDistance(villain.transform.position) - _strikeDistance);
+        return Mathf.Min(moveDistance / _dashSpeed, _maxDashTime) + _strikeDelay;
+    }
+
     // 悪人の今の位置を追いながら、_strikeDistanceまで飛び込む
     private void UpdateDash()
     {

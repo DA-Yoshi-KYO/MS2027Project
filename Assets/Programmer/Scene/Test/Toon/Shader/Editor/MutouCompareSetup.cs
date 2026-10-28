@@ -128,6 +128,10 @@ public static class MutouCompareSetup
             // マスク未設定(白)だと瞳全体が白飛びするため、マスク依存の効果は切る。
             m.SetFloat("_EyeHighlightStrength", 0f);
             m.SetFloat("_EyeIrisGradient", 0f);
+            // ハイライト板 (メッシュに作り込まれた白い円) は消して、HDRP の反射で目のツヤを出す
+            if (m.HasProperty("_EyeHideMask")) m.SetTexture("_EyeHideMask", AssetDatabase.LoadAssetAtPath<Texture2D>(ModelDir + "/Eye_HideMask.png"));
+            if (m.HasProperty("_EyeReflection")) m.SetFloat("_EyeReflection", 0.2f);
+            if (m.HasProperty("_EyeSmoothness")) m.SetFloat("_EyeSmoothness", 0.95f);
         }
         EditorUtility.SetDirty(m);
         return m;
@@ -151,6 +155,9 @@ public static class MutouCompareSetup
         m.SetTexture("_BaseMap", BaseTex(p));
         if (template.HasProperty("_OutlineWidth"))
             m.SetFloat("_OutlineWidth", template.GetFloat("_OutlineWidth") / modelScale * OutlineWidthScale);
+        // 口元 (歯・舌・唇) の線を消すマスク。黒い所は線が出ない
+        if (p == Part.Skin && m.HasProperty("_OutlineWidthMask"))
+            m.SetTexture("_OutlineWidthMask", AssetDatabase.LoadAssetAtPath<Texture2D>(ModelDir + "/Skin_OutlineMask.png"));
         EditorUtility.SetDirty(m);
         return m;
     }

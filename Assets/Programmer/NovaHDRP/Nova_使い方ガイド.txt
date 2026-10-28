@@ -1,0 +1,345 @@
+================================================================================
+  NOVA Shader（HDRP移植版）使い方ガイド
+  対象: Assets/Programmer/NovaHDRP/Nova
+  元: CyberAgent NOVA Shader 3.6.0（MITライセンス）を
+      Unity 6000.3.23f1 / HDRP 17.3.0 向けにローカル移植したもの
+      ※CyberAgent公式のHDRP版ではありません
+================================================================================
+
+■ 目次
+  1. NOVAってなに？
+  2. 使えるシェーダー（5種類）
+  3. 最初のセットアップ（HDRP側の設定）
+  4. 基本の使い方（マテリアル作成～パーティクルに適用）
+  5. 機能一覧（Inspectorの項目ごと）
+  6. Custom Coord（パーティクルごとに値を動かす仕組み）
+  7. 使用例（レシピ集）
+  8. プロジェクト内のサンプル
+  9. 便利なメニュー・ツール
+ 10. 注意点・ハマりどころ
+ 11. 用語メモ
+
+
+--------------------------------------------------------------------------------
+1. NOVAってなに？
+--------------------------------------------------------------------------------
+エフェクト（パーティクル）用の「全部入り」シェーダーです。
+テクスチャの差し替え、色付け、ディゾルブ、発光、UVスクロール、歪み、
+フリップブック（連番アニメ）などを、シェーダーを書かずに
+マテリアルのInspectorだけで組み合わせて作れます。
+
+使っていない機能はシェーダーキーワードでOFFになるので、
+機能を盛っても使わない分の負荷はかかりません。
+
+
+--------------------------------------------------------------------------------
+2. 使えるシェーダー（5種類）
+--------------------------------------------------------------------------------
+  Nova/Particles/UberUnlit      … 基本これ。ライティングなしのエフェクト全般
+                                   （炎、光、魔法陣、衝撃波、火花など）
+  Nova/Particles/UberLit        … ライトの影響を受けるエフェクト
+                                   （煙、土埃、破片など"モノ"っぽいもの）
+  Nova/Particles/Distortion     … 背景を歪ませる（熱気、衝撃波の空間の歪み）
+  Nova/UIParticles/UberUnlit    … UI上のパーティクル用（Unlit）
+  Nova/UIParticles/UberLit      … UI上のパーティクル用（Lit）
+
+  迷ったら → UberUnlit。ライトで陰影が欲しいときだけ UberLit。
+
+
+--------------------------------------------------------------------------------
+3. 最初のセットアップ（HDRP側の設定）
+--------------------------------------------------------------------------------
+  ・UberUnlit / UberLit は特別な設定なしで使えます。
+  ・Distortion を使う場合のみ、以下2つを必ず有効にしてください。
+      (1) HDRP Asset → Rendering → Distortion にチェック
+      (2) カメラ（またはHDRP Global Settings）の Frame Settings
+          → Distortion を有効
+    ※URP版にあった「ScreenSpaceDistortion Renderer Feature」は不要です。
+    ※スクリプティングシンボル NOVA_LEGACY_URP は絶対に追加しないこと
+      （旧URP用コードが有効になって壊れます）。
+
+
+--------------------------------------------------------------------------------
+4. 基本の使い方
+--------------------------------------------------------------------------------
+  手順1) Project で右クリック → Create → Material
+  手順2) Shader を「Nova/Particles/UberUnlit」に変更
+  手順3) Render Settings で
+           Render Type  : Transparent（半透明エフェクトの基本）
+           Blend Mode   : Additive（光もの） / Alpha（煙など普通の半透明）
+  手順4) Base Map にテクスチャを設定
+  手順5) Particle System の Renderer → Material にドラッグ
+  手順6) Inspector下部に警告と「Fix Now」ボタンが出たら押す
+         （Vertex Streams を自動で正しく設定してくれます）
+
+  ★ Custom Coord を使ったり、Lit で Normal Map / Parallax Map を使うと
+    必要な Vertex Streams が増えます。設定を変えたらもう一度 Fix Now。
+
+
+--------------------------------------------------------------------------------
+5. 機能一覧（Inspectorの項目ごと）
+--------------------------------------------------------------------------------
+
+【Render Settings】描画の基本設定
+  Render Type         Opaque（不透明） / Cutout（くり抜き） / Transparent（半透明）
+  Alpha Cutoff        Cutout時のしきい値
+  Blend Mode          Transparent時のみ
+                        Alpha    … 通常の半透明（煙・埃）
+                        Additive … 加算。重なるほど明るい（炎・光・魔法）
+                        Multiply … 乗算。暗くする（影・焦げ跡）
+  Render Face         Front / Back / Both（両面）
+  Vertex Alpha Mode   パーティクルの頂点カラーのアルファを何に使うか
+                        Alpha              … 普通に透明度として使う
+                        TransitionProgress … ディゾルブ/フェードの進行度として使う
+                                             （Color over Lifetime のαで
+                                               ディゾルブを進められる）
+  ZWrite / ZTest      深度の書き込み・比較（通常はAutoのままでOK）
+  Render Priority     描画順（Queue Offset）。前後関係がおかしい時に調整
+
+【Base Map】メインのテクスチャ
+  Mode                SingleTexture    … 普通の1枚絵
+                      FlipBook         … Texture2DArray の連番を切り替え
+                      FlipBookBlending … 3Dテクスチャで前後コマを補間（なめらか）
+  Flip-Book Progress  連番の再生位置（0～1）
+  Channel             RGB / R / G / B（グレースケール素材を1chだけ使う等）
+  Offset / Rotation   UVのずらし・回転（Custom Coordで毎パーティクル動かせる）
+  Mirror Sampling     ミラー（反転）サンプリング
+  Random Row          シート内の行をパーティクルごとにランダム選択
+  Tone Mode           None / Tritone（3色） / Pentone（5色）
+                        明るさに応じて色を割り当てる。白黒素材をカラー化するのに便利
+
+【Tint Color】色付け
+  Area Mode           None / All（全体） / Rim（ふち＝輪郭部分だけ）
+  Color Mode          SingleColor / SingleTexture / FlipBook / FlipBookBlending
+  Tint Color          HDR色。1以上の値で強く光らせられる
+  Blend Rate          色の混ぜ具合
+  Rim Progress/Sharpness/Inverse   Rim時のふちの範囲・硬さ・反転
+
+【Flow Map】UVをゆがめる（ゆらゆら、うねうね）
+  Flow Map            RG（チャンネル指定可）がずらす方向
+  Intensity           ゆがみの強さ
+  Targets             どのテクスチャに効かせるか（複数選択可）
+                        Base / Tint / Alpha Transition / Emission
+  使い所: 炎のゆらぎ、水面、オーラ、もやもや
+
+【Parallax Map】視差（疑似的な奥行き）
+  Height テクスチャで凸凹っぽく見せる。Targets で対象マップを選択
+  ※使うと Tangent ストリームが必要になる（Fix Now で追加される）
+
+【Color Correction】色補正
+  None / Greyscale（白黒化） / GradientMap（明るさ→グラデ画像の色に置換）
+  使い所: 1枚の白黒テクスチャから色違いを量産
+
+【Alpha Transition】消え方・現れ方 ★超よく使う
+  Mode                None / Fade（全体がうっすら消える） / Dissolve（虫食い状に溶ける）
+  Map                 消え方の模様（ノイズテクスチャなど）。FlipBook系も可
+  Progress            0 = 見えている → 1 = 完全に消える
+  Sharpness           Dissolveの境界の硬さ
+  Second Texture      2枚目の消え方テクスチャ（Average / Multiply で合成）
+  ポイント: Progress を Custom Coord か Vertex Alpha Mode で
+            寿命に合わせて動かすのが定番
+
+【Emission】発光
+  Area Type           None / All（全体） / ByTexture（Emission Mapの部分） /
+                      Edge（ディゾルブの溶けている境目が光る）
+  Color Type          Color / BaseColor（ベースの色を利用） / GradiantMap（Ramp画像）
+  Intensity           光の強さ（HDR。Bloomと組み合わせると映える）
+  Keep Edge Transparency  Edge発光時にふちの透明感を維持
+  使い所: 「燃え尽きる紙」= Dissolve + Emission(Edge) のオレンジ発光
+
+【Transparency】透明度の調整
+  Rim                 輪郭ほど透明に（Inverseで中心ほど透明）→ 球体のバリア等
+  Luminance           暗い部分を透明に → 黒背景の素材を抜く
+  Soft Particles      地面などと交差したときの境目をぼかす（板感を消す）
+  Depth Fade          カメラに近い/遠いと消える（Near/Far/Width）
+                        カメラ目の前で視界を塞ぐのを防ぐ
+
+【Vertex Deformation】頂点を動かす
+  テクスチャの値で法線方向に頂点を押し出す。メッシュパーティクルで
+  ボコボコ動く球、うねる衝撃波など。Intensity / Base Value で調整
+
+【Shadow Caster】影を落とす
+  エフェクトに影を落とさせる。Alpha Test、頂点変形、Tint/Flow/
+  Alpha Transition/Luminance の影響を影に反映するか個別に選べる
+
+【Lit専用: Surface Maps / Lighting】（UberLitのみ）
+  Work Flow Mode      Specular / Metallic
+  Normal Map          法線マップ（Bump Scaleで強さ）
+  Metallic / Smoothness / Specular  各マップと値
+  Receive Shadows     影を受けるか
+  Specular Highlights / Environment Reflections  ハイライト・環境反射のON/OFF
+
+【Distortion専用】（Nova/Particles/Distortion）
+  Base Map            歪みの方向テクスチャ（RG）。Use As Normal Map で法線マップも可
+  Intensity Mode      Single（XY共通）/ XY（縦横別々）
+  Intensity           歪みの強さ（0.05～0.2あたりから試すのが無難）
+  Flow Map / Alpha Transition / Soft Particles / Depth Fade も使用可
+
+
+--------------------------------------------------------------------------------
+6. Custom Coord（パーティクルごとに値を動かす仕組み）
+--------------------------------------------------------------------------------
+NOVAの多くの項目（Progress、Offset、Rotation、Intensity など）の横に
+「Coord」という選択欄があります。ここで
+
+    Coord1X / Coord1Y / Coord1Z / Coord1W  … Custom Data の Custom1 の x,y,z,w
+    Coord2X / Coord2Y / Coord2Z / Coord2W  … Custom Data の Custom2 の x,y,z,w
+
+を選ぶと、Particle System の「Custom Data」モジュールのカーブで
+その値をパーティクルごと・寿命に沿って動かせます。
+（Inspectorの値 + Custom Data の値 が最終値になります）
+
+  設定手順:
+   1) マテリアルで例えば Alpha Transition → Progress の Coord を Coord1X に
+   2) Particle System → Custom Data を有効化
+        Custom1 = Vector、X を Curve にして 0→1 のカーブを描く
+   3) Renderer の Fix Now を押して Custom1XYZW / Custom2XYZW ストリームを追加
+
+  よくある割り当て例:
+    Coord1X → Alpha Transition Progress（寿命でディゾルブ）
+    Coord1Y → Base Map Offset Y（UVスクロール）
+    Coord1Z → Emission Intensity（発光の明滅）
+    Coord1W → Base Map Progress（連番アニメの再生位置）
+
+
+--------------------------------------------------------------------------------
+7. 使用例（レシピ集）
+--------------------------------------------------------------------------------
+
+◆レシピA: 光る粒・火花（いちばん簡単）
+  Shader       : UberUnlit
+  Render Type  : Transparent / Blend Mode: Additive
+  Base Map     : 丸いぼかしテクスチャ（SoftGlow など）
+  Tint Color   : Area=All、HDRのオレンジ（強度2～4）
+  Particle側   : Color over Lifetime でαを1→0に
+  → サンプル 04_Sparks / Spark_Additive.mat がこの構成
+
+◆レシピB: 燃えて消えるディゾルブ
+  Shader       : UberUnlit / Transparent / Alpha
+  Base Map     : 素材テクスチャ
+  Alpha Transition : Mode=Dissolve、Map=ノイズ、Sharpness=0.8前後
+  Vertex Alpha Mode : TransitionProgress
+  Emission     : Area=Edge、Color=オレンジ、Intensity=3～5
+  Particle側   : Color over Lifetime のαを 1→0 にすると
+                 寿命に合わせて溶けていき、境目が光る
+
+◆レシピC: ゆらめく炎
+  Shader       : UberUnlit / Transparent / Additive
+  Base Map     : 炎の形テクスチャ（FlameWisp など）
+  Flow Map     : ノイズ系フローマップ、Intensity 0.1～0.3、Target=Base
+  Flow Map Offset Y の Coord に Coord1Y を割当て、Custom Data で一定速度で増やす
+                 （流れ続けてゆらめく）
+  Soft Particles : ON（地面との接地を自然に）
+  → サンプル 01_Flame / Flame_Additive.mat
+
+◆レシピD: 回る魔法陣
+  Shader       : UberUnlit / Transparent / Additive
+  Base Map     : 魔法陣テクスチャ（ArcaneRune など）
+  Particle側   : Render Mode を Horizontal Billboard か Mesh(板)にして
+                 Rotation over Lifetime で回転
+  （テクスチャ自体を回したい場合は Base Map Rotation の Coord を使う）
+  → サンプル 02_ArcaneCircle
+
+◆レシピE: 広がる衝撃波
+  Shader       : UberUnlit / Transparent / Additive
+  Base Map     : リングテクスチャ（ShockRing）
+  Particle側   : Size over Lifetime で拡大、αを1→0
+  さらに Distortion マテリアルのリングを同時に出すと空間が歪んで迫力UP
+  → サンプル 03_Shockwave
+
+◆レシピF: 陰影のある煙
+  Shader       : UberLit / Transparent / Alpha
+  Base Map     : 煙テクスチャ
+  Alpha Transition : Fade、または Dissolve でもくもく消す
+  Soft Particles : ON / Depth Fade : ON（カメラ前で消す）
+  Receive Shadows: 必要ならON
+  → サンプル 01_Flame 内の煙 / Smoke_Lit_Alpha.mat
+
+◆レシピG: 熱による空間の歪み
+  Shader       : Distortion
+  Base Map     : 歪み方向テクスチャ（HeatVector）
+  Intensity    : 0.05～0.5
+  Flow Map     : 入れるとゆらゆら歪む
+  ※HDRP Asset と Frame Settings の Distortion をON（3章参照）
+  → サンプル 05_HeatDistortion / Heat_Distortion.mat
+
+◆レシピH: 球体バリア（ふちだけ光る）
+  Shader       : UberUnlit / Transparent / Additive
+  Particle側   : Render Mode=Mesh、Sphere
+  Tint Color   : Area=Rim、水色HDR
+  Transparency : Rim ON（中心を透明に）
+  Vertex Deformation : ノイズで少し揺らすと有機的に
+
+◆レシピI: 白黒素材から色違いを量産
+  Color Correction : GradientMap、グラデ画像を差し替えるだけで色違い
+  または Base Map の Tone Mode : Tritone で3色を指定
+
+
+--------------------------------------------------------------------------------
+8. プロジェクト内のサンプル
+--------------------------------------------------------------------------------
+  場所: Assets/Programmer/min/YosimotoRyo/NovaHDRPEffects/
+    Prefabs/01_Flame          炎＋火の粉＋HDRP Litの煙
+    Prefabs/02_ArcaneCircle   回転する魔法陣＋青い光の粒
+    Prefabs/03_Shockwave      拡大する衝撃波＋閃光＋放射状の火花
+    Prefabs/04_Sparks         重力で落ちる金色の火花
+    Prefabs/05_HeatDistortion 熱による背景の歪み＋熱源の発光
+  Materials/ にマテリアル、Textures/ にテクスチャ（自作のプロシージャル素材）
+
+  シーンにドラッグするだけで再生されます（ループ）。
+  まずはサンプルのマテリアルを複製して数値をいじるのがおすすめ。
+
+
+--------------------------------------------------------------------------------
+9. 便利なメニュー・ツール
+--------------------------------------------------------------------------------
+  Tools > Nova > HDRP > Create Effect Samples
+        現在のシーンにサンプル5種を配置（同名があれば選択だけ）
+  Tools > Nova > HDRP > Capture Effect Samples
+        サンプルを0.65秒時点で撮影し Preview.png を生成
+  Tools > Nova > HDRP > Validate Shaders
+        6シェーダーの全パス＋代表的なキーワード組み合わせをコンパイル検証
+        結果: Temp/NovaHDRPValidation.txt
+  Tools > Nova > HDRP > Render Smoke Test
+        一時シーンで Unlit(左)/Lit(右) を描画して Temp/NovaHDRPSmokeTest.png に保存
+        （編集中のシーンやマテリアルは変更しない）
+  Tools > NOVA Shader > RemoveUnusedReferences
+        マテリアルに残った「使っていないテクスチャ参照」を削除
+        （ビルドに不要なテクスチャが含まれるのを防ぐ。リリース前に推奨）
+
+  ※Optimizer（OptimizedShaderGenerator）：使っている機能だけに絞った
+    最適化シェーダーを生成する仕組みも入っています（上級者向け）。
+
+
+--------------------------------------------------------------------------------
+10. 注意点・ハマりどころ
+--------------------------------------------------------------------------------
+  ・Custom Coord が効かない → Particle の Custom Data が無効か、
+    Vertex Streams 不足。Renderer の Fix Now を押す。
+  ・GPU Instancing（Mesh描画時）でも Custom Vertex Streams の設定は必要。
+  ・歪みが出ない → HDRP Asset と Frame Settings の Distortion を確認。
+  ・URP版と見た目が違う → HDRPはライトと露出の単位が違うため、
+    特に Lit は完全一致しない。実シーンで明るさ・透過・歪みを再調整。
+  ・Additive が暗い/明るすぎる → HDRPの露出の影響。Tint Color や
+    Emission の HDR強度で調整。（UI Unlitは露出補正の対象外）
+  ・Lit はライトを全部ループで評価するので、ライトが多いシーンでは負荷注意。
+  ・非対応: HDRP Decal、SSR、レイトレーシング、Motion Vectors、ベイク用Metaパス。
+  ・XR、Canvasの各モード、実機ビルドは別途検証が必要。
+  ・シェーダー名・GUID・プロパティ名は元のNOVAと同じなので、
+    URP時代のマテリアルもそのまま割り当て可能（見た目は要調整）。
+
+
+--------------------------------------------------------------------------------
+11. 用語メモ
+--------------------------------------------------------------------------------
+  HDR色      … 1.0を超える明るさの色。Bloomで光って見える
+  フリップブック … 連番アニメ。複数コマを1つのテクスチャにまとめたもの
+  ディゾルブ … ノイズ模様に沿って虫食い状に消える表現
+  リム       … 視線に対して横を向いている面＝物体の輪郭部分
+  ソフトパーティクル … 他の物体と交差する境目を柔らかくする処理
+  Custom Data … Particle Systemのモジュール。パーティクルごとに任意の値を
+                シェーダーへ送れる
+  Vertex Streams … Particle Systemがシェーダーへ送るデータの種類と並び順
+
+（作成: 2026-10-28 / 元資料: HDRP_README.md、シェーダー・エディタースクリプト、
+  NovaHDRPEffects サンプル）

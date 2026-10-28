@@ -10,10 +10,10 @@
             "m_Id": "5c83c9cd4a46469cae990e92c57205c3"
         },
         {
-            "m_Id": "f10458733df94c38a9b354d48bdf4b0f"
+            "m_Id": "6453d43a546d43808de87c782731628d"
         },
         {
-            "m_Id": "ca8d045c35294412ae26bd3086433db4"
+            "m_Id": "f10458733df94c38a9b354d48bdf4b0f"
         },
         {
             "m_Id": "4a0b42944d794f07b95786bc62746ec8"
@@ -22,7 +22,16 @@
             "m_Id": "b90b2b9316794048a24db000b3016a74"
         },
         {
+            "m_Id": "6010096666de4a09bafa0f0b2c542e01"
+        },
+        {
             "m_Id": "6854ca3b41d94eea837540404dccf32c"
+        },
+        {
+            "m_Id": "35ff5c8b51024299be52a66bd2b8f0d2"
+        },
+        {
+            "m_Id": "d63b184eddf54c3e8df77cb5ced5f439"
         },
         {
             "m_Id": "cf36b8bc7345434c858f5c7708e7fec0"
@@ -32,15 +41,6 @@
         },
         {
             "m_Id": "4135f80a4dee4caa99d1f186912bb3b2"
-        },
-        {
-            "m_Id": "6010096666de4a09bafa0f0b2c542e01"
-        },
-        {
-            "m_Id": "6453d43a546d43808de87c782731628d"
-        },
-        {
-            "m_Id": "35ff5c8b51024299be52a66bd2b8f0d2"
         },
         {
             "m_Id": "b66c373f259547fd9c0bea1944ce659a"
@@ -70,14 +70,29 @@
             "m_Id": "fcb2ae306bf74cbd91a1b770749861ce"
         },
         {
-            "m_Id": "d63b184eddf54c3e8df77cb5ced5f439"
+            "m_Id": "ca8d045c35294412ae26bd3086433db4"
         }
     ],
     "m_Keywords": [],
     "m_Dropdowns": [],
     "m_CategoryData": [
         {
-            "m_Id": "f020a90e18864b92a03ad47c264dd0a4"
+            "m_Id": "4f363cd97d89411cad76329e8046a928"
+        },
+        {
+            "m_Id": "986c46bcc1e34c0196a8facd39d87bb1"
+        },
+        {
+            "m_Id": "9ff9683c029745acbd7818dd8a90a9f2"
+        },
+        {
+            "m_Id": "a516ef7a4fb4434da48d69a388694948"
+        },
+        {
+            "m_Id": "ec3e1bec2fd54d9994d9f11c92d59c6e"
+        },
+        {
+            "m_Id": "91415720a8aa4ea78ace1cafd77b47fa"
         }
     ],
     "m_Nodes": [
@@ -5599,7 +5614,7 @@
     "m_Precision": 0,
     "overrideHLSLDeclaration": false,
     "hlslDeclarationOverride": 0,
-    "m_Hidden": false,
+    "m_Hidden": true,
     "m_PerRendererData": false,
     "m_customAttributes": [],
     "m_Value": {
@@ -6388,84 +6403,6 @@
 }
 
 {
-    "m_SGVersion": 0,
-    "m_Type": "UnityEditor.ShaderGraph.CategoryData",
-    "m_ObjectId": "f020a90e18864b92a03ad47c264dd0a4",
-    "m_Name": "",
-    "m_ChildObjectList": [
-        {
-            "m_Id": "7d5448ec777b4933b33fbb8daff193cf"
-        },
-        {
-            "m_Id": "5c83c9cd4a46469cae990e92c57205c3"
-        },
-        {
-            "m_Id": "f10458733df94c38a9b354d48bdf4b0f"
-        },
-        {
-            "m_Id": "ca8d045c35294412ae26bd3086433db4"
-        },
-        {
-            "m_Id": "4a0b42944d794f07b95786bc62746ec8"
-        },
-        {
-            "m_Id": "b90b2b9316794048a24db000b3016a74"
-        },
-        {
-            "m_Id": "6854ca3b41d94eea837540404dccf32c"
-        },
-        {
-            "m_Id": "cf36b8bc7345434c858f5c7708e7fec0"
-        },
-        {
-            "m_Id": "f56fb0496c794d62a5a6245db6d48080"
-        },
-        {
-            "m_Id": "4135f80a4dee4caa99d1f186912bb3b2"
-        },
-        {
-            "m_Id": "6010096666de4a09bafa0f0b2c542e01"
-        },
-        {
-            "m_Id": "6453d43a546d43808de87c782731628d"
-        },
-        {
-            "m_Id": "35ff5c8b51024299be52a66bd2b8f0d2"
-        },
-        {
-            "m_Id": "b66c373f259547fd9c0bea1944ce659a"
-        },
-        {
-            "m_Id": "82add67966bd490ca13f5173f2034121"
-        },
-        {
-            "m_Id": "8ac07ef17a154ba3894b700340c45fdc"
-        },
-        {
-            "m_Id": "2de8616249af462c9ab3c2611b1e5466"
-        },
-        {
-            "m_Id": "f1aa3cac1a3a47ceb499d84464275809"
-        },
-        {
-            "m_Id": "dc3d78a7dfff4015b5a329efb27850f6"
-        },
-        {
-            "m_Id": "2c42c44558024f15a2607283c4776b04"
-        },
-        {
-            "m_Id": "349a25da8d774320956eda2ea47cb7b5"
-        },
-        {
-            "m_Id": "fcb2ae306bf74cbd91a1b770749861ce"
-        },
-        {
-            "m_Id": "d63b184eddf54c3e8df77cb5ced5f439"
-        }
-    ]
-}
-
-{
     "m_SGVersion": 3,
     "m_Type": "UnityEditor.ShaderGraph.Internal.ColorShaderProperty",
     "m_ObjectId": "f10458733df94c38a9b354d48bdf4b0f",
@@ -7091,5 +7028,128 @@
     "m_DefaultValue": 0.0,
     "m_Labels": [],
     "m_LiteralMode": false
+}
+
+{
+    "m_SGVersion": 0,
+    "m_Type": "UnityEditor.ShaderGraph.CategoryData",
+    "m_ObjectId": "4f363cd97d89411cad76329e8046a928",
+    "m_Name": "基本",
+    "m_ChildObjectList": [
+        {
+            "m_Id": "7d5448ec777b4933b33fbb8daff193cf"
+        },
+        {
+            "m_Id": "5c83c9cd4a46469cae990e92c57205c3"
+        },
+        {
+            "m_Id": "6453d43a546d43808de87c782731628d"
+        }
+    ]
+}
+
+{
+    "m_SGVersion": 0,
+    "m_Type": "UnityEditor.ShaderGraph.CategoryData",
+    "m_ObjectId": "986c46bcc1e34c0196a8facd39d87bb1",
+    "m_Name": "影",
+    "m_ChildObjectList": [
+        {
+            "m_Id": "f10458733df94c38a9b354d48bdf4b0f"
+        },
+        {
+            "m_Id": "4a0b42944d794f07b95786bc62746ec8"
+        },
+        {
+            "m_Id": "b90b2b9316794048a24db000b3016a74"
+        },
+        {
+            "m_Id": "6010096666de4a09bafa0f0b2c542e01"
+        },
+        {
+            "m_Id": "6854ca3b41d94eea837540404dccf32c"
+        },
+        {
+            "m_Id": "35ff5c8b51024299be52a66bd2b8f0d2"
+        },
+        {
+            "m_Id": "d63b184eddf54c3e8df77cb5ced5f439"
+        }
+    ]
+}
+
+{
+    "m_SGVersion": 0,
+    "m_Type": "UnityEditor.ShaderGraph.CategoryData",
+    "m_ObjectId": "9ff9683c029745acbd7818dd8a90a9f2",
+    "m_Name": "リムライト (縁の光)",
+    "m_ChildObjectList": [
+        {
+            "m_Id": "cf36b8bc7345434c858f5c7708e7fec0"
+        },
+        {
+            "m_Id": "f56fb0496c794d62a5a6245db6d48080"
+        },
+        {
+            "m_Id": "4135f80a4dee4caa99d1f186912bb3b2"
+        }
+    ]
+}
+
+{
+    "m_SGVersion": 0,
+    "m_Type": "UnityEditor.ShaderGraph.CategoryData",
+    "m_ObjectId": "a516ef7a4fb4434da48d69a388694948",
+    "m_Name": "ハイライト",
+    "m_ChildObjectList": [
+        {
+            "m_Id": "b66c373f259547fd9c0bea1944ce659a"
+        },
+        {
+            "m_Id": "82add67966bd490ca13f5173f2034121"
+        },
+        {
+            "m_Id": "8ac07ef17a154ba3894b700340c45fdc"
+        }
+    ]
+}
+
+{
+    "m_SGVersion": 0,
+    "m_Type": "UnityEditor.ShaderGraph.CategoryData",
+    "m_ObjectId": "ec3e1bec2fd54d9994d9f11c92d59c6e",
+    "m_Name": "細かい調整 (普段は触らなくてOK)",
+    "m_ChildObjectList": [
+        {
+            "m_Id": "2de8616249af462c9ab3c2611b1e5466"
+        },
+        {
+            "m_Id": "f1aa3cac1a3a47ceb499d84464275809"
+        },
+        {
+            "m_Id": "dc3d78a7dfff4015b5a329efb27850f6"
+        },
+        {
+            "m_Id": "2c42c44558024f15a2607283c4776b04"
+        },
+        {
+            "m_Id": "349a25da8d774320956eda2ea47cb7b5"
+        },
+        {
+            "m_Id": "fcb2ae306bf74cbd91a1b770749861ce"
+        }
+    ]
+}
+
+{
+    "m_SGVersion": 0,
+    "m_Type": "UnityEditor.ShaderGraph.CategoryData",
+    "m_ObjectId": "91415720a8aa4ea78ace1cafd77b47fa",
+    "m_Name": "スクリプトが自動で設定 (触らない)",
+    "m_ChildObjectList": [
+        {
+            "m_Id": "ca8d045c35294412ae26bd3086433db4"
+        }
+    ]
 }
 

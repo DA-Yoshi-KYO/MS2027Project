@@ -69,7 +69,7 @@ public sealed class CSV_SpeedLines : CustomPostProcessVolumeComponent, IPostProc
     [Tooltip("筋が外へ流れる速さ(画面の高さを1とした長さ/秒)")]
     public ClampedFloatParameter flowSpeed = new ClampedFloatParameter(0f, 0f, 20f);
 
-    private const string _shaderName = "Hidden/Shader/SH_SpeedLines";
+    private const string _shaderName = "Shader Graphs/SHG_SpeedLines";
 
     private static readonly int _mainTexId = Shader.PropertyToID("_MainTex");
     private static readonly int _intensityId = Shader.PropertyToID("_Intensity");

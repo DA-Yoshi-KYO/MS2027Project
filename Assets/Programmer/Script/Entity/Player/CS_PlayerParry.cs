@@ -29,9 +29,8 @@ using UnityEngine;
  *   攻撃者が渡されない攻撃(悪人)は、近くで攻撃判定を出している悪人を探す
  *   (CS_VillainCombatが公開している攻撃の段階・判定の中心を読むだけ。悪人のコードは変えていない)
  * ・反撃
- *   他のプレイヤー: _playerStunTime秒スタンさせる(CS_PlayerStun。攻撃も中断される)。変身中なら_counterDamageのダメージも与える
- *   悪人: ノックバックさせて行動を止める(攻撃もキャンセルされる)。変身中なら_counterDamageのダメージも与える
- *         (「攻撃は変身中だけ」のルールに合わせ、変身していない時はダメージを与えない)
+ *   他のプレイヤー: _playerStunTime秒スタンさせる(CS_PlayerStun。攻撃も中断される)。_counterDamageのダメージも与える
+ *   悪人: ノックバックさせて行動を止める(攻撃もキャンセルされる)。_counterDamageのダメージも与える
  *   警察: IStunnableを持っていればStun(_policeStunTime)を呼ぶ(警察側の対応が必要。CS_IStunnable.cs参照)
  *   反撃する相手が見つからない時も、ダメージの無効・無敵・演出は入る
  * ・自分の攻撃(爆弾など)で自分が受けたダメージはパリーしない
@@ -42,7 +41,6 @@ using UnityEngine;
 
 [RequireComponent(typeof(CS_Player))]
 [RequireComponent(typeof(CS_PlayerHealth))]
-[RequireComponent(typeof(CS_PlayerTransformation))]
 public class CS_PlayerParry : NetworkBehaviour
 {
     [Header("受付")]
@@ -52,7 +50,7 @@ public class CS_PlayerParry : NetworkBehaviour
 
     [Header("成功した時")]
     [SerializeField][Min(0f)] private float _invincibleTime = 0.6f;  // 無敵になる時間(秒)
-    [SerializeField][Min(0f)] private float _counterDamage = 1f;     // 反撃のダメージ(変身中のみ。CS_PlayerStats.attackPowerを掛ける)
+    [SerializeField][Min(0f)] private float _counterDamage = 1f;     // 反撃のダメージ(CS_PlayerStats.attackPowerを掛ける)
     [SerializeField][Min(0f)] private float _counterKnockbackPower = 2f;   // 悪人を下がらせる強さ(1で通常攻撃と同じ)
     [SerializeField][Min(0f)] private float _policeStunTime = 2f;    // 警察をスタンさせる時間(秒)
     [SerializeField][Min(0f)] private float _playerStunTime = 1f;    // 他のプレイヤーをスタンさせる時間(秒)
@@ -61,7 +59,6 @@ public class CS_PlayerParry : NetworkBehaviour
 
     private CS_Player _player;
     private CS_PlayerHealth _health;
-    private CS_PlayerTransformation _transformation;
     private CS_PlayerStats _stats;
     private CS_PlayerScoring _scoring;
     private readonly Collider[] _buffer = new Collider[_bufferSize];
@@ -78,7 +75,6 @@ public class CS_PlayerParry : NetworkBehaviour
     {
         _player = GetComponent<CS_Player>();
         _health = GetComponent<CS_PlayerHealth>();
-        _transformation = GetComponent<CS_PlayerTransformation>();
         _stats = GetComponent<CS_PlayerStats>();
         _scoring = GetComponent<CS_PlayerScoring>();
     }
@@ -194,7 +190,7 @@ public class CS_PlayerParry : NetworkBehaviour
     // 反撃
     // ========================================
 
-    // 相手に反撃する(プレイヤー: スタン + 変身中ならダメージ / 悪人: ノックバック + 変身中ならダメージ / 警察: スタン)
+    // 相手に反撃する(プレイヤー: スタン + ダメージ / 悪人: ノックバック + ダメージ / 警察: スタン)
     private void Counter(GameObject target)
     {
         CS_PlayerHealth player = target.GetComponentInParent<CS_PlayerHealth>();
@@ -227,10 +223,10 @@ public class CS_PlayerParry : NetworkBehaviour
         }
     }
 
-    // 変身中なら反撃のダメージを与える。スコア(CS_PlayerScoring)があればそれを通し、倒したらスコアに入るようにする
+    // 反撃のダメージを与える。スコア(CS_PlayerScoring)があればそれを通し、倒したらスコアに入るようにする
     private void DealCounterDamage(IDamageable target)
     {
-        if (!_transformation.isTransformed || _counterDamage <= 0f) return;
+        if (_counterDamage <= 0f) return;
 
         float damage = _counterDamage * _stats.currentAttackPower;
         if (_scoring != null)

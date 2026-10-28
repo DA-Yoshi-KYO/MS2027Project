@@ -10,92 +10,78 @@ using R3;
 using UnityEngine;
 
 /// <summary>
-/// 警察視認UIで使用する状態。
+/// ローカルプレイヤーから見た警察の検知状態。
 /// </summary>
-public enum CSE_PoliceDetectionState
+public enum CSE_PlayerDetectionState
 {
-    Hidden = 0,
-    SignalDetected = 1,
-    Found = 2,
+    Safe = 0,    // 追跡されていない。UI非表示
+    Tracked = 1, // 追跡・探索対象。5mより遠ければ黄色、5m以内なら赤
+    Spotted = 2, // 警察に直接視認されている。赤＋専用アニメーション
 }
 
 /// <summary>
-/// 視認警告UIへ表示する警察1体分のデータ。
-/// 警察状態はReactivePropertyで保持する。
+/// 警察1体分のプレイヤー検知UIデータ。
 /// </summary>
-public class CS_PoliceDetectionData
+public sealed class CS_PoliceDetectionData
 {
     private readonly string _policeId;
     private readonly Transform _policeTransform;
-
-    private readonly ReactiveProperty<CSE_PoliceDetectionState>
-        _policeState;
+    private readonly ReactiveProperty<CSE_PlayerDetectionState> _state;
 
     public string policeId => _policeId;
     public Transform policeTransform => _policeTransform;
-
-    /// <summary>状態変更を購読する場合に使用する。</summary>
-    public ReadOnlyReactiveProperty<CSE_PoliceDetectionState>
-        policeState => _policeState;
-
-    /// <summary>現在の状態をその場で取得する場合に使用する。</summary>
-    public CSE_PoliceDetectionState currentPoliceState =>
-        _policeState.Value;
+    public ReadOnlyReactiveProperty<CSE_PlayerDetectionState> state => _state;
+    public CSE_PlayerDetectionState currentState => _state.Value;
 
     public CS_PoliceDetectionData(
         string policeId,
         Transform policeTransform,
-        CSE_PoliceDetectionState policeState)
+        CSE_PlayerDetectionState initialState)
     {
         _policeId = policeId;
         _policeTransform = policeTransform;
-
-        _policeState =
-            new ReactiveProperty<CSE_PoliceDetectionState>(
-                policeState
-            );
+        _state = new ReactiveProperty<CSE_PlayerDetectionState>(initialState);
     }
 
-    public void SetPoliceState(
-        CSE_PoliceDetectionState policeState)
+    public void SetState(CSE_PlayerDetectionState state)
     {
-        _policeState.Value = policeState;
+        _state.Value = state;
     }
 
     public void Dispose()
     {
-        _policeState.Dispose();
+        _state.Dispose();
     }
 }
 
 /// <summary>
-/// PresenterからViewへ渡す、まとめ済みアイコン1件分のデータ。
+/// PresenterからViewへ渡すグループ化済みアイコンデータ。
 /// </summary>
 public readonly struct CS_PoliceDetectionIconData
 {
     private readonly string _groupId;
     private readonly float _angle;
     private readonly float _distance;
-    private readonly CSE_PoliceDetectionState _policeState;
+    private readonly CSE_PlayerDetectionState _state;
     private readonly int _policeCount;
 
     public string groupId => _groupId;
     public float angle => _angle;
     public float distance => _distance;
-    public CSE_PoliceDetectionState policeState => _policeState;
+    public CSE_PlayerDetectionState state => _state;
     public int policeCount => _policeCount;
 
     public CS_PoliceDetectionIconData(
         string groupId,
         float angle,
         float distance,
-        CSE_PoliceDetectionState policeState,
+        CSE_PlayerDetectionState state,
         int policeCount)
     {
         _groupId = groupId;
         _angle = angle;
         _distance = distance;
-        _policeState = policeState;
+        _state = state;
         _policeCount = policeCount;
     }
 }

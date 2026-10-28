@@ -12,34 +12,23 @@ using UnityEngine;
 using UnityEngine.UI;
 
 /// <summary>
-/// 警察視認アイコンを、非表示の楕円軌道上へ表示するView。
-/// ・5m以内は赤
-/// ・シグナル検知中は黄色
-/// ・Hiddenは表示しない
-/// ・Found時のアニメーションは関数だけ用意する
+/// プレイヤー検知UIを非表示の楕円軌道上へ表示するView。
 /// </summary>
 public class CS_UIPoliceDetectionView :
     CS_BaseView<CS_UIPoliceDetectionPresenter>
 {
-    [Header("アイコンの親")]
     [SerializeField] private RectTransform _iconRoot;
-
-    [Header("目アイコンPrefab")]
     [SerializeField] private GameObject _eyeIconPrefab;
 
     [Header("非表示の楕円軌道")]
-    [Min(0f)]
     [SerializeField] private float _ellipseRadiusX = 700f;
-
-    [Min(0f)]
     [SerializeField] private float _ellipseRadiusY = 350f;
 
-    [Header("距離・シグナルによる色")]
+    [Header("色設定")]
     [Min(0f)]
     [SerializeField] private float _dangerDistance = 5f;
-
+    [SerializeField] private Color _trackedColor = Color.yellow;
     [SerializeField] private Color _dangerColor = Color.red;
-    [SerializeField] private Color _signalColor = Color.yellow;
 
     private readonly Dictionary<string, EyeIconInstance> _iconMap = new();
     private readonly HashSet<string> _activeGroupIds = new();
@@ -58,7 +47,7 @@ public class CS_UIPoliceDetectionView :
 
         foreach (CS_PoliceDetectionIconData data in iconDataList)
         {
-            if (data.policeState == CSE_PoliceDetectionState.Hidden)
+            if (data.state == CSE_PlayerDetectionState.Safe)
                 continue;
 
             EyeIconInstance icon = GetOrCreateIcon(data.groupId);
@@ -69,71 +58,52 @@ public class CS_UIPoliceDetectionView :
             _activeGroupIds.Add(data.groupId);
             icon.root.gameObject.SetActive(true);
 
-            float positionX =
-                Mathf.Sin(data.angle) * _ellipseRadiusX;
-
-            float positionY =
-                Mathf.Cos(data.angle) * _ellipseRadiusY;
-
-            icon.root.anchoredPosition =
-                new Vector2(positionX, positionY);
-
-            ApplyDetectionColor(
-                data.distance,
-                data.policeState,
-                icon.image
+            icon.root.anchoredPosition = new Vector2(
+                Mathf.Sin(data.angle) * _ellipseRadiusX,
+                Mathf.Cos(data.angle) * _ellipseRadiusY
             );
 
-            ApplyFoundAnimation(
-                data.policeState,
-                icon.root,
-                icon.image
-            );
-
+            ApplyAppearance(data, icon);
             ApplyPoliceCount(data.policeCount, icon.countText);
         }
 
         RemoveUnusedIcons();
     }
 
-    /// <summary>
-    /// 5m以内なら赤、それ以外のシグナル検知中・発見済みは黄色。
-    /// </summary>
-    private void ApplyDetectionColor(
-        float distance,
-        CSE_PoliceDetectionState policeState,
-        Image iconImage)
+    private void ApplyAppearance(
+        CS_PoliceDetectionIconData data,
+        EyeIconInstance icon)
     {
-        if (iconImage == null)
-            return;
-
-        if (distance <= _dangerDistance)
+        if (data.state == CSE_PlayerDetectionState.Spotted)
         {
-            iconImage.color = _dangerColor;
+            icon.image.color = _dangerColor;
+            ApplySpottedAnimation(icon.root, icon.image);
             return;
         }
 
-        iconImage.color = _signalColor;
+        // Trackedは距離で黄色と赤を切り替える。
+        icon.image.color = data.distance <= _dangerDistance
+            ? _dangerColor
+            : _trackedColor;
+
+        ApplyTrackedAnimation(icon.root, icon.image);
     }
 
-    /// <summary>
-    /// 発見済み状態のUIアニメーション変更用。
-    /// デザイン未定のため、現時点では何もしない。
-    /// </summary>
-    private void ApplyFoundAnimation(
-        CSE_PoliceDetectionState policeState,
+    private void ApplySpottedAnimation(
         RectTransform iconRect,
         Image iconImage)
     {
-        if (policeState != CSE_PoliceDetectionState.Found)
-            return;
-
-        // TODO:
-        // 見つかった時のデザインが決まったら、
-        // 点滅、拡縮、揺れ、AnimatorのTriggerなどを実装する。
+        // TODO: 直接視認中のUIアニメーション確定後に実装する。
     }
 
-    private void ApplyPoliceCount(
+    private void ApplyTrackedAnimation(
+        RectTransform iconRect,
+        Image iconImage)
+    {
+        // TODO: Spotted用アニメーション実装後、通常表示へ戻す処理を書く。
+    }
+
+    private static void ApplyPoliceCount(
         int policeCount,
         TextMeshProUGUI countText)
     {
@@ -149,27 +119,15 @@ public class CS_UIPoliceDetectionView :
 
     private EyeIconInstance GetOrCreateIcon(string groupId)
     {
-        if (_iconMap.TryGetValue(
-            groupId,
-            out EyeIconInstance existing))
-        {
+        if (_iconMap.TryGetValue(groupId, out EyeIconInstance existing))
             return existing;
-        }
 
-        if (_eyeIconPrefab == null || _iconRoot == null)
+        if (_iconRoot == null || _eyeIconPrefab == null)
             return null;
 
-        GameObject iconObject = Instantiate(
-            _eyeIconPrefab,
-            _iconRoot
-        );
-
-        RectTransform iconRect =
-            iconObject.GetComponent<RectTransform>();
-
-        Image iconImage =
-            iconObject.GetComponentInChildren<Image>(true);
-
+        GameObject iconObject = Instantiate(_eyeIconPrefab, _iconRoot);
+        RectTransform iconRect = iconObject.GetComponent<RectTransform>();
+        Image iconImage = iconObject.GetComponentInChildren<Image>(true);
         TextMeshProUGUI countText =
             iconObject.GetComponentInChildren<TextMeshProUGUI>(true);
 
@@ -181,12 +139,7 @@ public class CS_UIPoliceDetectionView :
 
         iconImage.raycastTarget = false;
 
-        var instance = new EyeIconInstance(
-            iconRect,
-            iconImage,
-            countText
-        );
-
+        var instance = new EyeIconInstance(iconRect, iconImage, countText);
         _iconMap[groupId] = instance;
         return instance;
     }
@@ -203,46 +156,27 @@ public class CS_UIPoliceDetectionView :
 
         foreach (string groupId in _removeGroupIds)
         {
-            EyeIconInstance icon = _iconMap[groupId];
-
-            if (icon.root != null)
-                Destroy(icon.root.gameObject);
+            if (_iconMap[groupId].root != null)
+                Destroy(_iconMap[groupId].root.gameObject);
 
             _iconMap.Remove(groupId);
         }
     }
 
-    private void OnDestroy()
+    private sealed class EyeIconInstance
     {
-        foreach (var pair in _iconMap)
-        {
-            if (pair.Value.root != null)
-                Destroy(pair.Value.root.gameObject);
-        }
-
-        _iconMap.Clear();
-        _activeGroupIds.Clear();
-        _removeGroupIds.Clear();
-    }
-
-    private class EyeIconInstance
-    {
-        private readonly RectTransform _root;
-        private readonly Image _image;
-        private readonly TextMeshProUGUI _countText;
-
-        public RectTransform root => _root;
-        public Image image => _image;
-        public TextMeshProUGUI countText => _countText;
+        public RectTransform root { get; }
+        public Image image { get; }
+        public TextMeshProUGUI countText { get; }
 
         public EyeIconInstance(
             RectTransform root,
             Image image,
             TextMeshProUGUI countText)
         {
-            _root = root;
-            _image = image;
-            _countText = countText;
+            this.root = root;
+            this.image = image;
+            this.countText = countText;
         }
     }
 }

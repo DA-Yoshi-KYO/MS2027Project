@@ -56,8 +56,9 @@ Player.prefab に付いている `CS_PlayerLockOnUI` が、今奇襲できる悪
 - `_searchInterval` 秒ごと（既定 0.1 秒）に `CS_PlayerAmbush.FindAmbushTarget()` を呼び、一番近い「奇襲できる悪人」をロックオンする。いなければ外す
 - 「奇襲できる」の条件は、攻撃した時の奇襲の判定（`CS_PlayerAmbush.CanAmbush`）と同じ
   1. 悪人がこちらに気づいていない（臨戦態勢で自分を狙っていない）
-  2. 悪人との水平距離が `_range`（既定 3m）以内
+  2. 悪人との水平距離が `_range`（既定 18m）以内
   3. 背後（`_backAngle`）か上（`_aboveHeight`）を取っている
+  4. 間に壁が無い（プレイヤーの体の中心から悪人の体の中心までの線上に、`_obstacleLayers` のものが無い。キャラクターは遮らない）
 - 悪人を探すレイヤーは `CS_PlayerAmbush` の `_villainLayers`（既定は全部）
 
 ### 「気づかれていない」をクライアントで判定するしくみ
@@ -67,6 +68,33 @@ Player.prefab に付いている `CS_PlayerLockOnUI` が、今奇襲できる悪
 - `CS_VillainCombat.IsTargeting(プレイヤーのroot)` で、そのプレイヤーを狙っているかが全クライアントで分かる
 - サーバー・オフラインでは標的をそのまま見る（今までの奇襲の判定と同じ結果）
 - クライアントでは同期を待つので、ほんの少し（1フレームほど）遅れることがあります
+
+### 奇襲攻撃（通常攻撃とは別の攻撃）
+
+奇襲は5段コンボ（`CS_PlayerAttack`）とは別の攻撃で、`CS_PlayerAmbush` が行います。
+マーカーが出ている時に攻撃ボタンを押すと、1段目の代わりに奇襲が始まります（マーカーが出ていなければ、今まで通り1段目から）。
+
+1. **飛び込み**：悪人の今の位置を毎フレーム追いながら、`_dashSpeed`（既定 秒速 30m）で `_strikeDistance`（1.2m）まで近づく
+   - `_maxDashTime`（1 秒）以内に着かない（何かに引っかかった）時や、悪人が倒れた・動けなくなった時は中止
+2. **攻撃**：着いてから `_strikeDelay`（0.1 秒）後に、その悪人1体だけへ奇襲を当てて一撃で倒す（範囲の当たり判定は使わないので空振りしない）
+3. **終わり**：着いてから `_strikeDuration`（0.4 秒）で奇襲が終わる。この後に攻撃ボタンを押すと、通常攻撃の1段目から始まる
+
+- 奇襲中は通常攻撃・必殺技を出さない（`CS_PlayerAttack.isAttacking` が奇襲中も true になる）
+- **奇襲になるかは、奇襲を始めた瞬間にサーバーで1回だけ決める**
+  - 条件がそろっていれば、その悪人を予約して **その場に止める**（`CS_VillainCombat.Freeze`。移動・向き変え・気づき・攻撃をすべて止める）。そろっていなければ手元の飛び込みを中止する
+  - 止める時間・予約の期限は `_maxDashTime` + 攻撃の時間 + `_freezeMargin`（0.5 秒）。奇襲が中止された時はすぐに解く（`Unfreeze`）
+  - 当てる時は「予約した悪人か」と「着いたとみなす距離 + `_strikeTolerance`（2m）以内か」だけを見て倒す（飛び込んでいる間に向きが変わって外れることがない）
+  - 飛び込んだ直後はサーバー上の位置が追いついていないので、送られてきた位置のずれは `_range` の分だけ多めに許す（`CS_AttackHitDetector.ResolvePose` の `extraTolerance`）
+- 見た目用のイベント（本人の手元のみ）：`onAmbushStarted`（飛び込み開始）、`onAmbushHitTiming`（当たる瞬間）。決まった時の `onAmbush` はサーバー（またはオフライン）のみ
+
+### 悪人の視野
+
+悪人は犯罪中・巡回中、**正面の視野（`CS_VillainCombat._noticeAngle`、既定は左右 60 度、全体で 120 度）にいるプレイヤーにだけ気づきます。**
+背後から臨戦態勢範囲に入っても気づかないので、背後を取れば奇襲（とロックオン）ができます。
+
+- `_noticeAngle` は `CS_PlayerAmbush._backAngle`（既定 120 度）以下にしておく（大きくすると、背後を取っても気づかれて奇襲できない）
+- 悪人のグループは円に並んで中心を向いているので、視野を広げすぎると、背後を取った悪人の隣の仲間から横で見つかります
+- 攻撃された時の反撃、追跡中の標的探し、陽動ホログラム・警察への気づき方は今まで通り（向きに関係なく気づく）
 
 ---
 
@@ -121,8 +149,12 @@ _lockOnModel.Dispose();
 | 項目 | 内容 | 既定値 |
 |---|---|---|
 | `CS_PlayerLockOnUI._searchInterval` | 奇襲できる悪人を探し直す間隔（秒） | 0.1 |
-| `CS_PlayerAmbush._range` / `_backAngle` / `_aboveHeight` | 奇襲の条件（ロックオンも同じ条件を使う） | 3m / 120度 / 1.5m |
+| `CS_PlayerAmbush._range` / `_backAngle` / `_aboveHeight` | 奇襲の条件（ロックオンも同じ条件を使う） | 18m / 120度 / 1.5m |
 | `CS_PlayerAmbush._villainLayers` | 悪人を探すレイヤー | 全部 |
+| `CS_PlayerAmbush._obstacleLayers` | 間にあると奇襲できなくなるもの（壁など）のレイヤー | 全部 |
+| `CS_PlayerAmbush._dashSpeed` / `_maxDashTime` | 奇襲の飛び込みの速さ（m/秒）/ これ以上かかったら中止（秒） | 30 / 1 |
+| `CS_PlayerAmbush._strikeDistance` / `_strikeDelay` / `_strikeDuration` | 着いたとみなす距離（m）/ 着いてから当たるまで（秒）/ 着いてから終わるまで（秒） | 1.2 / 0.1 / 0.4 |
+| `CS_PlayerAmbush._freezeMargin` / `_strikeTolerance` | 悪人を止める時間に足す余裕（秒）/ 当てる時に許す距離の余裕（m） | 0.5 / 2 |
 
 ---
 

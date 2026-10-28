@@ -15,6 +15,7 @@ GameObject:
   - component: {fileID: 4031000000000000006}
   - component: {fileID: 4031000000000000007}
   - component: {fileID: 4031000000000000008}
+  - component: {fileID: 4031000000000000090}
   m_Layer: 31
   m_Name: SecurityDrone
   m_TagString: Untagged
@@ -379,3 +380,16 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 00aaec24ba374d5294891a334f011f92, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::CS_SecurityBlink
+--- !u!114 &4031000000000000090
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4031000000000000001}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 01279ec0e69f43ba89e0d26ff1b7dad1, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CS_SecurityDroneSuppression
+  _lineMaterial: {fileID: 2100000, guid: 9a13cd9135654faeb5c1609d74cc1c23, type: 2}

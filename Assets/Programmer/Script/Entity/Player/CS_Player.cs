@@ -69,6 +69,11 @@ using UnityEngine.InputSystem;
  *   WasPressedThisFrame() / IsPressed() で読むだけでよい
  * ・落下の保険(Issue #290): 操作しているプレイヤーがy = _fallResetHeightより下に落ちたら、スポーンした位置へ戻す
  *   (床の読み込みより先に落ち始めた時などに、落ち続けないようにする。位置はNetworkTransformのTeleportで全員へ反映する)
+ * ・ハイド(CS_PlayerHide。付いていなければ使わない)
+ *   飛べるハイドポイントがある時のダッシュボタンは、ダッシュの代わりにハイドポイントへ飛ぶ(TryBeginHide)
+ *   張り付いている間のダッシュボタンは、次のハイドポイントへ飛び移る(無ければ何もしない)
+ *   ハイド中(飛んでいる・張り付いている)は、ダッシュ・スプリント・通常の移動をしない。ジャンプボタンでハイドを抜けてジャンプする
+ *   飛ぶ時は高さも含めてまっすぐ進む(Fly)。張り付いている間は速度を0にする(重力はCS_PlayerHideが切る)
  */
 // ========================================
 
@@ -76,6 +81,7 @@ using UnityEngine.InputSystem;
 [RequireComponent(typeof(CapsuleCollider))]
 [RequireComponent(typeof(CS_PlayerHealth))]
 [RequireComponent(typeof(CS_PlayerStats))]
+[RequireComponent(typeof(CS_PlayerTransformation))]  // 警察に見つかるためのタグを付ける
 public class CS_Player : NetworkBehaviour
 {
     [Header("移動")]
@@ -114,6 +120,7 @@ public class CS_Player : NetworkBehaviour
     private CS_PlayerHealth _health;
     private CS_PlayerStats _stats;
     private CS_PlayerStun _stun;    // スタン(パリーされた時など)。付いていなければスタンしない
+    private CS_PlayerHide _hide;    // ハイド(ハイドポイントに張り付いて隠れる)。付いていなければハイドしない
     private NetworkTransform _networkTransform;
 
     private Vector3 _spawnPosition;     // 操作を始めた時の位置と向き(落ちた時に戻す先)
@@ -150,10 +157,12 @@ public class CS_Player : NetworkBehaviour
     private float _aimFacingYaw;
     private Vector3 _lungeVelocity; // エイムアシストの踏み込みの速度
     private float _lungeRemaining;  // 踏み込みの残り時間(秒)
+    private bool _isLungeVertical;  // 踏み込みが高さも含めて進むか(Fly)。falseなら水平だけ進む(Lunge)
 
     public bool isControlled => _isControlled;          // このプレイヤーを自分(このマシン)が操作しているか(NPCはサーバーでtrue)
     public bool canAct => _isControlled && !_health.isDead && !isStunned;   // 移動・攻撃してよいか(CS_PlayerAttackも参照)
     public bool isStunned => _stun != null && _stun.isStunned;   // スタン中か(パリーされた時など。死亡中と同じく行動できない)
+    public bool isHiding => _hide != null && _hide.isHiding;     // ハイドポイントへ飛んでいる・張り付いている最中か(操作しているマシンでだけ正しい)
     public bool isNpc => _isNpc.Value;                  // NPCか(全クライアントで分かる)
     // 自分の画面のプレイヤー(このマシンで人が操作しているプレイヤー)か。HUD・ミニマップの中心などに使う
     // NPCはホストではIsOwnerがtrueになるため、IsOwnerではなくこちらを使う
@@ -217,6 +226,7 @@ public class CS_Player : NetworkBehaviour
         _health = GetComponent<CS_PlayerHealth>();
         _stats = GetComponent<CS_PlayerStats>();
         _stun = GetComponent<CS_PlayerStun>();
+        _hide = GetComponent<CS_PlayerHide>();
         _networkTransform = GetComponent<NetworkTransform>();
 
         // 壁などとの衝突で回転しないよう、物理による回転はすべて止める
@@ -302,16 +312,26 @@ public class CS_Player : NetworkBehaviour
         // ジャンプ・ダッシュは死亡中に予約されても復帰後に発動しないよう、ここでもcanActを見る
         if (canAct && _jumpButton.WasPressedThisFrame())
         {
+            // ハイド中はハイドを抜けてからジャンプする
+            if (isHiding) _hide.ExitHide();
             _jumpRequested = true;
         }
 
-        if (canAct && !_isDashing && _dashCooldownRemaining <= 0f && _dashButton.WasPressedThisFrame())
+        // 飛べるハイドポイントがあれば、ダッシュの代わりにそこへ飛ぶ(クールタイム中でも飛べる。張り付いている間は次のハイドポイントへ)
+        if (canAct && _dashButton.WasPressedThisFrame())
         {
-            StartDash();
+            if (_hide != null && _hide.TryBeginHide())
+            {
+                _isDashing = false;
+            }
+            else if (!isHiding && !_isDashing && _dashCooldownRemaining <= 0f)
+            {
+                StartDash();
+            }
         }
 
         // ダッシュ中でない間にダッシュボタンを押し続けていればスプリント(ZZZのような挙動。クールタイムとは無関係)
-        _isSprinting = canAct && !_isDashing && _dashButton.IsPressed();
+        _isSprinting = canAct && !isHiding && !_isDashing && _dashButton.IsPressed();
     }
 
     private void FixedUpdate()
@@ -346,6 +366,11 @@ public class CS_Player : NetworkBehaviour
         else if (_lungeRemaining > 0f)
         {
             UpdateLunge();
+        }
+        else if (isHiding)
+        {
+            // ハイドポイントに張り付いている間は動かない(街灯の上などから落ちないよう、縦も止める)
+            _rigidbody.linearVelocity = Vector3.zero;
         }
         else
         {
@@ -384,17 +409,39 @@ public class CS_Player : NetworkBehaviour
 
         _lungeVelocity = direction.normalized * (distance / duration);
         _lungeRemaining = duration;
+        _isLungeVertical = false;
+    }
+
+    // 指定した方向へ、高さも含めてまっすぐ進む(ハイドポイントへ飛ぶ時に使う)。ダッシュを始めると打ち切られる
+    public void Fly(Vector3 direction, float distance, float duration)
+    {
+        if (direction.sqrMagnitude < 0.0001f || distance <= 0f || duration <= 0f) return;
+
+        _lungeVelocity = direction.normalized * (distance / duration);
+        _lungeRemaining = duration;
+        _isLungeVertical = true;
+    }
+
+    // 位置を指定した位置へ合わせ、踏み込みと速度を止める(ハイドポイントに張り付く時に使う)
+    public void SnapPosition(Vector3 position)
+    {
+        _lungeRemaining = 0f;
+        _rigidbody.linearVelocity = Vector3.zero;
+        _rigidbody.position = position;
+        transform.position = position;
     }
 
     // 踏み込み中は、決めた速さで直進する(垂直速度はそのまま)
     private void UpdateLunge()
     {
         _lungeRemaining -= Time.fixedDeltaTime;
-        _rigidbody.linearVelocity = new Vector3(_lungeVelocity.x, _rigidbody.linearVelocity.y, _lungeVelocity.z);
+        float verticalVelocity = _isLungeVertical ? _lungeVelocity.y : _rigidbody.linearVelocity.y;
+        _rigidbody.linearVelocity = new Vector3(_lungeVelocity.x, verticalVelocity, _lungeVelocity.z);
 
         if (_lungeRemaining <= 0f)
         {
-            StopHorizontalVelocity();
+            if (_isLungeVertical) _rigidbody.linearVelocity = Vector3.zero;
+            else StopHorizontalVelocity();
         }
     }
 

@@ -268,6 +268,9 @@ public class CS_PoliceVision : MonoBehaviour
         // 煙幕の中にいる標的・煙幕越しの標的は見えない(近くにいても気付かない)
         if (CS_SmokeScreen.IsLineBlocked(eyePosition, targetPosition)) return false;
 
+        // ハイドポイントに張り付いているプレイヤーは見えない(ハイドを抜けるか、近づくと見える)
+        if (CS_PlayerHide.IsConcealedFrom(targetRoot, transform.position)) return false;
+
         // ランダムイベントの範囲の中にいる標的は見えない(警察に探知されないイベントの開催中のみ。近くにいても気付かない)
         if (CS_RandomEventManager.IsPoliceDetectionBlocked(targetPosition)) return false;
 

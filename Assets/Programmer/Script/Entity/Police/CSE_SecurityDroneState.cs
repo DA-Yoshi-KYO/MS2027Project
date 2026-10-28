@@ -30,4 +30,29 @@ public enum CSE_SecurityDroneState
     /// 背中から攻撃されて止まっている(目が消える)
     /// </summary>
     Stunned,
+
+    /// <summary>
+    /// 制圧モード: プレイヤーを追いながら、テーザーを溜めている(目が点滅)
+    /// </summary>
+    TaserCharge,
+
+    /// <summary>
+    /// 制圧モード: テーザーを撃つ向きを決めて、赤い線で知らせている(避けられる)
+    /// </summary>
+    TaserAim,
+
+    /// <summary>
+    /// 制圧モード: テーザーが当たったプレイヤーへ、近づいている
+    /// </summary>
+    KillApproach,
+
+    /// <summary>
+    /// 制圧モード: 即死攻撃を溜めている(地面に範囲の赤い円が出る。範囲から出られなければ即死)
+    /// </summary>
+    KillCharge,
+
+    /// <summary>
+    /// 制圧モード: 攻撃のあとの隙(動かない。プレイヤーは逃げられる)
+    /// </summary>
+    Recovery,
 }

@@ -21,6 +21,7 @@ using UnityEngine;
  * ・フェードはマテリアルの_BaseColorのアルファ値を下げる
  *   → マテリアルのSurface TypeがTransparentでないと見た目は変わらない(最後に消えるだけになる)
  * ・スポナーを通さずシーンに直接置いた悪人はグループに属さないため、犯罪は進まない
+ * ・撃退されて倒れている悪人(isDefeated)は逃走しない(死亡モーションの後に消える)
  */
 // ========================================
 
@@ -36,6 +37,7 @@ public class CS_VillainCrime : NetworkBehaviour
 
     private CS_VillainStats _stats;
     private CS_VillainCombat _combat;
+    private CS_VillainHealth _health;
     private Renderer[] _renderers;
 
     // 書き込みはサーバーのみ(NetworkVariableのデフォルト)。クライアントはこれを見てフェードを始める
@@ -44,11 +46,13 @@ public class CS_VillainCrime : NetworkBehaviour
     public bool isEscaping => _isEscaping.Value;
     public bool isCommittingCrime => !_isEscaping.Value && _combat.isCommittingCrime;
     public float crimeCompleteTime => _stats.crimeCompleteTime;
+    public bool isDefeated => _health != null && _health.isDefeated;   // 撃退されて倒れているか(消えるまでの間も含む)
 
     private void Awake()
     {
         _stats = GetComponent<CS_VillainStats>();
         _combat = GetComponent<CS_VillainCombat>();
+        _health = GetComponent<CS_VillainHealth>();
         _renderers = GetComponentsInChildren<Renderer>();
     }
 
@@ -67,6 +71,7 @@ public class CS_VillainCrime : NetworkBehaviour
     {
         if (IsSpawned && !IsServer) return;
         if (_isEscaping.Value) return;
+        if (isDefeated) return;   // 倒れている悪人は逃走しない
 
         _isEscaping.Value = true;
 

@@ -32,7 +32,8 @@ using UnityEngine;
  *   当てる時は「予約した悪人か」と「離れすぎていないか」だけを見て倒す(飛び込んでいる間に向きが変わって外れることがない)
  *   飛び込んだ直後はサーバー上の位置が追いついていないので、送られてきた位置のずれは_range分多めに許す
  * ・奇襲が決まった時はonAmbush(倒した悪人)で知らせる(サーバー、またはオフラインのみ)
- *   見た目用に、onAmbushStarted(飛び込み開始)・onAmbushHitTiming(当たる瞬間)を本人の手元で出す。演出は未実装
+ *   見た目用に、onAmbushStarted(飛び込み開始)・onAmbushHitTiming(当たる瞬間)を本人の手元で出す
+ *   飛び込み〜当たる瞬間の間はisLungingがtrueになる。風切りの画面効果(CS_PlayerDashScreenEffect)・画角(CS_PlayerCameraFov)が使う
  * ・壁越しの悪人は奇襲できない: プレイヤーの体の中心から悪人の体の中心までを、半径_clearRadiusの球でなぞり、_obstacleLayersのもの(壁など)があれば奇襲にならない
  *   体の幅で調べるので、線は通っても体が壁の角に引っかかる、ということがない
  *   キャラクター(IDamageableを持つもの)は遮るものとして扱わない。飛び込みもこの線の上を進むので、壁をすり抜けて奇襲することもない
@@ -93,6 +94,7 @@ public class CS_PlayerAmbush : NetworkBehaviour
 
     public float range => _range;                   // 奇襲できる距離(m)
     public bool isAmbushing => _phase != Phase.None;   // 奇襲中か(CS_PlayerAttackが、通常攻撃・必殺技を止めるのに使う)
+    public bool isLunging => _phase == Phase.Dash || (_phase == Phase.Strike && !_hasStruck);   // 飛び込み〜当たる瞬間か(本人の手元。見た目用)
 
     public event Action<CS_VillainHealth> onAmbush;     // 奇襲が決まった時(サーバー、またはオフラインのみ)
     public event Action<CS_VillainHealth> onAmbushStarted;     // 飛び込みを始めた時(本人の手元のみ)。見た目用

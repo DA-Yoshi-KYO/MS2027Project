@@ -60,6 +60,8 @@ public static class ToonCharacterSetup
                     m.CopyPropertiesFromMaterial(template);
                 }
                 m.SetTexture("_BaseMap", tex);
+                // 口の中 (FaceMouth) は線を出さない。口元の線が唇から飛び出すのを防ぐ
+                if (baseMat.name.Contains("FaceMouth") && m.HasProperty("_OutlineWidth")) m.SetFloat("_OutlineWidth", 0f);
                 EditorUtility.SetDirty(m);
                 mats[i] = m;
             }

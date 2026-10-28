@@ -85,8 +85,25 @@ public class CS_MayaPreviewRuntimeServer : MonoBehaviour
     // MainThread処理Queue
     // =========================================================
 
-    private readonly ConcurrentQueue<string> _messageQueue =
-        new ConcurrentQueue<string>();
+    private readonly ConcurrentQueue<CSST_ReceivedMessage> _messageQueue =
+        new ConcurrentQueue<CSST_ReceivedMessage>();
+
+
+    // =========================================================
+    // 受信スレッドで変換済みのデータ
+    //
+    // JSON解析・座標変換・頂点分割は重いので
+    // MainThreadではなく受信スレッドで済ませておく
+    // (MainThreadが止まらない = 画面がカクつかない)
+    // =========================================================
+
+    private class CSST_ReceivedMessage
+    {
+        public string text;          // JSON以外の接続確認用Message
+        public string meshName;      // Mesh更新の場合のみ
+        public Vector3[] vertices;
+        public int[] triangles;
+    }
 
 
     // =========================================================
@@ -110,6 +127,12 @@ public class CS_MayaPreviewRuntimeServer : MonoBehaviour
     {
         // Standaloneでもバックグラウンド動作
         Application.runInBackground = true;
+
+        // 操作していない間は描画回数を落として PC を軽くする (見た目は変わらない)
+        if (GetComponent<CS_MayaPreviewIdleThrottle>() == null)
+        {
+            gameObject.AddComponent<CS_MayaPreviewIdleThrottle>();
+        }
 
 
         // =====================================================
@@ -229,17 +252,55 @@ public class CS_MayaPreviewRuntimeServer : MonoBehaviour
         // Socket Thread側から受信したMessageを
         // Unity MainThreadで処理する
 
+        // 同じObjectの更新が1フレーム内に複数届いた場合は
+        // 最後の1回だけ反映する (結果は同じで無駄な更新をしない)
+        _pendingMeshes.Clear();
+        _pendingOrder.Clear();
+
         while (
             _messageQueue.TryDequeue(
-                out string message
+                out CSST_ReceivedMessage received
             )
         )
         {
-            ProcessMessage(
-                message
+            CS_MayaPreviewIdleThrottle.Wake();
+
+            if (received.meshName == null)
+            {
+                Debug.Log(
+                    "Maya Preview Runtime : " +
+                    "Message受信 : " +
+                    received.text
+                );
+
+                continue;
+            }
+
+            if (!_pendingMeshes.ContainsKey(received.meshName))
+            {
+                _pendingOrder.Add(received.meshName);
+            }
+
+            _pendingMeshes[received.meshName] = received;
+        }
+
+        foreach (string meshName in _pendingOrder)
+        {
+            CSST_ReceivedMessage pending = _pendingMeshes[meshName];
+
+            CreateOrUpdateMesh(
+                pending.meshName,
+                pending.vertices,
+                pending.triangles
             );
         }
     }
+
+    private readonly System.Collections.Generic.Dictionary<string, CSST_ReceivedMessage> _pendingMeshes =
+        new System.Collections.Generic.Dictionary<string, CSST_ReceivedMessage>();
+
+    private readonly System.Collections.Generic.List<string> _pendingOrder =
+        new System.Collections.Generic.List<string>();
 
 
     // =========================================================
@@ -344,9 +405,17 @@ public class CS_MayaPreviewRuntimeServer : MonoBehaviour
                         )
                     )
                     {
-                        _messageQueue.Enqueue(
-                            message
-                        );
+                        CSST_ReceivedMessage received =
+                            PrepareMessage(
+                                message
+                            );
+
+                        if (received != null)
+                        {
+                            _messageQueue.Enqueue(
+                                received
+                            );
+                        }
                     }
                 }
             }
@@ -388,39 +457,26 @@ public class CS_MayaPreviewRuntimeServer : MonoBehaviour
 
 
     // =========================================================
-    // Message処理
+    // Message変換 (受信スレッドで実行)
+    //
+    // JsonUtility.FromJson はUnity公式で
+    // バックグラウンドスレッドから呼んでよいことになっている
     // =========================================================
 
-    private void ProcessMessage(
+    private static CSST_ReceivedMessage PrepareMessage(
         string message
     )
     {
-        if (
-            string.IsNullOrEmpty(
-                message
-            )
-        )
+        if (string.IsNullOrEmpty(message))
         {
-            return;
+            return null;
         }
-
 
         // JSON以外の接続確認用Message
-        if (
-            !message.StartsWith(
-                "{"
-            )
-        )
+        if (!message.StartsWith("{"))
         {
-            Debug.Log(
-                "Maya Preview Runtime : " +
-                "Message受信 : " +
-                message
-            );
-
-            return;
+            return new CSST_ReceivedMessage { text = message };
         }
-
 
         try
         {
@@ -429,22 +485,71 @@ public class CS_MayaPreviewRuntimeServer : MonoBehaviour
                     message
                 );
 
-
-            if (meshData == null)
-            {
-                return;
-            }
-
-
             if (
-                meshData.type ==
-                "MESH_DATA"
+                meshData == null ||
+                meshData.type != "MESH_DATA"
             )
             {
-                ProcessMeshData(
-                    meshData
-                );
+                return null;
             }
+
+            if (
+                meshData.vertices == null ||
+                meshData.triangles == null
+            )
+            {
+                Debug.LogError(
+                    "Maya Preview Runtime : " +
+                    "Mesh Dataが不正です。"
+                );
+
+                return null;
+            }
+
+            // =================================================
+            // Maya X Y Z → Unity X Y -Z
+            // Z反転したのでWindingも反転
+            //
+            // さらに面ごとに頂点を分割する
+            // (送信データに法線が無いので、分割しないと
+            //  RecalculateNormalsでハードエッジが丸まる)
+            //
+            // 以前はMainThreadでやっていた処理を
+            // そのままここへ移しただけなので結果は同じ
+            // =================================================
+
+            CSST_VertexData[] src = meshData.vertices;
+            int[] tri = meshData.triangles;
+
+            int count = tri.Length - (tri.Length % 3);
+
+            Vector3[] faceVertices = new Vector3[count];
+            int[] faceTriangles = new int[count];
+
+            for (int i = 0; i < count; i += 3)
+            {
+                int i0 = tri[i];
+                int i1 = tri[i + 2];
+                int i2 = tri[i + 1];
+
+                faceVertices[i] =
+                    new Vector3(src[i0].x, src[i0].y, -src[i0].z) * MAYA_TO_UNITY_SCALE;
+                faceVertices[i + 1] =
+                    new Vector3(src[i1].x, src[i1].y, -src[i1].z) * MAYA_TO_UNITY_SCALE;
+                faceVertices[i + 2] =
+                    new Vector3(src[i2].x, src[i2].y, -src[i2].z) * MAYA_TO_UNITY_SCALE;
+
+                faceTriangles[i] = i;
+                faceTriangles[i + 1] = i + 1;
+                faceTriangles[i + 2] = i + 2;
+            }
+
+            return new CSST_ReceivedMessage
+            {
+                meshName = meshData.name ?? "",
+                vertices = faceVertices,
+                triangles = faceTriangles,
+            };
         }
         catch (Exception exception)
         {
@@ -453,110 +558,9 @@ public class CS_MayaPreviewRuntimeServer : MonoBehaviour
                 "JSON解析失敗\n" +
                 exception
             );
+
+            return null;
         }
-    }
-
-
-    // =========================================================
-    // Mesh Data処理
-    // =========================================================
-
-    private void ProcessMeshData(
-        CSST_MeshData meshData
-    )
-    {
-        if (
-            meshData.vertices == null ||
-            meshData.triangles == null
-        )
-        {
-            Debug.LogError(
-                "Maya Preview Runtime : " +
-                "Mesh Dataが不正です。"
-            );
-
-            return;
-        }
-
-
-        // =====================================================
-        // Vertex変換
-        //
-        // Maya
-        // X Y Z
-        //
-        // Unity
-        // X Y -Z
-        //
-        // Maya cm → Unity m
-        // =====================================================
-
-        Vector3[] unityVertices =
-            new Vector3[
-                meshData.vertices.Length
-            ];
-
-
-        for (
-            int i = 0;
-            i < meshData.vertices.Length;
-            i++
-        )
-        {
-            CSST_VertexData vertex =
-                meshData.vertices[i];
-
-
-            unityVertices[i] =
-                new Vector3(
-                    vertex.x,
-                    vertex.y,
-                    -vertex.z
-                )
-                * MAYA_TO_UNITY_SCALE;
-        }
-
-
-        // =====================================================
-        // Triangle
-        //
-        // Z反転したためWindingも反転
-        // =====================================================
-
-        int[] unityTriangles =
-            new int[
-                meshData.triangles.Length
-            ];
-
-
-        for (
-            int i = 0;
-            i + 2 < meshData.triangles.Length;
-            i += 3
-        )
-        {
-            unityTriangles[i] =
-                meshData.triangles[i];
-
-
-            unityTriangles[i + 1] =
-                meshData.triangles[i + 2];
-
-
-            unityTriangles[i + 2] =
-                meshData.triangles[i + 1];
-        }
-
-
-        // =====================================================
-        // Mesh生成・更新
-        // =====================================================
-
-        CreateOrUpdateMesh(
-            meshData.name,
-            unityVertices,
-            unityTriangles
-        );
     }
 
 
@@ -686,17 +690,7 @@ public class CS_MayaPreviewRuntimeServer : MonoBehaviour
         // Mesh更新
         // =====================================================
 
-        // The legacy payload has no face-vertex normals. Split triangle corners
-        // so RecalculateNormals does not smooth across hard edges.
-        Vector3[] faceVertices = new Vector3[unityTriangles.Length];
-        int[] faceTriangles = new int[unityTriangles.Length];
-        for (int i = 0; i < unityTriangles.Length; i++)
-        {
-            faceVertices[i] = unityVertices[unityTriangles[i]];
-            faceTriangles[i] = i;
-        }
-        unityVertices = faceVertices;
-        unityTriangles = faceTriangles;
+        // 面ごとの頂点分割は受信スレッド (PrepareMessage) で済ませてある
 
         mesh.Clear();
 

@@ -14,6 +14,10 @@ public class CS_MayaPreviewSelection : MonoBehaviour
     private Vector3[] _edgePoints;
     private Vector3[] _ribbonVertices;
     private Camera _camera;
+    // Ribbon rebuild cache: the edge ribbons only change when the camera, the object or the window changes.
+    private bool _ribbonDirty = true;
+    private Matrix4x4 _lastCameraMatrix, _lastTargetMatrix, _lastProjection;
+    private Rect _lastPixelRect;
     public GameObject SelectedObject { get; private set; }
 
     public void SelectObject(GameObject target)
@@ -129,6 +133,7 @@ public class CS_MayaPreviewSelection : MonoBehaviour
             renderer.receiveShadows = false;
         }
         _outline.GetComponent<MeshFilter>().sharedMesh = _edges;
+        _ribbonDirty = true;
         LateUpdate();
     }
 
@@ -137,6 +142,16 @@ public class CS_MayaPreviewSelection : MonoBehaviour
         if (_selected == null || _edges == null || _outline == null) return;
         // Camera-facing ribbons keep the selection edges three pixels wide at any zoom.
         Transform target = _selected.transform;
+        // Same camera, same object, same window -> same ribbons. Skip the per-frame rebuild (identical result).
+        Matrix4x4 cameraMatrix = _camera.transform.localToWorldMatrix;
+        Matrix4x4 targetMatrix = target.localToWorldMatrix;
+        Matrix4x4 projection = _camera.projectionMatrix;
+        Rect pixelRect = _camera.pixelRect;
+        if (!_ribbonDirty && cameraMatrix == _lastCameraMatrix && targetMatrix == _lastTargetMatrix
+            && projection == _lastProjection && pixelRect == _lastPixelRect) return;
+        _ribbonDirty = false;
+        _lastCameraMatrix = cameraMatrix; _lastTargetMatrix = targetMatrix;
+        _lastProjection = projection; _lastPixelRect = pixelRect;
         float near = _camera.nearClipPlane + 0.001f;
         for (int i = 0; i < _edgePoints.Length; i += 2)
         {

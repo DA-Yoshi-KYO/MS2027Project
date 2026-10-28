@@ -11,7 +11,7 @@ using UnityEngine;
 /*
  * メモ
  * ・エフェクトのPrefab(またはその子)のMonoBehaviourに実装する
- *   例: CS_EffectSlash(TrailRendererで斬撃の軌跡を描く仮エフェクト)
+ *   例: CS_EffectBoneTrail(こぶしなどのボーンに付いていき、TrailRendererで軌跡を描く仮エフェクト)
  * ・Prefabはプールして使い回すので、Playのたびに最初の状態からやり直すこと
  */
 // ========================================

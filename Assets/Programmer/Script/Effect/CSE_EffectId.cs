@@ -22,14 +22,16 @@ public enum CSE_EffectId
     // =========================================================
     // プレイヤー：200番台
     // =========================================================
-    PlayerAttack1 = 200,    // 通常攻撃1段目の振り
-    PlayerAttack2,          // 通常攻撃2段目の振り
-    PlayerAttack3,          // 通常攻撃3段目の振り
-    PlayerAttack4,          // 通常攻撃4段目の振り
-    PlayerAttack5,          // 通常攻撃5段目の振り
+    PlayerAttack1 = 200,    // 通常攻撃1段目の殴り(こぶしの軌跡)
+    PlayerAttack2,          // 通常攻撃2段目の殴り
+    PlayerAttack3,          // 通常攻撃3段目の殴り
+    PlayerAttack4,          // 通常攻撃4段目の殴り
+    PlayerAttack5,          // 通常攻撃5段目の殴り
     PlayerSpecialStart,     // 必殺技の発動
     PlayerSpecialHit,       // 必殺技の判定が出た瞬間
     PlayerDamage,           // プレイヤーが攻撃を受けた
+    PlayerAttackImpact,     // 通常攻撃1〜4段目の判定が出た瞬間(殴った所の衝撃)
+    PlayerAttackFinishImpact, // 通常攻撃の最後の段の判定が出た瞬間
 
     // =========================================================
     // 警察：300番台

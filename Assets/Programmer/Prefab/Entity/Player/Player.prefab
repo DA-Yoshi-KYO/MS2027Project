@@ -142,7 +142,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Unity.Netcode.Runtime::Unity.Netcode.NetworkObject
-  GlobalObjectIdHash: 2789187359
+  GlobalObjectIdHash: 2681437817
   InScenePlacedSourceGlobalObjectIdHash: 0
   m_InScenePlacedDisabledByDefault: 0
   DeferredDespawnTick: 0
@@ -348,6 +348,10 @@ MonoBehaviour:
   _locomotionDamping: 0.08
   _maxTrackedSpeed: 40
   _blinkInterval: 0.1
+  _stepHeight: 1
+  _stepGroundLayers:
+    serializedVersion: 2
+    m_Bits: 4294967295
   _attackMotionCount: 3
   _attackMotionForStep: 0000000001000000020000000000000002000000
   _ambushImpactTime: 1.0666667
@@ -836,6 +840,7 @@ MonoBehaviour:
   _dashPassThroughLayers:
     serializedVersion: 2
     m_Bits: 2147483648
+  _pressGraceTime: 0.3
   _splashRadius: 5
   _splashIncludesRaidBoss: 0
 --- !u!114 &4718293045561290871
@@ -1480,7 +1485,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 8211388652041010643, guid: da07e20c2bfc65e4ca8fe6762518ce3a, type: 3}
       propertyPath: GlobalObjectIdHash
-      value: 4256807303
+      value: 2593234121
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []

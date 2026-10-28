@@ -14,26 +14,31 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::CSO_VillainTimeScaling
   _stages:
   - _startTime: 0
+    _spawnPercent: 30
     _memberCount: 2
     _maxHp: 1
     _crimeCompleteTime: 45
     _attackPower: 0
   - _startTime: 60
+    _spawnPercent: 40
     _memberCount: 3
     _maxHp: 2
     _crimeCompleteTime: 40
     _attackPower: 0
   - _startTime: 120
+    _spawnPercent: 50
     _memberCount: 4
     _maxHp: 3
     _crimeCompleteTime: 40
     _attackPower: 0
   - _startTime: 180
+    _spawnPercent: 50
     _memberCount: 5
     _maxHp: 3
     _crimeCompleteTime: 35
     _attackPower: 0
   - _startTime: 240
+    _spawnPercent: 60
     _memberCount: 6
     _maxHp: 4
     _crimeCompleteTime: 35

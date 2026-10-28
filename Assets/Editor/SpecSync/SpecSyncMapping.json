@@ -54,6 +54,7 @@
       "_arrayProperty": "_stages",
       "_columns": [
         { "_column": "時間", "_property": "_startTime", "_scale": 60 },
+        { "_column": "スポーン数", "_property": "_spawnPercent" },
         { "_column": "1グループの人数", "_property": "_memberCount" },
         { "_column": "HP", "_property": "_maxHp" },
         { "_column": "犯罪完了までの時間", "_property": "_crimeCompleteTime" }

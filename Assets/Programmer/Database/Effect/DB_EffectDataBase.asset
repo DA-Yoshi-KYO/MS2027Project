@@ -1,0 +1,92 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b493e017973e4e8aad7adcf01f4033d2, type: 3}
+  m_Name: DB_EffectDataBase
+  m_EditorClassIdentifier: Assembly-CSharp::CSO_EffectDataBase
+  _effectList:
+  - _id: 200
+    _prefab: {fileID: 7669626074174758407, guid: 22b09d87d25a47fd885313474cb73fb2, type: 3}
+    _lifetime: 0
+    _scale: 1
+    _overrideColor: 0
+    _color: {r: 1, g: 1, b: 1, a: 1}
+    _maxConcurrent: 4
+  - _id: 201
+    _prefab: {fileID: 1168945805109660616, guid: d8a05424e2024abe81686c63b892225f, type: 3}
+    _lifetime: 0
+    _scale: 1
+    _overrideColor: 0
+    _color: {r: 1, g: 1, b: 1, a: 1}
+    _maxConcurrent: 4
+  - _id: 202
+    _prefab: {fileID: 4332542367785465432, guid: 3d8ac55151b547318a9778d5d1617d4f, type: 3}
+    _lifetime: 0
+    _scale: 1
+    _overrideColor: 0
+    _color: {r: 1, g: 1, b: 1, a: 1}
+    _maxConcurrent: 4
+  - _id: 203
+    _prefab: {fileID: 7194308694103237374, guid: bfb33ff964764619b0ece6a90176cfa8, type: 3}
+    _lifetime: 0
+    _scale: 1
+    _overrideColor: 0
+    _color: {r: 1, g: 1, b: 1, a: 1}
+    _maxConcurrent: 4
+  - _id: 204
+    _prefab: {fileID: 4845523045342300625, guid: a29b1a19b2584eec9682787d9980f952, type: 3}
+    _lifetime: 0
+    _scale: 1
+    _overrideColor: 0
+    _color: {r: 1, g: 1, b: 1, a: 1}
+    _maxConcurrent: 4
+  - _id: 205
+    _prefab: {fileID: 4653602453797563620, guid: 7755ac4b795afdd4c9450ec4a3aa2438, type: 3}
+    _lifetime: 0.6
+    _scale: 1.5
+    _overrideColor: 0
+    _color: {r: 1, g: 1, b: 1, a: 1}
+    _maxConcurrent: 4
+  - _id: 206
+    _prefab: {fileID: 6228866967676643240, guid: 733c200c568d8c746a51414e3ee2a72c, type: 3}
+    _lifetime: 0.5
+    _scale: 2.5
+    _overrideColor: 0
+    _color: {r: 1, g: 1, b: 1, a: 1}
+    _maxConcurrent: 4
+  - _id: 207
+    _prefab: {fileID: 6228866967676643240, guid: 733c200c568d8c746a51414e3ee2a72c, type: 3}
+    _lifetime: 0.3
+    _scale: 0.5
+    _overrideColor: 1
+    _color: {r: 2, g: 0.3, b: 0.3, a: 1}
+    _maxConcurrent: 8
+  - _id: 300
+    _prefab: {fileID: 6228866967676643240, guid: 733c200c568d8c746a51414e3ee2a72c, type: 3}
+    _lifetime: 0.3
+    _scale: 0.6
+    _overrideColor: 1
+    _color: {r: 0.4, g: 0.6, b: 2, a: 1}
+    _maxConcurrent: 8
+  - _id: 400
+    _prefab: {fileID: 6228866967676643240, guid: 733c200c568d8c746a51414e3ee2a72c, type: 3}
+    _lifetime: 0.3
+    _scale: 0.6
+    _overrideColor: 1
+    _color: {r: 2, g: 0.8, b: 0.2, a: 1}
+    _maxConcurrent: 8
+  - _id: 401
+    _prefab: {fileID: 6228866967676643240, guid: 733c200c568d8c746a51414e3ee2a72c, type: 3}
+    _lifetime: 0.3
+    _scale: 0.5
+    _overrideColor: 0
+    _color: {r: 1, g: 1, b: 1, a: 1}
+    _maxConcurrent: 16

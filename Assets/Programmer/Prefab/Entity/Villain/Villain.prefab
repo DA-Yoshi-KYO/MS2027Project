@@ -24,6 +24,8 @@ GameObject:
   - component: {fileID: 487590664383712497}
   - component: {fileID: 5997323292010348831}
   - component: {fileID: 3196402215840117245}
+  - component: {fileID: 1948230663525777174}
+  - component: {fileID: 3630360828681066918}
   m_Layer: 31
   m_Name: Villain
   m_TagString: Untagged
@@ -495,3 +497,30 @@ RectTransform:
   m_CorrespondingSourceObject: {fileID: 3024163532033439586, guid: 19e0c61570e93e84095382a8a7d69d69, type: 3}
   m_PrefabInstance: {fileID: 8843079239888452314}
   m_PrefabAsset: {fileID: 0}
+--- !u!114 &1948230663525777174
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 942901870687269662}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 84b56082340e47608a9ad0374cf07e8c, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CS_VillainDamageEffect
+  _height: 1
+--- !u!114 &3630360828681066918
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 942901870687269662}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 52b10dd48d6045d2ad5b1cd60aec98f1, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CS_VillainAttackImpactEffect
+  _bone: hand.r
+  _offset: {x: 0, y: 0, z: 0.3}

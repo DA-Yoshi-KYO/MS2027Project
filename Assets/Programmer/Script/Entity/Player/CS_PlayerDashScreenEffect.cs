@@ -18,6 +18,9 @@ using UnityEngine.Rendering;
  *   SAでハイドポイントへ飛んでいる時(CS_PlayerHide.isHiding で、まだ張り付いていない時)
  *   奇襲の飛び込み〜当たる瞬間(CS_PlayerAmbush.isLunging)
  *   CS_PlayerHide・CS_PlayerAmbushは付いていなければ見ない
+ * ・SA・奇襲は短いので、SetHeldではなく毎フレームPlayして、すぐ最大の強さで出す
+ *   (SetHeldだとFade In Timeの途中で終わり、弱い強さから一瞬で消えたように見えるため)
+ *   消える速さはCSV_ScreenEffectTimingのPlay Duration / Play Weight Curveで調整する
  * ・同じProfileを別のクラスからSetHeldすると、後に呼んだ方で上書きされてしまうので、条件はこのクラスにまとめる
  * ・ダッシュ中の効果は1つのVolume Profile(_dashEffect)にまとめ、Playerの子のVolume1つでかける
  *   見た目も出し入れの速さも、このProfileで調整する
@@ -56,8 +59,12 @@ public class CS_PlayerDashScreenEffect : MonoBehaviour
 
     private void LateUpdate()
     {
-        bool isFast = _player.isDashing || (_player.isSprinting && IsMoving()) || IsHideFlying() || IsAmbushLunging();
+        bool isFast = _player.isDashing || (_player.isSprinting && IsMoving());
         _screenEffect.SetHeld(_dashEffect, isFast);
+
+        // SA・奇襲は短い(0.3〜0.6秒)ので、Fade In Timeを待たずに最大の強さで出す
+        // 毎フレームPlayし直して強さ1を保ち、終わったらPlay Duration秒かけてPlay Weight Curveで消える
+        if (IsHideFlying() || IsAmbushLunging()) _screenEffect.Play(_dashEffect);
     }
 
     private void OnDisable()

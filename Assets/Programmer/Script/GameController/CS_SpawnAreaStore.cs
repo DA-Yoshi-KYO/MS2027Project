@@ -16,18 +16,13 @@ using System.Collections.Generic;
  * ・書き込むのはCS_AreaSelectController、読むのはCS_PlayerSpawner(どちらもサーバーだけ)
  *   キーはクライアントID(オフラインの時はNetworkManager.ServerClientIdと同じ0を使う)
  * ・エリア選択を通らずにゲームシーンを始めた時(デバッグ用の起動シーンから始めた時など)は何も入っていないので、
- *   CS_PlayerSpawnerはこれまで通りプレイヤー番号ごとの4地点から生成する
+ *   CS_PlayerSpawnerは全員をランダムなエリアから生成する
  *   ゲームシーンを直接再生した時はソロになり、ソロの開始地点(Field_Solo1のPlayerSpawner)から生成する
  */
 // ========================================
 public static class CS_SpawnAreaStore
 {
     private static readonly Dictionary<ulong, int> _areaByClient = new Dictionary<ulong, int>();
-
-    /// <summary>
-    /// エリア選択の結果が入っているか(エリア選択を通ってきたか)
-    /// </summary>
-    public static bool hasSelection => _areaByClient.Count > 0;
 
     public static void SetArea(ulong clientId, int area)
     {

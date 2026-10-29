@@ -7,6 +7,7 @@
  * 2026-10-14 | 4人に満たない枠をNPCで埋めるようにした(秋野)
  * 2026-10-23 | 全員のシーン読み込みが終わってから生成するようにした(秋野、Issue #290)
  * 2026-10-29 | エリア選択で選んだエリアの開始地点から生成するようにした(Issue #342)
+ * 2026-10-29 | エリアがある時は、エリア選択の結果が無くても(デバッグ起動)エリアから生成するようにした(四隅の4地点をやめた)
  * ================================================ */
 
 using System.Collections;
@@ -27,7 +28,7 @@ using UnityEngine.SceneManagement;
  *   オフライン(NetworkManagerが動いていないテストシーン): 自分用のプレイヤーを1体だけ生成する
  * ・プレイヤー番号(0〜3。HP UIなどが表示先を決めるのに使う)は、空いている一番小さい番号を割り当てる
  *   NetworkObjectをSpawnする前にCS_Player.AssignPlayerNumber()で設定する(スポーン時に全員へ同期される)
- *   生成位置は、プレイヤー番号と同じ番号の子オブジェクトのTransform(仕様「決められたステージ隅の4地点」。子の数を超えたら折り返す)
+ *   生成位置は、下の開始エリアの開始地点(マルチ)か、プレイヤー番号と同じ番号の子オブジェクトのTransform(ソロ。子の数を超えたら折り返す)
  * ・NPC(仕様書「NPC(他プレイヤー)」、Issue #164)
  *   4人で遊ぶ前提なので、人が4人に満たない枠をNPCで埋める(ソロなら3体、3人なら1体)
  *   NPCはサーバーが生成・所有し、判断(CS_PlayerNpcBrain)もサーバーで動く。人と同じプレイヤーのプレハブを使う
@@ -43,8 +44,8 @@ using UnityEngine.SceneManagement;
  * ・開始エリア(仕様「各プレイヤーが開始前に3つのエリアから好きな地点を選びスタート」、Issue #342)
  *   エリア選択シーン(CS_AreaSelectController)を通ってきた時は、CS_SpawnAreaStoreに入っている選んだエリアの開始地点から生成する
  *   開始地点は_areaSpawnRootsの子のTransform(エリアごとに、そのエリアで生成した順に使う。子の数を超えたら折り返す)
- *   NPCと、選択が入っていない人(後から接続した人など)は、ランダムなエリアにする
- *   エリア選択を通っていない時(デバッグ用の起動シーンから始めた時など)や_areaSpawnRootsが空の時(ソロ)は、上のプレイヤー番号ごとの地点を使う
+ *   NPCと、選択が入っていない人(後から接続した人、デバッグ用の起動シーンから始めた時など)は、ランダムなエリアにする
+ *   _areaSpawnRootsが空の時(ソロのPlayerSpawner)は、上のプレイヤー番号ごとの地点(子オブジェクト)を使う
  *   ゲームシーンを直接再生した時はソロになる(CS_GameModeStore)ので、ソロのPlayerSpawnerから生成する
  * ・切断したクライアントのプレイヤーはNetcodeが自動で破棄する
  * ・プレイヤーのプレハブはNetworkPrefabsList(DefaultNetworkPrefabs)に登録しておくこと
@@ -353,10 +354,10 @@ public class CS_PlayerSpawner : MonoBehaviour
         _players.RemoveAll(player => player == null);
     }
 
-    // 選んだエリアの開始地点(エリア選択を通っていない、またはエリアが無い時はnull)
+    // 選んだエリアの開始地点(エリアが無い時はnull)
     private Transform GetAreaSpawnPoint(ulong? clientId)
     {
-        if (!CS_SpawnAreaStore.hasSelection || _areaSpawnCounts.Length == 0) return null;
+        if (_areaSpawnCounts.Length == 0) return null;
 
         // NPCと、選択が入っていない人はランダムなエリアにする
         int area;

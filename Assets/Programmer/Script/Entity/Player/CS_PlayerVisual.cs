@@ -17,9 +17,14 @@ using UnityEngine;
  *   Animatorは全クライアントが「自分のもの」をローカルで動かす(NetworkAnimatorは使わない)。
  *   ・移動、接地、死亡 : 全クライアントで、座標の変化や同期済みのHPから自分で計算する(通信なし)
  *     走っているか(Sprint)も、座標の変化の速さが通常の移動より速いかで決める
+ *     接地(Grounded)は、ちょっとした段差を下りただけで空中のモーションにならないよう、
+ *     落ちている(上がっていない)間は足元から_stepHeight以内に地面があれば接地とみなす(見た目だけ。ゲームの接地判定は変えない)
  *     (CS_Player.isSprinting / isDashingは操作している本人の手元にしか無いため)
  *   ・被弾           : 同期済みのHPが減ったのを各クライアントが検知して再生する(通信なし)
  *   ・ジャンプ、ダッシュ、攻撃、必殺技、奇襲 : 操作している本人が再生し、同時にRPCで他クライアントへ通知する
+ *     奇襲は当たるまでの時間(CS_PlayerAmbush.EstimateTimeToHit、ミリ秒)を一緒に送り、各クライアントが、モーションの当たる瞬間
+ *     (Ambush Impact Time)がちょうど当たる時に来る速さ(AmbushSpeed)で再生する。飛び込んでいる間に構えから振り抜きまでが進む
+ *     通常攻撃の各段に使うモーションはAttack Motion For Step(ツールが、段ごとのタイミングに合うモーションを選んで書き込む)
  *   ・パリー(反撃) : CS_PlayerParry.onParriedが全クライアントで発生するので、各クライアントが再生する(通信なし)
  *   後から参加したクライアントには単発の動作は再生されないが、死亡は状態から判定するので反映される
  *   ・復活直後の無敵の点滅 : 同期済みの無敵終了時刻(CS_PlayerRespawn.isRespawnInvincible)から全クライアントで判定する
@@ -58,7 +63,13 @@ public class CS_PlayerVisual : NetworkBehaviour
     [SerializeField] private float _locomotionDamping = 0.08f;  // 移動パラメータのなめらかさ(小さいほど素早く追従)
     [SerializeField] private float _maxTrackedSpeed = 40f;      // これを超える座標の変化はテレポートとみなして無視する(m/秒)
     [SerializeField] private float _blinkInterval = 0.1f;       // 復活直後の無敵中に点滅する間隔(秒)
+    [SerializeField][Min(0f)] private float _stepHeight = 0.4f; // この高さまでの段差は、下りても空中のモーションにしない(m)
+    [SerializeField] private LayerMask _stepGroundLayers = ~0;  // 段差の判定で地面とみなすレイヤー
     [SerializeField][Min(1)] private int _attackMotionCount = 3;    // Animatorにある通常攻撃のモーションの数。これを超えた段(5段コンボの4・5段目など)は先頭から使い回す
+    [SerializeField] private int[] _attackMotionForStep;          // 通常攻撃の各段に使うモーションの番号(空なら段の番号をAttack Motion Countで割った余り)。ツールが書き込む
+    [SerializeField][Min(0f)] private float _ambushImpactTime = 0.5f;  // 奇襲のモーションの頭から当たる瞬間までの秒数(等倍の時)。ツールが書き込む
+    [SerializeField][Min(0.01f)] private float _minAmbushSpeed = 0.3f; // 奇襲のモーションの速さの下限・上限(倍)
+    [SerializeField][Min(0.01f)] private float _maxAmbushSpeed = 6f;
 
     private CS_Player _player;
     private CS_PlayerStats _stats;
@@ -66,6 +77,7 @@ public class CS_PlayerVisual : NetworkBehaviour
     private CS_PlayerAttack _attack;
     private CS_PlayerSpecialAttack _special;
     private CS_PlayerRespawn _respawn;
+    private Collider _collider;
     private CS_PlayerParry _parry;
     private CS_PlayerAmbush _ambush;
     private Renderer[] _renderers;
@@ -83,6 +95,7 @@ public class CS_PlayerVisual : NetworkBehaviour
         _attack = GetComponent<CS_PlayerAttack>();
         _special = GetComponent<CS_PlayerSpecialAttack>();
         _respawn = GetComponent<CS_PlayerRespawn>();
+        _collider = GetComponent<Collider>();
         _parry = GetComponent<CS_PlayerParry>();
         _ambush = GetComponent<CS_PlayerAmbush>();
         _renderers = GetComponentsInChildren<Renderer>(true);
@@ -131,10 +144,23 @@ public class CS_PlayerVisual : NetworkBehaviour
 
         if (_animator == null) return;
 
+        float verticalSpeed = Time.deltaTime > 0f ? (transform.position.y - _lastPosition.y) / Time.deltaTime : 0f;
         UpdateLocomotion(Time.deltaTime);
-        SetBool(CS_PlayerAnimatorParams.groundedHash, _player.isGrounded);
+        SetBool(CS_PlayerAnimatorParams.groundedHash, IsVisuallyGrounded(verticalSpeed));
         SetBool(CS_PlayerAnimatorParams.deadHash, _health.isDead);
         if (Has(CS_PlayerAnimatorParams.attackSpeedHash)) _animator.SetFloat(CS_PlayerAnimatorParams.attackSpeedHash, _stats.comboSpeedRate);
+    }
+
+    // 見た目の上での接地。本当に接地しているか、落ちている(上がっていない)間に足元から_stepHeight以内に地面があれば接地とみなす
+    // (ジャンプで上がっている間は地面が近くても接地にしないので、ジャンプのモーションは今まで通り再生される)
+    private bool IsVisuallyGrounded(float verticalSpeed)
+    {
+        if (_player.isGrounded) return true;
+        if (_stepHeight <= 0f || verticalSpeed > 0.1f) return false;
+
+        Vector3 origin = transform.position + Vector3.up * 0.1f;
+        float footOffset = _collider != null ? transform.position.y - _collider.bounds.min.y : 0f;
+        return Physics.Raycast(origin, Vector3.down, 0.1f + footOffset + _stepHeight, _stepGroundLayers, QueryTriggerInteraction.Ignore);
     }
 
     // 復活直後の無敵中は点滅させ、無敵が終わったら表示に戻す
@@ -199,7 +225,8 @@ public class CS_PlayerVisual : NetworkBehaviour
     private void HandleDashStarted() => PerformOwnerAction(ActionType.Dash, 0);
     private void HandleAttackStepStarted(int step) => PerformOwnerAction(ActionType.Attack, step);
     private void HandleSpecialStarted() => PerformOwnerAction(ActionType.Special, 0);
-    private void HandleAmbushStarted(CS_VillainHealth villain) => PerformOwnerAction(ActionType.Ambush, 0);
+    // 奇襲は、当たるまでの時間(ミリ秒)を一緒に送る(当たる瞬間に打撃が来るよう、各クライアントがモーションの速さを決める)
+    private void HandleAmbushStarted(CS_VillainHealth villain) => PerformOwnerAction(ActionType.Ambush, Mathf.RoundToInt(_ambush.EstimateTimeToHit(villain) * 1000f));
 
     // パリー(反撃)は全クライアントで発生するので、通知せずにそれぞれで再生する
     private void HandleParried(GameObject target) => PlayAction(ActionType.Parry, 0);
@@ -245,7 +272,7 @@ public class CS_PlayerVisual : NetworkBehaviour
                 SetTrigger(CS_PlayerAnimatorParams.dashHash);
                 break;
             case ActionType.Attack:
-                SetInteger(CS_PlayerAnimatorParams.comboStepHash, parameter % _attackMotionCount);
+                SetInteger(CS_PlayerAnimatorParams.comboStepHash, GetAttackMotion(parameter));
                 SetTrigger(CS_PlayerAnimatorParams.attackHash);
                 break;
             case ActionType.Special:
@@ -255,9 +282,27 @@ public class CS_PlayerVisual : NetworkBehaviour
                 SetTrigger(CS_PlayerAnimatorParams.parryHash);
                 break;
             case ActionType.Ambush:
+                SetFloat(CS_PlayerAnimatorParams.ambushSpeedHash, GetAmbushSpeed(parameter));
                 SetTrigger(CS_PlayerAnimatorParams.ambushHash);
                 break;
         }
+    }
+
+    // 通常攻撃の段に使うモーションの番号
+    private int GetAttackMotion(int step)
+    {
+        if (_attackMotionForStep != null && step >= 0 && step < _attackMotionForStep.Length) return _attackMotionForStep[step];
+
+        return step % _attackMotionCount;
+    }
+
+    // 当たるまでの時間(ミリ秒)に、モーションの当たる瞬間が重なる速さ
+    private float GetAmbushSpeed(int timeToHitMilliseconds)
+    {
+        float timeToHit = timeToHitMilliseconds / 1000f;
+        if (timeToHit <= 0f || _ambushImpactTime <= 0f) return 1f;
+
+        return Mathf.Clamp(_ambushImpactTime / timeToHit, _minAmbushSpeed, _maxAmbushSpeed);
     }
 
     private bool Has(int hash) => _animator != null && _availableParams.Contains(hash);
@@ -280,5 +325,11 @@ public class CS_PlayerVisual : NetworkBehaviour
     private void SetFloat(int hash, float value, float deltaTime)
     {
         if (Has(hash)) _animator.SetFloat(hash, value, _locomotionDamping, deltaTime);
+    }
+
+    // なめらかにせず、すぐにその値にする
+    private void SetFloat(int hash, float value)
+    {
+        if (Has(hash)) _animator.SetFloat(hash, value);
     }
 }

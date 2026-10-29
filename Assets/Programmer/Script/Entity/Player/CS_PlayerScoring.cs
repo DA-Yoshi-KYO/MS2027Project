@@ -30,6 +30,13 @@ using UnityEngine;
  * ・他プレイヤーを倒した時は、倒された相手の番号をRPCで全員へ配り、各クライアントでキル通知(CS_NotificationController.ShowKill)を出す
  *   表示名は「Player{番号+1}」(仮)。NPCも同じプレハブなので同じ形で出る
  * ・悪人を倒した時は、onVillainDefeatedで知らせる(必殺ゲージ(CS_PlayerSpecialGauge)が、倒した本人の分だけ溜める)
+ * ・悪人を倒した時は、倒した本人の画面に、加算された点数を悪人の頭上へポップアップする(Issue #368。UI仕様書「悪人撃退時のスコア表示」)
+ *   ポップアップのUIはVillainScorePopupCanvas.prefab(CS_UIVillainScorePopupPresenter)。生成してInitialize(点数, 位置, カメラ)を呼ぶだけ
+ *   スコアの計算はサーバーで行うので、サーバーから倒した本人(Owner)へRPCで点数と位置を送り、受け取った側で生成する
+ *   出す位置は、悪人の位置 + _scorePopupHeight(倒した瞬間の位置。悪人が消えても出せるよう、位置を送る)
+ *   出すのは人が操作している自分のプレイヤー(CS_Player.isLocalPlayer)だけ。他のプレイヤー・NPCが倒した分は出さない
+ *   (NPCはホストが持っているため、そのままだとホストの画面に出てしまう)
+ *   0点の時は出さない(レイドボスは通常の撃破スコアが0点で、貢献度の点数はCS_VillainRaidBossが別に足すため)
  * ・スコアはサーバーだけが計算する(攻撃判定・悪人の処理がサーバーで行われるため)
  * ・オフライン(NetworkManagerが動いていない)のテストシーンでも単体で動く
  */
@@ -51,6 +58,11 @@ public class CS_PlayerScoring : NetworkBehaviour
     [Header("他プレイヤー撃破")]
     [SerializeField] private int _defeatPlayerScore = 0;        // 他プレイヤーを倒した時の点数(仕様未定のため既定0)
 
+    [Header("撃退スコアのポップアップ")]
+    [SerializeField] private CS_UIVillainScorePopupPresenter _scorePopupPrefab;   // VillainScorePopupCanvas.prefab(空なら出さない)
+    [SerializeField] private float _scorePopupHeight = 2.2f;                      // 悪人の足元から、ポップアップを出す高さ(m)
+
+    private CS_Player _player;
     private CS_PlayerResultDataHolder _holder;
     private CS_PlayerHealth _health;
     private CS_PlayerStealthBonus _bonus;
@@ -62,6 +74,7 @@ public class CS_PlayerScoring : NetworkBehaviour
 
     private void Awake()
     {
+        _player = GetComponent<CS_Player>();
         _holder = GetComponent<CS_PlayerResultDataHolder>();
         _health = GetComponent<CS_PlayerHealth>();
         _bonus = GetComponent<CS_PlayerStealthBonus>();
@@ -112,6 +125,7 @@ public class CS_PlayerScoring : NetworkBehaviour
             int point = Mathf.RoundToInt(GetDefeatScore(villain) * _bonus.scoreMultiplier);
             _holder.AddDefeatVillain(point);
             onVillainDefeated?.Invoke(villain);
+            NotifyScorePopup(point, villain.transform.position + Vector3.up * _scorePopupHeight);
             return;
         }
 
@@ -121,6 +135,32 @@ public class CS_PlayerScoring : NetworkBehaviour
             _holder.AddDefeatPlayer(_defeatPlayerScore);
             NotifyKill(player);
         }
+    }
+
+    // 倒した本人の画面に、点数のポップアップを出してもらう(サーバー、またはオフラインで呼ぶ)
+    private void NotifyScorePopup(int point, Vector3 position)
+    {
+        if (point == 0 || _scorePopupPrefab == null) return;
+        if (_player != null && _player.isNpc) return;   // NPCが倒した分は出さない
+
+        if (IsSpawned) ShowScorePopupRpc(point, position);
+        else ShowScorePopup(point, position);   // オフラインのテストシーン
+    }
+
+    [Rpc(SendTo.Owner)]
+    private void ShowScorePopupRpc(int point, Vector3 position)
+    {
+        ShowScorePopup(point, position);
+    }
+
+    // 点数のポップアップを生成する(表示が終わるとポップアップ自身が消える)
+    private void ShowScorePopup(int point, Vector3 position)
+    {
+        if (_scorePopupPrefab == null) return;
+        if (_player == null || !_player.isLocalPlayer) return;
+
+        CS_UIVillainScorePopupPresenter popup = Instantiate(_scorePopupPrefab, position, Quaternion.identity);
+        popup.Initialize(point, position, _player.playerCamera);
     }
 
     // 倒された相手の番号を全員へ配り、キル通知を出す

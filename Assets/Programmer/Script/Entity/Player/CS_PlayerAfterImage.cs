@@ -3,7 +3,7 @@ using Unity.Netcode;
 using UnityEngine;
 
 /*
- * 回避(ブリンク)・SA(ハイドポイントへ飛ぶ)・奇襲の飛び込みの間、プレイヤーの残像を出すクラス
+ * 回避(パリー成功)・SA(ハイドポイントへ飛ぶ)・奇襲の飛び込みの間、プレイヤーの残像を出すクラス
  * 一定間隔でモデルのその瞬間のポーズを写し取り、一色で光るシルエットとしてその場に置いて、少しずつ消す
  * (ゲームロジック側はこのクラスの存在を知らない。外しても動きは変わらない)
  *
@@ -14,11 +14,13 @@ using UnityEngine;
 /*
  * メモ
  * ・残像を出す間
- *   回避 : ブリンクで高速移動している間(CS_Player.isDashing)
+ *   回避 : パリーに成功してから Parry Duration 秒の間(CS_PlayerParry.onParried)
+ *          普通のブリンクでは出さない(ブリンクの見た目は軽いままにするため)
  *   SA   : ハイドポイントへ飛んでいる間(CS_PlayerHide.isHiding で、まだ張り付いていない間)
  *   奇襲 : 飛び込み〜当たる瞬間(CS_PlayerAmbush.isLunging)
- * ・上の状態は操作している本人(NPCはホスト)の手元でしか分からないので、
+ * ・SA・奇襲の状態は操作している本人(NPCはホスト)の手元でしか分からないので、
  *   「残像を出している最中か」だけをNetworkVariable(書き込みはOwner)で全員に同期し、各クライアントが自分の画面で残像を作る
+ *   パリーの成功(onParried)は全クライアントで起きるので、各クライアントが自分で時間を数える(通信しない)
  *   オフライン(NetworkManagerが動いていない)の時は、自分の画面で作るだけ
  * ・残像の作り方
  *   Interval 秒ごとに、子のSkinnedMeshRenderer(モデル)のポーズをBakeMeshでMeshに写し取り、
@@ -39,6 +41,7 @@ public class CS_PlayerAfterImage : NetworkBehaviour
     [SerializeField][Min(0.01f)] private float _interval = 0.05f;   // 残像を置く間隔(秒)
     [SerializeField][Min(0.01f)] private float _lifetime = 0.3f;    // 残像が消えるまでの時間(秒)
     [SerializeField][Min(1)] private int _maxCount = 24;            // 同時に出せる残像の数
+    [SerializeField][Min(0f)] private float _parryDuration = 0.4f;  // パリーに成功してから残像を出す時間(秒)
 
     private static readonly int _tintColorId = Shader.PropertyToID("_TintColor");
     private static readonly int _baseMapId = Shader.PropertyToID("_BaseMap");
@@ -53,9 +56,9 @@ public class CS_PlayerAfterImage : NetworkBehaviour
         public float age;
     }
 
-    private CS_Player _player;
     private CS_PlayerHide _hide;
     private CS_PlayerAmbush _ambush;
+    private CS_PlayerParry _parry;
     private SkinnedMeshRenderer[] _skinnedRenderers;
 
     private readonly List<Ghost> _ghosts = new List<Ghost>();
@@ -66,6 +69,7 @@ public class CS_PlayerAfterImage : NetworkBehaviour
     private int _nextGhost;
     private float _spawnTimer;
     private bool _isActiveOffline;
+    private float _parryRemaining;
 
     // 書き込みはOwner(操作している本人。NPCはホスト)。読み取りは全員可
     private readonly NetworkVariable<bool> _isActive = new NetworkVariable<bool>(
@@ -73,19 +77,31 @@ public class CS_PlayerAfterImage : NetworkBehaviour
         NetworkVariableReadPermission.Everyone,
         NetworkVariableWritePermission.Owner);
 
-    private bool isActive => IsSpawned ? _isActive.Value : _isActiveOffline;
+    private bool isActive => (IsSpawned ? _isActive.Value : _isActiveOffline) || _parryRemaining > 0f;
 
     private void Awake()
     {
-        _player = GetComponent<CS_Player>();
         _hide = GetComponent<CS_PlayerHide>();
         _ambush = GetComponent<CS_PlayerAmbush>();
+        _parry = GetComponent<CS_PlayerParry>();
         _skinnedRenderers = GetComponentsInChildren<SkinnedMeshRenderer>(true);
         _propertyBlock = new MaterialPropertyBlock();
     }
 
+    private void OnEnable()
+    {
+        if (_parry != null) _parry.onParried += HandleParried;
+    }
+
+    private void OnDisable()
+    {
+        if (_parry != null) _parry.onParried -= HandleParried;
+        _parryRemaining = 0f;
+    }
+
     private void Update()
     {
+        if (_parryRemaining > 0f) _parryRemaining -= Time.deltaTime;
         UpdateActive();
         UpdateSpawn();
         UpdateGhosts();
@@ -111,7 +127,7 @@ public class CS_PlayerAfterImage : NetworkBehaviour
     {
         if (IsSpawned && !IsOwner) return;
 
-        bool active = IsDodging() || IsFlyingToHidePoint() || IsAmbushLunging();
+        bool active = IsFlyingToHidePoint() || IsAmbushLunging();
         if (!IsSpawned)
         {
             _isActiveOffline = active;
@@ -119,11 +135,6 @@ public class CS_PlayerAfterImage : NetworkBehaviour
         }
 
         if (_isActive.Value != active) _isActive.Value = active;
-    }
-
-    private bool IsDodging()
-    {
-        return _player.isDashing;
     }
 
     private bool IsFlyingToHidePoint()
@@ -134,6 +145,12 @@ public class CS_PlayerAfterImage : NetworkBehaviour
     private bool IsAmbushLunging()
     {
         return _ambush != null && _ambush.isLunging;
+    }
+
+    // パリーに成功した(全クライアントで発生する)
+    private void HandleParried(GameObject attacker)
+    {
+        _parryRemaining = _parryDuration;
     }
 
     // ========================================

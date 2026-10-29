@@ -1,0 +1,20 @@
+{
+  "profile": "Assets/Programmer/Volume/VO_OrderZeroNight.asset",
+  "volume": "EnvironmentVolume",
+  "components": {
+    "VisualEnvironment": { "skyType": 3, "skyAmbientMode": 1 },
+    "GradientSky": { "top": [0.02, 0.03, 0.09, 1], "middle": [0.26, 0.11, 0.32, 1], "bottom": [0.03, 0.03, 0.05, 1], "gradientDiffusion": 1.4 },
+    "Exposure": { "mode": 0, "fixedExposure": 0.1 },
+    "Tonemapping": { "mode": 2 },
+    "ColorAdjustments": { "contrast": 25, "saturation": 5, "postExposure": 0 },
+    "SplitToning": { "shadows": [0.35, 0.5, 0.65, 1], "highlights": [0.85, 0.6, 0.4, 1], "balance": -30 },
+    "WhiteBalance": { "temperature": -4 },
+    "Bloom": { "threshold": 0.9, "intensity": 0.45, "scatter": 0.75 },
+    "Vignette": { "intensity": 0.32, "smoothness": 0.45, "color": [0, 0, 0.02, 1] },
+    "ChromaticAberration": { "intensity": 0.06 },
+    "FilmGrain": { "type": 0, "intensity": 0.15, "response": 0.8 },
+    "Fog": { "enabled": true, "meanFreePath": 180, "baseHeight": 0, "maximumHeight": 60, "albedo": [0.6, 0.6, 0.68, 1], "enableVolumetricFog": true },
+    "ScreenSpaceAmbientOcclusion": { "intensity": 1.6, "radius": 2.5 },
+    "ScreenSpaceReflection": { "enabled": true }
+  }
+}

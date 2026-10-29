@@ -147,7 +147,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Unity.Netcode.Runtime::Unity.Netcode.NetworkObject
-  GlobalObjectIdHash: 2681437817
+  GlobalObjectIdHash: 2789187359
   InScenePlacedSourceGlobalObjectIdHash: 0
   m_InScenePlacedDisabledByDefault: 0
   DeferredDespawnTick: 0
@@ -176,6 +176,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::CS_Player
   ShowTopMostFoldoutHeaderGroup: 1
   _rotationSpeed: 720
+  _acceleration: 70
+  _deceleration: 90
   _groundLayers:
     serializedVersion: 2
     m_Bits: 4294967295
@@ -185,7 +187,7 @@ MonoBehaviour:
   _fallResetHeight: -30
   _cameraTransform: {fileID: 7583572087850885837}
   _virtualCameraTransform: {fileID: 3590718967009566022}
-  _cameraDistance: 4
+  _cameraDistance: 2
   _cameraPivotHeight: 1
   _minPitch: -15
   _maxPitch: 60
@@ -213,6 +215,7 @@ MonoBehaviour:
   _targetLayers:
     serializedVersion: 2
     m_Bits: 4294967295
+  _stepForwardDistance: 0.4
 --- !u!114 &3493219312366666662
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -938,6 +941,71 @@ MonoBehaviour:
   _shortenPerCycle: 0.5
   _inputThreshold: 0.5
   _snapAngle: 150
+--- !u!114 &365371107231031251
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1825699444668748530}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 778b8fcaba7e48dca60e594bde078c29, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CS_NetworkEffectPlayer
+  ShowTopMostFoldoutHeaderGroup: 1
+--- !u!114 &3130328960277820292
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1825699444668748530}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5fe923f7d0a549eb8db47d1e5e901a36, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CS_PlayerAttackEffect
+--- !u!114 &738142572027155397
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1825699444668748530}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f550d98ad61849419b199690151eed56, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CS_PlayerDamageEffect
+  _height: 1
+  _cameraOffset: 0.5
+--- !u!114 &5246955127504645171
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1825699444668748530}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7423333c8e134a57a3bf276fd8ea605b, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CS_PlayerParrySuccessEffect
+  _height: 1
+  _cameraOffset: 0.5
+--- !u!114 &1627482432968856487
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1825699444668748530}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e8d1ccc340f74ab1b1b9bf79934cd2fb, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CS_PlayerSpawnEffect
 --- !u!1 &3298430547158640491
 GameObject:
   m_ObjectHideFlags: 0
@@ -966,7 +1034,7 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 3298430547158640491}
   serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
@@ -1492,7 +1560,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 8211388652041010643, guid: da07e20c2bfc65e4ca8fe6762518ce3a, type: 3}
       propertyPath: GlobalObjectIdHash
-      value: 2593234121
+      value: 4256807303
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
@@ -1504,68 +1572,3 @@ RectTransform:
   m_CorrespondingSourceObject: {fileID: 6224474525827248880, guid: da07e20c2bfc65e4ca8fe6762518ce3a, type: 3}
   m_PrefabInstance: {fileID: 7554633143963106841}
   m_PrefabAsset: {fileID: 0}
---- !u!114 &365371107231031251
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1825699444668748530}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 778b8fcaba7e48dca60e594bde078c29, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::CS_NetworkEffectPlayer
-  ShowTopMostFoldoutHeaderGroup: 1
---- !u!114 &3130328960277820292
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1825699444668748530}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 5fe923f7d0a549eb8db47d1e5e901a36, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::CS_PlayerAttackEffect
---- !u!114 &738142572027155397
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1825699444668748530}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: f550d98ad61849419b199690151eed56, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::CS_PlayerDamageEffect
-  _height: 1
-  _cameraOffset: 0.5
---- !u!114 &5246955127504645171
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1825699444668748530}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 7423333c8e134a57a3bf276fd8ea605b, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::CS_PlayerParrySuccessEffect
-  _height: 1
-  _cameraOffset: 0.5
---- !u!114 &1627482432968856487
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1825699444668748530}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: e8d1ccc340f74ab1b1b9bf79934cd2fb, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::CS_PlayerSpawnEffect

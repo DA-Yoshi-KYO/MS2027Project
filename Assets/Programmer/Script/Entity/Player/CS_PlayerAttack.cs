@@ -54,6 +54,9 @@ public class CS_PlayerAttack : NetworkBehaviour
     [Header("攻撃判定")]
     [SerializeField] private LayerMask _targetLayers;           // ダメージを与える対象のレイヤー
 
+    [Header("操作感")]
+    [SerializeField][Min(0f)] private float _stepForwardDistance = 0.4f;   // 一振りごとに前へ踏み込む距離(m。0で踏み込まない)
+
     private const int _noStep = -1;         // 待機中(攻撃していない)を表す値
     private const int _hitBufferSize = 16;  // 一度に判定できるコライダーの上限
 
@@ -94,6 +97,10 @@ public class CS_PlayerAttack : NetworkBehaviour
         _interactor = GetComponent<CS_PlayerInteractor>();
         _ambush = GetComponent<CS_PlayerAmbush>();
         _hide = GetComponent<CS_PlayerHide>();
+
+        // ダッシュ・ジャンプしたら、攻撃を中断する(原神のように、攻撃の途中でも回避・ジャンプへ切り替えられる)
+        _player.onDashStarted += CancelCombo;
+        _player.onJumped += CancelCombo;
 
         if (HasValidSteps()) return;
 
@@ -199,6 +206,37 @@ public class CS_PlayerAttack : NetworkBehaviour
         _hasHit = false;
         _isInputBuffered = false;
         onStepStarted?.Invoke(stepIndex);
+
+        StepForward(_attackSteps[stepIndex]);
+    }
+
+    // 一振りごとに、判定が出るまでの間に少しだけ前へ踏み込む
+    // エイムアシストが相手まで踏み込んでいる時(onStepStartedの中で始まる)は、そちらを優先する
+    private void StepForward(CSO_AttackData step)
+    {
+        if (_stepForwardDistance <= 0f || _player.isLunging) return;
+
+        float duration = Mathf.Max(Time.fixedDeltaTime, step.hitDelay);
+        _player.Lunge(transform.forward, _stepForwardDistance, duration);
+    }
+
+    // ダッシュ・ジャンプで攻撃を中断する(奇襲・必殺技は止めない)
+    private void CancelCombo()
+    {
+        if (_currentStep == _noStep) return;
+
+        ResetCombo();
+    }
+
+    public override void OnDestroy()
+    {
+        if (_player != null)
+        {
+            _player.onDashStarted -= CancelCombo;
+            _player.onJumped -= CancelCombo;
+        }
+
+        base.OnDestroy();
     }
 
     // 次の段があれば派生する(派生できたらtrue)

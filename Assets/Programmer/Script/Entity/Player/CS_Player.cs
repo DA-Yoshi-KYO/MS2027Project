@@ -32,6 +32,11 @@ using UnityEngine.InputSystem;
  *   体の向きとカメラの向きがずれるため、警戒UI(CS_PoliceDetectionController)の方向の基準には、プレイヤー本体ではなく
  *   「位置はプレイヤー、向きはカメラの左右の向き」の基準(_viewDirectionAnchor)を渡す(画面の上 = カメラの正面になる)
  *   3. LateUpdate   : カメラをプレイヤーの周りに配置する
+ * ・操作感(原神に寄せた調整)
+ *   移動の速さは、すぐに止まる・すぐに走り出す範囲で、_acceleration / _deceleration(m/秒²)で少しだけなめらかにする
+ *   通常攻撃・必殺技の間は足を止める(歩きながら殴らない。一振りごとの踏み込みはCS_PlayerAttackがLungeで行う)
+ *   ダッシュ・ジャンプは攻撃中でも出せ、出した時点で攻撃を中断する(CS_PlayerAttackがonDashStarted / onJumpedで止める)
+ *   ダッシュした時は、エイムアシストの「相手の方を向く」も外す(ダッシュの方向へ向くように)
  * ・カメラはプレイヤーの子だが、回転がプレイヤーに引っ張られないよう
  *   LateUpdateでワールド座標を直接指定している
  *   カメラにはCinemachineBrainが付いており、位置・向きはCinemachineCamera(_virtualCameraTransform)へ指定する
@@ -86,6 +91,8 @@ public class CS_Player : NetworkBehaviour
 {
     [Header("移動")]
     [SerializeField] private float _rotationSpeed = 720f;   // 進む方向へ体が回る速さ(度/秒)
+    [SerializeField][Min(0.1f)] private float _acceleration = 70f;   // 走り出す時に速さが上がる勢い(m/秒²。大きいほどすぐ最高速になる)
+    [SerializeField][Min(0.1f)] private float _deceleration = 90f;   // 止まる時に速さが下がる勢い(m/秒²)
 
     [Header("ジャンプ")]
     [SerializeField] private LayerMask _groundLayers = ~0;      // 地面と判定するレイヤー
@@ -120,6 +127,8 @@ public class CS_Player : NetworkBehaviour
     private CS_PlayerHealth _health;
     private CS_PlayerStats _stats;
     private CS_PlayerStun _stun;    // スタン(パリーされた時など)。付いていなければスタンしない
+    private CS_PlayerAttack _attack;                // 通常攻撃(攻撃中は足を止める)。付いていなければ止めない
+    private CS_PlayerSpecialAttack _specialAttack;  // 必殺技(必殺技中は足を止める)
     private CS_PlayerHide _hide;    // ハイド(ハイドポイントに張り付いて隠れる)。付いていなければハイドしない
     private NetworkTransform _networkTransform;
 
@@ -179,6 +188,7 @@ public class CS_Player : NetworkBehaviour
     public bool isGrounded => IsGrounded();             // 接地しているか(全クライアントで判定できる。見た目用にも使う)
     public bool isSprinting => _isSprinting;            // ダッシュ後、ボタンを押し続けて速くなっているか(見た目用)
     public bool isDashing => _isDashing;                // ダッシュ(ブリンク)で高速移動している最中か(見た目用。操作しているマシンでだけ正しい)
+    public bool isLunging => _lungeRemaining > 0f;      // 踏み込み(Lunge / Fly)の最中か(操作しているマシンでだけ正しい)
     public int playerNumber => _playerNumber.Value;     // 何番目のプレイヤーか(0〜3。HP UIなど画面上の表示先を決めるのに使う)
     public Camera playerCamera => _cameraTransform != null ? _cameraTransform.GetComponent<Camera>() : null;   // このプレイヤーのカメラ(他人のプレイヤーでは無効化されている)
     public float viewYaw => _yaw;                       // カメラの左右の向き(度)。エイムアシストが「狙っている方向」として使う
@@ -228,6 +238,8 @@ public class CS_Player : NetworkBehaviour
         _stats = GetComponent<CS_PlayerStats>();
         _stun = GetComponent<CS_PlayerStun>();
         _hide = GetComponent<CS_PlayerHide>();
+        _attack = GetComponent<CS_PlayerAttack>();
+        _specialAttack = GetComponent<CS_PlayerSpecialAttack>();
         _networkTransform = GetComponent<NetworkTransform>();
 
         // 壁などとの衝突で回転しないよう、物理による回転はすべて止める
@@ -372,6 +384,12 @@ public class CS_Player : NetworkBehaviour
         {
             // ハイドポイントに張り付いている間は動かない(街灯の上などから落ちないよう、縦も止める)
             _rigidbody.linearVelocity = Vector3.zero;
+        }
+        else if (IsRootedByAction())
+        {
+            // 通常攻撃・必殺技の間は足を止める(ジャンプは出せる。ジャンプすると攻撃は中断される)
+            Decelerate();
+            ApplyJump();
         }
         else
         {
@@ -724,15 +742,36 @@ public class CS_Player : NetworkBehaviour
         // 入力なしのときは水平方向を止める(落下は残す)
         if (_moveInput == Vector2.zero)
         {
-            StopHorizontalVelocity();
+            Decelerate();
             return;
         }
 
         Vector3 direction = GetMoveDirection();
 
         float speed = _isSprinting ? _stats.currentSprintSpeed : _stats.currentMoveSpeed;
-        Vector3 horizontal = direction * speed;
+        Vector3 target = direction * speed;
+        Vector3 current = new Vector3(_rigidbody.linearVelocity.x, 0f, _rigidbody.linearVelocity.z);
+
+        // 今より遅くなる時(向きを変えた・速さが落ちた)は止まる勢い、速くなる時は走り出す勢いで近づける
+        float rate = target.sqrMagnitude < current.sqrMagnitude ? _deceleration : _acceleration;
+        Vector3 horizontal = Vector3.MoveTowards(current, target, rate * Time.fixedDeltaTime);
         _rigidbody.linearVelocity = new Vector3(horizontal.x, _rigidbody.linearVelocity.y, horizontal.z);
+    }
+
+    // 水平方向の速さを、止まる勢い(_deceleration)で0へ近づける(落下は残す)
+    private void Decelerate()
+    {
+        Vector3 current = new Vector3(_rigidbody.linearVelocity.x, 0f, _rigidbody.linearVelocity.z);
+        Vector3 horizontal = Vector3.MoveTowards(current, Vector3.zero, _deceleration * Time.fixedDeltaTime);
+        _rigidbody.linearVelocity = new Vector3(horizontal.x, _rigidbody.linearVelocity.y, horizontal.z);
+    }
+
+    // 通常攻撃・必殺技の最中で、足を止める時か(奇襲は飛び込むので含めない)
+    private bool IsRootedByAction()
+    {
+        bool isAttacking = _attack != null && _attack.currentStep >= 0;
+        bool isSpecial = _specialAttack != null && _specialAttack.isPerformingSpecial;
+        return isAttacking || isSpecial;
     }
 
     // 水平方向の速度だけを0にする(Y速度はそのまま残す)
@@ -759,6 +798,7 @@ public class CS_Player : NetworkBehaviour
     {
         _isDashing = true;
         _lungeRemaining = 0f;   // ダッシュ(回避)を優先し、エイムアシストの踏み込みは打ち切る
+        _hasAimFacing = false;  // 攻撃の相手の方を向いたままにせず、ダッシュの方向へ向く
         _dashElapsed = 0f;
         _dashCooldownRemaining = _dashCooldown;
         _dashDirection = CalculateDashDirection();

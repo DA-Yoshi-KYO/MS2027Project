@@ -15,6 +15,8 @@ GameObject:
   - component: {fileID: 8511819665858936338}
   - component: {fileID: 9201942720854417754}
   - component: {fileID: 2995087399300262541}
+  - component: {fileID: 6281904735126640917}
+  - component: {fileID: 7392015846237751028}
   m_Layer: 0
   m_Name: GameControllerManager
   m_TagString: Untagged
@@ -148,3 +150,29 @@ MonoBehaviour:
   _debugPlayerTransform: {fileID: 0}
   _debugPoliceDistance: 15
   _debugRotateSpeed: 30
+--- !u!114 &6281904735126640917
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1579610649312813586}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 54f047d022ae12ea9caaa7281c687ede, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CS_AegisHud
+  _font: {fileID: 11400000, guid: 637706870527c2340a528739604d6855, type: 2}
+--- !u!114 &7392015846237751028
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1579610649312813586}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8d921b6edcc64fc43ba216678fa26f39, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CS_AegisTowerBeacon
+  _material: {fileID: 2100000, guid: e46dddc4853c73a43a167d13b56f9853, type: 2}

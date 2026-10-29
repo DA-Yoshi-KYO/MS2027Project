@@ -117,6 +117,7 @@ public class CS_PlayerAmbush : NetworkBehaviour
 
     public float range => _range;                   // 奇襲できる距離(m)
     public bool isAmbushing => _phase != Phase.None;   // 奇襲中か(CS_PlayerAttackが、通常攻撃・必殺技を止めるのに使う)
+    public CS_VillainHealth currentTarget => isAmbushing ? _target : null;   // 奇襲している悪人(本人の手元のみ。見た目のIKが使う)
     public bool isLunging => _phase == Phase.Dash || (_phase == Phase.Strike && !_hasStruck);   // 飛び込み〜当たる瞬間か(本人の手元。見た目用)
 
     public event Action<CS_VillainHealth> onAmbush;     // 奇襲が決まった時(サーバー、またはオフラインのみ)

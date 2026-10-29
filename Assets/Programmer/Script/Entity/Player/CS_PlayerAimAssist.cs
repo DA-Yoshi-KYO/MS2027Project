@@ -83,8 +83,18 @@ public class CS_PlayerAimAssist : MonoBehaviour
         Release();
     }
 
+    // 今補正している相手(いなければnull)。見た目のIK(CS_PlayerIK)が、頭を向ける先に使う
+    public Transform currentTarget => _target;
+
     private void Update()
     {
+        // ダッシュ・ジャンプで攻撃が中断された時は、すぐに補正をやめる(相手の方を向いたままダッシュしないように)
+        if (_target != null && (_player.isDashing || !IsActionRunning()))
+        {
+            Release();
+            return;
+        }
+
         if (_isTracking)
         {
             // 判定が出るまでは、動く相手を追って向き続ける(相手が倒れた・消えた時はやめる)
@@ -103,6 +113,14 @@ public class CS_PlayerAimAssist : MonoBehaviour
         {
             Release();
         }
+    }
+
+    // 通常攻撃・必殺技の最中か(判定の後、向きを保っている間も含める)
+    private bool IsActionRunning()
+    {
+        if (_releaseTime >= 0f && Time.time < _releaseTime) return true;
+
+        return _attack.currentStep >= 0 || _special.isPerformingSpecial;
     }
 
     // ========================================

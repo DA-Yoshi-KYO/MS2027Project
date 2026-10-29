@@ -43,6 +43,8 @@ using UnityEngine;
  * ・ジャンプ: 踏み切りは沈み込みの一番下から、空中は最高点からにして、ボタンを押した瞬間に体が浮き始める見た目にする
  *   踏み切り(最高点まで)と空中(最高点から着地まで)は、ジャンプ力と重力から計算した上昇の時間に合わせて再生する
  *   着地は、着地した時に移動していれば(Speed)すぐ移動のアニメーションへ戻る(走りながら着地して止まらないように)
+ * ・足・頭のIK(CS_PlayerIK)のため、レイヤーのIK Passをオンにする
+ * ・ダッシュのモーションが無い間は、ダッシュした瞬間にどの状態からでも移動へ戻す(攻撃の途中でダッシュで中断できるため)
  * ・通常攻撃の各段に使うモーションは、段ごとのデータ(Hit Delay・Duration)が一番近いモーションを選び、
  *   CS_PlayerVisualのAttack Motion For Stepへ書き込む(5段コンボの4・5段目も、タイミングの合うモーションを使う)
  * ・ルートモーションは使わない(移動はRigidbodyが行う)。高さ・向きはモーションの中に焼き込むので、ジャンプの高さは見た目に出る
@@ -331,12 +333,20 @@ public static class CSED_PlayerAnimatorBuilder
         ClearController(controller);
         AddParameters(controller);
 
+        // 足・頭のIK(CS_PlayerIK)を使うため、レイヤーのIK Passをオンにする(layersは複製が返るので、書き換えて戻す)
+        AnimatorControllerLayer[] layers = controller.layers;
+        layers[0].iKPass = true;
+        controller.layers = layers;
+
         AnimatorStateMachine machine = controller.layers[0].stateMachine;
         AnimatorState locomotion = AddLocomotion(controller, machine, out AnimatorState sprint);
         machine.defaultState = locomotion;
 
         AddJump(machine, locomotion, sprint);
-        AddAction(machine, locomotion, _dash, CS_PlayerAnimatorParams.dash, player != null ? player.dashDuration : 0f, null);
+        if (AddAction(machine, locomotion, _dash, CS_PlayerAnimatorParams.dash, player != null ? player.dashDuration : 0f, null) == null)
+        {
+            AddDashCancel(machine, locomotion);
+        }
 
         for (int i = 0; i < _attacks.Length; i++)
         {
@@ -559,6 +569,17 @@ public static class CSED_PlayerAnimatorBuilder
         state.speedParameter = CS_PlayerAnimatorParams.ambushSpeed;
         state.speedParameterActive = true;
         _ambushImpactTime = clip.frameRate > 0f ? _ambush.impactFrames / clip.frameRate : 0f;
+    }
+
+    // ダッシュのモーションが無い時、ダッシュした瞬間に移動のアニメーションへ戻す
+    // (ゲーム側では攻撃の途中でもダッシュで中断できるので、攻撃のモーションが続いて滑って見えないように)
+    private static void AddDashCancel(AnimatorStateMachine machine, AnimatorState locomotion)
+    {
+        AnimatorStateTransition cancel = machine.AddAnyStateTransition(locomotion);
+        SetupTransition(cancel, false, 0f);
+        cancel.AddCondition(AnimatorConditionMode.If, 0f, CS_PlayerAnimatorParams.dash);
+        cancel.AddCondition(AnimatorConditionMode.IfNot, 0f, CS_PlayerAnimatorParams.dead);
+        cancel.canTransitionToSelf = false;
     }
 
     private static void AddDeath(AnimatorStateMachine machine, AnimatorState locomotion)

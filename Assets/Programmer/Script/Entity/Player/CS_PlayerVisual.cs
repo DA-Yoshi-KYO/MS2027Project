@@ -106,7 +106,20 @@ public class CS_PlayerVisual : NetworkBehaviour
         }
 
         CacheAnimatorParams();
+        AttachIK();
         _lastPosition = transform.position;
+    }
+
+    // 足・頭のIK(CS_PlayerIK)を、Animatorと同じオブジェクトに付ける(OnAnimatorIKはAnimatorのオブジェクトにしか届かないため)
+    private void AttachIK()
+    {
+        if (_animator == null) return;
+
+        if (!_animator.TryGetComponent(out CS_PlayerIK ik))
+        {
+            ik = _animator.gameObject.AddComponent<CS_PlayerIK>();
+        }
+        ik.Setup(_player);
     }
 
     private void Start()

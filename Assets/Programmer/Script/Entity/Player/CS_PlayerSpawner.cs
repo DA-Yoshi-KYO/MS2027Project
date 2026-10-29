@@ -44,7 +44,8 @@ using UnityEngine.SceneManagement;
  *   エリア選択シーン(CS_AreaSelectController)を通ってきた時は、CS_SpawnAreaStoreに入っている選んだエリアの開始地点から生成する
  *   開始地点は_areaSpawnRootsの子のTransform(エリアごとに、そのエリアで生成した順に使う。子の数を超えたら折り返す)
  *   NPCと、選択が入っていない人(後から接続した人など)は、ランダムなエリアにする
- *   エリア選択を通っていない時(ゲームシーンを直接再生した時)や_areaSpawnRootsが空の時(ソロ)は、上のプレイヤー番号ごとの地点を使う
+ *   エリア選択を通っていない時(デバッグ用の起動シーンから始めた時など)や_areaSpawnRootsが空の時(ソロ)は、上のプレイヤー番号ごとの地点を使う
+ *   ゲームシーンを直接再生した時はソロになる(CS_GameModeStore)ので、ソロのPlayerSpawnerから生成する
  * ・切断したクライアントのプレイヤーはNetcodeが自動で破棄する
  * ・プレイヤーのプレハブはNetworkPrefabsList(DefaultNetworkPrefabs)に登録しておくこと
  */

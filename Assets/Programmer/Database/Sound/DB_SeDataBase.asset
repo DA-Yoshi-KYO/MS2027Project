@@ -13,93 +13,866 @@ MonoBehaviour:
   m_Name: DB_SeDataBase
   m_EditorClassIdentifier: Assembly-CSharp::CSO_SeDatabase
   _seList:
+  - _id: 100
+    _clips:
+    - {fileID: 0}
+    _basicSettings:
+      _volume: 1
+      _pitchRandom: 0
+      _maxConcurrent: 1
+    _threeDimensionalSettings:
+      _is3D: 0
+      _minDistance: 1
+      _maxDistance: 30
+      _rolloff: 0
+  - _id: 101
+    _clips:
+    - {fileID: 0}
+    _basicSettings:
+      _volume: 1
+      _pitchRandom: 0
+      _maxConcurrent: 1
+    _threeDimensionalSettings:
+      _is3D: 0
+      _minDistance: 1
+      _maxDistance: 30
+      _rolloff: 0
+  - _id: 102
+    _clips:
+    - {fileID: 0}
+    _basicSettings:
+      _volume: 1
+      _pitchRandom: 0
+      _maxConcurrent: 1
+    _threeDimensionalSettings:
+      _is3D: 0
+      _minDistance: 1
+      _maxDistance: 30
+      _rolloff: 0
+  - _id: 103
+    _clips:
+    - {fileID: 0}
+    _basicSettings:
+      _volume: 1
+      _pitchRandom: 0
+      _maxConcurrent: 1
+    _threeDimensionalSettings:
+      _is3D: 0
+      _minDistance: 1
+      _maxDistance: 30
+      _rolloff: 0
+  - _id: 104
+    _clips:
+    - {fileID: 0}
+    _basicSettings:
+      _volume: 1
+      _pitchRandom: 0
+      _maxConcurrent: 1
+    _threeDimensionalSettings:
+      _is3D: 0
+      _minDistance: 1
+      _maxDistance: 30
+      _rolloff: 0
   - _id: 200
     _clips:
-    - {fileID: 8300000, guid: bf9c85399e4d22340b16d79bf8875eae, type: 3}
-    _volume: 1
-    _pitchRandom: 0
-    _maxConcurrent: 4
-    _is3D: 1
-    _minDistance: 0
-    _maxDistance: 0
-    _rolloff: 0
+    - {fileID: 0}
+    _basicSettings:
+      _volume: 1
+      _pitchRandom: 0
+      _maxConcurrent: 4
+    _threeDimensionalSettings:
+      _is3D: 1
+      _minDistance: 1
+      _maxDistance: 100
+      _rolloff: 0
   - _id: 201
     _clips:
-    - {fileID: 8300000, guid: f2d8aa2eaf3b8e844bc949aab6ae24d7, type: 3}
-    _volume: 1
-    _pitchRandom: 0
-    _maxConcurrent: 4
-    _is3D: 1
-    _minDistance: 2
-    _maxDistance: 30
-    _rolloff: 0
+    - {fileID: 0}
+    _basicSettings:
+      _volume: 1
+      _pitchRandom: 0
+      _maxConcurrent: 4
+    _threeDimensionalSettings:
+      _is3D: 1
+      _minDistance: 1
+      _maxDistance: 100
+      _rolloff: 0
   - _id: 202
     _clips:
-    - {fileID: 8300000, guid: cff4a5a3ae584ab4a8df8998fdbc3464, type: 3}
-    _volume: 1
-    _pitchRandom: 0
-    _maxConcurrent: 4
-    _is3D: 1
-    _minDistance: 2
-    _maxDistance: 30
-    _rolloff: 0
+    - {fileID: 0}
+    _basicSettings:
+      _volume: 1
+      _pitchRandom: 0
+      _maxConcurrent: 4
+    _threeDimensionalSettings:
+      _is3D: 1
+      _minDistance: 1
+      _maxDistance: 100
+      _rolloff: 0
   - _id: 203
     _clips:
-    - {fileID: 8300000, guid: bf9c85399e4d22340b16d79bf8875eae, type: 3}
-    _volume: 1
-    _pitchRandom: 0
-    _maxConcurrent: 4
-    _is3D: 1
-    _minDistance: 2
-    _maxDistance: 30
-    _rolloff: 0
+    - {fileID: 0}
+    _basicSettings:
+      _volume: 1
+      _pitchRandom: 0
+      _maxConcurrent: 4
+    _threeDimensionalSettings:
+      _is3D: 1
+      _minDistance: 1
+      _maxDistance: 100
+      _rolloff: 0
   - _id: 204
     _clips:
-    - {fileID: 8300000, guid: f2d8aa2eaf3b8e844bc949aab6ae24d7, type: 3}
-    _volume: 1
-    _pitchRandom: 0
-    _maxConcurrent: 4
-    _is3D: 1
-    _minDistance: 2
-    _maxDistance: 30
-    _rolloff: 0
+    - {fileID: 0}
+    _basicSettings:
+      _volume: 1
+      _pitchRandom: 0
+      _maxConcurrent: 4
+    _threeDimensionalSettings:
+      _is3D: 1
+      _minDistance: 1
+      _maxDistance: 100
+      _rolloff: 0
   - _id: 205
     _clips:
-    - {fileID: 8300000, guid: 1d55fc7da46f7f14180e0c1196e27ddf, type: 3}
-    _volume: 1
-    _pitchRandom: 0
-    _maxConcurrent: 4
-    _is3D: 1
-    _minDistance: 2
-    _maxDistance: 30
-    _rolloff: 0
+    - {fileID: 0}
+    _basicSettings:
+      _volume: 1
+      _pitchRandom: 0
+      _maxConcurrent: 4
+    _threeDimensionalSettings:
+      _is3D: 1
+      _minDistance: 1
+      _maxDistance: 100
+      _rolloff: 0
   - _id: 206
     _clips:
-    - {fileID: 8300000, guid: 57ca52bbe4b479345b29e180aaac9dd9, type: 3}
-    _volume: 1
-    _pitchRandom: 0
-    _maxConcurrent: 4
-    _is3D: 1
-    _minDistance: 2
-    _maxDistance: 30
-    _rolloff: 0
+    - {fileID: 0}
+    _basicSettings:
+      _volume: 1
+      _pitchRandom: 0
+      _maxConcurrent: 4
+    _threeDimensionalSettings:
+      _is3D: 1
+      _minDistance: 1
+      _maxDistance: 100
+      _rolloff: 0
   - _id: 207
     _clips:
-    - {fileID: 8300000, guid: fb2f2b067a5cc38469d3723697dac43a, type: 3}
-    _volume: 1
-    _pitchRandom: 0
-    _maxConcurrent: 4
-    _is3D: 1
-    _minDistance: 2
-    _maxDistance: 30
-    _rolloff: 0
-  - _id: 207
+    - {fileID: 0}
+    _basicSettings:
+      _volume: 1
+      _pitchRandom: 0
+      _maxConcurrent: 4
+    _threeDimensionalSettings:
+      _is3D: 1
+      _minDistance: 1
+      _maxDistance: 100
+      _rolloff: 0
+  - _id: 208
     _clips:
-    - {fileID: 8300000, guid: 6427d3b902f1c164c8c1fef0426068f0, type: 3}
-    _volume: 1
-    _pitchRandom: 0
-    _maxConcurrent: 4
-    _is3D: 1
-    _minDistance: 2
-    _maxDistance: 30
-    _rolloff: 0
+    - {fileID: 0}
+    _basicSettings:
+      _volume: 1
+      _pitchRandom: 0
+      _maxConcurrent: 4
+    _threeDimensionalSettings:
+      _is3D: 1
+      _minDistance: 1
+      _maxDistance: 100
+      _rolloff: 0
+  - _id: 209
+    _clips:
+    - {fileID: 0}
+    _basicSettings:
+      _volume: 1
+      _pitchRandom: 0
+      _maxConcurrent: 4
+    _threeDimensionalSettings:
+      _is3D: 1
+      _minDistance: 1
+      _maxDistance: 100
+      _rolloff: 0
+  - _id: 210
+    _clips:
+    - {fileID: 0}
+    _basicSettings:
+      _volume: 1
+      _pitchRandom: 0
+      _maxConcurrent: 4
+    _threeDimensionalSettings:
+      _is3D: 1
+      _minDistance: 1
+      _maxDistance: 100
+      _rolloff: 0
+  - _id: 211
+    _clips:
+    - {fileID: 0}
+    _basicSettings:
+      _volume: 1
+      _pitchRandom: 0
+      _maxConcurrent: 4
+    _threeDimensionalSettings:
+      _is3D: 1
+      _minDistance: 1
+      _maxDistance: 100
+      _rolloff: 0
+  - _id: 212
+    _clips:
+    - {fileID: 0}
+    _basicSettings:
+      _volume: 1
+      _pitchRandom: 0
+      _maxConcurrent: 4
+    _threeDimensionalSettings:
+      _is3D: 1
+      _minDistance: 1
+      _maxDistance: 100
+      _rolloff: 0
+  - _id: 213
+    _clips:
+    - {fileID: 0}
+    _basicSettings:
+      _volume: 1
+      _pitchRandom: 0
+      _maxConcurrent: 4
+    _threeDimensionalSettings:
+      _is3D: 1
+      _minDistance: 1
+      _maxDistance: 100
+      _rolloff: 0
+  - _id: 214
+    _clips:
+    - {fileID: 0}
+    _basicSettings:
+      _volume: 1
+      _pitchRandom: 0
+      _maxConcurrent: 4
+    _threeDimensionalSettings:
+      _is3D: 1
+      _minDistance: 1
+      _maxDistance: 100
+      _rolloff: 0
+  - _id: 215
+    _clips:
+    - {fileID: 0}
+    _basicSettings:
+      _volume: 1
+      _pitchRandom: 0
+      _maxConcurrent: 4
+    _threeDimensionalSettings:
+      _is3D: 1
+      _minDistance: 1
+      _maxDistance: 100
+      _rolloff: 0
+  - _id: 216
+    _clips:
+    - {fileID: 0}
+    _basicSettings:
+      _volume: 1
+      _pitchRandom: 0
+      _maxConcurrent: 4
+    _threeDimensionalSettings:
+      _is3D: 1
+      _minDistance: 1
+      _maxDistance: 100
+      _rolloff: 0
+  - _id: 217
+    _clips:
+    - {fileID: 0}
+    _basicSettings:
+      _volume: 1
+      _pitchRandom: 0
+      _maxConcurrent: 4
+    _threeDimensionalSettings:
+      _is3D: 1
+      _minDistance: 1
+      _maxDistance: 100
+      _rolloff: 0
+  - _id: 218
+    _clips:
+    - {fileID: 0}
+    _basicSettings:
+      _volume: 1
+      _pitchRandom: 0
+      _maxConcurrent: 4
+    _threeDimensionalSettings:
+      _is3D: 1
+      _minDistance: 1
+      _maxDistance: 100
+      _rolloff: 0
+  - _id: 219
+    _clips:
+    - {fileID: 0}
+    _basicSettings:
+      _volume: 1
+      _pitchRandom: 0
+      _maxConcurrent: 4
+    _threeDimensionalSettings:
+      _is3D: 1
+      _minDistance: 1
+      _maxDistance: 100
+      _rolloff: 0
+  - _id: 220
+    _clips:
+    - {fileID: 0}
+    _basicSettings:
+      _volume: 1
+      _pitchRandom: 0
+      _maxConcurrent: 4
+    _threeDimensionalSettings:
+      _is3D: 1
+      _minDistance: 1
+      _maxDistance: 100
+      _rolloff: 0
+  - _id: 221
+    _clips:
+    - {fileID: 0}
+    _basicSettings:
+      _volume: 1
+      _pitchRandom: 0
+      _maxConcurrent: 4
+    _threeDimensionalSettings:
+      _is3D: 1
+      _minDistance: 1
+      _maxDistance: 100
+      _rolloff: 0
+  - _id: 222
+    _clips:
+    - {fileID: 0}
+    _basicSettings:
+      _volume: 1
+      _pitchRandom: 0
+      _maxConcurrent: 4
+    _threeDimensionalSettings:
+      _is3D: 1
+      _minDistance: 1
+      _maxDistance: 100
+      _rolloff: 0
+  - _id: 223
+    _clips:
+    - {fileID: 0}
+    _basicSettings:
+      _volume: 1
+      _pitchRandom: 0
+      _maxConcurrent: 4
+    _threeDimensionalSettings:
+      _is3D: 1
+      _minDistance: 1
+      _maxDistance: 100
+      _rolloff: 0
+  - _id: 224
+    _clips:
+    - {fileID: 0}
+    _basicSettings:
+      _volume: 1
+      _pitchRandom: 0
+      _maxConcurrent: 4
+    _threeDimensionalSettings:
+      _is3D: 1
+      _minDistance: 1
+      _maxDistance: 100
+      _rolloff: 0
+  - _id: 225
+    _clips:
+    - {fileID: 0}
+    _basicSettings:
+      _volume: 1
+      _pitchRandom: 0
+      _maxConcurrent: 4
+    _threeDimensionalSettings:
+      _is3D: 1
+      _minDistance: 1
+      _maxDistance: 100
+      _rolloff: 0
+  - _id: 226
+    _clips:
+    - {fileID: 0}
+    _basicSettings:
+      _volume: 1
+      _pitchRandom: 0
+      _maxConcurrent: 4
+    _threeDimensionalSettings:
+      _is3D: 1
+      _minDistance: 1
+      _maxDistance: 100
+      _rolloff: 0
+  - _id: 300
+    _clips:
+    - {fileID: 0}
+    _basicSettings:
+      _volume: 1
+      _pitchRandom: 0
+      _maxConcurrent: 4
+    _threeDimensionalSettings:
+      _is3D: 1
+      _minDistance: 1
+      _maxDistance: 100
+      _rolloff: 0
+  - _id: 301
+    _clips:
+    - {fileID: 0}
+    _basicSettings:
+      _volume: 1
+      _pitchRandom: 0
+      _maxConcurrent: 4
+    _threeDimensionalSettings:
+      _is3D: 1
+      _minDistance: 1
+      _maxDistance: 100
+      _rolloff: 0
+  - _id: 302
+    _clips:
+    - {fileID: 0}
+    _basicSettings:
+      _volume: 1
+      _pitchRandom: 0
+      _maxConcurrent: 4
+    _threeDimensionalSettings:
+      _is3D: 1
+      _minDistance: 1
+      _maxDistance: 100
+      _rolloff: 0
+  - _id: 303
+    _clips:
+    - {fileID: 0}
+    _basicSettings:
+      _volume: 1
+      _pitchRandom: 0
+      _maxConcurrent: 4
+    _threeDimensionalSettings:
+      _is3D: 1
+      _minDistance: 1
+      _maxDistance: 100
+      _rolloff: 0
+  - _id: 304
+    _clips:
+    - {fileID: 0}
+    _basicSettings:
+      _volume: 1
+      _pitchRandom: 0
+      _maxConcurrent: 4
+    _threeDimensionalSettings:
+      _is3D: 1
+      _minDistance: 1
+      _maxDistance: 100
+      _rolloff: 0
+  - _id: 305
+    _clips:
+    - {fileID: 0}
+    _basicSettings:
+      _volume: 1
+      _pitchRandom: 0
+      _maxConcurrent: 4
+    _threeDimensionalSettings:
+      _is3D: 1
+      _minDistance: 1
+      _maxDistance: 100
+      _rolloff: 0
+  - _id: 306
+    _clips:
+    - {fileID: 0}
+    _basicSettings:
+      _volume: 1
+      _pitchRandom: 0
+      _maxConcurrent: 4
+    _threeDimensionalSettings:
+      _is3D: 1
+      _minDistance: 1
+      _maxDistance: 100
+      _rolloff: 0
+  - _id: 307
+    _clips:
+    - {fileID: 0}
+    _basicSettings:
+      _volume: 1
+      _pitchRandom: 0
+      _maxConcurrent: 4
+    _threeDimensionalSettings:
+      _is3D: 1
+      _minDistance: 1
+      _maxDistance: 100
+      _rolloff: 0
+  - _id: 400
+    _clips:
+    - {fileID: 0}
+    _basicSettings:
+      _volume: 1
+      _pitchRandom: 0
+      _maxConcurrent: 4
+    _threeDimensionalSettings:
+      _is3D: 1
+      _minDistance: 1
+      _maxDistance: 100
+      _rolloff: 0
+  - _id: 401
+    _clips:
+    - {fileID: 0}
+    _basicSettings:
+      _volume: 1
+      _pitchRandom: 0
+      _maxConcurrent: 4
+    _threeDimensionalSettings:
+      _is3D: 1
+      _minDistance: 1
+      _maxDistance: 100
+      _rolloff: 0
+  - _id: 402
+    _clips: []
+    _basicSettings:
+      _volume: 1
+      _pitchRandom: 0
+      _maxConcurrent: 4
+    _threeDimensionalSettings:
+      _is3D: 1
+      _minDistance: 1
+      _maxDistance: 100
+      _rolloff: 0
+  - _id: 403
+    _clips:
+    - {fileID: 0}
+    _basicSettings:
+      _volume: 1
+      _pitchRandom: 0
+      _maxConcurrent: 4
+    _threeDimensionalSettings:
+      _is3D: 1
+      _minDistance: 1
+      _maxDistance: 100
+      _rolloff: 0
+  - _id: 404
+    _clips:
+    - {fileID: 0}
+    _basicSettings:
+      _volume: 1
+      _pitchRandom: 0
+      _maxConcurrent: 4
+    _threeDimensionalSettings:
+      _is3D: 1
+      _minDistance: 1
+      _maxDistance: 100
+      _rolloff: 0
+  - _id: 405
+    _clips:
+    - {fileID: 0}
+    _basicSettings:
+      _volume: 1
+      _pitchRandom: 0
+      _maxConcurrent: 4
+    _threeDimensionalSettings:
+      _is3D: 1
+      _minDistance: 1
+      _maxDistance: 100
+      _rolloff: 0
+  - _id: 406
+    _clips:
+    - {fileID: 0}
+    _basicSettings:
+      _volume: 1
+      _pitchRandom: 0
+      _maxConcurrent: 4
+    _threeDimensionalSettings:
+      _is3D: 1
+      _minDistance: 1
+      _maxDistance: 100
+      _rolloff: 0
+  - _id: 407
+    _clips:
+    - {fileID: 0}
+    _basicSettings:
+      _volume: 1
+      _pitchRandom: 0
+      _maxConcurrent: 4
+    _threeDimensionalSettings:
+      _is3D: 1
+      _minDistance: 1
+      _maxDistance: 100
+      _rolloff: 0
+  - _id: 500
+    _clips:
+    - {fileID: 0}
+    _basicSettings:
+      _volume: 1
+      _pitchRandom: 0
+      _maxConcurrent: 4
+    _threeDimensionalSettings:
+      _is3D: 1
+      _minDistance: 1
+      _maxDistance: 100
+      _rolloff: 0
+  - _id: 501
+    _clips:
+    - {fileID: 0}
+    _basicSettings:
+      _volume: 1
+      _pitchRandom: 0
+      _maxConcurrent: 4
+    _threeDimensionalSettings:
+      _is3D: 1
+      _minDistance: 1
+      _maxDistance: 100
+      _rolloff: 0
+  - _id: 502
+    _clips:
+    - {fileID: 0}
+    _basicSettings:
+      _volume: 1
+      _pitchRandom: 0
+      _maxConcurrent: 4
+    _threeDimensionalSettings:
+      _is3D: 1
+      _minDistance: 1
+      _maxDistance: 100
+      _rolloff: 0
+  - _id: 503
+    _clips:
+    - {fileID: 0}
+    _basicSettings:
+      _volume: 1
+      _pitchRandom: 0
+      _maxConcurrent: 4
+    _threeDimensionalSettings:
+      _is3D: 1
+      _minDistance: 1
+      _maxDistance: 100
+      _rolloff: 0
+  - _id: 504
+    _clips:
+    - {fileID: 0}
+    _basicSettings:
+      _volume: 1
+      _pitchRandom: 0
+      _maxConcurrent: 4
+    _threeDimensionalSettings:
+      _is3D: 1
+      _minDistance: 1
+      _maxDistance: 100
+      _rolloff: 0
+  - _id: 505
+    _clips:
+    - {fileID: 0}
+    _basicSettings:
+      _volume: 1
+      _pitchRandom: 0
+      _maxConcurrent: 4
+    _threeDimensionalSettings:
+      _is3D: 1
+      _minDistance: 1
+      _maxDistance: 100
+      _rolloff: 0
+  - _id: 506
+    _clips:
+    - {fileID: 0}
+    _basicSettings:
+      _volume: 1
+      _pitchRandom: 0
+      _maxConcurrent: 4
+    _threeDimensionalSettings:
+      _is3D: 1
+      _minDistance: 1
+      _maxDistance: 100
+      _rolloff: 0
+  - _id: 507
+    _clips:
+    - {fileID: 0}
+    _basicSettings:
+      _volume: 1
+      _pitchRandom: 0
+      _maxConcurrent: 4
+    _threeDimensionalSettings:
+      _is3D: 1
+      _minDistance: 1
+      _maxDistance: 100
+      _rolloff: 0
+  - _id: 508
+    _clips:
+    - {fileID: 0}
+    _basicSettings:
+      _volume: 1
+      _pitchRandom: 0
+      _maxConcurrent: 4
+    _threeDimensionalSettings:
+      _is3D: 1
+      _minDistance: 1
+      _maxDistance: 100
+      _rolloff: 0
+  - _id: 509
+    _clips:
+    - {fileID: 0}
+    _basicSettings:
+      _volume: 1
+      _pitchRandom: 0
+      _maxConcurrent: 4
+    _threeDimensionalSettings:
+      _is3D: 1
+      _minDistance: 1
+      _maxDistance: 100
+      _rolloff: 0
+  - _id: 600
+    _clips:
+    - {fileID: 0}
+    _basicSettings:
+      _volume: 1
+      _pitchRandom: 0
+      _maxConcurrent: 4
+    _threeDimensionalSettings:
+      _is3D: 1
+      _minDistance: 1
+      _maxDistance: 100
+      _rolloff: 0
+  - _id: 601
+    _clips:
+    - {fileID: 0}
+    _basicSettings:
+      _volume: 1
+      _pitchRandom: 0
+      _maxConcurrent: 4
+    _threeDimensionalSettings:
+      _is3D: 1
+      _minDistance: 1
+      _maxDistance: 100
+      _rolloff: 0
+  - _id: 602
+    _clips:
+    - {fileID: 0}
+    _basicSettings:
+      _volume: 1
+      _pitchRandom: 0
+      _maxConcurrent: 4
+    _threeDimensionalSettings:
+      _is3D: 1
+      _minDistance: 1
+      _maxDistance: 100
+      _rolloff: 0
+  - _id: 603
+    _clips:
+    - {fileID: 0}
+    _basicSettings:
+      _volume: 1
+      _pitchRandom: 0
+      _maxConcurrent: 4
+    _threeDimensionalSettings:
+      _is3D: 1
+      _minDistance: 1
+      _maxDistance: 100
+      _rolloff: 0
+  - _id: 604
+    _clips:
+    - {fileID: 0}
+    _basicSettings:
+      _volume: 1
+      _pitchRandom: 0
+      _maxConcurrent: 4
+    _threeDimensionalSettings:
+      _is3D: 1
+      _minDistance: 1
+      _maxDistance: 100
+      _rolloff: 0
+  - _id: 605
+    _clips:
+    - {fileID: 0}
+    _basicSettings:
+      _volume: 1
+      _pitchRandom: 0
+      _maxConcurrent: 4
+    _threeDimensionalSettings:
+      _is3D: 1
+      _minDistance: 1
+      _maxDistance: 100
+      _rolloff: 0
+  - _id: 700
+    _clips:
+    - {fileID: 0}
+    _basicSettings:
+      _volume: 1
+      _pitchRandom: 0
+      _maxConcurrent: 4
+    _threeDimensionalSettings:
+      _is3D: 1
+      _minDistance: 1
+      _maxDistance: 100
+      _rolloff: 0
+  - _id: 701
+    _clips:
+    - {fileID: 0}
+    _basicSettings:
+      _volume: 1
+      _pitchRandom: 0
+      _maxConcurrent: 4
+    _threeDimensionalSettings:
+      _is3D: 1
+      _minDistance: 1
+      _maxDistance: 100
+      _rolloff: 0
+  - _id: 702
+    _clips:
+    - {fileID: 0}
+    _basicSettings:
+      _volume: 1
+      _pitchRandom: 0
+      _maxConcurrent: 4
+    _threeDimensionalSettings:
+      _is3D: 1
+      _minDistance: 1
+      _maxDistance: 100
+      _rolloff: 0
+  - _id: 703
+    _clips:
+    - {fileID: 0}
+    _basicSettings:
+      _volume: 1
+      _pitchRandom: 0
+      _maxConcurrent: 4
+    _threeDimensionalSettings:
+      _is3D: 1
+      _minDistance: 1
+      _maxDistance: 100
+      _rolloff: 0
+  - _id: 800
+    _clips:
+    - {fileID: 0}
+    _basicSettings:
+      _volume: 1
+      _pitchRandom: 0
+      _maxConcurrent: 4
+    _threeDimensionalSettings:
+      _is3D: 1
+      _minDistance: 1
+      _maxDistance: 100
+      _rolloff: 0
+  - _id: 801
+    _clips:
+    - {fileID: 0}
+    _basicSettings:
+      _volume: 1
+      _pitchRandom: 0
+      _maxConcurrent: 4
+    _threeDimensionalSettings:
+      _is3D: 1
+      _minDistance: 1
+      _maxDistance: 100
+      _rolloff: 0
+  - _id: 802
+    _clips:
+    - {fileID: 0}
+    _basicSettings:
+      _volume: 1
+      _pitchRandom: 0
+      _maxConcurrent: 4
+    _threeDimensionalSettings:
+      _is3D: 1
+      _minDistance: 1
+      _maxDistance: 100
+      _rolloff: 0
+  - _id: 803
+    _clips:
+    - {fileID: 0}
+    _basicSettings:
+      _volume: 1
+      _pitchRandom: 0
+      _maxConcurrent: 4
+    _threeDimensionalSettings:
+      _is3D: 1
+      _minDistance: 1
+      _maxDistance: 100
+      _rolloff: 0

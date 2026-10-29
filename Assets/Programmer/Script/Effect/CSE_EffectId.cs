@@ -32,8 +32,7 @@ public enum CSE_EffectId
     PlayerDamage,           // プレイヤーが攻撃を受けた
     PlayerAttackImpact,     // 通常攻撃1〜4段目の判定が出た瞬間(殴った所の衝撃)
     PlayerAttackFinishImpact, // 通常攻撃の最後の段の判定が出た瞬間
-    PlayerBlink,            // ブリンク(回避)を始めた
-    PlayerParry,            // パリーに成功した
+    PlayerParry = 211,      // パリーに成功した(210はブリンク用だったが外したので空き)
     PlayerSpawn,            // ゲーム開始時などに出てきた(スポーン)
     PlayerRespawn,          // 気絶から復活した(リスポーン)
 

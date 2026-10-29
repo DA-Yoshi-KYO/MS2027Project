@@ -163,22 +163,3 @@ UICanvas 側（`UICanvas.prefab` の `AttentionAlert`）は PR #373 で設定済
 | 横方向の移動量 | 1 | 1 で 1周 |
 | 下画像の開始位置をずらす | 0 | 0.5 なら上下で半周ずらす |
 | 移動方向 | ON | ON で左から右（仕様どおり）、OFF で右から左 |
-
----
-
-## 決めてもらう事項：既存の警戒状態UI（`CS_UIPlayerAlert`）との関係
-
-develop には、同じ `CS_PlayerAlert` を受け取る警戒状態UIがもう1つあります（2026-10-21 作成）。
-
-| | 既存 `CS_UIPlayerAlert` 系 | 今回 `CS_UIAttentionAlert` 系 |
-|---|---|---|
-| フォルダ | `UI_PoliceAlert` | `UI_AttentionAlert` |
-| 仕様の項目 | 「②警戒状態」（見つかっている時・捜索されている時の2段階の表記） | 「警戒状態時のUI」（赤幕を左から右へループ） |
-| 受け取る値 | `CSE_PlayerAlertState`（なし / 発見中 / 捜索中） | `bool`（警戒中かどうか） |
-| つなぎ方 | Presenter の `BindPlayerAlert(CS_PlayerAlert)` を呼ぶ | Model を `new` して `Bind()`（このmdの方法） |
-| 状態 | UICanvas に配置済み。**`BindPlayerAlert()` を呼ぶ人がいないので未接続** | UICanvas に配置済み。**このmdのつなぎ込みが未実装** |
-
-仕様では別の項目なので、2つを分けたままでも筋は通ります。どちらにするかを決めてください。
-
-- **別UIとして両方残す**：赤帯は演出、既存は2段階の表記として分ける。既存の方も、上のクラスで `BindPlayerAlert()` を呼ぶなどのつなぎ込みが別に必要
-- **1つにまとめる**：赤帯を既存の View に入れて、つなぎ方を1つにする（今回の Model / Presenter は不要になる）

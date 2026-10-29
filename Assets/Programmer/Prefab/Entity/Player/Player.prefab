@@ -57,6 +57,8 @@ GameObject:
   - component: {fileID: 365371107231031251}
   - component: {fileID: 3130328960277820292}
   - component: {fileID: 738142572027155397}
+  - component: {fileID: 5246955127504645171}
+  - component: {fileID: 1627482432968856487}
   m_Layer: 31
   m_Name: Player
   m_TagString: PlayerNoTransformation
@@ -1530,3 +1532,29 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::CS_PlayerDamageEffect
   _height: 1
   _cameraOffset: 0.5
+--- !u!114 &5246955127504645171
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1825699444668748530}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7423333c8e134a57a3bf276fd8ea605b, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CS_PlayerBlinkEffect
+  _height: 1
+  _cameraOffset: 0.5
+--- !u!114 &1627482432968856487
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1825699444668748530}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e8d1ccc340f74ab1b1b9bf79934cd2fb, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CS_PlayerSpawnEffect

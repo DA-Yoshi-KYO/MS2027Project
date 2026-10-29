@@ -26,6 +26,7 @@ GameObject:
   - component: {fileID: 5785995490698317398}
   - component: {fileID: 8862728337231061362}
   - component: {fileID: 7441871344739796157}
+  - component: {fileID: 5276953712970780542}
   m_Layer: 31
   m_Name: VillainBoss
   m_TagString: Untagged
@@ -524,3 +525,17 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::CS_VillainAttackImpactEffect
   _bone: hand.r
   _offset: {x: 0, y: 0, z: 0.3}
+--- !u!114 &5276953712970780542
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 942901870687269662}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9f766c7bae024c1d90e7e641253d7f6e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CS_VillainDefeatEffect
+  _height: 1
+  _cameraOffset: 0.5

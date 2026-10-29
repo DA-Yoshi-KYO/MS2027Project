@@ -32,6 +32,10 @@ public enum CSE_EffectId
     PlayerDamage,           // プレイヤーが攻撃を受けた
     PlayerAttackImpact,     // 通常攻撃1〜4段目の判定が出た瞬間(殴った所の衝撃)
     PlayerAttackFinishImpact, // 通常攻撃の最後の段の判定が出た瞬間
+    PlayerBlink,            // ブリンク(回避)を始めた
+    PlayerParry,            // パリーに成功した
+    PlayerSpawn,            // ゲーム開始時などに出てきた(スポーン)
+    PlayerRespawn,          // 気絶から復活した(リスポーン)
 
     // =========================================================
     // 警察：300番台
@@ -43,4 +47,5 @@ public enum CSE_EffectId
     // =========================================================
     VillainAttack = 400,    // 悪人の攻撃判定が出た瞬間
     VillainDamage,          // 悪人が攻撃を受けた
+    VillainDefeat,          // 悪人を倒した(撃破)
 }

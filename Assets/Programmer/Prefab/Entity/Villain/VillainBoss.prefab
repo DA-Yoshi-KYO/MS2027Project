@@ -24,6 +24,9 @@ GameObject:
   - component: {fileID: 487590664383712497}
   - component: {fileID: 5997323292010348831}
   - component: {fileID: 5785995490698317398}
+  - component: {fileID: 8862728337231061362}
+  - component: {fileID: 7441871344739796157}
+  - component: {fileID: 5276953712970780542}
   m_Layer: 31
   m_Name: VillainBoss
   m_TagString: Untagged
@@ -145,6 +148,9 @@ MonoBehaviour:
   _hitActiveTime: 1
   _attackInterval: 1
   _watchDistance: 3
+  _surroundArcAngle: 60
+  _surroundStepAngle: 30
+  _surroundSpeedMultiplier: 0.6
   _targetLayers:
     serializedVersion: 2
     m_Bits: 4294967295
@@ -264,6 +270,8 @@ MonoBehaviour:
   _warningLeadTime: 0.3
   _warningColor: {r: 1, g: 0, b: 0, a: 1}
   _warningEffectPrefab: {fileID: 1670149408417146658, guid: 8d1fbbdb91edce54385c9d2ace9c6a7f, type: 3}
+  _warningEffectBone: hand.r
+  _warningEffectOffset: {x: 0, y: 0, z: 0.1}
   _showHitArea: 1
   _hitAreaMaterial: {fileID: 2100000, guid: 3d9867fd319368a40a143a64644529cb, type: 2}
 --- !u!114 &5853495017623006576
@@ -489,3 +497,45 @@ RectTransform:
   m_CorrespondingSourceObject: {fileID: 3024163532033439586, guid: 19e0c61570e93e84095382a8a7d69d69, type: 3}
   m_PrefabInstance: {fileID: 8843079239888452314}
   m_PrefabAsset: {fileID: 0}
+--- !u!114 &8862728337231061362
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 942901870687269662}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 84b56082340e47608a9ad0374cf07e8c, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CS_VillainDamageEffect
+  _height: 1
+  _cameraOffset: 0.5
+--- !u!114 &7441871344739796157
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 942901870687269662}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 52b10dd48d6045d2ad5b1cd60aec98f1, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CS_VillainAttackImpactEffect
+  _bone: hand.r
+  _offset: {x: 0, y: 0, z: 0.3}
+--- !u!114 &5276953712970780542
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 942901870687269662}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9f766c7bae024c1d90e7e641253d7f6e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CS_VillainDefeatEffect
+  _height: 1
+  _cameraOffset: 0.5

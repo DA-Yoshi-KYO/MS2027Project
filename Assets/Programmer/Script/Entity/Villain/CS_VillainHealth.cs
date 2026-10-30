@@ -1,11 +1,12 @@
 using System;
+using System.Collections;
 using Unity.Netcode;
 using UnityEngine;
 
 /*
  * 悪人のHPと撃退処理を管理するクラス
  * プレイヤーの攻撃やアイテムからのダメージをIDamageable経由で受け取り、
- * HPが0になったら撃退(Destroy)する
+ * HPが0になったら撃退し、死亡モーションを見せてから消す(Destroy)
  *
  * 制作者：　中出峻輔
  */
@@ -20,7 +21,11 @@ using UnityEngine;
  *   1. HPが0になる
  *   2. onDefeated / onAnyVillainDefeated を呼ぶ
  *      → スコア加算はスコア側がonAnyVillainDefeatedを購読して行う
- *   3. ネットワーク時はDespawn、オフライン時はDestroyする
+ *   3. 倒れた状態(isDead)にする。全クライアントで、反撃(CS_VillainCombat)と当たり判定を止める
+ *      → 見た目側(CS_VillainVisual)はisDeadを見て死亡モーションを再生する
+ *   4. despawnDelay 秒後(死亡モーションを見せた後)に、ネットワーク時はDespawn、オフライン時はDestroyする
+ * ・isDefeated は倒れてから消えるまでの間もtrue(全クライアントで参照できる)
+ *   警察・NPC・エイムアシストなどは、これを見て倒れている悪人を無視する
  * ・攻撃者付きのTakeDamage(damage, attacker)で受けると、onDamagedByで「誰が・実際にどれだけ減らしたか」を知らせる
  *   (攻撃者無しのTakeDamage(damage)はattackerがnullになる)。レイドのボスの貢献度の記録に使う
  * ・CS_VillainStatsより後に初期化する必要があるため、
@@ -32,15 +37,21 @@ using UnityEngine;
 [DefaultExecutionOrder(1)] // オフライン時、CS_VillainStats.Startの後にStartを呼ぶため
 public class CS_VillainHealth : NetworkBehaviour, IDamageable
 {
+    [SerializeField, Min(0f)]
+    [Tooltip("撃退されてから消えるまでの時間(秒)。死亡モーションを見せる時間")]
+    private float _despawnDelay = 1.5f;
+
     private CS_VillainStats _stats;
     private bool _isDefeated;
 
     // 書き込みはサーバーのみ(NetworkVariableのデフォルト)。読み取りは全員可
     private readonly NetworkVariable<float> _currentHp = new NetworkVariable<float>();
+    private readonly NetworkVariable<bool> _isDead = new NetworkVariable<bool>();   // 倒れてから消えるまでの間か
 
     public float maxHp => _stats.maxHp;
     public float currentHp => _currentHp.Value;
-    public bool isDefeated => _isDefeated;
+    public bool isDefeated => _isDefeated || _isDead.Value;   // 撃退済みか(倒れてから消えるまでの間も含む。全クライアントで参照可)
+    public bool isDead => _isDead.Value;                      // 倒れていて、死亡モーションを再生する間か(全クライアントで参照可)
 
     public event Action<float, float> onHpChanged;   // (current, max)
     public event Action onDamaged;                    // ダメージを受けて撃退されなかった時(サーバーのみ)
@@ -67,7 +78,11 @@ public class CS_VillainHealth : NetworkBehaviour, IDamageable
     public override void OnNetworkSpawn()
     {
         _currentHp.OnValueChanged += HandleHpChanged;
+        _isDead.OnValueChanged += HandleDeadChanged;
         _stats.onMaxHpChanged += HandleMaxHpChanged;
+
+        // 途中参加したクライアントも、倒れている悪人は反撃・当たり判定を止める
+        if (_isDead.Value) StopActing();
 
         if (IsServer)
         {
@@ -78,6 +93,7 @@ public class CS_VillainHealth : NetworkBehaviour, IDamageable
     public override void OnNetworkDespawn()
     {
         _currentHp.OnValueChanged -= HandleHpChanged;
+        _isDead.OnValueChanged -= HandleDeadChanged;
         _stats.onMaxHpChanged -= HandleMaxHpChanged;
     }
 
@@ -110,13 +126,43 @@ public class CS_VillainHealth : NetworkBehaviour, IDamageable
         onDamaged?.Invoke();
     }
 
-    // 撃退処理。通知してから消す
+    // 撃退処理。通知して倒れた状態にし、死亡モーションを見せてから消す
     private void Defeat()
     {
         _isDefeated = true;
+        _isDead.Value = true;
 
         onDefeated?.Invoke();
         onAnyVillainDefeated?.Invoke(this);
+
+        // オフラインではOnValueChangedが呼ばれないので、ここで直接止める
+        if (!IsSpawned) StopActing();
+
+        StartCoroutine(DespawnAfterDelay());
+    }
+
+    private void HandleDeadChanged(bool previous, bool current)
+    {
+        if (current) StopActing();
+    }
+
+    // 倒れたら反撃(追跡・攻撃)と当たり判定を止める(全クライアント)
+    // 当たり判定を消すので、倒れている間は攻撃が当たらず、プレイヤーの通り道もふさがない
+    private void StopActing()
+    {
+        CS_VillainCombat combat = GetComponent<CS_VillainCombat>();
+        if (combat != null) combat.enabled = false;
+
+        foreach (Collider col in GetComponentsInChildren<Collider>())
+        {
+            col.enabled = false;
+        }
+    }
+
+    // 死亡モーションを見せてから消す(サーバー、またはオフライン)
+    private IEnumerator DespawnAfterDelay()
+    {
+        yield return new WaitForSeconds(_despawnDelay);
 
         // Despawn(true)でサーバー・クライアント両方のオブジェクトが破棄される
         if (IsSpawned)

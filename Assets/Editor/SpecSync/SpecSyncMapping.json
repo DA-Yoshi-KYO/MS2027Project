@@ -16,7 +16,8 @@
         { "_column": "必殺技威力", "_property": "_specialAttackPower" },
         { "_column": "初期信号間隔", "_property": "_policeNotifyInterval", "_assetPath": "Assets/Programmer/Prefab/Entity/Player/Player.prefab", "_component": "CS_PlayerTransformation" },
         { "_column": "間隔短縮時間", "_property": "_policeNotifyShortenTime", "_assetPath": "Assets/Programmer/Prefab/Entity/Player/Player.prefab", "_component": "CS_PlayerTransformation" },
-        { "_column": "短縮時間", "_property": "_policeNotifyShortenAmount", "_assetPath": "Assets/Programmer/Prefab/Entity/Player/Player.prefab", "_component": "CS_PlayerTransformation" }
+        { "_column": "短縮時間", "_property": "_policeNotifyShortenAmount", "_assetPath": "Assets/Programmer/Prefab/Entity/Player/Player.prefab", "_component": "CS_PlayerTransformation" },
+        { "_column": "奇襲攻撃時の巻き込み範囲", "_property": "_splashRadius", "_assetPath": "Assets/Programmer/Prefab/Entity/Player/Player.prefab", "_component": "CS_PlayerAmbush" }
       ]
     },
     {
@@ -54,6 +55,7 @@
       "_arrayProperty": "_stages",
       "_columns": [
         { "_column": "時間", "_property": "_startTime", "_scale": 60 },
+        { "_column": "スポーン数", "_property": "_spawnPercent" },
         { "_column": "1グループの人数", "_property": "_memberCount" },
         { "_column": "HP", "_property": "_maxHp" },
         { "_column": "犯罪完了までの時間", "_property": "_crimeCompleteTime" }

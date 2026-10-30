@@ -5,6 +5,7 @@
  * ------------------------------------------------
  * 2026-09-24 | 初回作成
  * 2026-09-25 | チャージしてから攻撃判定を生成する方式に変更
+ * 2026-10-28 | 攻撃判定を出した時のイベント(onAttackFired)を追加(吉田京志郎)
  * ================================================ */
 
 using UnityEngine;
@@ -85,6 +86,9 @@ public class CS_PoliceAttack : MonoBehaviour
     // チャージを始めた時に標的がいた位置
     public Vector3 chargeTargetPosition => _chargeTargetPosition;
 
+    // 攻撃判定を出した時に呼ばれる(攻撃判定の中心, 攻撃の向き)。サーバー(またはオフライン)のみ。エフェクトなどの見た目が購読する
+    public event System.Action<Vector3, Vector3> onAttackFired;
+
     /// <summary>
     /// 警察の攻撃に関する初期化メソッド
     /// </summary>
@@ -155,11 +159,13 @@ public class CS_PoliceAttack : MonoBehaviour
     /// </summary>
     private void SpawnHitbox()
     {
-        Vector3 center = transform.position + GetAttackDirection() * _hitboxForwardOffset;
+        Vector3 direction = GetAttackDirection();
+        Vector3 center = transform.position + direction * _hitboxForwardOffset;
 
         // 攻撃判定には攻撃を出した位置(警察の中心)を渡し、そこから壁越しになる相手には当たらないようにする
         // 攻撃した警察(自分)も渡し、プレイヤー側が「警察に倒された」と判定できるようにする
         _activeHitbox = CS_PoliceAttackHitbox.Create(center, transform.position, gameObject, _attackPower, _hitboxRadius, _hitboxLifetime);
+        onAttackFired?.Invoke(center, direction);
     }
 
     /// <summary>

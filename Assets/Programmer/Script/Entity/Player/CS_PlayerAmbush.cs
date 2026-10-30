@@ -22,14 +22,30 @@ using UnityEngine;
  * ・奇襲の流れ(攻撃している本人の手元で進める)
  *   1. 待機中に攻撃ボタン → 奇襲できる悪人(FindAmbushTarget)がいれば奇襲を始める(いなければCS_PlayerAttackが1段目を出す)
  *   2. 飛び込み: 悪人の今の位置を毎フレーム追いながら、_dashSpeedで_strikeDistanceの距離まで近づく(CS_Player.Lunge)
- *      _maxDashTime秒以内に着けなかった(何かに引っかかった)時や、動けなくなった・悪人が倒れた時は中止する
+ *      _maxDashTime秒以内に着けなかった(何かに引っかかった)時は、その場から奇襲を当てる(中止しない。Issue #370)
+ *      動けなくなった(死亡・スタン)・悪人が倒れた時は中止する
  *   3. 攻撃: 着いてから_strikeDelay秒後に、その悪人1体だけへ奇襲を当てる(範囲の当たり判定は使わないので空振りしない)
  *   4. _strikeDuration秒で奇襲が終わり、動けるようになる。この後に攻撃ボタンを押すと、通常攻撃の1段目から始まる
  * ・奇襲になった時は、その悪人の残りHP以上のダメージを与えて一撃で倒す(仕様「戦闘をすぐに終わらせる」)
- * ・奇襲になるかはサーバー(またはオフライン)で、奇襲を始めた瞬間に1回だけ決める(悪人の臨戦態勢・標的はサーバーでしか分からないため)
- *   条件がそろっていれば、その悪人を予約して、その場に止める(CS_VillainCombat.Freeze)。そろっていなければ、手元へ中止を返す
+ * ・巻き込み(Issue #337。データ表「奇襲攻撃時の巻き込み範囲」5m): 奇襲で倒した悪人の位置から半径_splashRadius以内にいる悪人も、
+ *   残りHPに関係なく一撃で倒す(仕様「敵の体力を問わず一定範囲にいる敵を一撃で倒す」)
+ *   巻き込むのは悪人だけ(他のプレイヤー・警察・防犯装置は巻き込まない)。壁越しでも巻き込む
+ *   レイドボスは_splashIncludesRaidBossがオフ(既定)なら巻き込まない(一撃で倒せてしまうため。狙った1体がボスの場合は今まで通り倒す)
+ *   巻き込んだ悪人もスコアを通して倒すので、撃破スコア・暗躍ボーナスの連続撃破数・必殺ゲージに1体ずつ数えられる
+ *   onAmbushは狙った悪人の分だけ発生する(巻き込んだ悪人ではonAmbushSplashが発生する。サーバー、またはオフラインのみ)
+ * ・奇襲を押して飛び込み始めたら、必ず奇襲を成功させる(Issue #370「押せて移動している時点で成功にしたい」)
+ *   以前は、押してからサーバーに届くまで・飛び込んでいる間に悪人に気づかれる、引っかかって着くのが遅れる、
+ *   サーバー上の位置がずれている、などで中止・空振りになることがあった。今は次のようにしている
+ *   ・押した瞬間に奇襲できる悪人がいなくても、直前(_pressGraceTime秒以内)にロックオン表示していた悪人がいれば奇襲する
+ *     (表示の更新は一定間隔なので、表示が出ているのに押した瞬間だけ条件が外れて通常攻撃になる、ということをなくす)
+ *   ・サーバーでは「気づかれていない」「背後か上」をもう一度見ない(押した本人の手元で判定済み)。悪人が倒れていないか・遠すぎないか・
+ *     間に壁が無いかだけを見る
+ *   ・_maxDashTime秒以内に着けなくても中止せず、その場から当てる。当てる時の距離の確かめも、奇襲できる距離(_range)まで許す
+ * ・奇襲を始めたら、サーバー(またはオフライン)でその悪人を予約して、その場に止める(CS_VillainCombat.Freeze)。
+ *   予約できなければ(悪人が倒れていた・遠すぎる・壁越し)、手元へ中止を返す
  *   止める時間・予約の期限は、飛び込みの最大時間 + 攻撃の時間 + _freezeMargin。奇襲が中止された時はすぐに解く
- *   当てる時は「予約した悪人か」と「離れすぎていないか」だけを見て倒す(飛び込んでいる間に向きが変わって外れることがない)
+ *   当てる時は「予約した悪人か」と「離れすぎていないか(_range + _strikeTolerance以内)」だけを見て倒す
+ *   (飛び込んでいる間に向きが変わったり、気づかれたりしても外れることがない)
  *   飛び込んだ直後はサーバー上の位置が追いついていないので、送られてきた位置のずれは_range分多めに許す
  * ・奇襲が決まった時はonAmbush(倒した悪人)で知らせる(サーバー、またはオフラインのみ)
  *   見た目用に、onAmbushStarted(飛び込み開始)・onAmbushHitTiming(当たる瞬間)を本人の手元で出す
@@ -67,6 +83,11 @@ public class CS_PlayerAmbush : NetworkBehaviour
     [SerializeField][Min(0f)] private float _freezeMargin = 0.5f;         // 悪人を止める時間・予約の期限に足す余裕(秒。通信の遅れの分)
     [SerializeField][Min(0f)] private float _strikeTolerance = 2f;        // 当てる時、着いたとみなす距離からさらにこれだけ離れていても許す(m)
     [SerializeField] private LayerMask _dashPassThroughLayers = 1 << 31;  // 飛び込み中にぶつからないレイヤー(悪人・プレイヤーのいるレイヤー)
+    [SerializeField][Min(0f)] private float _pressGraceTime = 0.3f;       // 押した瞬間に奇襲できなくても、この秒数以内にロックオン表示していた悪人なら奇襲する
+
+    [Header("巻き込み")]
+    [SerializeField][Min(0f)] private float _splashRadius = 5f;           // 奇襲で倒した悪人から、この半径以内の悪人も一撃で倒す(m。0で巻き込まない)
+    [SerializeField] private bool _splashIncludesRaidBoss = false;        // レイドボスも巻き込むか
 
     private enum Phase
     {
@@ -91,12 +112,15 @@ public class CS_PlayerAmbush : NetworkBehaviour
     private bool _hasStruck;                 // 奇襲を当てる処理を行ったか
     private CS_VillainHealth _reservedTarget;   // 奇襲すると決めた悪人(サーバー、またはオフラインのみ)
     private float _reservedUntil;               // 予約の期限(Time.time。サーバー、またはオフラインのみ)
+    private CS_VillainHealth _lastFoundTarget;  // 最後にFindAmbushTargetで見つかった悪人(本人の手元。押した瞬間の猶予に使う)
+    private float _lastFoundTime;               // それが見つかった時刻(Time.time)
 
     public float range => _range;                   // 奇襲できる距離(m)
     public bool isAmbushing => _phase != Phase.None;   // 奇襲中か(CS_PlayerAttackが、通常攻撃・必殺技を止めるのに使う)
     public bool isLunging => _phase == Phase.Dash || (_phase == Phase.Strike && !_hasStruck);   // 飛び込み〜当たる瞬間か(本人の手元。見た目用)
 
     public event Action<CS_VillainHealth> onAmbush;     // 奇襲が決まった時(サーバー、またはオフラインのみ)
+    public event Action<CS_VillainHealth> onAmbushSplash;      // 奇襲に巻き込んで悪人を倒した時(サーバー、またはオフラインのみ)
     public event Action<CS_VillainHealth> onAmbushStarted;     // 飛び込みを始めた時(本人の手元のみ)。見た目用
     public event Action<CS_VillainHealth> onAmbushHitTiming;   // 奇襲が当たる瞬間(本人の手元のみ)。見た目・カメラの揺れ用
 
@@ -133,7 +157,7 @@ public class CS_PlayerAmbush : NetworkBehaviour
     {
         if (isAmbushing) return true;
 
-        CS_VillainHealth villain = FindAmbushTarget();
+        CS_VillainHealth villain = FindAmbushTarget() ?? GetRecentTarget();
         if (villain == null) return false;
 
         _target = villain;
@@ -151,6 +175,27 @@ public class CS_PlayerAmbush : NetworkBehaviour
         return true;
     }
 
+    // 直前(_pressGraceTime秒以内)にロックオン表示していた悪人。倒れておらず、遠すぎず、間に壁が無ければ返す
+    private CS_VillainHealth GetRecentTarget()
+    {
+        if (_lastFoundTarget == null || Time.time - _lastFoundTime > _pressGraceTime) return null;
+        if (_lastFoundTarget.isDefeated || _lastFoundTarget.currentHp <= 0f) return null;
+        if (HorizontalDistance(_lastFoundTarget.transform.position) > _range) return null;
+        if (!IsClearLine(transform.position, _lastFoundTarget.transform)) return null;
+
+        return _lastFoundTarget;
+    }
+
+    // 飛び込みを始めてから奇襲が当たるまでの見込みの時間(秒)。見た目(CS_PlayerVisual)が、当たる瞬間にモーションの打撃を合わせるのに使う
+    // 飛び込む距離 ÷ 飛び込む速さ + 着いてから当たるまでの時間(悪人は止めているので、始めた時の距離で見積もれる)
+    public float EstimateTimeToHit(CS_VillainHealth villain)
+    {
+        if (villain == null) return _strikeDelay;
+
+        float moveDistance = Mathf.Max(0f, HorizontalDistance(villain.transform.position) - _strikeDistance);
+        return Mathf.Min(moveDistance / _dashSpeed, _maxDashTime) + _strikeDelay;
+    }
+
     // 悪人の今の位置を追いながら、_strikeDistanceまで飛び込む
     private void UpdateDash()
     {
@@ -165,10 +210,12 @@ public class CS_PlayerAmbush : NetworkBehaviour
             return;
         }
 
-        // 何かに引っかかって着かない時はやめる
+        // 何かに引っかかって着かない時も、やめずにその場から当てる(押して飛び込み始めたら必ず奇襲にする。Issue #370)
         if (_elapsed >= _maxDashTime)
         {
-            EndAmbush();
+            _phase = Phase.Strike;
+            _elapsed = 0f;
+            SetPassThrough(false);
             return;
         }
 
@@ -253,13 +300,18 @@ public class CS_PlayerAmbush : NetworkBehaviour
         if (isAmbushing) EndAmbush();
     }
 
-    // 奇襲の条件を確かめ、そろっていれば悪人を予約してその場に止める(サーバー、またはオフラインで実行される)
+    // 悪人を予約してその場に止める(サーバー、またはオフラインで実行される)
+    // 「気づかれていない」「背後か上」は押した本人の手元で判定済みなので、ここでは見ない(サーバーに届くまでの間に
+    // 気づかれて中止になるのを防ぐ。Issue #370)。悪人が倒れていないか・遠すぎないか・間に壁が無いかだけを見る
     private bool StartOnServer(CS_VillainHealth villain, Vector3 position)
     {
         Vector3 forward = transform.forward;
         CS_AttackHitDetector.ResolvePose(transform, ref position, ref forward);
 
-        if (!CanAmbush(villain, position, out CS_VillainHealth ambushed)) return false;
+        if (villain.isDefeated || villain.currentHp <= 0f) return false;
+        if (HorizontalDistance(villain.transform.position, position) > _range + _strikeTolerance) return false;
+        if (!IsClearLine(position, villain.transform)) return false;
+        CS_VillainHealth ambushed = villain;
 
         ReleaseOnServer();   // 前の予約が残っていれば解く
 
@@ -326,6 +378,7 @@ public class CS_PlayerAmbush : NetworkBehaviour
 
     // 予約した悪人に、残りHP分のダメージを与えて倒す(サーバー、またはオフラインで実行される)
     // 奇襲になるかは始めた時に決めているので、ここでは予約した悪人か・離れすぎていないかだけを見る
+    // 引っかかって着かないまま当てることもあるので、離れすぎの判定は奇襲できる距離(_range)まで許す(Issue #370)
     private void ExecuteStrike(CS_VillainHealth villain, Vector3 position)
     {
         bool isReserved = villain == _reservedTarget && Time.time <= _reservedUntil;
@@ -336,11 +389,33 @@ public class CS_PlayerAmbush : NetworkBehaviour
         // 飛び込んだ直後はサーバー上の位置が追いついていないので、奇襲できる距離の分だけ多めに許す
         Vector3 forward = transform.forward;
         CS_AttackHitDetector.ResolvePose(transform, ref position, ref forward, _range);
-        if (HorizontalDistance(villain.transform.position, position) > _strikeDistance + _strikeTolerance) return;
+        if (HorizontalDistance(villain.transform.position, position) > _range + _strikeTolerance) return;
 
+        Vector3 center = villain.transform.position;
         DealDamage(villain, villain.currentHp);
         CS_AttackHitDetector.TryKnockback(villain, position);
         NotifyAmbush(villain);
+
+        DefeatVillainsAround(center, villain);
+    }
+
+    // centerから半径_splashRadius以内にいる悪人(exclude以外)を、残りHP分のダメージで倒す(サーバー、またはオフラインで実行される)
+    private void DefeatVillainsAround(Vector3 center, CS_VillainHealth exclude)
+    {
+        if (_splashRadius <= 0f) return;
+
+        int count = Physics.OverlapSphereNonAlloc(center, _splashRadius, _searchBuffer, _villainLayers, QueryTriggerInteraction.Ignore);
+        for (int i = 0; i < count; i++)
+        {
+            CS_VillainHealth villain = _searchBuffer[i].GetComponentInParent<CS_VillainHealth>();
+            if (villain == null || villain == exclude) continue;
+            if (villain.isDefeated || villain.currentHp <= 0f) continue;   // 倒れている・同じ悪人の別のコライダー
+            if (!_splashIncludesRaidBoss && villain.TryGetComponent(out CS_VillainRaidBoss _)) continue;
+
+            DealDamage(villain, villain.currentHp);
+            CS_AttackHitDetector.TryKnockback(villain, center);
+            onAmbushSplash?.Invoke(villain);
+        }
     }
 
     // ダメージを与える。スコア(CS_PlayerScoring)があればそれを通し、誰が倒したかをスコアに反映する
@@ -426,6 +501,12 @@ public class CS_PlayerAmbush : NetworkBehaviour
 
             nearest = villain;
             nearestSqr = sqr;
+        }
+
+        if (nearest != null)
+        {
+            _lastFoundTarget = nearest;
+            _lastFoundTime = Time.time;
         }
         return nearest;
     }

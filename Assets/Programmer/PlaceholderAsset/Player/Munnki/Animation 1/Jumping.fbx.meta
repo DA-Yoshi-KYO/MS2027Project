@@ -1,5 +1,5 @@
 fileFormatVersion: 2
-guid: b56a8859c79f88f4b8e2c8bd85059b29
+guid: 6a1ac4807b9db6c4f99cd646aeda79e9
 ModelImporter:
   serializedVersion: 24300
   internalIDToNameTable: []
@@ -35,8 +35,8 @@ ModelImporter:
       name: JumpStart
       takeName: mixamo.com
       internalID: -203655887218126122
-      firstFrame: 0
-      lastFrame: 26
+      firstFrame: 11
+      lastFrame: 22
       wrapMode: 0
       orientationOffsetY: 0
       level: 0
@@ -64,15 +64,15 @@ ModelImporter:
       name: JumpAir
       takeName: mixamo.com
       internalID: 4061839508520268033
-      firstFrame: 26
-      lastFrame: 39
+      firstFrame: 22
+      lastFrame: 31
       wrapMode: 0
       orientationOffsetY: 0
       level: 0
       cycleOffset: 0
       loop: 0
       hasAdditiveReferencePose: 0
-      loopTime: 1
+      loopTime: 0
       loopBlend: 0
       loopBlendOrientation: 1
       loopBlendPositionY: 1
@@ -93,8 +93,8 @@ ModelImporter:
       name: JumpLand
       takeName: mixamo.com
       internalID: -2061910772549006292
-      firstFrame: 39
-      lastFrame: 65
+      firstFrame: 33
+      lastFrame: 51
       wrapMode: 0
       orientationOffsetY: 0
       level: 0
@@ -588,13 +588,13 @@ ModelImporter:
         length: 0
         modified: 0
     skeleton:
-    - name: Jump(Clone)
+    - name: Jumping(Clone)
       parentName: 
       position: {x: -0, y: 0, z: 0}
       rotation: {x: 0, y: -0, z: -0, w: 1}
       scale: {x: 1, y: 1, z: 1}
     - name: mixamorig:Hips
-      parentName: Jump(Clone)
+      parentName: Jumping(Clone)
       position: {x: 0.00000002669531, y: 0.83632416, z: -0.0036469954}
       rotation: {x: -6.42676e-10, y: -0.000000005615348, z: 0.00000014996242, w: 1}
       scale: {x: 1, y: 0.99999994, z: 1}

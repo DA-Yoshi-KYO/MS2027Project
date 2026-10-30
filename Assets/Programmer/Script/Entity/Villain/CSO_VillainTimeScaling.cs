@@ -3,7 +3,7 @@ using UnityEngine;
 
 /*
  * ゲームの経過時間による悪人の変化(ScriptableObject)
- * 経過時間ごとに、新しく生成するグループの人数・HP・犯罪完遂時間・攻撃力を決める
+ * 経過時間ごとに、同時にいるグループ数(スポーン数)と、新しく生成するグループの人数・HP・犯罪完遂時間・攻撃力を決める
  *
  * 制作者：　中出峻輔
  */
@@ -17,6 +17,9 @@ using UnityEngine;
  * ・段階は startTime(ゲーム開始からの秒数)が小さい順に並べる
  *   経過時間がstartTime以上の段階のうち、一番後ろのものが使われる
  * ・maxHp / crimeCompleteTime / attackPower は0以下にすると、悪人のBase Statsの値のまま変えない
+ * ・spawnPercent は「湧ける場所(CS_VillainSpawnPoint)の数の何%のグループを、同時にフィールドに置くか」(データ表「スポーン数」)
+ *   例: 湧ける場所29か所 × 30% = 8.7 → 四捨五入して9グループ
+ *   CS_VillainSpawnerは、この数と「プレイヤーの数(NPC含む) + 1」の多い方を保つ
  */
 // ========================================
 
@@ -30,6 +33,10 @@ public class CSO_VillainTimeScaling : ScriptableObject
         [SerializeField, Min(0f)]
         [Tooltip("この段階が始まる経過時間(秒)")]
         private float _startTime;
+
+        [SerializeField, Range(0f, 100f)]
+        [Tooltip("スポーン数: 湧ける場所の数の何%のグループを、同時にフィールドに置くか(%)")]
+        private float _spawnPercent;
 
         [SerializeField, Min(1)]
         [Tooltip("1グループの人数")]
@@ -48,14 +55,16 @@ public class CSO_VillainTimeScaling : ScriptableObject
         private float _attackPower;
 
         public float startTime => _startTime;
+        public float spawnPercent => _spawnPercent;
         public int memberCount => _memberCount;
         public float maxHp => _maxHp;
         public float crimeCompleteTime => _crimeCompleteTime;
         public float attackPower => _attackPower;
 
-        public Stage(float startTime, int memberCount, float maxHp, float crimeCompleteTime)
+        public Stage(float startTime, float spawnPercent, int memberCount, float maxHp, float crimeCompleteTime)
         {
             _startTime = startTime;
+            _spawnPercent = spawnPercent;
             _memberCount = memberCount;
             _maxHp = maxHp;
             _crimeCompleteTime = crimeCompleteTime;
@@ -66,11 +75,11 @@ public class CSO_VillainTimeScaling : ScriptableObject
     [SerializeField]
     private Stage[] _stages =
     {
-        new Stage(0f, 2, 1f, 40f),     // 0分〜1分
-        new Stage(60f, 3, 2f, 35f),    // 1分〜2分
-        new Stage(120f, 4, 3f, 35f),   // 2分〜3分
-        new Stage(180f, 5, 3f, 30f),   // 3分〜4分
-        new Stage(240f, 6, 4f, 30f),   // 4分〜5分
+        new Stage(0f, 30f, 2, 1f, 40f),     // 0分〜1分
+        new Stage(60f, 40f, 3, 2f, 35f),    // 1分〜2分
+        new Stage(120f, 50f, 4, 3f, 35f),   // 2分〜3分
+        new Stage(180f, 50f, 5, 3f, 30f),   // 3分〜4分
+        new Stage(240f, 60f, 6, 4f, 30f),   // 4分〜5分
     };
 
     // 経過時間(秒)に対応する段階を返す(段階が無ければnull)

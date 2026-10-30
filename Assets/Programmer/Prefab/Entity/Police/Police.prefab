@@ -26,6 +26,8 @@ GameObject:
   - component: {fileID: 3917462850172946308}
   - component: {fileID: 4051000000000000003}
   - component: {fileID: 4061000000000000001}
+  - component: {fileID: 6435692268355901182}
+  - component: {fileID: 6500811419385134935}
   m_Layer: 31
   m_Name: Police
   m_TagString: Untagged
@@ -1513,3 +1515,28 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::CS_PoliceStunEffect
   _orbMaterial: {fileID: 2100000, guid: 9a13cd9135654faeb5c1609d74cc1c23, type: 2}
+--- !u!114 &6435692268355901182
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 681291065592780614}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 778b8fcaba7e48dca60e594bde078c29, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CS_NetworkEffectPlayer
+  ShowTopMostFoldoutHeaderGroup: 1
+--- !u!114 &6500811419385134935
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 681291065592780614}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a845a8a78e1c4dad9636df9c96b99d63, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CS_PoliceAttackImpactEffect

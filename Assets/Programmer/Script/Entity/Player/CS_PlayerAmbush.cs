@@ -18,7 +18,7 @@ using UnityEngine;
  *   ③ 背後か上を取っている
  *      背後: 悪人の正面から見て、自分のいる方向が_backAngle度(既定120度)以上うしろ(真後ろを中心に左右60度ずつ)
  *      上  : 自分が悪人より_aboveHeight(既定1.5m)以上高い位置にいる
- *      ハイドポイントに張り付いて隠れている時(CS_PlayerHide)は、③を見ない(正面からでも奇襲できる。ペルソナ5のカバーからの奇襲)
+ *      ハイドポイントの隠れられる箱の中にいる時(CS_PlayerHide)は、③を見ない(正面からでも奇襲できる。ペルソナ5のカバーからの奇襲)
  * ・奇襲の流れ(攻撃している本人の手元で進める)
  *   1. 待機中に攻撃ボタン → 奇襲できる悪人(FindAmbushTarget)がいれば奇襲を始める(いなければCS_PlayerAttackが1段目を出す)
  *   2. 飛び込み: 悪人の今の位置を毎フレーム追いながら、_dashSpeedで_strikeDistanceの距離まで近づく(CS_Player.Lunge)
@@ -102,7 +102,7 @@ public class CS_PlayerAmbush : NetworkBehaviour
 
     private CS_Player _player;
     private CS_PlayerScoring _scoring;       // 付いていればスコアを通してダメージを与える
-    private CS_PlayerHide _hide;             // ハイド。隠れている時は「背後か上」を見ない(付いていなければ見る)
+    private CS_PlayerHide _hide;             // ハイド。隠れられる箱の中にいる時は「背後か上」を見ない(付いていなければ見る)
     private Rigidbody _rigidbody;
     private LayerMask _defaultExcludeLayers;   // 飛び込む前のRigidbody.excludeLayers(飛び込み後に戻す)
     private bool _isPassingThrough;            // 飛び込み中で、悪人・プレイヤーとぶつからないようにしているか
@@ -559,10 +559,10 @@ public class CS_PlayerAmbush : NetworkBehaviour
         return combat.IsTargeting(transform.root);
     }
 
-    // ハイドポイントに張り付いて隠れているか(本人の手元は張り付いた時点で、サーバー・他の人は同期された状態で分かる)
+    // ハイドポイントの隠れられる箱の中にいるか(本人の手元はその場で調べ、サーバー・他の人は同期された状態でも分かる)
     private bool IsHidingAttacker()
     {
-        return _hide != null && (_hide.isAttached || _hide.isHidden);
+        return _hide != null && (_hide.isInHideBox || _hide.isHidden);
     }
 
     private bool IsAbove(float heightDifference)

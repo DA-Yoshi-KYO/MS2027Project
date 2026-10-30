@@ -165,6 +165,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 813dfc18b2805e54e8c8af2755869679, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::CS_PoliceMove
+  _alleyAreaName: Alley
+  _repathDistance: 0.5
   _arriveDistance: 0.3
   _stuckSpeed: 0.1
   _stuckTime: 3
@@ -196,7 +198,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::CS_PoliceAttack
   _attackRange: 1.5
   _attackInterval: 1
-  _attackChargeTime: 2
+  _attackChargeTime: 1
   _hitboxForwardOffset: 1
   _hitboxRadius: 1
   _hitboxLifetime: 1
@@ -214,6 +216,14 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::CS_PoliceBrain
   _thinkInterval: 0.2
   _searchDuration: 3
+  _arriveDistance: 1
+  _gatherRadius: 3.5
+  _gatherViewRatio: 0.7
+  _chaseRadiusRatio: 0.9
+  _wanderRadius: 4
+  _wanderPauseMin: 1
+  _wanderPauseMax: 3
+  _wanderMaxWalkTime: 8
 --- !u!114 &5263718849201735512
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -224,8 +234,38 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 49352843e53084a4f96cee5a61e9e2b3, type: 3}
-  m_Name:
+  m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::CS_PoliceChargeDebugVisual
+  _chargeGradient:
+    serializedVersion: 2
+    key0: {r: 0.1, g: 0.3, b: 1, a: 1}
+    key1: {r: 1, g: 0.1, b: 0.1, a: 1}
+    key2: {r: 0, g: 0, b: 0, a: 0}
+    key3: {r: 0, g: 0, b: 0, a: 0}
+    key4: {r: 0, g: 0, b: 0, a: 0}
+    key5: {r: 0, g: 0, b: 0, a: 0}
+    key6: {r: 0, g: 0, b: 0, a: 0}
+    key7: {r: 0, g: 0, b: 0, a: 0}
+    ctime0: 0
+    ctime1: 65535
+    ctime2: 0
+    ctime3: 0
+    ctime4: 0
+    ctime5: 0
+    ctime6: 0
+    ctime7: 0
+    atime0: 0
+    atime1: 65535
+    atime2: 0
+    atime3: 0
+    atime4: 0
+    atime5: 0
+    atime6: 0
+    atime7: 0
+    m_Mode: 0
+    m_ColorSpace: -1
+    m_NumColorKeys: 2
+    m_NumAlphaKeys: 2
 --- !u!114 &3140592653589793238
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -338,6 +378,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: bbdb3b67681f4c19a8e33200b4c3b0ad, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::CS_PoliceAttackEffect
+  ShowTopMostFoldoutHeaderGroup: 1
   _warningLeadTime: 0.3
   _warningEffectPrefab: {fileID: 1670149408417146658, guid: 8d1fbbdb91edce54385c9d2ace9c6a7f, type: 3}
   _warningEffectBone: 
@@ -367,6 +408,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: eec759925a4c40cfb437b0c879391eac, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::CS_PoliceTestModel
+  ShowTopMostFoldoutHeaderGroup: 1
   _parts:
   - _renderer: {fileID: 4051000000000000007}
     _color: {r: 0.08, g: 0.1, b: 0.25, a: 1}
@@ -391,6 +433,56 @@ MonoBehaviour:
   _hiddenRenderer: {fileID: 1148245506211067190}
   _redLamp: {fileID: 4051000000000000047}
   _blueLamp: {fileID: 4051000000000000051}
+  _redColor: {r: 3, g: 0.1, b: 0.1, a: 1}
+  _blueColor: {r: 0.1, g: 0.4, b: 3, a: 1}
+  _blinkInterval: 0.25
+--- !u!114 &4061000000000000001
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 681291065592780614}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 351beaf4aa0840618d3aec60dfb0d485, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CS_PoliceStunEffect
+  ShowTopMostFoldoutHeaderGroup: 1
+  _orbMaterial: {fileID: 2100000, guid: 9a13cd9135654faeb5c1609d74cc1c23, type: 2}
+  _orbColor: {r: 3, g: 2.4, b: 0.2, a: 1}
+  _orbCount: 3
+  _orbSize: 0.16
+  _height: 1.55
+  _radius: 0.45
+  _spinSpeed: 300
+  _bobHeight: 0.08
+  _bobSpeed: 3
+--- !u!114 &6435692268355901182
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 681291065592780614}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 778b8fcaba7e48dca60e594bde078c29, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CS_NetworkEffectPlayer
+  ShowTopMostFoldoutHeaderGroup: 1
+--- !u!114 &6500811419385134935
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 681291065592780614}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a845a8a78e1c4dad9636df9c96b99d63, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CS_PoliceAttackImpactEffect
 --- !u!1 &4051000000000000001
 GameObject:
   m_ObjectHideFlags: 0
@@ -523,6 +615,7 @@ MeshRenderer:
   m_SortingLayer: 0
   m_SortingOrder: 0
   m_MaskInteraction: 0
+  m_AdditionalVertexStreams: {fileID: 0}
 --- !u!1 &4051000000000000008
 GameObject:
   m_ObjectHideFlags: 0
@@ -612,6 +705,7 @@ MeshRenderer:
   m_SortingLayer: 0
   m_SortingOrder: 0
   m_MaskInteraction: 0
+  m_AdditionalVertexStreams: {fileID: 0}
 --- !u!1 &4051000000000000012
 GameObject:
   m_ObjectHideFlags: 0
@@ -701,6 +795,7 @@ MeshRenderer:
   m_SortingLayer: 0
   m_SortingOrder: 0
   m_MaskInteraction: 0
+  m_AdditionalVertexStreams: {fileID: 0}
 --- !u!1 &4051000000000000016
 GameObject:
   m_ObjectHideFlags: 0
@@ -790,6 +885,7 @@ MeshRenderer:
   m_SortingLayer: 0
   m_SortingOrder: 0
   m_MaskInteraction: 0
+  m_AdditionalVertexStreams: {fileID: 0}
 --- !u!1 &4051000000000000020
 GameObject:
   m_ObjectHideFlags: 0
@@ -879,6 +975,7 @@ MeshRenderer:
   m_SortingLayer: 0
   m_SortingOrder: 0
   m_MaskInteraction: 0
+  m_AdditionalVertexStreams: {fileID: 0}
 --- !u!1 &4051000000000000024
 GameObject:
   m_ObjectHideFlags: 0
@@ -968,6 +1065,7 @@ MeshRenderer:
   m_SortingLayer: 0
   m_SortingOrder: 0
   m_MaskInteraction: 0
+  m_AdditionalVertexStreams: {fileID: 0}
 --- !u!1 &4051000000000000028
 GameObject:
   m_ObjectHideFlags: 0
@@ -1057,6 +1155,7 @@ MeshRenderer:
   m_SortingLayer: 0
   m_SortingOrder: 0
   m_MaskInteraction: 0
+  m_AdditionalVertexStreams: {fileID: 0}
 --- !u!1 &4051000000000000032
 GameObject:
   m_ObjectHideFlags: 0
@@ -1146,6 +1245,7 @@ MeshRenderer:
   m_SortingLayer: 0
   m_SortingOrder: 0
   m_MaskInteraction: 0
+  m_AdditionalVertexStreams: {fileID: 0}
 --- !u!1 &4051000000000000036
 GameObject:
   m_ObjectHideFlags: 0
@@ -1235,6 +1335,7 @@ MeshRenderer:
   m_SortingLayer: 0
   m_SortingOrder: 0
   m_MaskInteraction: 0
+  m_AdditionalVertexStreams: {fileID: 0}
 --- !u!1 &4051000000000000040
 GameObject:
   m_ObjectHideFlags: 0
@@ -1324,6 +1425,7 @@ MeshRenderer:
   m_SortingLayer: 0
   m_SortingOrder: 0
   m_MaskInteraction: 0
+  m_AdditionalVertexStreams: {fileID: 0}
 --- !u!1 &4051000000000000044
 GameObject:
   m_ObjectHideFlags: 0
@@ -1413,6 +1515,7 @@ MeshRenderer:
   m_SortingLayer: 0
   m_SortingOrder: 0
   m_MaskInteraction: 0
+  m_AdditionalVertexStreams: {fileID: 0}
 --- !u!1 &4051000000000000048
 GameObject:
   m_ObjectHideFlags: 0
@@ -1502,41 +1605,4 @@ MeshRenderer:
   m_SortingLayer: 0
   m_SortingOrder: 0
   m_MaskInteraction: 0
---- !u!114 &4061000000000000001
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 681291065592780614}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 351beaf4aa0840618d3aec60dfb0d485, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::CS_PoliceStunEffect
-  _orbMaterial: {fileID: 2100000, guid: 9a13cd9135654faeb5c1609d74cc1c23, type: 2}
---- !u!114 &6435692268355901182
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 681291065592780614}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 778b8fcaba7e48dca60e594bde078c29, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::CS_NetworkEffectPlayer
-  ShowTopMostFoldoutHeaderGroup: 1
---- !u!114 &6500811419385134935
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 681291065592780614}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: a845a8a78e1c4dad9636df9c96b99d63, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::CS_PoliceAttackImpactEffect
+  m_AdditionalVertexStreams: {fileID: 0}

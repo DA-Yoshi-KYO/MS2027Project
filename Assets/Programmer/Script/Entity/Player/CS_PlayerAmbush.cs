@@ -18,10 +18,12 @@ using UnityEngine;
  *   ③ 背後か上を取っている
  *      背後: 悪人の正面から見て、自分のいる方向が_backAngle度(既定120度)以上うしろ(真後ろを中心に左右60度ずつ)
  *      上  : 自分が悪人より_aboveHeight(既定1.5m)以上高い位置にいる
- *      ハイドポイントに張り付いて隠れている時(CS_PlayerHide)は、③を見ない(正面からでも奇襲できる。ペルソナ5のカバーからの奇襲)
+ *      ハイドポイントの隠れられる箱の中にいる時(CS_PlayerHide)は、③を見ない(正面からでも奇襲できる。ペルソナ5のカバーからの奇襲)
  * ・奇襲の流れ(攻撃している本人の手元で進める)
  *   1. 待機中に攻撃ボタン → 奇襲できる悪人(FindAmbushTarget)がいれば奇襲を始める(いなければCS_PlayerAttackが1段目を出す)
  *   2. 飛び込み: 悪人の今の位置を毎フレーム追いながら、_dashSpeedで_strikeDistanceの距離まで近づく(CS_Player.Lunge)
+ *      高さが違う時(上から攻撃した時など)は、悪人の足元の高さまで斜めに飛び込む(縦の移動。CS_Player.Fly)。
+ *      足元の高さの差が_verticalTolerance以内になるか、下へ飛び込んでいる途中で着地したら(飛び込み始めの_landCheckDelay秒は見ない)、高さは合ったとみなして水平だけ詰める
  *      _maxDashTime秒以内に着けなかった(何かに引っかかった)時は、その場から奇襲を当てる(中止しない。Issue #370)
  *      動けなくなった(死亡・スタン)・悪人が倒れた時は中止する
  *   3. 攻撃: 着いてから_strikeDelay秒後に、その悪人1体だけへ奇襲を当てる(範囲の当たり判定は使わないので空振りしない)
@@ -78,6 +80,7 @@ public class CS_PlayerAmbush : NetworkBehaviour
     [SerializeField][Min(0.1f)] private float _dashSpeed = 30f;           // 飛び込む速さ(m/秒)
     [SerializeField][Min(0f)] private float _maxDashTime = 1f;            // これ以上かかっても着かなければ奇襲をやめる(秒)
     [SerializeField][Min(0f)] private float _strikeDistance = 1.2f;       // 悪人との水平距離がこれ以内になったら着いたとみなす(m)
+    [SerializeField][Min(0f)] private float _verticalTolerance = 0.3f;    // 悪人との足元の高さの差がこれ以内なら、高さは合っているとみなす(m)
     [SerializeField][Min(0f)] private float _strikeDelay = 0.1f;          // 着いてから奇襲が当たるまでの時間(秒)
     [SerializeField][Min(0f)] private float _strikeDuration = 0.4f;       // 着いてから奇襲が終わる(動けるようになる)までの時間(秒)
     [SerializeField][Min(0f)] private float _freezeMargin = 0.5f;         // 悪人を止める時間・予約の期限に足す余裕(秒。通信の遅れの分)
@@ -97,13 +100,15 @@ public class CS_PlayerAmbush : NetworkBehaviour
     }
 
     private const int _searchBufferSize = 32;   // 一度に調べるコライダーの上限
+    private const float _landCheckDelay = 0.1f;   // 下へ飛び込み始めてから、着地を見始めるまでの時間(秒)
     private readonly Collider[] _searchBuffer = new Collider[_searchBufferSize];
     private readonly RaycastHit[] _obstacleBuffer = new RaycastHit[_searchBufferSize];
 
     private CS_Player _player;
     private CS_PlayerScoring _scoring;       // 付いていればスコアを通してダメージを与える
-    private CS_PlayerHide _hide;             // ハイド。隠れている時は「背後か上」を見ない(付いていなければ見る)
+    private CS_PlayerHide _hide;             // ハイド。隠れられる箱の中にいる時は「背後か上」を見ない(付いていなければ見る)
     private Rigidbody _rigidbody;
+    private Collider _collider;              // 自分の当たり判定(足元の高さを調べる)
     private LayerMask _defaultExcludeLayers;   // 飛び込む前のRigidbody.excludeLayers(飛び込み後に戻す)
     private bool _isPassingThrough;            // 飛び込み中で、悪人・プレイヤーとぶつからないようにしているか
     private Phase _phase = Phase.None;
@@ -130,6 +135,7 @@ public class CS_PlayerAmbush : NetworkBehaviour
         _scoring = GetComponent<CS_PlayerScoring>();
         _hide = GetComponent<CS_PlayerHide>();
         _rigidbody = GetComponent<Rigidbody>();
+        _collider = GetComponent<Collider>();
     }
 
     private void Update()
@@ -187,22 +193,22 @@ public class CS_PlayerAmbush : NetworkBehaviour
     }
 
     // 飛び込みを始めてから奇襲が当たるまでの見込みの時間(秒)。見た目(CS_PlayerVisual)が、当たる瞬間にモーションの打撃を合わせるのに使う
-    // 飛び込む距離 ÷ 飛び込む速さ + 着いてから当たるまでの時間(悪人は止めているので、始めた時の距離で見積もれる)
+    // 飛び込む距離(高さの差も含む) ÷ 飛び込む速さ + 着いてから当たるまでの時間(悪人は止めているので、始めた時の距離で見積もれる)
     public float EstimateTimeToHit(CS_VillainHealth villain)
     {
         if (villain == null) return _strikeDelay;
 
-        float moveDistance = Mathf.Max(0f, HorizontalDistance(villain.transform.position) - _strikeDistance);
+        float moveDistance = GetDashMove(villain).magnitude;
         return Mathf.Min(moveDistance / _dashSpeed, _maxDashTime) + _strikeDelay;
     }
 
-    // 悪人の今の位置を追いながら、_strikeDistanceまで飛び込む
+    // 悪人の今の位置を追いながら、_strikeDistanceまで飛び込む。高さが違う時は悪人の足元の高さまで斜めに飛び込む
     private void UpdateDash()
     {
         FaceTarget();
 
-        float distance = HorizontalDistance(_target.transform.position);
-        if (distance <= _strikeDistance)
+        Vector3 move = GetDashMove(_target);
+        if (move.sqrMagnitude <= 0.0001f)
         {
             _phase = Phase.Strike;
             _elapsed = 0f;
@@ -220,8 +226,29 @@ public class CS_PlayerAmbush : NetworkBehaviour
         }
 
         // 毎フレーム向きと距離を決め直す(悪人が動いても追いかける)
-        float moveDistance = distance - _strikeDistance;
-        _player.Lunge(HorizontalDirection(_target.transform.position), moveDistance, moveDistance / _dashSpeed);
+        float moveDistance = move.magnitude;
+        if (Mathf.Approximately(move.y, 0f)) _player.Lunge(move, moveDistance, moveDistance / _dashSpeed);
+        else _player.Fly(move / moveDistance, moveDistance, moveDistance / _dashSpeed);
+    }
+
+    // 着くまでに進む量(水平は_strikeDistanceまで詰める分、縦は悪人の足元の高さとの差)。着いていればゼロ
+    // 高さの差が_verticalTolerance以内、または下へ飛び込んでいる途中で着地した時は、縦は動かない
+    // 飛び込み始めは足場の上に立っているので、_landCheckDelay秒たつまでは着地を見ない
+    private Vector3 GetDashMove(CS_VillainHealth villain)
+    {
+        float horizontalMove = Mathf.Max(0f, HorizontalDistance(villain.transform.position) - _strikeDistance);
+        Vector3 move = HorizontalDirection(villain.transform.position) * horizontalMove;
+
+        float heightGap = GetFeetHeight(villain.transform, villain.GetComponentInChildren<Collider>()) - GetFeetHeight(transform, _collider);
+        bool isLevel = Mathf.Abs(heightGap) <= _verticalTolerance || (heightGap < 0f && _phase == Phase.Dash && _elapsed >= _landCheckDelay && _player.isGrounded);
+        if (!isLevel) move.y = heightGap;
+        return move;
+    }
+
+    // 足元の高さ(当たり判定の底。当たり判定が無ければ位置の高さ)
+    private static float GetFeetHeight(Transform target, Collider collider)
+    {
+        return collider != null ? collider.bounds.min.y : target.position.y;
     }
 
     // 着いてから_strikeDelay秒後に当て、_strikeDuration秒で終わる
@@ -559,10 +586,10 @@ public class CS_PlayerAmbush : NetworkBehaviour
         return combat.IsTargeting(transform.root);
     }
 
-    // ハイドポイントに張り付いて隠れているか(本人の手元は張り付いた時点で、サーバー・他の人は同期された状態で分かる)
+    // ハイドポイントの隠れられる箱の中にいるか(本人の手元はその場で調べ、サーバー・他の人は同期された状態でも分かる)
     private bool IsHidingAttacker()
     {
-        return _hide != null && (_hide.isAttached || _hide.isHidden);
+        return _hide != null && (_hide.isInHideBox || _hide.isHidden);
     }
 
     private bool IsAbove(float heightDifference)

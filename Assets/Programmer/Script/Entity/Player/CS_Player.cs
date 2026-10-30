@@ -71,8 +71,8 @@ using UnityEngine.InputSystem;
  *   (床の読み込みより先に落ち始めた時などに、落ち続けないようにする。位置はNetworkTransformのTeleportで全員へ反映する)
  * ・ハイド(CS_PlayerHide。付いていなければ使わない)
  *   飛べるハイドポイントがある時のダッシュボタンは、ダッシュの代わりにハイドポイントへ飛ぶ(TryBeginHide)
- *   張り付いている間のダッシュボタンは、次のハイドポイントへ飛び移る(無ければ何もしない)
- *   ハイド中(飛んでいる・張り付いている)は、ダッシュ・スプリント・通常の移動をしない。ジャンプボタンでハイドを抜けてジャンプする
+ *   SAで飛んでいる間は、ダッシュ・スプリント・通常の移動をしない。ジャンプボタンで飛ぶのをやめてジャンプする
+ *   着いた後は普通の状態に戻る(歩ける・ジャンプできる。Issue #381)
  *   飛ぶ時は高さも含めてまっすぐ進む(Fly)。張り付いている間は速度を0にする(重力はCS_PlayerHideが切る)
  */
 // ========================================
@@ -120,7 +120,7 @@ public class CS_Player : NetworkBehaviour
     private CS_PlayerHealth _health;
     private CS_PlayerStats _stats;
     private CS_PlayerStun _stun;    // スタン(パリーされた時など)。付いていなければスタンしない
-    private CS_PlayerHide _hide;    // ハイド(ハイドポイントに張り付いて隠れる)。付いていなければハイドしない
+    private CS_PlayerHide _hide;    // SA(ハイドポイントへ飛ぶ)。付いていなければSAしない
     private NetworkTransform _networkTransform;
 
     private Vector3 _spawnPosition;     // 操作を始めた時の位置と向き(落ちた時に戻す先)
@@ -162,7 +162,7 @@ public class CS_Player : NetworkBehaviour
     public bool isControlled => _isControlled;          // このプレイヤーを自分(このマシン)が操作しているか(NPCはサーバーでtrue)
     public bool canAct => _isControlled && !_health.isDead && !isStunned;   // 移動・攻撃してよいか(CS_PlayerAttackも参照)
     public bool isStunned => _stun != null && _stun.isStunned;   // スタン中か(パリーされた時など。死亡中と同じく行動できない)
-    public bool isHiding => _hide != null && _hide.isHiding;     // ハイドポイントへ飛んでいる・張り付いている最中か(操作しているマシンでだけ正しい)
+    public bool isHiding => _hide != null && _hide.isHiding;     // SAでハイドポイントへ飛んでいる最中か(操作しているマシンでだけ正しい)
     public bool isNpc => _isNpc.Value;                  // NPCか(全クライアントで分かる)
     // 自分の画面のプレイヤー(このマシンで人が操作しているプレイヤー)か。HUD・ミニマップの中心などに使う
     // NPCはホストではIsOwnerがtrueになるため、IsOwnerではなくこちらを使う
@@ -313,12 +313,12 @@ public class CS_Player : NetworkBehaviour
         // ジャンプ・ダッシュは死亡中に予約されても復帰後に発動しないよう、ここでもcanActを見る
         if (canAct && _jumpButton.WasPressedThisFrame())
         {
-            // ハイド中はハイドを抜けてからジャンプする
+            // SAで飛んでいる途中なら、飛ぶのをやめてからジャンプする
             if (isHiding) _hide.ExitHide();
             _jumpRequested = true;
         }
 
-        // 飛べるハイドポイントがあれば、ダッシュの代わりにそこへ飛ぶ(クールタイム中でも飛べる。張り付いている間は次のハイドポイントへ)
+        // 飛べるハイドポイントがあれば、ダッシュの代わりにそこへ飛ぶ(クールタイム中でも飛べる)
         if (canAct && _dashButton.WasPressedThisFrame())
         {
             if (_hide != null && _hide.TryBeginHide())
@@ -370,7 +370,7 @@ public class CS_Player : NetworkBehaviour
         }
         else if (isHiding)
         {
-            // ハイドポイントに張り付いている間は動かない(街灯の上などから落ちないよう、縦も止める)
+            // SAで飛んでいる間(踏み込みの合間)は止めておく(CS_PlayerHideが毎フレームFlyで動かす)
             _rigidbody.linearVelocity = Vector3.zero;
         }
         else
@@ -423,7 +423,7 @@ public class CS_Player : NetworkBehaviour
         _isLungeVertical = true;
     }
 
-    // 位置を指定した位置へ合わせ、踏み込みと速度を止める(ハイドポイントに張り付く時に使う)
+    // 位置を指定した位置へ合わせ、踏み込みと速度を止める(SAでハイドポイントに着いた時に使う)
     public void SnapPosition(Vector3 position)
     {
         _lungeRemaining = 0f;

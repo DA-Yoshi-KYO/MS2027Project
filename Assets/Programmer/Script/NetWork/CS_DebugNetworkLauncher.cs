@@ -4,6 +4,7 @@
  * 制作者：吉田京志郎
  * ------------------------------------------------
  * 2026-09-24 | 初回作成
+ * 2026-10-29 | 遊び方をマルチにしてから始めるようにした(直接再生の初期値がソロになったため)
  * ================================================ */
 
 using Unity.Netcode;
@@ -29,6 +30,7 @@ using Unity.Multiplayer.PlayMode;
  *   ゲームシーン内のスクリプトがAwake/Startで「オンラインかどうか」を判定するため
  *   (ゲームシーンを読み込む前に通信を開始しておく必要がある)
  * ・NetworkManagerがまだ無い場合はプレハブから生成する(DontDestroyOnLoadになる)
+ * ・遊び方(CS_GameModeStore)の初期値はソロなので、ホスト・クライアントともに最初にマルチにする
  */
 // ========================================
 public class CS_DebugNetworkLauncher : MonoBehaviour
@@ -40,6 +42,8 @@ public class CS_DebugNetworkLauncher : MonoBehaviour
 
     void Start()
     {
+        CS_GameModeStore.SetMode(CSE_GameMode.Multi);
+
         NetworkManager networkManager = GetOrCreateNetworkManager();
         if (networkManager == null) return;
 

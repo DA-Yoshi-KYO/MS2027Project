@@ -35,8 +35,8 @@ using UnityEngine;
  * ・奇襲(CS_PlayerAmbush)はこの5段コンボとは別の攻撃
  *   待機中に攻撃ボタンを押した時、奇襲できる悪人がいれば1段目の代わりに奇襲を始める(いなければ1段目から)
  *   奇襲中は通常攻撃を出さない。奇襲が終わった後にボタンを押すと、1段目から始まる
- * ・ハイド中(CS_PlayerHide。ハイドポイントへ飛んでいる・張り付いている間)は通常攻撃を出さない
- *   張り付いている間に攻撃ボタンを押すと、奇襲できる悪人がいれば奇襲する(CS_PlayerHide.TryAmbush)
+ * ・SAでハイドポイントへ飛んでいる間(CS_PlayerHide.isHiding)は、通常攻撃を出さない
+ *   着いた後は普通の状態に戻るので、いつも通り攻撃・奇襲できる(隠れられる箱の中なら、奇襲の「背後か上」は見ない)
  * ・動けなくなった(死亡・スタン)時はコンボを中断する
  * ・必殺技(CS_PlayerSpecialAttack)を行っている間は、通常攻撃を行わない(isAttacking/isPerformingSpecialで排他制御)
  */
@@ -63,7 +63,6 @@ public class CS_PlayerAttack : NetworkBehaviour
     private CS_PlayerSpecialAttack _specialAttack;
     private CS_PlayerScoring _scoring;
     private CS_PlayerInteractor _interactor;   // ケアパッケージなどの操作(攻撃と同じボタンを使う)。付いていなければnull
-    private CS_PlayerHide _hide;               // ハイド。張り付いている間は通常攻撃の代わりに奇襲だけ出す。付いていなければnull
     private CS_PlayerAmbush _ambush;           // 奇襲(コンボとは別の攻撃)。付いていなければ奇襲しない
     private readonly Collider[] _hitBuffer = new Collider[_hitBufferSize];
     private readonly HashSet<IDamageable> _hitTargets = new HashSet<IDamageable>();
@@ -93,7 +92,6 @@ public class CS_PlayerAttack : NetworkBehaviour
         _scoring = GetComponent<CS_PlayerScoring>();
         _interactor = GetComponent<CS_PlayerInteractor>();
         _ambush = GetComponent<CS_PlayerAmbush>();
-        _hide = GetComponent<CS_PlayerHide>();
 
         if (HasValidSteps()) return;
 
@@ -113,12 +111,8 @@ public class CS_PlayerAttack : NetworkBehaviour
         // 必殺技中、奇襲中は何もしない
         if (_specialAttack.isPerformingSpecial || isAmbushing) return;
 
-        // ハイド中は通常攻撃を出さない。張り付いている間の攻撃ボタンは、奇襲できる悪人がいれば奇襲する
-        if (_player.isHiding)
-        {
-            if (_player.attackAction.WasPressedThisFrame() && !_player.isSpecialModifierHeld) _hide.TryAmbush();
-            return;
-        }
+        // SAでハイドポイントへ飛んでいる間は、通常攻撃を出さない
+        if (_player.isHiding) return;
 
         // ゲームパッドは攻撃(RT)と必殺技(RT+LT)が同じRTを共有するため、
         // LTを押しながらの場合は必殺技の合図とみなし、攻撃としては発動させない

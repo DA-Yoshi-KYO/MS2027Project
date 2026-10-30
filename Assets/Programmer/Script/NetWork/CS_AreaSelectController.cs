@@ -4,6 +4,7 @@
  * 制作者：吉田京志郎
  * ------------------------------------------------
  * 2026-10-29 | 初回作成(Issue #342)
+ * 2026-10-30 | エリアの数と位置をFieldのプレハブから読み、見下ろしカメラで映したフィールドの上に印を出すようにした
  * ================================================ */
 
 using System.Collections.Generic;
@@ -33,13 +34,18 @@ using UnityEngine.SceneManagement;
  *   決まったエリアはCS_SpawnAreaStoreに入れて、ゲームシーンのCS_PlayerSpawnerが使う
  * ・選んでいる途中で抜けた人の選択は消す。ホストが抜けた・切断されたクライアントは部屋に入るシーンへ戻る
  * ・オフライン(このシーンを直接再生した時)は自分1人だけなので、選んだらすぐ本編へ移る
+ * ・エリアの数と位置は、Fieldのプレハブ(_fieldPrefab)の中のCS_PlayerSpawner(Area Spawn Rootsが入っている方)から読む
+ *   プレハブは生成せずに読むだけ。MainSceneのFieldは原点に置いてあるので、プレハブの中の位置がそのままワールドの位置になる
+ *   エリアの位置は_overheadCamera(フィールドを真上から映すカメラ)でビューポート座標(0〜1)に直してModelに渡す
+ *   背景のフィールドは、このシーンに置いたField_Common(建物・道路)を映している
  */
 // ========================================
 public class CS_AreaSelectController : NetworkBehaviour
 {
     [SerializeField][Tooltip("本編への遷移(遷移先はゲームシーン)")] private CS_SceneTransitioner _sceneTransitioner;
     [SerializeField][Tooltip("画面のView(同じGameObjectのPresenterを使う)")] private CS_UIAreaSelectView _view;
-    [SerializeField][Tooltip("エリアの数")][Min(1)] private int _areaCount = 3;
+    [SerializeField][Tooltip("エリアの位置を読むFieldのプレハブ(Field.prefab。生成はしない)")] private GameObject _fieldPrefab;
+    [SerializeField][Tooltip("フィールドを真上から映すカメラ(エリアの位置を画面上の位置に直すのに使う)")] private Camera _overheadCamera;
     [SerializeField][Tooltip("選べる秒数")][Min(1f)] private float _selectSeconds = 15f;
     [SerializeField][Tooltip("戻り先のシーン名")] private string _roomConnectionSceneName = "RoomConnection";
 
@@ -47,6 +53,8 @@ public class CS_AreaSelectController : NetworkBehaviour
     private readonly NetworkList<int> _areaCounts = new NetworkList<int>();              // エリアごとの選んだ人数
 
     private readonly Dictionary<ulong, int> _selections = new Dictionary<ulong, int>();  // サーバーだけが持つ、クライアントIDごとの選択
+    private IReadOnlyList<Transform> _areaRoots;    // エリアごとの開始地点の親(Fieldのプレハブの中の物)
+    private int _areaCount;
     private CS_UIAreaSelectModel _model;
     private DisposableBag _disposables;
     private double _offlineEndTime;
@@ -58,6 +66,8 @@ public class CS_AreaSelectController : NetworkBehaviour
 
     void Awake()
     {
+        _areaRoots = FindAreaRoots();
+        _areaCount = _areaRoots.Count;
         _model = new CS_UIAreaSelectModel(_areaCount);
         _offlineEndTime = Time.timeAsDouble + _selectSeconds;
     }
@@ -69,6 +79,7 @@ public class CS_AreaSelectController : NetworkBehaviour
         presenter.onAreaRequested.Subscribe(OnAreaRequested).AddTo(ref _disposables);
 
         _model.SetRemainingSeconds(Mathf.CeilToInt(_selectSeconds));
+        SetAreaScreenPositions();
 
         // 前のプレイの結果が残らないように消しておく(読むのはサーバーだけ)
         if (!IsOnline || NetworkManager.Singleton.IsServer)
@@ -132,6 +143,42 @@ public class CS_AreaSelectController : NetworkBehaviour
         // 時間切れ。締め切るのはサーバー(オフラインなら自分)だけ
         _model.SetInteractable(false);
         if (!IsOnline || IsServer) Finish();
+    }
+
+    // Fieldのプレハブの中から、エリアごとの開始地点の親を探す(見つからなければ空)
+    private IReadOnlyList<Transform> FindAreaRoots()
+    {
+        if (_fieldPrefab == null)
+        {
+            Debug.LogError("CS_AreaSelectController: Field Prefab が未設定です", this);
+            return new Transform[0];
+        }
+
+        foreach (CS_PlayerSpawner spawner in _fieldPrefab.GetComponentsInChildren<CS_PlayerSpawner>(true))
+        {
+            if (spawner.areaSpawnRoots != null && spawner.areaSpawnRoots.Count > 0) return spawner.areaSpawnRoots;
+        }
+
+        Debug.LogError("CS_AreaSelectController: Field Prefab の中に Area Spawn Roots の入った CS_PlayerSpawner がありません", this);
+        return new Transform[0];
+    }
+
+    // エリアの位置を見下ろしカメラで画面上の位置(0〜1)に直してModelに渡す
+    private void SetAreaScreenPositions()
+    {
+        if (_overheadCamera == null)
+        {
+            Debug.LogError("CS_AreaSelectController: Overhead Camera が未設定です", this);
+            return;
+        }
+
+        for (int area = 0; area < _areaCount; area++)
+        {
+            if (_areaRoots[area] == null) continue;
+
+            Vector3 viewport = _overheadCamera.WorldToViewportPoint(_areaRoots[area].position);
+            _model.SetAreaScreenPosition(area, new Vector2(viewport.x, viewport.y));
+        }
     }
 
     // 締め切りまでの残り秒数

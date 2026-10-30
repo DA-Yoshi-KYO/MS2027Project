@@ -8,6 +8,7 @@
  * 2026-10-23 | 全員のシーン読み込みが終わってから生成するようにした(秋野、Issue #290)
  * 2026-10-29 | エリア選択で選んだエリアの開始地点から生成するようにした(Issue #342)
  * 2026-10-29 | エリアがある時は、エリア選択の結果が無くても(デバッグ起動)エリアから生成するようにした(四隅の4地点をやめた)
+ * 2026-10-30 | エリア選択の画面がエリアの位置を読めるように、_areaSpawnRootsを読むだけのプロパティを追加
  * ================================================ */
 
 using System.Collections;
@@ -76,6 +77,11 @@ public class CS_PlayerSpawner : MonoBehaviour
     private bool _isLoadCompleted;      // 全員のシーン読み込みが終わったか
     private bool _isReady;              // Startで生成の準備(生成位置の取得)が終わったか
     private bool _hasSpawnedPlayers;    // 最初の生成を済ませたか
+
+    /// <summary>
+    /// エリアごとの開始地点の親(エリアの番号順。エリア選択の画面が、プレハブからエリアの位置を読むのに使う)
+    /// </summary>
+    public IReadOnlyList<Transform> areaSpawnRoots => _areaSpawnRoots;
 
     // このマシンが生成の権威を持つか(オフライン、またはサーバー/ホスト)
     private static bool HasAuthority =>

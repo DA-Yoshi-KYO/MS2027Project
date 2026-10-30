@@ -4,6 +4,7 @@
  * 制作者：吉田京志郎
  * ------------------------------------------------
  * 2026-10-29 | 初回作成(Issue #342)
+ * 2026-10-30 | エリアの数だけViewに印を作らせ、エリアの画面上の位置を渡すようにした
  * ================================================ */
 
 using R3;
@@ -37,6 +38,8 @@ public class CS_UIAreaSelectPresenter : CS_BasePresenter
     /// </summary>
     public void BindModel(CS_UIAreaSelectModel model)
     {
+        _view.CreateMarkers(model.areaCount);
+
         model.remainingSeconds
             .Subscribe(_view.SetRemainingSeconds)
             .AddTo(_disposables);
@@ -46,6 +49,11 @@ public class CS_UIAreaSelectPresenter : CS_BasePresenter
             int target = area;  // ラムダで使うので、ループ変数をコピーしておく
             model.GetAreaCount(target)
                 .Subscribe(count => _view.SetAreaCount(target, count))
+                .AddTo(_disposables);
+
+            model.GetAreaScreenPosition(target)
+                .Where(position => position != CS_UIAreaSelectModel.unknownScreenPosition)
+                .Subscribe(position => _view.SetAreaScreenPosition(target, position))
                 .AddTo(_disposables);
         }
 

@@ -60,6 +60,7 @@ public enum CSE_SeId
     // アイテム
     PlayerItemPickup, // アイテム取得
     PlayerItemUse,    // アイテム使用
+    PlayerInteract,   // オブジェクトを調べる・操作する
 
     // ダメージ・状態変化
     PlayerDamage,   // 被弾
@@ -73,6 +74,9 @@ public enum CSE_SeId
     PlayerSpawn,   // 初回スポーン
     PlayerDeath,   // 死亡
     PlayerRespawn, // リスポーン
+
+    PlayerStealthEnter, // ステルス状態へ入る
+    PlayerStealthExit, // ステルス状態を解除
 
     // =========================================================
     // 警察：300番台

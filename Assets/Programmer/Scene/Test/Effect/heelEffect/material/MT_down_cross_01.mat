@@ -23,15 +23,17 @@ Material:
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
-  m_Name: MT_down_circle
+  m_Name: MT_down_cross_01
   m_Shader: {fileID: 4800000, guid: 1bc5c6a70411243779ce486a98012125, type: 3}
   m_Parent: {fileID: 0}
   m_ModifiedSerializedProperties: 0
   m_ValidKeywords:
   - _ALPHA_TRANSITION_MAP_MODE_2D
   - _BASE_MAP_MODE_2D
-  - _EMISSION_COLOR_COLOR
+  - _EMISSION_AREA_ALL
+  - _EMISSION_COLOR_BASECOLOR
   - _EMISSION_MAP_MODE_2D
+  - _GRADIENT_MAP_ENABLED
   - _PARALLAX_MAP_MODE_2D
   - _TINT_COLOR_ENABLED
   m_InvalidKeywords:
@@ -87,7 +89,7 @@ Material:
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
     - _BaseMap:
-        m_Texture: {fileID: 2800000, guid: b635dfd5b64830141ae168cf781fb738, type: 3}
+        m_Texture: {fileID: 2800000, guid: f5755115d216f814b9010727235be9a4, type: 3}
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
     - _BaseMap2DArray:
@@ -139,7 +141,7 @@ Material:
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
     - _GradientMap:
-        m_Texture: {fileID: 0}
+        m_Texture: {fileID: 2800000, guid: dcd736100e6acde4e97e73103f41dddb, type: 3}
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
     - _HeightMap:
@@ -314,7 +316,7 @@ Material:
     - _BlendMode: 0
     - _BlendSrc: 5
     - _CoatMask: 0
-    - _ColorCorrectionMode: 0
+    - _ColorCorrectionMode: 2
     - _Cull: 2
     - _CullMode: 2
     - _CullModeForward: 2
@@ -339,9 +341,9 @@ Material:
     - _DoubleSidedNormalMode: 1
     - _DstBlend: 0
     - _DstBlend2: 0
-    - _EmissionAreaType: 0
-    - _EmissionColorType: 0
-    - _EmissionIntensity: 1
+    - _EmissionAreaType: 1
+    - _EmissionColorType: 1
+    - _EmissionIntensity: 50
     - _EmissionIntensityCoord: 0
     - _EmissionMapChannelsX: 0
     - _EmissionMapMode: 0
@@ -420,7 +422,7 @@ Material:
     - _ParallaxMapRowCount: 1
     - _ParallaxMapSliceCount: 4
     - _ParallaxMapTarget: 1
-    - _ParallaxStrength: 0.3
+    - _ParallaxStrength: 0
     - _PerPixelSorting: 0
     - _QueueOffset: 0
     - _RayTracing: 0

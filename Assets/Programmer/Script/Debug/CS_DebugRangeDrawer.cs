@@ -4,6 +4,7 @@
  * 制作者：吉田京志郎
  * ------------------------------------------------
  * 2026-09-24 | 初回作成
+ * 2026-10-31 | 表示する要素を細かく分け、切り替えウィンドウ(CSED_DebugRangeWindow)に対応
  * ================================================ */
 
 using System.Collections.Generic;
@@ -19,6 +20,7 @@ using UnityEngine.Rendering;
  * メモ
  * ・シーンに1つ置き、Line Materialに MT_DebugRange を割り当てて使う
  * ・Toggle Key(初期値F3)で表示のON/OFFを切り替える
+ * ・表示する要素ごとのON/OFFは、Inspectorか Tools/DebugRangeDrawer のウィンドウで切り替える
  * ・線はLineRendererを使い回して描く(毎フレーム、必要な本数だけ有効にする)
  * ・表示するもの
  *   警察  : 巡回時の視界(青)と発見視界(黄色。追跡中は赤)の扇形、背後でも気付く距離、攻撃範囲
@@ -70,18 +72,57 @@ public class CS_DebugRangeDrawer : MonoBehaviour
     [Tooltip("表示のON/OFFを切り替えるキー")]
     private Key _toggleKey = Key.F3;
 
+    [Header("＝＝＝ 表示する要素(警察) ＝＝＝")]
     [SerializeField]
-    private bool _showPolice = true;
+    [Tooltip("巡回時の視界(発見視界より大きい時だけ表示される)")]
+    private bool _showPolicePatrolView = true;
 
     [SerializeField]
-    private bool _showVillain = true;
+    [Tooltip("発見視界")]
+    private bool _showPoliceAlertView = true;
 
     [SerializeField]
-    private bool _showPlayer = true;
+    [Tooltip("背後でも気付く距離")]
+    private bool _showPoliceNotice = true;
 
     [SerializeField]
-    [Tooltip("防犯装置(巡回ドローン)の視界を表示するか")]
-    private bool _showSecurity = true;
+    [Tooltip("攻撃範囲")]
+    private bool _showPoliceAttack = true;
+
+    [Header("＝＝＝ 表示する要素(悪人) ＝＝＝")]
+    [SerializeField]
+    [Tooltip("臨戦態勢範囲")]
+    private bool _showVillainEngage = true;
+
+    [SerializeField]
+    [Tooltip("反撃の索敵範囲")]
+    private bool _showVillainCounter = true;
+
+    [SerializeField]
+    [Tooltip("スポーン位置からの追跡限界")]
+    private bool _showVillainLeash = true;
+
+    [SerializeField]
+    [Tooltip("攻撃判定")]
+    private bool _showVillainHit = true;
+
+    [Header("＝＝＝ 表示する要素(プレイヤー) ＝＝＝")]
+    [SerializeField]
+    [Tooltip("通常攻撃の各段の判定")]
+    private bool _showPlayerAttack = true;
+
+    [SerializeField]
+    [Tooltip("必殺技の判定")]
+    private bool _showPlayerSpecial = true;
+
+    [Header("＝＝＝ 表示する要素(防犯装置) ＝＝＝")]
+    [SerializeField]
+    [Tooltip("巡回ドローンの高さに表示する視界")]
+    private bool _showSecurityAirView = true;
+
+    [SerializeField]
+    [Tooltip("巡回ドローンの真下の地面に表示する視界(高さの視界とつなぐ縦の線も含む)")]
+    private bool _showSecurityGroundView = true;
 
     [Header("＝＝＝ 色(警察) ＝＝＝")]
     [SerializeField]
@@ -148,10 +189,10 @@ public class CS_DebugRangeDrawer : MonoBehaviour
         _usedLineCount = 0;
         if (_isVisible && _lineMaterial != null)
         {
-            if (_showPolice) DrawPolice();
-            if (_showVillain) DrawVillains();
-            if (_showPlayer) DrawPlayers();
-            if (_showSecurity) DrawSecurityDrones();
+            DrawPolice();
+            DrawVillains();
+            DrawPlayers();
+            DrawSecurityDrones();
         }
 
         // 今回使わなかった線は隠す
@@ -166,6 +207,8 @@ public class CS_DebugRangeDrawer : MonoBehaviour
     /// </summary>
     private void DrawPolice()
     {
+        if (!_showPolicePatrolView && !_showPoliceAlertView && !_showPoliceNotice && !_showPoliceAttack) return;
+
         foreach (CS_PoliceBrain brain in FindObjectsByType<CS_PoliceBrain>(FindObjectsSortMode.None))
         {
             Vector3 foot = GetFootPosition(brain);
@@ -173,15 +216,15 @@ public class CS_DebugRangeDrawer : MonoBehaviour
             if (brain.TryGetComponent(out CS_PoliceVision vision) && vision.viewDistance > 0.0f)
             {
                 // 巡回時の視界(青。発見視界より大きい時だけ)と、発見視界(黄色。追跡中は赤)を描く
-                if (vision.suspicionDistance > vision.viewDistance)
+                if (_showPolicePatrolView && vision.suspicionDistance > vision.viewDistance)
                 {
                     DrawSector(foot, brain.transform.forward, vision.suspicionAngle, vision.suspicionDistance, _policeViewPatrolColor);
                 }
-                DrawSector(foot, brain.transform.forward, vision.viewAngle, vision.viewDistance, GetPoliceViewColor(brain.state));
-                DrawCircle(foot, vision.noticeDistance, _policeNoticeColor);
+                if (_showPoliceAlertView) DrawSector(foot, brain.transform.forward, vision.viewAngle, vision.viewDistance, GetPoliceViewColor(brain.state));
+                if (_showPoliceNotice) DrawCircle(foot, vision.noticeDistance, _policeNoticeColor);
             }
 
-            if (brain.TryGetComponent(out CS_PoliceAttack attack))
+            if (_showPoliceAttack && brain.TryGetComponent(out CS_PoliceAttack attack))
             {
                 DrawCircle(foot, attack.attackRange, _policeAttackColor);
             }
@@ -195,15 +238,18 @@ public class CS_DebugRangeDrawer : MonoBehaviour
     /// </summary>
     private void DrawSecurityDrones()
     {
+        if (!_showSecurityAirView && !_showSecurityGroundView) return;
+
         foreach (CS_SecurityDrone drone in FindObjectsByType<CS_SecurityDrone>(FindObjectsSortMode.None))
         {
             if (!drone.TryGetComponent(out CS_PoliceVision vision) || vision.viewDistance <= 0.0f) continue;
 
             Color color = GetSecurityViewColor(drone.state);
             Vector3 position = drone.transform.position;
-            DrawSector(position, drone.transform.forward, vision.viewAngle, vision.viewDistance, color);
+            if (_showSecurityAirView) DrawSector(position, drone.transform.forward, vision.viewAngle, vision.viewDistance, color);
 
             // 真下の地面にも描く(地面が見つからなければ、ドローンの高さだけ)
+            if (!_showSecurityGroundView) continue;
             if (!Physics.Raycast(position, Vector3.down, out RaycastHit ground, Mathf.Infinity, ~0, QueryTriggerInteraction.Ignore)) continue;
 
             Vector3 groundPosition = ground.point + Vector3.up * _groundOffset;
@@ -256,6 +302,8 @@ public class CS_DebugRangeDrawer : MonoBehaviour
     /// </summary>
     private void DrawVillains()
     {
+        if (!_showVillainEngage && !_showVillainCounter && !_showVillainLeash && !_showVillainHit) return;
+
         foreach (CS_VillainCombat combat in FindObjectsByType<CS_VillainCombat>(FindObjectsSortMode.None))
         {
             if (!combat.enabled) continue;
@@ -263,10 +311,10 @@ public class CS_DebugRangeDrawer : MonoBehaviour
             Vector3 foot = GetFootPosition(combat);
             float footOffset = foot.y - combat.transform.position.y;
 
-            if (combat.TryGetComponent(out CS_VillainStats stats)) DrawCircle(foot, stats.engageRange, _villainEngageColor);
-            DrawCircle(foot, combat.counterSearchRange, _villainCounterColor);
-            DrawCircle(combat.homePosition + Vector3.up * footOffset, combat.leashRange, _villainLeashColor);
-            DrawHitSphere(combat.transform, combat.attackData, combat.isAttacking, _hitIdleColor);
+            if (_showVillainEngage && combat.TryGetComponent(out CS_VillainStats stats)) DrawCircle(foot, stats.engageRange, _villainEngageColor);
+            if (_showVillainCounter) DrawCircle(foot, combat.counterSearchRange, _villainCounterColor);
+            if (_showVillainLeash) DrawCircle(combat.homePosition + Vector3.up * footOffset, combat.leashRange, _villainLeashColor);
+            if (_showVillainHit) DrawHitSphere(combat.transform, combat.attackData, combat.isAttacking, _hitIdleColor);
         }
     }
 
@@ -275,9 +323,11 @@ public class CS_DebugRangeDrawer : MonoBehaviour
     /// </summary>
     private void DrawPlayers()
     {
+        if (!_showPlayerAttack && !_showPlayerSpecial) return;
+
         foreach (CS_PlayerAttack attack in FindObjectsByType<CS_PlayerAttack>(FindObjectsSortMode.None))
         {
-            if (attack.attackSteps != null)
+            if (_showPlayerAttack && attack.attackSteps != null)
             {
                 for (int i = 0; i < attack.attackSteps.Count; i++)
                 {
@@ -285,7 +335,7 @@ public class CS_DebugRangeDrawer : MonoBehaviour
                 }
             }
 
-            if (attack.TryGetComponent(out CS_PlayerSpecialAttack special))
+            if (_showPlayerSpecial && attack.TryGetComponent(out CS_PlayerSpecialAttack special))
             {
                 DrawHitSphere(attack.transform, special.specialAttackData, special.isPerformingSpecial, _specialColor);
             }

@@ -449,10 +449,18 @@ MonoBehaviour:
   _lineWidth: 0.06
   _isVisible: 1
   _toggleKey: 96
-  _showPolice: 1
-  _showVillain: 1
-  _showPlayer: 1
-  _showSecurity: 1
+  _showPolicePatrolView: 1
+  _showPoliceAlertView: 1
+  _showPoliceNotice: 1
+  _showPoliceAttack: 1
+  _showVillainEngage: 1
+  _showVillainCounter: 1
+  _showVillainLeash: 1
+  _showVillainHit: 1
+  _showPlayerAttack: 0
+  _showPlayerSpecial: 0
+  _showSecurityAirView: 1
+  _showSecurityGroundView: 1
   _policeViewPatrolColor: {r: 0.3, g: 0.8, b: 1, a: 1}
   _policeViewAlertColor: {r: 1, g: 0.8, b: 0.2, a: 1}
   _policeViewChaseColor: {r: 1, g: 0.3, b: 0.3, a: 1}

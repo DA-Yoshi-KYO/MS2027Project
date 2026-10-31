@@ -5,6 +5,7 @@
  * ------------------------------------------------
  * 2026-09-24 | 初回作成
  * 2026-10-31 | 表示する要素を細かく分け、切り替えウィンドウ(CSED_DebugRangeWindow)に対応
+ * 2026-10-31 | 攻撃判定を攻撃中だけ表示するように変更
  * ================================================ */
 
 using System.Collections.Generic;
@@ -27,7 +28,7 @@ using UnityEngine.Rendering;
  *   巡回ドローン : 視界(扇形)を、ドローンの高さと真下の地面の両方に表示。色は状態で変わる
  *   悪人  : 攻撃判定、臨戦態勢範囲、反撃の索敵範囲、スポーン位置からの追跡限界
  *   プレイヤー : 各段の攻撃判定、必殺技の判定
- *   攻撃判定(球)は、攻撃中だけ明るい色の球(3方向の円)で表示する
+ *   攻撃判定(球)は、攻撃中だけ球(3方向の円)で表示する。攻撃していない時は表示しない
  * ・判定は権威を持つマシン(サーバー/ホスト)で行われるため、
  *   クライアントでは他人の攻撃中表示や警察(ホストにしかいない)が出ないことがある
  */
@@ -103,16 +104,16 @@ public class CS_DebugRangeDrawer : MonoBehaviour
     private bool _showVillainLeash = true;
 
     [SerializeField]
-    [Tooltip("攻撃判定")]
+    [Tooltip("攻撃判定(攻撃中だけ)")]
     private bool _showVillainHit = true;
 
     [Header("＝＝＝ 表示する要素(プレイヤー) ＝＝＝")]
     [SerializeField]
-    [Tooltip("通常攻撃の各段の判定")]
+    [Tooltip("通常攻撃の判定(攻撃中だけ、今出している段)")]
     private bool _showPlayerAttack = true;
 
     [SerializeField]
-    [Tooltip("必殺技の判定")]
+    [Tooltip("必殺技の判定(出している間だけ)")]
     private bool _showPlayerSpecial = true;
 
     [Header("＝＝＝ 表示する要素(防犯装置) ＝＝＝")]
@@ -165,15 +166,11 @@ public class CS_DebugRangeDrawer : MonoBehaviour
 
     [Header("＝＝＝ 色(攻撃判定) ＝＝＝")]
     [SerializeField]
-    [Tooltip("攻撃していない時の判定")]
-    private Color _hitIdleColor = new Color(0.8f, 0.2f, 0.2f);
-
-    [SerializeField]
-    [Tooltip("攻撃中の判定")]
+    [Tooltip("攻撃中の判定(プレイヤーの通常攻撃・悪人)")]
     private Color _hitActiveColor = new Color(1.0f, 1.0f, 0.2f);
 
     [SerializeField]
-    [Tooltip("プレイヤーの必殺技の判定")]
+    [Tooltip("プレイヤーの必殺技を出している間の判定")]
     private Color _specialColor = new Color(1.0f, 0.4f, 1.0f);
 
     private void Awake()
@@ -314,7 +311,7 @@ public class CS_DebugRangeDrawer : MonoBehaviour
             if (_showVillainEngage && combat.TryGetComponent(out CS_VillainStats stats)) DrawCircle(foot, stats.engageRange, _villainEngageColor);
             if (_showVillainCounter) DrawCircle(foot, combat.counterSearchRange, _villainCounterColor);
             if (_showVillainLeash) DrawCircle(combat.homePosition + Vector3.up * footOffset, combat.leashRange, _villainLeashColor);
-            if (_showVillainHit) DrawHitSphere(combat.transform, combat.attackData, combat.isAttacking, _hitIdleColor);
+            if (_showVillainHit && combat.isAttacking) DrawHitSphere(combat.transform, combat.attackData, _hitActiveColor);
         }
     }
 
@@ -327,17 +324,16 @@ public class CS_DebugRangeDrawer : MonoBehaviour
 
         foreach (CS_PlayerAttack attack in FindObjectsByType<CS_PlayerAttack>(FindObjectsSortMode.None))
         {
-            if (_showPlayerAttack && attack.attackSteps != null)
+            // 通常攻撃は、今出している段の判定だけ描く(攻撃していなければcurrentStepは-1)
+            int step = attack.currentStep;
+            if (_showPlayerAttack && attack.attackSteps != null && step >= 0 && step < attack.attackSteps.Count)
             {
-                for (int i = 0; i < attack.attackSteps.Count; i++)
-                {
-                    DrawHitSphere(attack.transform, attack.attackSteps[i], attack.currentStep == i, _hitIdleColor);
-                }
+                DrawHitSphere(attack.transform, attack.attackSteps[step], _hitActiveColor);
             }
 
-            if (_showPlayerSpecial && attack.TryGetComponent(out CS_PlayerSpecialAttack special))
+            if (_showPlayerSpecial && attack.TryGetComponent(out CS_PlayerSpecialAttack special) && special.isPerformingSpecial)
             {
-                DrawHitSphere(attack.transform, special.specialAttackData, special.isPerformingSpecial, _specialColor);
+                DrawHitSphere(attack.transform, special.specialAttackData, _specialColor);
             }
         }
     }
@@ -366,27 +362,20 @@ public class CS_DebugRangeDrawer : MonoBehaviour
     }
 
     /// <summary>
-    /// 攻撃判定の球を描画するメソッド(CS_AttackHitDetectorと同じ位置・大きさ)
-    /// 攻撃していない時は水平の円のみ、攻撃中は3方向の円で球を表す
+    /// 攻撃中の判定の球を描画するメソッド(CS_AttackHitDetectorと同じ位置・大きさ)
+    /// 3方向の円で球を表す
     /// </summary>
     /// <param name="origin">攻撃する側</param>
     /// <param name="data">攻撃データ</param>
-    /// <param name="isActive">攻撃中か</param>
-    /// <param name="idleColor">攻撃していない時の色</param>
-    private void DrawHitSphere(Transform origin, CSO_AttackData data, bool isActive, Color idleColor)
+    /// <param name="color">色</param>
+    private void DrawHitSphere(Transform origin, CSO_AttackData data, Color color)
     {
         if (data == null) return;
 
         Vector3 center = origin.position + origin.forward * data.hitRange;
-        if (!isActive)
-        {
-            DrawCircle(center, data.hitRadius, idleColor);
-            return;
-        }
-
-        DrawCircle(center, data.hitRadius, _hitActiveColor, Vector3.right, Vector3.forward);
-        DrawCircle(center, data.hitRadius, _hitActiveColor, Vector3.right, Vector3.up);
-        DrawCircle(center, data.hitRadius, _hitActiveColor, Vector3.forward, Vector3.up);
+        DrawCircle(center, data.hitRadius, color, Vector3.right, Vector3.forward);
+        DrawCircle(center, data.hitRadius, color, Vector3.right, Vector3.up);
+        DrawCircle(center, data.hitRadius, color, Vector3.forward, Vector3.up);
     }
 
     /// <summary>

@@ -61,7 +61,7 @@ public class CSED_DebugRangeWindow : EditorWindow
         },
         new[]
         {
-            new Element("_showPlayerAttack", "通常攻撃の判定(各段)"),
+            new Element("_showPlayerAttack", "通常攻撃の判定"),
             new Element("_showPlayerSpecial", "必殺技の判定"),
         },
         new[]

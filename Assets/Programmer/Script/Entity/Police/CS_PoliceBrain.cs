@@ -4,6 +4,7 @@
  * 制作者：宇留野陸斗
  * ------------------------------------------------
  * 2026-09-24 | 初回作成
+ * 2026-11-01 | 攻撃のチャージ中も止まらず標的を追い、攻撃判定を出した後の硬直の間だけ止まるように変更
  * ================================================ */
 
 using System.Collections.Generic;
@@ -169,7 +170,7 @@ public class CS_PoliceBrain : MonoBehaviour, IStunnable
 
     // 追跡・駆け付け・探索・攻撃のどれもしていない(巡回・待機している)か
     public bool isIdle => (_state == CSE_PoliceMoveState.Patrol || _state == CSE_PoliceMoveState.Wait)
-        && !_hasRushRequest && !_attack.isCharging;
+        && !_hasRushRequest && !_attack.isCharging && !_attack.isRecovering;
 
     private void Awake()
     {
@@ -260,10 +261,9 @@ public class CS_PoliceBrain : MonoBehaviour, IStunnable
             return;
         }
 
-        // 攻撃のチャージ中はその場で止まり、チャージを始めた時に標的がいた位置の方を向く
-        // (判断は続け、チャージが終わったらその時の目的地へ移動を再開する)
-        _move.SetStopped(_attack.isCharging);
-        if (_attack.isCharging) _move.TurnTowards(_attack.chargeTargetPosition);
+        // 攻撃のチャージ中は、止まらずに標的を追いかけ続ける(攻撃判定は、溜め終わった時の標的の方向へ出る)
+        // 攻撃判定を出した後の硬直の間だけ、その場で止まる(判断は続け、硬直が終わったらその時の目的地へ移動を再開する)
+        _move.SetStopped(_attack.isRecovering);
 
         // 毎フレームではなく一定間隔で判断する(視界判定や経路計算の負荷を抑えるため)
         _thinkTimer -= Time.deltaTime;

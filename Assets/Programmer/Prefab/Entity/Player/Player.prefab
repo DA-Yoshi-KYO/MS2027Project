@@ -52,6 +52,7 @@ GameObject:
   - component: {fileID: 6660456579872789801}
   - component: {fileID: 5684253229926721997}
   - component: {fileID: 8473531523518073818}
+  - component: {fileID: 7746205138316608213}
   - component: {fileID: 3958217640385529173}
   - component: {fileID: 2958174630182749316}
   - component: {fileID: 365371107231031251}
@@ -915,6 +916,26 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::CS_PlayerHideScreenEffect
   _hideEffect: {fileID: 11400000, guid: 105e1c159b4c433faa2cce73892ffa49, type: 2}
+--- !u!114 &7746205138316608213
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1825699444668748530}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d71e614852e840c5a786e2b70db6bea5, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CS_PlayerAlertScreenEffect
+  _color: {r: 1, g: 0.35, b: 0.35, a: 1}
+  _intensityMin: 0.25
+  _intensityMax: 0.4
+  _smoothness: 0.4
+  _pulseSpeed: 1
+  _fadeInTime: 0.2
+  _fadeOutTime: 0.5
+  _priority: 110
 --- !u!114 &3958217640385529173
 MonoBehaviour:
   m_ObjectHideFlags: 0

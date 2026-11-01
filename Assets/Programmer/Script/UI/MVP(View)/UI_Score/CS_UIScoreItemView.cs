@@ -4,6 +4,7 @@
  * 制作者：元浪梨緒
  * ------------------------------------------------
  * 2026-10-08 | 初回作成
+ * 2026-11-02 | ソロの時は順位を出さないようにする
  * ================================================ */
 
 using TMPro;
@@ -57,6 +58,13 @@ public class CS_UIScoreItemView : MonoBehaviour
 
         // ★ 満タン状態でアイコンの色を切り替える
         SetIconFull(isFull);
+    }
+
+    /// <summary>順位の表示を出すかどうかを切り替える(ソロでは出さない)</summary>
+    public void SetRankVisible(bool isVisible)
+    {
+        if (_rankText != null)
+            _rankText.enabled = isVisible;
     }
 
     /// <summary>満タン状態でアイコンの色を切り替える</summary>

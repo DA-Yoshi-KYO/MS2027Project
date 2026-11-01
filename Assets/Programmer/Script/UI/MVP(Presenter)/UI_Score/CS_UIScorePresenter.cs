@@ -4,6 +4,7 @@
  * 制作者：元浪梨緒
  * ------------------------------------------------
  * 2026-09-25 | 初回作成
+ * 2026-11-02 | ソロの時は順位を出さないようにする
  * ================================================ */
 
 /// <summary>
@@ -27,6 +28,9 @@ public class CS_UIScorePresenter : CS_BasePresenter
     {
         _view = GetComponent<CS_UIScoreView>();
         _view.SetPresenter(this);
+
+        // ソロは自分1人だけなので、順位は出さずにアイコンと点数だけを出す
+        _view.SetRankVisible(!CS_GameModeStore.isSolo);
     }
 
     void OnEnable()

@@ -4,6 +4,7 @@
  * 制作者：元浪梨緒
  * ------------------------------------------------
  * 2026-09-25 | 初回作成
+ * 2026-11-02 | ソロの時は順位を出さないようにする
  * ================================================ */
 
 using System.Collections.Generic;
@@ -34,6 +35,9 @@ public class CS_UIScoreView : CS_BaseView<CS_UIScorePresenter>
 
     private readonly List<CS_UIScoreItemView>
         _rankingItems = new();
+
+    // 順位を出すか(ソロでは出さない)
+    private bool _isRankVisible = true;
 
     // =========================================================
     // CS_BaseView
@@ -109,6 +113,22 @@ public class CS_UIScoreView : CS_BaseView<CS_UIScorePresenter>
     }
 
     // =========================================================
+    // 順位の表示
+    // =========================================================
+
+    /// <summary>
+    /// 順位の表示を出すかどうかを切り替える。
+    /// ソロでは自分1人だけなので順位を出さず、アイコンと点数だけにする。
+    /// </summary>
+    public void SetRankVisible(bool isVisible)
+    {
+        _isRankVisible = isVisible;
+
+        foreach (CS_UIScoreItemView item in _rankingItems)
+            item.SetRankVisible(isVisible);
+    }
+
+    // =========================================================
     // 必殺技ゲージ満タン表示
     // =========================================================
 
@@ -151,6 +171,7 @@ public class CS_UIScoreView : CS_BaseView<CS_UIScorePresenter>
                 return;
             }
 
+            item.SetRankVisible(_isRankVisible);
             _rankingItems.Add(item);
         }
     }

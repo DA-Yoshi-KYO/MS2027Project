@@ -1,7 +1,7 @@
 # PR #213 レビュー：できれば直したい点（4〜6）
 
 対象PR: #213「他プレイヤー順位のUIの処理を作成」
-対象ファイル: `Assets/Programmer/Prefab/UI/InGame/Player/PlayerRank.prefab`、`Assets/Programmer/Script/UI/MVP(View)/CS_UIPlayerRankOverhead.cs`
+対象ファイル: `Assets/Programmer/Prefab/UI/InGame/Player/PlayerRank.prefab`、`Assets/Programmer/Script/UI/UI_PlayerRankOverhead/CS_UIPlayerRankOverhead.cs`
 
 動作を止めるほどではないものの、見た目や挙動に出るので直しておきたい点です。
 

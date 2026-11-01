@@ -7,6 +7,14 @@ Presenter / View は UI のプレハブに最初から付いているので、�
 あなたのスクリプト ──new / Bind / Set〇〇──▶ Model ──(自動で通知)──▶ Presenter ──▶ View(画面)
 ```
 
+スクリプトは `Assets/Programmer/Script/UI/` の下に、機能ごとのフォルダでまとめています。
+
+```
+UI/Base/       CS_BaseModel・CS_BasePresenter・CS_BaseView(基底クラス)
+UI/UI_機能名/  CS_UI〇〇Model・Presenter・View(その機能で使うデータ類も同じフォルダ)
+UI/Common/     いくつかのUIで共通に使う物(CS_UIWorldToCanvas・CSO_PlayerIconData など)
+```
+
 | UI | Model クラス | 紐づけ方 | 置き場所（プレハブ） |
 |---|---|---|---|
 | プレイヤーHP | `CS_UIPlayerHpModel` | `Bind(プレイヤー番号)` | `UICanvas` の `HpGaugePlayer0〜3` |

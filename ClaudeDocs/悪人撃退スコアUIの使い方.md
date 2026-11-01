@@ -130,6 +130,6 @@ private void ShowScorePopup(int point, Vector3 position)
 
 - **View のスクリプトは触らなくてOK**（プレハブに付いています）
 - 関係するスクリプト
-  - `Assets/Programmer/Script/UI/MVP(Model)/UI_VillainScorePopup/CS_UIVillainScorePopupModel.cs`
-  - `Assets/Programmer/Script/UI/MVP(Presenter)/UI_VillainScorePopup/CS_UIVillainScorePopupPresenter.cs`
-  - `Assets/Programmer/Script/UI/MVP(View)/UI_VillainScorePopup/CS_UIVillainScorePopupView.cs`
+  - `Assets/Programmer/Script/UI/UI_VillainScorePopup/CS_UIVillainScorePopupModel.cs`
+  - `Assets/Programmer/Script/UI/UI_VillainScorePopup/CS_UIVillainScorePopupPresenter.cs`
+  - `Assets/Programmer/Script/UI/UI_VillainScorePopup/CS_UIVillainScorePopupView.cs`

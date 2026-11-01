@@ -25,9 +25,9 @@ UI 側（Model / Presenter / View）と UICanvas への配置は PR #373 で実�
 
 | クラス | ファイル | 役割 |
 |---|---|---|
-| `CS_UIAttentionAlertModel` | `UI/MVP(Model)/UI_AttentionAlert/CS_UIAttentionAlertModel.cs` | 警戒中かどうか（`bool`）を持つ。`Bind()` すると Presenter に見つけてもらえる |
-| `CS_UIAttentionAlertPresenter` | `UI/MVP(Presenter)/UI_AttentionAlert/CS_UIAttentionAlertPresenter.cs` | Bind された Model を購読して View に渡す。UICanvas.prefab の `AttentionAlert` に付いている |
-| `CS_UIAttentionAlertView` | `UI/MVP(View)/UI_AttentionAlert/CS_UIAttentionAlertView.cs` | 警戒中だけ `DisplayRoot` を表示し、`AlertBarUp` / `AlertBarDown` の UV を横にスクロールさせる |
+| `CS_UIAttentionAlertModel` | `UI/UI_AttentionAlert/CS_UIAttentionAlertModel.cs` | 警戒中かどうか（`bool`）を持つ。`Bind()` すると Presenter に見つけてもらえる |
+| `CS_UIAttentionAlertPresenter` | `UI/UI_AttentionAlert/CS_UIAttentionAlertPresenter.cs` | Bind された Model を購読して View に渡す。UICanvas.prefab の `AttentionAlert` に付いている |
+| `CS_UIAttentionAlertView` | `UI/UI_AttentionAlert/CS_UIAttentionAlertView.cs` | 警戒中だけ `DisplayRoot` を表示し、`AlertBarUp` / `AlertBarDown` の UV を横にスクロールさせる |
 
 ### Model の API
 
@@ -178,9 +178,9 @@ UICanvas 側（`UICanvas.prefab` の `AttentionAlert`）は PR #373 で設定済
 
 | クラス | ファイル | 役割 |
 |---|---|---|
-| `CS_UIPlayerAlertModel` | `UI/MVP(Model)/UI_PoliceAlert/` | 状態を持つ。`Bind()` で公開する（1つだけ） |
-| `CS_UIPlayerAlertPresenter` | `UI/MVP(Presenter)/UI_PoliceAlert/` | Bind された Model を購読して View に渡す。UICanvas.prefab に付いている |
-| `CS_UIPlayerAlertView` | `UI/MVP(View)/UI_PoliceAlert/` | 状態に合わせて表示を切り替える |
+| `CS_UIPlayerAlertModel` | `UI/UI_PlayerAlert/` | 状態を持つ。`Bind()` で公開する（1つだけ） |
+| `CS_UIPlayerAlertPresenter` | `UI/UI_PlayerAlert/` | Bind された Model を購読して View に渡す。UICanvas.prefab に付いている |
+| `CS_UIPlayerAlertView` | `UI/UI_PlayerAlert/` | 状態に合わせて表示を切り替える |
 
 ```csharp
 var model = new CS_UIPlayerAlertModel();

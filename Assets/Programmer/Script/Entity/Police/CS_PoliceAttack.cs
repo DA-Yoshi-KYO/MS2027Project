@@ -6,6 +6,7 @@
  * 2026-09-24 | 初回作成
  * 2026-09-25 | チャージしてから攻撃判定を生成する方式に変更
  * 2026-10-28 | 攻撃判定を出した時のイベント(onAttackFired)を追加(吉田京志郎)
+ * 2026-11-01 | チャージ中も標的を追い続け、攻撃判定は出す時の標的の方向へ出すように変更。攻撃後の硬直を追加
  * ================================================ */
 
 using UnityEngine;
@@ -13,7 +14,9 @@ using UnityEngine;
 /// <summary>
 /// 警察の攻撃を管理するクラス
 /// 標的が攻撃範囲に入ったらチャージを始め、溜め終わったら一定時間残る攻撃判定(CS_PoliceAttackHitbox)を生成する
+/// チャージ中も警察は標的を追いかけて移動し、攻撃判定は、溜め終わった時の標的の方向へ出す
 /// チャージを始めた後は、標的が範囲外に離れても中断せずに攻撃する(その場合は空振りになる)
+/// 攻撃判定を出した後は、一定時間(硬直時間)動けなくなる
 /// </summary>
 public class CS_PoliceAttack : MonoBehaviour
 {
@@ -33,8 +36,14 @@ public class CS_PoliceAttack : MonoBehaviour
     // 次のチャージから使う溜め時間
     private float _chargeTime = 0.0f;
 
-    // チャージを始めた時に標的がいた位置(攻撃判定はこの位置に向かって出す)
+    // チャージ中の標的(攻撃判定はこの標的の方向へ出す。破棄された場合は、最後にいた位置を使う)
+    private Transform _chargeTarget = null;
+
+    // チャージ中の標的がいる位置(標的がいる間は毎フレーム更新する)
     private Vector3 _chargeTargetPosition = Vector3.zero;
+
+    // 攻撃判定を出した後の硬直の残り時間
+    private float _recoveryTimer = 0.0f;
 
     // 今出している攻撃判定(消えるまで覚えておく。スタンされた時に、すぐ消すため)
     private CS_PoliceAttackHitbox _activeHitbox = null;
@@ -50,6 +59,10 @@ public class CS_PoliceAttack : MonoBehaviour
     [SerializeField, Min(0f)]
     [Tooltip("攻撃判定を出してから、次のチャージを始められるまでの間隔(秒)")]
     private float _attackInterval = 1.0f;
+
+    [SerializeField, Min(0f)]
+    [Tooltip("攻撃判定を出した後に、その場で動けなくなる時間(秒。硬直)")]
+    private float _recoveryTime = 1.0f;
 
     [SerializeField, Min(1f)]
     [Tooltip("攻撃をするまでの溜め時間(秒)")]
@@ -83,7 +96,10 @@ public class CS_PoliceAttack : MonoBehaviour
     // チャージの進み具合(0:開始直後 〜 1:溜め終わり。チャージしていない時は0)
     public float chargeProgress => _isCharging ? 1.0f - Mathf.Clamp01(_chargeTimer / _chargingDuration) : 0.0f;
 
-    // チャージを始めた時に標的がいた位置
+    // 攻撃の硬直中か(攻撃判定を出した後、動けない間)
+    public bool isRecovering => _recoveryTimer > 0.0f;
+
+    // チャージ中の標的がいる位置(標的が破棄された場合は、最後にいた位置)
     public Vector3 chargeTargetPosition => _chargeTargetPosition;
 
     // 攻撃判定を出した時に呼ばれる(攻撃判定の中心, 攻撃の向き)。サーバー(またはオフライン)のみ。エフェクトなどの見た目が購読する
@@ -103,8 +119,12 @@ public class CS_PoliceAttack : MonoBehaviour
     private void Update()
     {
         if (_cooldownTimer > 0.0f) _cooldownTimer -= Time.deltaTime;
+        if (_recoveryTimer > 0.0f) _recoveryTimer -= Time.deltaTime;
 
         if (!_isCharging) return;
+
+        // チャージ中は標的の位置を追い続ける(標的が破棄された場合は、最後にいた位置のまま)
+        if (_chargeTarget != null) _chargeTargetPosition = _chargeTarget.position;
 
         // チャージを始めた後は、標的が範囲外に離れても中断せずに溜め終わるまで待つ
         _chargeTimer -= Time.deltaTime;
@@ -113,16 +133,19 @@ public class CS_PoliceAttack : MonoBehaviour
         _isCharging = false;
         SpawnHitbox();
         _cooldownTimer = _attackInterval;
+        _recoveryTimer = _recoveryTime;
     }
 
     /// <summary>
-    /// 今の攻撃(チャージ中と、出している攻撃判定)を中断するメソッド(スタンされた時に使う。チャージしていなくても呼んでよい)
+    /// 今の攻撃(チャージ中と、出している攻撃判定。硬直も含む)を中断するメソッド(スタンされた時に使う。チャージしていなくても呼んでよい)
     /// 中断した後は、攻撃の間隔が経つまで、新しいチャージを始められない
     /// </summary>
     public void CancelAttack()
     {
         _isCharging = false;
         _chargeTimer = 0.0f;
+        _recoveryTimer = 0.0f;
+        _chargeTarget = null;
         _cooldownTimer = _attackInterval;
 
         // 攻撃判定は、消えるまでの時間が残っていても、すぐ消す(Unityのnullチェックで、消えている場合は何もしない)
@@ -150,12 +173,13 @@ public class CS_PoliceAttack : MonoBehaviour
         _isCharging = true;
         _chargingDuration = _chargeTime;
         _chargeTimer = _chargingDuration;
+        _chargeTarget = target;
         _chargeTargetPosition = target.position;
         return true;
     }
 
     /// <summary>
-    /// チャージを始めた時に標的がいた位置に向かって、攻撃判定を生成するメソッド
+    /// 溜め終わった時の標的の位置に向かって、攻撃判定を生成するメソッド
     /// </summary>
     private void SpawnHitbox()
     {
@@ -180,7 +204,7 @@ public class CS_PoliceAttack : MonoBehaviour
 
     /// <summary>
     /// 攻撃判定を出す向き(水平方向)を取得するメソッド
-    /// 警察の現在位置から、チャージを始めた時に標的がいた位置へ向かう
+    /// 警察の現在位置から、溜め終わった時の標的の位置(標的が破棄されていれば最後にいた位置)へ向かう
     /// </summary>
     /// <returns>攻撃判定を出す向き(長さ1)</returns>
     private Vector3 GetAttackDirection()
@@ -188,7 +212,7 @@ public class CS_PoliceAttack : MonoBehaviour
         Vector3 direction = _chargeTargetPosition - transform.position;
         direction.y = 0.0f;
 
-        // チャージ中に警察がその位置まで移動していた場合など、水平方向の向きが無い場合は警察の正面を使う
+        // 警察が標的の位置と重なっている場合など、水平方向の向きが無い場合は警察の正面を使う
         if (direction.sqrMagnitude < 0.0001f) direction = new Vector3(transform.forward.x, 0.0f, transform.forward.z);
         return direction.normalized;
     }

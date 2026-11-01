@@ -11,7 +11,7 @@ using UnityEngine;
 /// <summary>
 /// 警察1人(CS_PoliceBrain)が所属するまとまりを表すインターフェース
 /// ・巡回するグループ(CS_PoliceSquad)
-/// ・(今は巡回するグループだけ。以前は手配度で出現した増援のまとまりもあった)
+/// ・内通フォンで呼ばれた警察・警戒状態の増援の警察(CS_PoliceInformantGroup。1人だけのグループ)
 /// CS_PoliceBrainは、所属先がどちらかを気にせずに標的の共有・待機中の行動・再スポーンを依頼できる
 /// </summary>
 public interface IPoliceGroup

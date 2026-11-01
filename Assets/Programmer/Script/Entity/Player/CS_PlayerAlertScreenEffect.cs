@@ -33,9 +33,9 @@ using UnityEngine.Rendering.HighDefinition;
 public class CS_PlayerAlertScreenEffect : MonoBehaviour
 {
     [Header("見た目")]
-    [SerializeField] private Color _color = new Color(0.9f, 0f, 0f, 1f);           // ビネットの色
-    [SerializeField][Range(0f, 1f)] private float _intensityMin = 0.3f;           // 縮んだ時の強さ(HDRPのVignetteのIntensity)
-    [SerializeField][Range(0f, 1f)] private float _intensityMax = 0.5f;           // 広がった時の強さ
+    [SerializeField] private Color _color = new Color(1f, 0.35f, 0.35f, 1f);       // ビネットの色
+    [SerializeField][Range(0f, 1f)] private float _intensityMin = 0.25f;          // 縮んだ時の強さ(HDRPのVignetteのIntensity)
+    [SerializeField][Range(0f, 1f)] private float _intensityMax = 0.4f;           // 広がった時の強さ
     [SerializeField][Range(0.01f, 1f)] private float _smoothness = 0.4f;          // 端のぼかし具合(HDRPのVignetteのSmoothness)
 
     [Header("拡縮")]

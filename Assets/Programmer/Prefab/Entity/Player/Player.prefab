@@ -928,9 +928,9 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d71e614852e840c5a786e2b70db6bea5, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::CS_PlayerAlertScreenEffect
-  _color: {r: 0.9, g: 0, b: 0, a: 1}
-  _intensityMin: 0.3
-  _intensityMax: 0.5
+  _color: {r: 1, g: 0.35, b: 0.35, a: 1}
+  _intensityMin: 0.25
+  _intensityMax: 0.4
   _smoothness: 0.4
   _pulseSpeed: 1
   _fadeInTime: 0.2

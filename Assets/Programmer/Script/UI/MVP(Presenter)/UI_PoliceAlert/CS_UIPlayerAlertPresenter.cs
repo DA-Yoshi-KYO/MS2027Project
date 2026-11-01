@@ -1,27 +1,30 @@
 /* ================================================
- * 
+ *
  * ================================================
  * 制作者：元浪梨緒
  * ------------------------------------------------
  * 2026-10-21 | 初回作成
+ * 2026-11-02 | BindされたModelを受け取る形に変更
  * ================================================ */
 
+using R3;
 using UnityEngine;
 
 /// <summary>
-/// CS_PlayerAlertと警戒状態UIを接続するPresenter。
-/// ローカルPlayer生成後にBindPlayerAlert()を呼ぶ。
+/// Bindされた警戒状態UIのModelを購読し、Viewの表示を切り替えるPresenter。
+/// ModelはローカルPlayer側(CS_PlayerAttentionAlertUI)で生成・破棄する。
 /// </summary>
-public class CS_UIPlayerAlertPresenter : CS_BasePresenter
+[RequireComponent(typeof(CS_UIPlayerAlertView))]
+public sealed class CS_UIPlayerAlertPresenter : CS_BasePresenter
 {
     // =========================================================
     // 内部フィールド
     // =========================================================
 
-    private CS_UIPlayerAlertModel _model;
     private CS_UIPlayerAlertView _view;
-    private CS_PlayerAlert _playerAlert;
-    private bool _isBound;
+
+    private readonly SerialDisposable _modelSubscription =
+        new SerialDisposable();
 
     // =========================================================
     // 初期化
@@ -29,99 +32,50 @@ public class CS_UIPlayerAlertPresenter : CS_BasePresenter
 
     private void Awake()
     {
-        _model = new CS_UIPlayerAlertModel();
         _view = GetComponent<CS_UIPlayerAlertView>();
-
-        if (_view == null)
-        {
-            Debug.LogError(
-                "[CS_UIPlayerAlertPresenter] " +
-                "同じGameObjectにCS_UIPlayerAlertViewがありません。"
-            );
-            return;
-        }
-
         _view.SetPresenter(this);
-        _model.OnAlertStateChanged += HandleModelStateChanged;
+        _modelSubscription.AddTo(_disposables);
+    }
 
-        // 初期状態は非表示。
-        _view.ApplyAlertState(_model.alertState);
+    private void OnEnable()
+    {
+        CS_UIPlayerAlertModel.OnBound += BindModel;
+        CS_UIPlayerAlertModel.OnUnbound += UnbindModel;
+
+        // すでにBind済みのModelがあればすぐ購読する
+        if (CS_UIPlayerAlertModel.TryGet(out CS_UIPlayerAlertModel model))
+            BindModel(model);
+        else
+            _view.ApplyAlertState(CSE_PlayerAlertState.None);
+    }
+
+    private void OnDisable()
+    {
+        CS_UIPlayerAlertModel.OnBound -= BindModel;
+        CS_UIPlayerAlertModel.OnUnbound -= UnbindModel;
+        UnbindModel();
     }
 
     // =========================================================
-    // PlayerAlertとのBind
+    // Model 購読
     // =========================================================
 
-    /// <summary>
-    /// 実行時生成されたローカルPlayerのCS_PlayerAlertをBindする。
-    /// </summary>
-    public void BindPlayerAlert(CS_PlayerAlert playerAlert)
+    private void BindModel(CS_UIPlayerAlertModel model)
     {
-        if (playerAlert == null)
+        if (model == null)
         {
-            Debug.LogError(
-                "[CS_UIPlayerAlertPresenter] playerAlertがnullです。"
-            );
+            UnbindModel();
             return;
         }
 
-        UnbindPlayerAlert();
-
-        _playerAlert = playerAlert;
-        _playerAlert.onAlertChanged += HandlePlayerAlertChanged;
-        _isBound = true;
-
-        // Bind前から警戒状態だった場合にも、現在値を即時反映する。
-        _model.SetAlertState(_playerAlert.alertState);
-
-        // Modelの初期値と同じNoneの場合はイベントが発生しないため、
-        // Viewへ現在値を直接反映する。
-        _view?.ApplyAlertState(_playerAlert.alertState);
+        // ReactivePropertyは購読した時に今の値も届くので、Bind前からの状態もそのまま反映される
+        _modelSubscription.Disposable =
+            model.alertState.Subscribe(_view.ApplyAlertState);
     }
 
-    public void UnbindPlayerAlert()
+    private void UnbindModel()
     {
-        if (!_isBound || _playerAlert == null)
-            return;
-
-        _playerAlert.onAlertChanged -= HandlePlayerAlertChanged;
-        _playerAlert = null;
-        _isBound = false;
-
-        _model?.SetAlertState(CSE_PlayerAlertState.None);
-        _view?.ApplyAlertState(CSE_PlayerAlertState.None);
-    }
-
-    // =========================================================
-    // イベント処理
-    // =========================================================
-
-    private void HandlePlayerAlertChanged(
-        CSE_PlayerAlertState alertState)
-    {
-        _model?.SetAlertState(alertState);
-    }
-
-    private void HandleModelStateChanged(
-        CSE_PlayerAlertState alertState)
-    {
-        _view?.ApplyAlertState(alertState);
-    }
-
-    // =========================================================
-    // 終了処理
-    // =========================================================
-
-    protected override void OnDestroy()
-    {
-        UnbindPlayerAlert();
-
-        if (_model != null)
-        {
-            _model.OnAlertStateChanged -= HandleModelStateChanged;
-            _model.Dispose();
-        }
-
-        base.OnDestroy();
+        _modelSubscription.Disposable = null;
+        _view.ApplyAlertState(CSE_PlayerAlertState.None);
     }
 }

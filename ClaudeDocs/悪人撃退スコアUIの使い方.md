@@ -1,22 +1,23 @@
 # 悪人撃退スコアUI の使い方（`CS_UIVillainScorePopupPresenter`）
 
 悪人を倒した場所に「+150点」のような点数をふわっと出して消す、World Space のポップアップです（PR #364）。
-UI側は MVP 構成になっていますが、**使う側はプレハブを生成して `Initialize()` を呼ぶだけ** です。
-Model は Presenter が自分で作って、表示が終わったら一緒に片付けます。
+UI側は MVP 構成です。**使う側がプレハブを生成し、Model を作って `BindModel()` してから `Show()` を呼びます**。
+Model は表示が終わった時に Presenter が `Dispose()` して、ポップアップごと片付けます。
 
 ```
-倒した側のスクリプト ──Instantiate / Initialize(点数, 位置)──▶ Presenter ──(Modelを作って再生)──▶ View(点数テキスト・位置・透明度)
-                                                                  └─ 表示が終わったら自分(ポップアップ)を Destroy
+倒した側のスクリプト ──Instantiate / new Model / BindModel(model, カメラ)──▶ Presenter ──▶ View(点数テキスト・位置・透明度)
+                     └─ model.Show(点数, 位置) で再生開始              └─ 表示が終わったら Model を Dispose して、自分(ポップアップ)を Destroy
 ```
 
 やることはこれだけです。
 
 1. `VillainScorePopupCanvas.prefab` を Inspector で参照できるようにする
 2. 悪人を倒したら、プレハブを `Instantiate` する
-3. `Initialize(点数, 表示位置)` を呼ぶ → あとは勝手に出て、勝手に消える
+3. `CS_UIVillainScorePopupModel` を作って `BindModel(model, カメラ)` する
+4. `model.Show(点数, 表示位置)` を呼ぶ → あとは勝手に出て、勝手に消える
 
 > 2026-10-29: プレイヤー側で撃退時に出すようにつなぎました（Issue #368。`CS_PlayerScoring`）。倒した本人の画面にだけ出ます（他のプレイヤー・NPCが倒した分、0点(レイドボス)の時は出ません）。
-> 下の「撃退時に出す（つなぎ方の例）」は、実際のつなぎ方とほぼ同じです。
+> 2026-11-02: Presenter が Model を作っていた `Initialize()` を消し、使う側で Model を作る形にしました（Issue #406）。
 
 ---
 
@@ -51,53 +52,35 @@ public class CS_ScorePopupSample : MonoBehaviour
     [SerializeField] private float _heightOffset = 2.0f;                     // 悪人の足元から少し上に出す
 
     // 悪人を倒したときに呼ぶ
-    public void ShowScore(int point, Vector3 villainPosition)
+    public void ShowScore(int point, Vector3 villainPosition, Camera playerCamera)
     {
         Vector3 position = villainPosition + Vector3.up * _heightOffset;
 
-        // ① 生成（位置は Initialize で入るので、ここは何でもOK）
+        // ① 生成（位置は Show で入るので、ここは何でもOK）
         CS_UIVillainScorePopupPresenter popup = Instantiate(_popupPrefab, position, Quaternion.identity);
 
-        // ② 点数と位置を渡す → 再生が始まり、終わったら自動で消える
-        popup.Initialize(point, position);
-        // カメラを指定したいとき: popup.Initialize(point, position, 自分のカメラ);
+        // ② Model を作って Bind する（カメラを省略すると Camera.main）
+        CS_UIVillainScorePopupModel model = new CS_UIVillainScorePopupModel();
+        popup.BindModel(model, playerCamera);
+
+        // ③ 点数と位置を渡す → 再生が始まり、終わったら自動で消える
+        model.Show(point, position);
     }
 }
 ```
 
 - 何個同時に出しても OK です（1個ごとに Model と Presenter が別なので混ざりません）
-- カメラを省略すると `Camera.main` を使います。プレイヤーごとにカメラが違う場合は、**そのプレイヤーのカメラを第3引数で渡してください**
+- カメラを省略すると `Camera.main` を使います。プレイヤーごとにカメラが違う場合は、**そのプレイヤーのカメラを `BindModel` の第2引数で渡してください**
+- 再生が終わると、Presenter が **Model も `Dispose()`** してからポップアップを消します。終わった後に同じ Model を使い回さないでください
+- 再生中にもう一度 `Show()` すると、最初から再生し直します
 
-## 撃退時に出す（つなぎ方の例）
+## 撃退時に出す（実際のつなぎ方）
 
 点数は `CS_PlayerScoring.HandleDefeated()` で計算しています（暗躍ボーナスの倍率込み）。
-ただし **スコアの計算はサーバーだけで動く** ので、そこで直接 `Instantiate` すると倒した本人の画面に出ません。
-倒した本人（そのプレイヤーの Owner）へ RPC で「点数」と「位置」を送り、受け取った側で生成します。
+ただし **スコアの計算はサーバーだけで動く** ので、倒した本人（そのプレイヤーの Owner）へ RPC で「点数」と「位置」を送り、受け取った側で生成しています。
 
 ```csharp
-// CS_PlayerScoring に足すイメージ（未実装）
-[SerializeField] private CS_UIVillainScorePopupPresenter _scorePopupPrefab;
-
-private void HandleDefeated(IDamageable target)
-{
-    if (!CanScore()) return;
-
-    if (target is CS_VillainHealth villain)
-    {
-        _bonus.AddDefeat();
-        int point = Mathf.RoundToInt(GetDefeatScore(villain) * _bonus.scoreMultiplier);
-        _holder.AddDefeatVillain(point);
-        onVillainDefeated?.Invoke(villain);
-
-        // ↓ 追加：倒した本人の画面に点数を出す
-        Vector3 position = villain.transform.position + Vector3.up * 2.0f;
-        if (IsSpawned) ShowScorePopupRpc(point, position);
-        else ShowScorePopup(point, position);   // オフラインのテストシーン
-        return;
-    }
-    // …
-}
-
+// CS_PlayerScoring（抜粋）
 [Rpc(SendTo.Owner)]
 private void ShowScorePopupRpc(int point, Vector3 position)
 {
@@ -107,31 +90,14 @@ private void ShowScorePopupRpc(int point, Vector3 position)
 private void ShowScorePopup(int point, Vector3 position)
 {
     if (_scorePopupPrefab == null) return;
+    if (_player == null || !_player.isLocalPlayer) return;
 
     CS_UIVillainScorePopupPresenter popup = Instantiate(_scorePopupPrefab, position, Quaternion.identity);
-    popup.Initialize(point, position);
+    CS_UIVillainScorePopupModel model = new CS_UIVillainScorePopupModel();
+    popup.BindModel(model, _player.playerCamera);
+    model.Show(point, position);
 }
 ```
-
-- NPC（AI プレイヤー）が倒した分も出したくない場合は、Owner かつ人が操作しているプレイヤーだけで出すように条件を足してください
-- 実際につなぐときは、プレイヤー担当（`CS_PlayerScoring` の作成者）と相談してください
-
----
-
-## Model を自分で持ちたいとき（補足）
-
-基本は `Initialize()` で足ります。Model を外から作って渡したいときは `BindModel()` を使います。
-
-```csharp
-var popup = Instantiate(_popupPrefab);
-var model = new CS_UIVillainScorePopupModel();
-
-popup.BindModel(model);
-model.Show(150, position);   // ここで再生が始まる
-```
-
-- 再生が終わると、Presenter が **Model も `Dispose()`** してからポップアップを消します。終わった後に同じ Model を使い回さないでください
-- 再生中にもう一度 `Show()` すると、最初から再生し直します
 
 ---
 
@@ -144,7 +110,7 @@ model.Show(150, position);   // ここで再生が始まる
 | `_fadeOutDuration` | 0.3 | 消えるのにかける秒数 |
 | `_fadeInMoveDistance` | 0.2 | 出現中に上に動く量（ワールド座標） |
 | `_fadeOutMoveDistance` | 0.3 | 消える間に上に動く量（ワールド座標） |
-| `_targetCamera` | なし | 向くカメラ。未設定なら `Camera.main`（`Initialize` の第3引数でも指定可） |
+| `_targetCamera` | なし | 向くカメラ。未設定なら `Camera.main`（`BindModel` の第2引数でも指定可） |
 | `_lookAtCamera` | ON | カメラの方を向き続けるか |
 
 - 文字の大きさや色は、子の `Text`（TextMeshPro）で変えてください（既定はフォントサイズ 50）
@@ -155,9 +121,8 @@ model.Show(150, position);   // ここで再生が始まる
 
 | メソッド / プロパティ | 説明 |
 |---|---|
-| `Presenter.Initialize(score, worldPosition)` | 点数と位置を渡して再生する。Model は Presenter が作る |
-| `Presenter.Initialize(score, worldPosition, camera)` | 向くカメラを指定して再生する |
-| `Presenter.BindModel(model)` | 自分で作った Model を紐づける |
+| `Presenter.BindModel(model)` | 使う側で作った Model を紐づける（カメラは `Camera.main`） |
+| `Presenter.BindModel(model, camera)` | 向くカメラを指定して紐づける |
 | `new CS_UIVillainScorePopupModel()` | Model を作る |
 | `Model.Show(score, worldPosition)` | 点数と位置を設定して再生を要求する |
 | `Model.currentScore` / `Model.currentWorldPosition` | 今の点数・位置を読む |

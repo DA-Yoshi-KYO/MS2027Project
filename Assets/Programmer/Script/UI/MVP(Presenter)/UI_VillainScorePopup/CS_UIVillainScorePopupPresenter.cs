@@ -4,6 +4,7 @@
  * 制作者：元浪梨緒
  * ------------------------------------------------
  * 2026-10-28 | 初回作成
+ * 2026-11-02 | Modelは使う側で作ってBindする形に変更(Initializeを削除)
  * ================================================ */
 
 using System.Collections;
@@ -66,9 +67,18 @@ public sealed class CS_UIVillainScorePopupPresenter : CS_BasePresenter
 
     /// <summary>
     /// このポップアップ専用のModelをBindする。
+    /// Modelは使う側(CS_PlayerScoringなど)で作り、Bind後にShow()で再生する。
+    /// ポップアップは表示が終わると自分で消えるので、BindしたModelはこのPresenterが破棄する。
     /// </summary>
-    public void BindModel(CS_UIVillainScorePopupModel model)
+    public void BindModel(
+        CS_UIVillainScorePopupModel model,
+        Camera targetCamera = null)
     {
+        if (targetCamera != null)
+            _targetCamera = targetCamera;
+        else if (_targetCamera == null)
+            _targetCamera = Camera.main;
+
         _model = model;
 
         if (_model == null)
@@ -76,24 +86,6 @@ public sealed class CS_UIVillainScorePopupPresenter : CS_BasePresenter
 
         _modelSubscription.Disposable =
             _model.playRequested.Subscribe(_ => Play());
-    }
-
-    /// <summary>
-    /// Prefab生成後に呼ぶ簡易API。
-    /// PresenterがModelを生成し、表示終了時に破棄する。
-    /// </summary>
-    public void Initialize(
-        int score,
-        Vector3 worldPosition,
-        Camera targetCamera = null)
-    {
-        _targetCamera = targetCamera != null
-            ? targetCamera
-            : Camera.main;
-
-        var model = new CS_UIVillainScorePopupModel();
-        BindModel(model);
-        model.Show(score, worldPosition);
     }
 
     private void Play()

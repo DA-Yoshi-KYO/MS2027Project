@@ -8,6 +8,7 @@
  * 2026-11-01 | 標的に一定距離以内に近づいたら、周りの割り当て位置ではなく、標的を直接目指すように変更
  * 2026-11-01 | 追跡中は、移動の向きではなく標的の方を向き続けるように変更(切り返されても視界から外れにくくする)
  * 2026-11-01 | 標的が直接目指す距離以内にいる間は、毎フレーム目的地を更新するように変更
+ * 2026-11-01 | 巡回時の視界に入ったプレイヤーも、警戒UIの黄色い目の対象にするように変更
  * ================================================ */
 
 using System.Collections.Generic;
@@ -295,6 +296,7 @@ public class CS_PoliceBrain : MonoBehaviour, IStunnable
     /// 今の状態を、警戒UI(自分に気付いている警察の表示)へ知らせるメソッド
     /// ・追跡中: 標的を「追跡中」、また「駆け付け・探索中の相手」としても知らせる
     /// ・駆け付け中: 信号を出したプレイヤーを「駆け付け・探索中の相手」として知らせる
+    /// ・怪しんで近づき中(巡回時の視界に入った): 怪しんでいるプレイヤーを「駆け付け・探索中の相手」として知らせる(黄色い目の表示になる)
     /// ・探索中: 直前の相手(追跡していた標的・駆け付けた信号の主)を残す
     /// ・巡回・待機中: どちらも無し
     /// 標的がプレイヤーでない(悪人・ホログラムなど)場合や、信号の主が分からない場合は、相手なし(-1)
@@ -312,6 +314,9 @@ public class CS_PoliceBrain : MonoBehaviour, IStunnable
                 break;
             case CSE_PoliceMoveState.Rush:
                 _signalPlayerNumber = GetPlayerNumber(_rushSource);
+                break;
+            case CSE_PoliceMoveState.Suspect:
+                _signalPlayerNumber = GetPlayerNumber(_suspect);
                 break;
             case CSE_PoliceMoveState.Search:
                 break;

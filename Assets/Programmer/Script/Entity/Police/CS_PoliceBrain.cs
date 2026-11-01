@@ -6,6 +6,8 @@
  * 2026-09-24 | 初回作成
  * 2026-11-01 | 攻撃のチャージ中も止まらず標的を追い、攻撃判定を出した後の硬直の間だけ止まるように変更
  * 2026-11-01 | 標的に一定距離以内に近づいたら、周りの割り当て位置ではなく、標的を直接目指すように変更
+ * 2026-11-01 | 追跡中は、移動の向きではなく標的の方を向き続けるように変更(切り返されても視界から外れにくくする)
+ * 2026-11-01 | 標的が直接目指す距離以内にいる間は、毎フレーム目的地を更新するように変更
  * ================================================ */
 
 using System.Collections.Generic;
@@ -269,6 +271,15 @@ public class CS_PoliceBrain : MonoBehaviour, IStunnable
         // 攻撃のチャージ中は、止まらずに標的を追いかけ続ける(攻撃判定は、溜め終わった時の標的の方向へ出る)
         // 攻撃判定を出した後の硬直の間だけ、その場で止まる(判断は続け、硬直が終わったらその時の目的地へ移動を再開する)
         _move.SetStopped(_attack.isRecovering);
+
+        // 標的を追っている間は、移動の向きではなく標的の方を向き続ける(巡回ドローンと同じ。切り返されても、標的が視界から外れにくい)
+        bool isFacingTarget = _state == CSE_PoliceMoveState.Chase && _currentTarget != null && !_attack.isRecovering;
+        _move.SetFacingTarget(isFacingTarget);
+        if (isFacingTarget) _move.TurnTowards(_currentTarget.position);
+
+        // 標的が直接目指す距離以内にいる間は、判断の間隔を待たずに毎フレーム目的地を更新する
+        // (切り返された時に、古い目的地へ向かい続けて、標的の方を向いたまま後ろ向きに走らないようにする)
+        if (isFacingTarget && IsWithinDirectChase(_currentTarget)) _move.SetDestination(_currentTarget.position, CSE_PoliceMoveState.Chase);
 
         // 毎フレームではなく一定間隔で判断する(視界判定や経路計算の負荷を抑えるため)
         _thinkTimer -= Time.deltaTime;

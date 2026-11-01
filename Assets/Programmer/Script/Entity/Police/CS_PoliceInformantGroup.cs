@@ -4,14 +4,15 @@
  * 制作者：宇留野陸斗
  * ------------------------------------------------
  * 2026-10-28 | 初回作成
+ * 2026-11-01 | 警戒状態の間だけ追う使い方(増援)を追加
  * ================================================ */
 
 using UnityEngine;
 using UnityEngine.AI;
 
 /// <summary>
-/// 内通フォンで呼ばれた警察1人が所属するまとまり(1人だけのグループ)
-/// ・一定時間、標的のプレイヤーの現在地を取得して追跡する(見失っても、現在地へ向かい続ける)
+/// 内通フォンで呼ばれた警察・警戒状態の増援の警察1人が所属するまとまり(1人だけのグループ)
+/// ・一定時間(増援は、標的が警戒状態の間)、標的のプレイヤーの現在地を取得して追跡する(見失っても、現在地へ向かい続ける)
 /// ・プレイヤーを見つけて警戒状態にしたら、そのあとは通常の警察と同じ判断(追跡・探索)に任せる
 /// ・追跡する時間が過ぎて、追跡も探索もしなくなったら、消える演出のあとに消える(帰還)
 /// 巡回ルートは持たない
@@ -27,8 +28,11 @@ public class CS_PoliceInformantGroup : IPoliceGroup
     // 追跡する標的のプレイヤー
     private readonly CS_PlayerHealth _targetPlayer = null;
 
-    // 現在地を取得して追跡するのをやめる時刻
+    // 現在地を取得して追跡するのをやめる時刻(増援は、警戒状態が続く間だけ追うので、無限大)
     private readonly float _homingEndTime = 0.0f;
+
+    // 標的の警戒状態(増援のみ。これが解除されたら追跡をやめる。内通フォンで呼ばれた警察はnull)
+    private readonly CS_PlayerAlert _targetAlert = null;
 
     // メンバーが見つけた標的の共有情報
     private readonly CS_PoliceSharedTarget _sharedTarget = new CS_PoliceSharedTarget(_shareDuration);
@@ -45,6 +49,19 @@ public class CS_PoliceInformantGroup : IPoliceGroup
     {
         _targetPlayer = targetPlayer;
         _homingEndTime = Time.time + homingDuration;
+    }
+
+    /// <summary>
+    /// 標的が警戒状態の間だけ追跡する(増援の)グループを作るコンストラクタ
+    /// 警戒状態が解除されたら、追う標的も指示も無くなった時に帰還する
+    /// </summary>
+    /// <param name="targetPlayer">現在地を追跡するプレイヤー</param>
+    /// <param name="targetAlert">標的の警戒状態</param>
+    public CS_PoliceInformantGroup(CS_PlayerHealth targetPlayer, CS_PlayerAlert targetAlert)
+    {
+        _targetPlayer = targetPlayer;
+        _targetAlert = targetAlert;
+        _homingEndTime = float.PositiveInfinity;
     }
 
     /// <summary>
@@ -108,12 +125,14 @@ public class CS_PoliceInformantGroup : IPoliceGroup
 
     /// <summary>
     /// 標的の現在地を取得して追跡する時間内かを判定するメソッド
-    /// 標的が死亡した・いなくなった時は、追跡する理由が無いので時間内でも終わる
+    /// 標的が死亡した・いなくなった時や、標的の警戒状態が解除された時(増援のみ)は、追跡する理由が無いので時間内でも終わる
     /// </summary>
     /// <returns>追跡する時間内ならtrue</returns>
     private bool IsHoming()
     {
-        return _targetPlayer != null && !_targetPlayer.isDead && Time.time < _homingEndTime;
+        if (_targetPlayer == null || _targetPlayer.isDead || Time.time >= _homingEndTime) return false;
+
+        return _targetAlert == null || _targetAlert.isAlerted;
     }
 
     /// <summary>

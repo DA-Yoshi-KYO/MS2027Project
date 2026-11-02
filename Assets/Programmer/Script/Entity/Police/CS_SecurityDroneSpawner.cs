@@ -6,6 +6,7 @@
  * 2026-10-21 | 初回作成
  * 2026-11-02 | 巡回ルートの表示を、子オブジェクトからも描けるようにした(実際の巡回は配列のまま)
  * 2026-11-02 | 巡回ポイントの配列をシリアライズせず、開始時に子オブジェクトから作るようにした
+ * 2026-11-02 | 巡回ルートの表示を、エディタ専用のCSED_SecurityDroneRouteGizmoへ移した(選択している時だけ表示する)
  * ================================================ */
 
 using Unity.Netcode;
@@ -86,24 +87,5 @@ public class CS_SecurityDroneSpawner : MonoBehaviour
 
         // 配列の途中に未設定(None)の要素があると実行中にエラーになるので、出現前に弾く
         return !System.Array.Exists(_patrolPoints, point => point == null);
-    }
-
-    private void OnDrawGizmos()
-    {
-        // 巡回ポイントと、その順番(最後は最初へ戻る)をSceneビューに表示する
-        // 子オブジェクトを並んでいる順に使う(実際の巡回は、負荷を抑えるため、開始時に作った配列を参照する)
-        Transform[] points = CS_PoliceSquad.CollectChildPoints(transform, null);
-        if (points.Length == 0) return;
-
-        Gizmos.color = new Color(1.0f, 0.8f, 0.2f, 0.9f);
-        for (int i = 0; i < points.Length; i++)
-        {
-            Transform current = points[i];
-            Transform next = points[(i + 1) % points.Length];
-            if (current == null || next == null) continue;
-
-            Gizmos.DrawSphere(current.position, 0.2f);
-            Gizmos.DrawLine(current.position, next.position);
-        }
     }
 }

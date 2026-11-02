@@ -20,9 +20,12 @@ using UnityEngine;
  * ・波の輪(ワールドに出すエフェクト)はUIではないので、CS_PlayerScanEffectが出す
  * ・CS_PlayerScanのロジックはこのクラスを知らない(外してもスキャンは動く)
  * ・オフライン(NetworkManagerが動いていない)のテストシーンでも単体で動く
+ * ・目印のPresenterはCinemachineBrainがカメラを更新した直後に位置を計算するため、
+ *   それより先に一覧を渡せるよう、実行順を早めている(DefaultExecutionOrder)。遅いと1フレーム前の位置で出てしまう
  */
 // ========================================
 
+[DefaultExecutionOrder(-100)]
 [RequireComponent(typeof(CS_PlayerScan))]
 [RequireComponent(typeof(CS_Player))]
 public class CS_PlayerScanMarkerUI : MonoBehaviour

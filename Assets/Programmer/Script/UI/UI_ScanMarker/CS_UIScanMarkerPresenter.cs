@@ -4,6 +4,7 @@
  * 制作者：吉田京志郎
  * ------------------------------------------------
  * 2026-10-28 | 初回作成
+ * 2026-11-02 | 種類・距離・犯罪完遂度もViewに渡すようにした
  * ================================================ */
 
 using System.Collections.Generic;
@@ -11,7 +12,8 @@ using UnityEngine;
 
 /// <summary>
 /// スキャンの目印の Presenter
-/// Bind されたModelの相手の一覧を毎フレーム読み、頭上の位置をUICanvas上の座標へ変換してViewに渡す
+/// Bind されたModelの表示内容の一覧を毎フレーム読み、頭上の位置をUICanvas上の座標へ変換して、
+/// 種類・距離・犯罪完遂度と一緒にViewに渡す
 ///
 /// ・Model・UIのどちらが先に生成されても紐づく
 /// ・カメラの後ろ・画面の外にいる相手には出さない
@@ -72,22 +74,20 @@ public class CS_UIScanMarkerPresenter : CS_BasePresenter
             _targetCamera = Camera.main;
 
         int count = 0;
-        IReadOnlyList<Transform> targets = _model.targets;
+        IReadOnlyList<CS_UIScanMarkerData> targets = _model.targets;
         for (int i = 0; i < targets.Count; i++)
         {
-            Transform target = targets[i];
-            if (target == null)
-                continue;
+            CS_UIScanMarkerData target = targets[i];
 
             if (!CS_UIWorldToCanvas.TryConvert(
                 _targetCamera,
                 _canvas,
                 _canvasRect,
-                target.position + _worldOffset,
+                target.worldPosition + _worldOffset,
                 out Vector2 localPosition))
                 continue;
 
-            _view.ShowMarker(count, localPosition);
+            _view.ShowMarker(count, localPosition, target);
             count++;
         }
 

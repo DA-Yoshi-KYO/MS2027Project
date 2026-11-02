@@ -16,6 +16,7 @@ public enum CSE_BgmId
     Title,
     RoomConnection,
     WaitingForMatch,
-    InGame,
+    InGameNormal, // インゲーム通常状態
+    InGameAlert,  // インゲーム警戒状態
     Result,
 }

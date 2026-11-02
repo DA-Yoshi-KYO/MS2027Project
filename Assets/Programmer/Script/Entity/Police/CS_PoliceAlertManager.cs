@@ -5,6 +5,7 @@
  * ------------------------------------------------
  * 2026-10-21 | 初回作成
  * 2026-10-23 | 警戒状態の本体をCS_PlayerAlertに揃え、付近の警察を向かわせる役だけにした
+ * 2026-11-01 | 警戒状態になった時に、プレイヤーの近くへ増援を出すようにした(手配度は復活させない)
  * ================================================ */
 
 using System.Collections.Generic;
@@ -18,6 +19,8 @@ using UnityEngine;
 /// ・プレイヤーが警戒状態(CS_PlayerAlertが「なし」以外)の間は、見つかった場所の付近(設定の範囲内)にいる警察が、その場所へ向かう
 ///   見つかっている間は追跡し、見失ったら周囲を探す(この動きはCS_PoliceBrainが行う)
 ///   見つかった場所が変わったら、付近の警察へ新しい場所を知らせる
+/// ・プレイヤーが警戒状態になった時(警戒状態でなかったプレイヤーが見つかった時)に、そのプレイヤーの近くへ増援の警察を出す
+///   増援は、警戒状態の間、そのプレイヤーの現在地を追い、警戒状態が解除されたら、追う標的も指示も無くなった時に帰還する
 /// ・警戒状態が解除されたら(CS_PlayerAlertが「なし」に戻ったら)、そのプレイヤーへの指示をやめる
 /// 警察への指示はサーバー(またはオフライン)だけで行う
 /// </summary>
@@ -183,8 +186,10 @@ public class CS_PoliceAlertManager : MonoBehaviour
 
         if (!_states.TryGetValue(alert, out DispatchState state))
         {
+            // 警戒状態になった時に、一度だけ増援を出す(解除されるまで、見つかるたびには出さない)
             state = new DispatchState(alert);
             _states.Add(alert, state);
+            SpawnReinforcements(alert, player);
         }
 
         // 見つかった場所が大きく動いた時だけ、新しい場所として警察へ知らせ直す
@@ -229,6 +234,31 @@ public class CS_PoliceAlertManager : MonoBehaviour
 
             brain.RequestRush(state.point);
             state.dispatched.Add(brain);
+        }
+    }
+
+    /// <summary>
+    /// 警戒状態になったプレイヤーから決められた距離の外縁に、増援の警察を出すメソッド
+    /// 増援は、警戒状態の間、そのプレイヤーの現在地を追う
+    /// </summary>
+    private void SpawnReinforcements(CS_PlayerAlert alert, CS_PlayerHealth player)
+    {
+        if (!_alertData.hasReinforcement) return;
+
+        Dictionary<CSE_PoliceMoveState, float> speedTable =
+            CS_PoliceSpawnUtility.CreateSpeedTable(_alertData.playerBaseStats, _alertData.reinforceStatus);
+        for (int i = 0; i < _alertData.reinforceCount; i++)
+        {
+            if (!CS_PoliceSpawnUtility.TryFindSpawnPosition(
+                player.transform.position, _alertData.reinforceDistance, _alertData.reinforceDistance, out Vector3 position)) continue;
+
+            // 出現した時に、プレイヤーの方を向いている
+            Vector3 toPlayer = player.transform.position - position;
+            toPlayer.y = 0.0f;
+            Quaternion rotation = toPlayer.sqrMagnitude > 0.01f ? Quaternion.LookRotation(toPlayer) : Quaternion.identity;
+
+            CS_PoliceBrain police = CS_PoliceSpawnUtility.Spawn(_alertData.reinforcePolice, position, rotation);
+            police.Setting(new CS_PoliceInformantGroup(player, alert), speedTable, _alertData.reinforceStatus);
         }
     }
 }

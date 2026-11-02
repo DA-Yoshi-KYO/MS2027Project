@@ -31,7 +31,8 @@ using UnityEngine;
  *   表示名は「Player{番号+1}」(仮)。NPCも同じプレハブなので同じ形で出る
  * ・悪人を倒した時は、onVillainDefeatedで知らせる(必殺ゲージ(CS_PlayerSpecialGauge)が、倒した本人の分だけ溜める)
  * ・悪人を倒した時は、倒した本人の画面に、加算された点数を悪人の頭上へポップアップする(Issue #368。UI仕様書「悪人撃退時のスコア表示」)
- *   ポップアップのUIはVillainScorePopupCanvas.prefab(CS_UIVillainScorePopupPresenter)。生成してInitialize(点数, 位置, カメラ)を呼ぶだけ
+ *   ポップアップのUIはVillainScorePopupCanvas.prefab(CS_UIVillainScorePopupPresenter)。生成して、Modelを作ってBindし、Show(点数, 位置)を呼ぶ
+ *   (Modelはポップアップが消える時にPresenterが破棄する)
  *   スコアの計算はサーバーで行うので、サーバーから倒した本人(Owner)へRPCで点数と位置を送り、受け取った側で生成する
  *   出す位置は、悪人の位置 + _scorePopupHeight(倒した瞬間の位置。悪人が消えても出せるよう、位置を送る)
  *   出すのは人が操作している自分のプレイヤー(CS_Player.isLocalPlayer)だけ。他のプレイヤー・NPCが倒した分は出さない
@@ -160,7 +161,9 @@ public class CS_PlayerScoring : NetworkBehaviour
         if (_player == null || !_player.isLocalPlayer) return;
 
         CS_UIVillainScorePopupPresenter popup = Instantiate(_scorePopupPrefab, position, Quaternion.identity);
-        popup.Initialize(point, position, _player.playerCamera);
+        CS_UIVillainScorePopupModel model = new CS_UIVillainScorePopupModel();
+        popup.BindModel(model, _player.playerCamera);
+        model.Show(point, position);
     }
 
     // 倒された相手の番号を全員へ配り、キル通知を出す

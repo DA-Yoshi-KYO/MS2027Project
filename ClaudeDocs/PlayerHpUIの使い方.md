@@ -80,4 +80,3 @@ public class CS_Player : MonoBehaviour
 
 - ダメージ・回復は `SetHp(currentHp.CurrentValue ± 値)` の形で書きます（範囲チェックは Model 側でやってくれます）
 - **Presenter / View のスクリプトは触らなくてOK**（プレハブに付いています）
-- 動作サンプル：`Assets/Programmer/Script/UI/CS_TestUI.cs`（↑↓キーでHP増減）

@@ -4,6 +4,11 @@
  * 制作者：宇留野陸斗
  * ------------------------------------------------
  * 2026-09-24 | 初回作成
+ * 2026-11-01 | 攻撃のチャージ中も止まらず標的を追い、攻撃判定を出した後の硬直の間だけ止まるように変更
+ * 2026-11-01 | 標的に一定距離以内に近づいたら、周りの割り当て位置ではなく、標的を直接目指すように変更
+ * 2026-11-01 | 追跡中は、移動の向きではなく標的の方を向き続けるように変更(切り返されても視界から外れにくくする)
+ * 2026-11-01 | 標的が直接目指す距離以内にいる間は、毎フレーム目的地を更新するように変更
+ * 2026-11-01 | 巡回時の視界に入ったプレイヤーも、警戒UIの黄色い目の対象にするように変更
  * ================================================ */
 
 using System.Collections.Generic;
@@ -120,6 +125,10 @@ public class CS_PoliceBrain : MonoBehaviour, IStunnable
 
     [Header("＝＝＝ 周りを囲む位置 ＝＝＝")]
     [SerializeField, Min(0f)]
+    [Tooltip("標的を追う時に、この距離(m)以内まで近づいたら、周りの割り当て位置ではなく、標的を直接目指す。これより遠い間は、割り当て位置を目指す(全員が一点に集まらないようにするため)")]
+    private float _directChaseDistance = 5.0f;
+
+    [SerializeField, Min(0f)]
     [Tooltip("割り当てられた位置にこの距離まで近づいたら、着いたとみなす(位置は警察ごとに別々なので、小さくてよい)")]
     private float _arriveDistance = 1.0f;
 
@@ -169,7 +178,7 @@ public class CS_PoliceBrain : MonoBehaviour, IStunnable
 
     // 追跡・駆け付け・探索・攻撃のどれもしていない(巡回・待機している)か
     public bool isIdle => (_state == CSE_PoliceMoveState.Patrol || _state == CSE_PoliceMoveState.Wait)
-        && !_hasRushRequest && !_attack.isCharging;
+        && !_hasRushRequest && !_attack.isCharging && !_attack.isRecovering;
 
     private void Awake()
     {
@@ -260,10 +269,18 @@ public class CS_PoliceBrain : MonoBehaviour, IStunnable
             return;
         }
 
-        // 攻撃のチャージ中はその場で止まり、チャージを始めた時に標的がいた位置の方を向く
-        // (判断は続け、チャージが終わったらその時の目的地へ移動を再開する)
-        _move.SetStopped(_attack.isCharging);
-        if (_attack.isCharging) _move.TurnTowards(_attack.chargeTargetPosition);
+        // 攻撃のチャージ中は、止まらずに標的を追いかけ続ける(攻撃判定は、溜め終わった時の標的の方向へ出る)
+        // 攻撃判定を出した後の硬直の間だけ、その場で止まる(判断は続け、硬直が終わったらその時の目的地へ移動を再開する)
+        _move.SetStopped(_attack.isRecovering);
+
+        // 標的を追っている間は、移動の向きではなく標的の方を向き続ける(巡回ドローンと同じ。切り返されても、標的が視界から外れにくい)
+        bool isFacingTarget = _state == CSE_PoliceMoveState.Chase && _currentTarget != null && !_attack.isRecovering;
+        _move.SetFacingTarget(isFacingTarget);
+        if (isFacingTarget) _move.TurnTowards(_currentTarget.position);
+
+        // 標的が直接目指す距離以内にいる間は、判断の間隔を待たずに毎フレーム目的地を更新する
+        // (切り返された時に、古い目的地へ向かい続けて、標的の方を向いたまま後ろ向きに走らないようにする)
+        if (isFacingTarget && IsWithinDirectChase(_currentTarget)) _move.SetDestination(_currentTarget.position, CSE_PoliceMoveState.Chase);
 
         // 毎フレームではなく一定間隔で判断する(視界判定や経路計算の負荷を抑えるため)
         _thinkTimer -= Time.deltaTime;
@@ -279,6 +296,7 @@ public class CS_PoliceBrain : MonoBehaviour, IStunnable
     /// 今の状態を、警戒UI(自分に気付いている警察の表示)へ知らせるメソッド
     /// ・追跡中: 標的を「追跡中」、また「駆け付け・探索中の相手」としても知らせる
     /// ・駆け付け中: 信号を出したプレイヤーを「駆け付け・探索中の相手」として知らせる
+    /// ・怪しんで近づき中(巡回時の視界に入った): 怪しんでいるプレイヤーを「駆け付け・探索中の相手」として知らせる(黄色い目の表示になる)
     /// ・探索中: 直前の相手(追跡していた標的・駆け付けた信号の主)を残す
     /// ・巡回・待機中: どちらも無し
     /// 標的がプレイヤーでない(悪人・ホログラムなど)場合や、信号の主が分からない場合は、相手なし(-1)
@@ -296,6 +314,9 @@ public class CS_PoliceBrain : MonoBehaviour, IStunnable
                 break;
             case CSE_PoliceMoveState.Rush:
                 _signalPlayerNumber = GetPlayerNumber(_rushSource);
+                break;
+            case CSE_PoliceMoveState.Suspect:
+                _signalPlayerNumber = GetPlayerNumber(_suspect);
                 break;
             case CSE_PoliceMoveState.Search:
                 break;
@@ -422,10 +443,24 @@ public class CS_PoliceBrain : MonoBehaviour, IStunnable
 
         // 全員が標的の一点に押し合わないよう、標的を囲む位置(攻撃の射程の内側)を目指す
         // 囲む中心は追いかけ方で決まる(追尾: 標的の位置 / 先回り: 標的の動く先)
+        // ただし、標的に一定距離以内まで近づいたら、割り当て位置ではなく標的を直接目指す(標的が動いても、まっすぐ追う)
         float chaseRadius = _attack.attackRange * _chaseRadiusRatio;
         Vector3 aim = _chaser.GetAimPosition(target, transform.position, _move.GetStateSpeed(CSE_PoliceMoveState.Chase));
-        _move.SetDestination(GetSlotDestination(target, _chaseRingKind, aim, chaseRadius), CSE_PoliceMoveState.Chase);
+        Vector3 destination = IsWithinDirectChase(target) ? target.position : GetSlotDestination(target, _chaseRingKind, aim, chaseRadius);
+        _move.SetDestination(destination, CSE_PoliceMoveState.Chase);
         _attack.TryStartCharge(target);
+    }
+
+    /// <summary>
+    /// 標的が、直接目指す距離以内にいるかを判定するメソッド(高さの差は無視し、水平方向の距離で判定する)
+    /// </summary>
+    /// <param name="target">追っている標的</param>
+    /// <returns>直接目指す距離以内ならtrue</returns>
+    private bool IsWithinDirectChase(Transform target)
+    {
+        Vector3 offset = target.position - transform.position;
+        offset.y = 0.0f;
+        return offset.sqrMagnitude <= _directChaseDistance * _directChaseDistance;
     }
 
     /// <summary>

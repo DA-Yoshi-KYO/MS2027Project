@@ -21,7 +21,7 @@
 
 | 役割 | クラス | 場所 |
 |---|---|---|
-| Model | `CS_UIHideMarkerModel` | `UI/MVP(Model)/UI_HideMarker/` |
+| Model | `CS_UIHideMarkerModel` | `UI/UI_HideMarker/` |
 | Presenter | `CS_UIHideMarkerPresenter` | `UICanvas.prefab` の `HideMarker` |
 | View | `CS_UIHideMarkerView` | `UICanvas.prefab` の `HideMarker`(目印の画像は子の `Marker`) |
 | Modelに値を渡す | `CS_PlayerHideMarkerUI` | `Player.prefab` |
@@ -37,7 +37,7 @@
 
 | 役割 | クラス | 場所 |
 |---|---|---|
-| Model | `CS_UIScanMarkerModel` | `UI/MVP(Model)/UI_ScanMarker/` |
+| Model | `CS_UIScanMarkerModel` | `UI/UI_ScanMarker/` |
 | Presenter | `CS_UIScanMarkerPresenter` | `UICanvas.prefab` の `ScanMarker` |
 | View | `CS_UIScanMarkerView` | `UICanvas.prefab` の `ScanMarker`(複製元は子の `MarkerTemplate`) |
 | Modelに値を渡す | `CS_PlayerScanMarkerUI` | `Player.prefab` |

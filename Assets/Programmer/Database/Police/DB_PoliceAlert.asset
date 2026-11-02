@@ -13,3 +13,8 @@ MonoBehaviour:
   m_Name: DB_PoliceAlert
   m_EditorClassIdentifier: Assembly-CSharp::CSO_PoliceAlertData
   _alertRadius: 30
+  _reinforcePolice: {fileID: 769974262908060740, guid: 6dc8d9277d6c9e946a9d1237009a748a, type: 3}
+  _reinforceStatus: {fileID: 11400000, guid: 047b3aaf3c777874096d259e0127665b, type: 2}
+  _playerBaseStats: {fileID: 11400000, guid: 817504dae6f859c46802b52e2c8274fb, type: 2}
+  _reinforceCount: 2
+  _reinforceDistance: 10

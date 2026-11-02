@@ -20,6 +20,9 @@ using UnityEngine;
  *   捜索中 → なし: 最後に見つかってから_clearTime秒(既定20秒)、新たに見つからなかった時
  *   どの状態 → なし: 警察陣営に倒された時(倒した相手にCS_PoliceAttack(警察)かCS_SecurityDrone(巡回ドローン)が付いていれば警察陣営とみなす)
  *                    悪人・他のプレイヤーに倒された時は解除しない(仕様「警察に負けリスポーン」)
+ * ・警察陣営に倒された時は、onDefeatedByPolice(倒されたプレイヤー)も発生させる(サーバー、またはオフラインのみ)
+ *   自分を警戒対象にしているもの(警察の追跡・駆け付け・探索、CS_PoliceAlertManagerの派遣、ドローンの追跡など)は、
+ *   警察側がこれを購読して解除する(それぞれの状態は警察側が持っているため)
  * ・NotifyDetected()は、見えている間は呼び続けてもらう(毎フレームでも、一定間隔でもよい。間隔は_lostDelayより短くする)
  *   死亡中は見つかっても無視する
  * ・警戒状態はNetworkVariableで持つ(書き込みはサーバーのみ、読み取りは全員可)
@@ -50,6 +53,9 @@ public class CS_PlayerAlert : NetworkBehaviour
     public float clearTime => _clearTime;
 
     public event Action<CSE_PlayerAlertState> onAlertChanged;    // (今の警戒状態)全クライアントで発生する
+
+    // 警察陣営に倒された時(倒されたプレイヤー)。サーバー、またはオフラインのみ。警察側が、このプレイヤーへの追跡・警戒を解除するのに使う
+    public static event Action<CS_PlayerHealth> onDefeatedByPolice;
 
     private void Awake()
     {
@@ -105,13 +111,14 @@ public class CS_PlayerAlert : NetworkBehaviour
         }
     }
 
-    // 警察に倒されたら警戒状態を解除する
+    // 警察に倒されたら警戒状態を解除し、自分を警戒対象にしているもの(警察側)へも解除を知らせる
     private void HandleDeath()
     {
         if (!HasAuthority()) return;
         if (!IsPolice(_health.lastAttacker)) return;
 
         SetState(CSE_PlayerAlertState.None);
+        onDefeatedByPolice?.Invoke(_health);
     }
 
     // 倒した相手が警察陣営か

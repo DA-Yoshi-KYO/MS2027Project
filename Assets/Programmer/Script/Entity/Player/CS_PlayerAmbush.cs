@@ -22,11 +22,15 @@ using UnityEngine;
  * ・奇襲の流れ(攻撃している本人の手元で進める)
  *   1. 待機中に攻撃ボタン → 奇襲できる悪人(FindAmbushTarget)がいれば奇襲を始める(いなければCS_PlayerAttackが1段目を出す)
  *   2. 飛び込み: 悪人の今の位置を毎フレーム追いながら、_dashSpeedで_strikeDistanceの距離まで近づく(CS_Player.Lunge)
+ *      高さが違う時(上から攻撃した時など)は、悪人の足元の高さまで斜めに飛び込む(縦の移動。CS_Player.Fly)。
+ *      足元の高さの差が_verticalTolerance以内になるか、下へ飛び込んでいる途中で着地したら(飛び込み始めの_landCheckDelay秒は見ない)、高さは合ったとみなして水平だけ詰める
  *      _maxDashTime秒以内に着けなかった(何かに引っかかった)時は、その場から奇襲を当てる(中止しない。Issue #370)
  *      動けなくなった(死亡・スタン)・悪人が倒れた時は中止する
  *   3. 攻撃: 着いてから_strikeDelay秒後に、その悪人1体だけへ奇襲を当てる(範囲の当たり判定は使わないので空振りしない)
  *   4. _strikeDuration秒で奇襲が終わり、動けるようになる。この後に攻撃ボタンを押すと、通常攻撃の1段目から始まる
  * ・奇襲になった時は、その悪人の残りHP以上のダメージを与えて一撃で倒す(仕様「戦闘をすぐに終わらせる」)
+ * ・奇襲を食らった悪人(巻き込んだ悪人も)は、プレイヤーの方を一瞬で向き、背中側へ大きく吹き飛ぶ(CS_VillainKnockback.BlowAway。Issue #379)
+ *   吹き飛ぶ距離・時間は悪人のプレハブ(CS_VillainKnockbackのBlow Away)で変える
  * ・巻き込み(Issue #337。データ表「奇襲攻撃時の巻き込み範囲」5m): 奇襲で倒した悪人の位置から半径_splashRadius以内にいる悪人も、
  *   残りHPに関係なく一撃で倒す(仕様「敵の体力を問わず一定範囲にいる敵を一撃で倒す」)
  *   巻き込むのは悪人だけ(他のプレイヤー・警察・防犯装置は巻き込まない)。壁越しでも巻き込む
@@ -78,6 +82,7 @@ public class CS_PlayerAmbush : NetworkBehaviour
     [SerializeField][Min(0.1f)] private float _dashSpeed = 30f;           // 飛び込む速さ(m/秒)
     [SerializeField][Min(0f)] private float _maxDashTime = 1f;            // これ以上かかっても着かなければ奇襲をやめる(秒)
     [SerializeField][Min(0f)] private float _strikeDistance = 1.2f;       // 悪人との水平距離がこれ以内になったら着いたとみなす(m)
+    [SerializeField][Min(0f)] private float _verticalTolerance = 0.3f;    // 悪人との足元の高さの差がこれ以内なら、高さは合っているとみなす(m)
     [SerializeField][Min(0f)] private float _strikeDelay = 0.1f;          // 着いてから奇襲が当たるまでの時間(秒)
     [SerializeField][Min(0f)] private float _strikeDuration = 0.4f;       // 着いてから奇襲が終わる(動けるようになる)までの時間(秒)
     [SerializeField][Min(0f)] private float _freezeMargin = 0.5f;         // 悪人を止める時間・予約の期限に足す余裕(秒。通信の遅れの分)
@@ -97,6 +102,7 @@ public class CS_PlayerAmbush : NetworkBehaviour
     }
 
     private const int _searchBufferSize = 32;   // 一度に調べるコライダーの上限
+    private const float _landCheckDelay = 0.1f;   // 下へ飛び込み始めてから、着地を見始めるまでの時間(秒)
     private readonly Collider[] _searchBuffer = new Collider[_searchBufferSize];
     private readonly RaycastHit[] _obstacleBuffer = new RaycastHit[_searchBufferSize];
 
@@ -104,6 +110,7 @@ public class CS_PlayerAmbush : NetworkBehaviour
     private CS_PlayerScoring _scoring;       // 付いていればスコアを通してダメージを与える
     private CS_PlayerHide _hide;             // ハイド。隠れられる箱の中にいる時は「背後か上」を見ない(付いていなければ見る)
     private Rigidbody _rigidbody;
+    private Collider _collider;              // 自分の当たり判定(足元の高さを調べる)
     private LayerMask _defaultExcludeLayers;   // 飛び込む前のRigidbody.excludeLayers(飛び込み後に戻す)
     private bool _isPassingThrough;            // 飛び込み中で、悪人・プレイヤーとぶつからないようにしているか
     private Phase _phase = Phase.None;
@@ -130,6 +137,7 @@ public class CS_PlayerAmbush : NetworkBehaviour
         _scoring = GetComponent<CS_PlayerScoring>();
         _hide = GetComponent<CS_PlayerHide>();
         _rigidbody = GetComponent<Rigidbody>();
+        _collider = GetComponent<Collider>();
     }
 
     private void Update()
@@ -187,22 +195,22 @@ public class CS_PlayerAmbush : NetworkBehaviour
     }
 
     // 飛び込みを始めてから奇襲が当たるまでの見込みの時間(秒)。見た目(CS_PlayerVisual)が、当たる瞬間にモーションの打撃を合わせるのに使う
-    // 飛び込む距離 ÷ 飛び込む速さ + 着いてから当たるまでの時間(悪人は止めているので、始めた時の距離で見積もれる)
+    // 飛び込む距離(高さの差も含む) ÷ 飛び込む速さ + 着いてから当たるまでの時間(悪人は止めているので、始めた時の距離で見積もれる)
     public float EstimateTimeToHit(CS_VillainHealth villain)
     {
         if (villain == null) return _strikeDelay;
 
-        float moveDistance = Mathf.Max(0f, HorizontalDistance(villain.transform.position) - _strikeDistance);
+        float moveDistance = GetDashMove(villain).magnitude;
         return Mathf.Min(moveDistance / _dashSpeed, _maxDashTime) + _strikeDelay;
     }
 
-    // 悪人の今の位置を追いながら、_strikeDistanceまで飛び込む
+    // 悪人の今の位置を追いながら、_strikeDistanceまで飛び込む。高さが違う時は悪人の足元の高さまで斜めに飛び込む
     private void UpdateDash()
     {
         FaceTarget();
 
-        float distance = HorizontalDistance(_target.transform.position);
-        if (distance <= _strikeDistance)
+        Vector3 move = GetDashMove(_target);
+        if (move.sqrMagnitude <= 0.0001f)
         {
             _phase = Phase.Strike;
             _elapsed = 0f;
@@ -220,8 +228,29 @@ public class CS_PlayerAmbush : NetworkBehaviour
         }
 
         // 毎フレーム向きと距離を決め直す(悪人が動いても追いかける)
-        float moveDistance = distance - _strikeDistance;
-        _player.Lunge(HorizontalDirection(_target.transform.position), moveDistance, moveDistance / _dashSpeed);
+        float moveDistance = move.magnitude;
+        if (Mathf.Approximately(move.y, 0f)) _player.Lunge(move, moveDistance, moveDistance / _dashSpeed);
+        else _player.Fly(move / moveDistance, moveDistance, moveDistance / _dashSpeed);
+    }
+
+    // 着くまでに進む量(水平は_strikeDistanceまで詰める分、縦は悪人の足元の高さとの差)。着いていればゼロ
+    // 高さの差が_verticalTolerance以内、または下へ飛び込んでいる途中で着地した時は、縦は動かない
+    // 飛び込み始めは足場の上に立っているので、_landCheckDelay秒たつまでは着地を見ない
+    private Vector3 GetDashMove(CS_VillainHealth villain)
+    {
+        float horizontalMove = Mathf.Max(0f, HorizontalDistance(villain.transform.position) - _strikeDistance);
+        Vector3 move = HorizontalDirection(villain.transform.position) * horizontalMove;
+
+        float heightGap = GetFeetHeight(villain.transform, villain.GetComponentInChildren<Collider>()) - GetFeetHeight(transform, _collider);
+        bool isLevel = Mathf.Abs(heightGap) <= _verticalTolerance || (heightGap < 0f && _phase == Phase.Dash && _elapsed >= _landCheckDelay && _player.isGrounded);
+        if (!isLevel) move.y = heightGap;
+        return move;
+    }
+
+    // 足元の高さ(当たり判定の底。当たり判定が無ければ位置の高さ)
+    private static float GetFeetHeight(Transform target, Collider collider)
+    {
+        return collider != null ? collider.bounds.min.y : target.position.y;
     }
 
     // 着いてから_strikeDelay秒後に当て、_strikeDuration秒で終わる
@@ -393,14 +422,15 @@ public class CS_PlayerAmbush : NetworkBehaviour
 
         Vector3 center = villain.transform.position;
         DealDamage(villain, villain.currentHp);
-        CS_AttackHitDetector.TryKnockback(villain, position);
+        BlowAway(villain, position);
         NotifyAmbush(villain);
 
-        DefeatVillainsAround(center, villain);
+        DefeatVillainsAround(center, villain, position);
     }
 
     // centerから半径_splashRadius以内にいる悪人(exclude以外)を、残りHP分のダメージで倒す(サーバー、またはオフラインで実行される)
-    private void DefeatVillainsAround(Vector3 center, CS_VillainHealth exclude)
+    // 巻き込んだ悪人も、奇襲したプレイヤーの位置(attackerPosition)から吹き飛ばす
+    private void DefeatVillainsAround(Vector3 center, CS_VillainHealth exclude, Vector3 attackerPosition)
     {
         if (_splashRadius <= 0f) return;
 
@@ -413,9 +443,16 @@ public class CS_PlayerAmbush : NetworkBehaviour
             if (!_splashIncludesRaidBoss && villain.TryGetComponent(out CS_VillainRaidBoss _)) continue;
 
             DealDamage(villain, villain.currentHp);
-            CS_AttackHitDetector.TryKnockback(villain, center);
+            BlowAway(villain, attackerPosition);
             onAmbushSplash?.Invoke(villain);
         }
+    }
+
+    // 奇襲を食らった悪人を、プレイヤーの方へ一瞬で向かせて背中側へ大きく吹き飛ばす(サーバー、またはオフラインで実行される)
+    // 吹き飛ぶ距離・時間は悪人側(CS_VillainKnockbackのBlow Away)で決める。倒した後に呼ぶ(倒れた悪人も吹き飛ぶ)
+    private static void BlowAway(CS_VillainHealth villain, Vector3 attackerPosition)
+    {
+        if (villain.TryGetComponent(out CS_VillainKnockback knockback)) knockback.BlowAway(attackerPosition);
     }
 
     // ダメージを与える。スコア(CS_PlayerScoring)があればそれを通し、誰が倒したかをスコアに反映する

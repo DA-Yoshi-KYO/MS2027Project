@@ -4,6 +4,7 @@
  * 制作者：吉田京志郎
  * ------------------------------------------------
  * 2026-10-28 | 初回作成
+ * 2026-11-02 | カメラの位置が確定した後に目印の位置を計算するようにした(目印が震える対策)
  * ================================================ */
 
 using R3;
@@ -15,6 +16,7 @@ using UnityEngine;
 ///
 /// ・Model・UIのどちらが先に生成されても紐づく
 /// ・カメラの後ろ・画面の外にある時は出さない
+/// ・位置の計算はカメラの位置が確定した後に行う(CS_UIAfterCameraUpdate。先に計算すると画面揺れなどで目印が震える)
 /// Modelの破棄は持ち主(使用者)が行うので、ここでは購読解除だけ行う
 /// </summary>
 [RequireComponent(typeof(CS_UIHideMarkerView))]
@@ -34,11 +36,14 @@ public class CS_UIHideMarkerPresenter : CS_BasePresenter
     //今紐づいているModelの購読(新しいModelを入れると前の購読は自動で解除される)
     private readonly SerialDisposable _modelSubscription = new SerialDisposable();
 
+    private CS_UIAfterCameraUpdate _afterCameraUpdate;
+
     private void Awake()
     {
         _view = GetComponent<CS_UIHideMarkerView>();
         _view.SetPresenter(this);
         _modelSubscription.AddTo(_disposables);
+        _afterCameraUpdate = new CS_UIAfterCameraUpdate(GetTargetCamera, UpdateMarker);
 
         if (_canvas == null)
             _canvas = GetComponentInParent<Canvas>();
@@ -51,6 +56,7 @@ public class CS_UIHideMarkerPresenter : CS_BasePresenter
     {
         CS_UIHideMarkerModel.OnBound += BindModel;
         CS_UIHideMarkerModel.OnUnbound += UnbindModel;
+        _afterCameraUpdate.Enable();
 
         // UIより先にModelがBindされていた場合
         if (CS_UIHideMarkerModel.TryGet(out CS_UIHideMarkerModel model))
@@ -63,10 +69,27 @@ public class CS_UIHideMarkerPresenter : CS_BasePresenter
     {
         CS_UIHideMarkerModel.OnBound -= BindModel;
         CS_UIHideMarkerModel.OnUnbound -= UnbindModel;
+        _afterCameraUpdate.Disable();
         UnbindModel();
     }
 
     private void LateUpdate()
+    {
+        // Brainが動いていないシーンでは、ここで計算する
+        _afterCameraUpdate.LateUpdateFallback();
+    }
+
+    // 目印を出すカメラ(空ならCamera.main)
+    private Camera GetTargetCamera()
+    {
+        if (_targetCamera == null)
+            _targetCamera = Camera.main;
+
+        return _targetCamera;
+    }
+
+    // 目印の位置をUICanvas上の座標へ変換して、Viewに渡す
+    private void UpdateMarker()
     {
         Transform target =
             _model != null
@@ -79,12 +102,9 @@ public class CS_UIHideMarkerPresenter : CS_BasePresenter
             return;
         }
 
-        if (_targetCamera == null)
-            _targetCamera = Camera.main;
-
         bool isVisible =
             CS_UIWorldToCanvas.TryConvert(
-                _targetCamera,
+                GetTargetCamera(),
                 _canvas,
                 _canvasRect,
                 target.position + _worldOffset,
@@ -103,7 +123,7 @@ public class CS_UIHideMarkerPresenter : CS_BasePresenter
         );
     }
 
-    //Modelの目印を購読する(目印が無くなったら隠す。位置はLateUpdateで追う)
+    //Modelの目印を購読する(目印が無くなったら隠す。位置はUpdateMarkerで追う)
     private void BindModel(CS_UIHideMarkerModel model)
     {
         _model = model;

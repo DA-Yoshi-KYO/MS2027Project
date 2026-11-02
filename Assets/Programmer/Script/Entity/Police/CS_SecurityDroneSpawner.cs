@@ -4,6 +4,8 @@
  * 制作者：宇留野陸斗
  * ------------------------------------------------
  * 2026-10-21 | 初回作成
+ * 2026-11-02 | 巡回ルートの表示を、子オブジェクトからも描けるようにした(実際の巡回は配列のまま)
+ * 2026-11-02 | 巡回ポイントの配列をシリアライズせず、開始時に子オブジェクトから作るようにした
  * ================================================ */
 
 using Unity.Netcode;
@@ -34,8 +36,8 @@ public class CS_SecurityDroneSpawner : MonoBehaviour
     private CSO_PlayerStats _playerBaseStats = null;
 
     [Header("＝＝＝ 巡回 ＝＝＝")]
-    [SerializeField]
-    [Tooltip("巡回ポイント(3D。順に回り、最後まで行ったら最初に戻る。高さも使う)")]
+    // 巡回ポイント(3D。順に回り、最後まで行ったら最初に戻る。高さも使う)。シリアライズせず、開始時にこの子オブジェクトから作る
+    // 子オブジェクトの並んでいる順(Hierarchyの上から)が、巡回する順番になる
     private Transform[] _patrolPoints = new Transform[0];
 
     [SerializeField]
@@ -45,6 +47,9 @@ public class CS_SecurityDroneSpawner : MonoBehaviour
     private void Start()
     {
         if (CS_PoliceSquad.IsNetworkClientOnly()) return;
+
+        // 巡回ポイントは、子オブジェクトから作る(シーンに配列を登録しなくてよい)
+        _patrolPoints = CS_PoliceSquad.CollectChildPoints(transform, null);
 
         if (!IsSettingValid())
         {
@@ -86,13 +91,15 @@ public class CS_SecurityDroneSpawner : MonoBehaviour
     private void OnDrawGizmos()
     {
         // 巡回ポイントと、その順番(最後は最初へ戻る)をSceneビューに表示する
-        if (_patrolPoints == null || _patrolPoints.Length == 0) return;
+        // 子オブジェクトを並んでいる順に使う(実際の巡回は、負荷を抑えるため、開始時に作った配列を参照する)
+        Transform[] points = CS_PoliceSquad.CollectChildPoints(transform, null);
+        if (points.Length == 0) return;
 
         Gizmos.color = new Color(1.0f, 0.8f, 0.2f, 0.9f);
-        for (int i = 0; i < _patrolPoints.Length; i++)
+        for (int i = 0; i < points.Length; i++)
         {
-            Transform current = _patrolPoints[i];
-            Transform next = _patrolPoints[(i + 1) % _patrolPoints.Length];
+            Transform current = points[i];
+            Transform next = points[(i + 1) % points.Length];
             if (current == null || next == null) continue;
 
             Gizmos.DrawSphere(current.position, 0.2f);

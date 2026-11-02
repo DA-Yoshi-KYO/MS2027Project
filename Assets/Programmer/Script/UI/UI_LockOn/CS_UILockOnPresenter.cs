@@ -4,6 +4,7 @@
  * 制作者：元浪梨緒
  * ------------------------------------------------
  * 2026-10-21 | 初回作成
+ * 2026-11-02 | カメラの位置が確定した後に位置を計算するようにした(目印が震える対策)
  * ================================================ */
 
 using R3;
@@ -18,6 +19,7 @@ public enum CSE_LockOnOffscreenMode
 /// <summary>
 /// ローカルPlayer番号にBindされたModelを取得し、
 /// 対象のワールド座標をUICanvas上の座標へ変換するPresenter。
+/// 位置の計算はカメラの位置が確定した後に行う(CS_UIAfterCameraUpdate。先に計算すると画面揺れなどで目印が震える)
 /// </summary>
 [RequireComponent(typeof(CS_UILockOnView))]
 public class CS_UILockOnPresenter : CS_BasePresenter
@@ -41,12 +43,14 @@ public class CS_UILockOnPresenter : CS_BasePresenter
     private CS_UILockOnView _view;
     private CS_UILockOnModel _model;
     private DisposableBag _disposables;
+    private CS_UIAfterCameraUpdate _afterCameraUpdate;
 
     private void Awake()
     {
         _view = GetComponent<CS_UILockOnView>();
         _view.SetPresenter(this);
         _view.SetVisible(false, false);
+        _afterCameraUpdate = new CS_UIAfterCameraUpdate(GetTargetCamera, UpdateLockOn);
 
         if (_canvas == null)
             _canvas = GetComponentInParent<Canvas>();
@@ -59,6 +63,7 @@ public class CS_UILockOnPresenter : CS_BasePresenter
     {
         CS_UILockOnModel.OnBound += HandleModelBound;
         CS_UILockOnModel.OnUnbound += HandleModelUnbound;
+        _afterCameraUpdate.Enable();
         TryBindLocalModel();
     }
 
@@ -66,11 +71,28 @@ public class CS_UILockOnPresenter : CS_BasePresenter
     {
         CS_UILockOnModel.OnBound -= HandleModelBound;
         CS_UILockOnModel.OnUnbound -= HandleModelUnbound;
+        _afterCameraUpdate.Disable();
         UnbindModel();
         _view?.SetVisible(false, false);
     }
 
     private void LateUpdate()
+    {
+        // Brainが動いていないシーンでは、ここで計算する
+        _afterCameraUpdate.LateUpdateFallback();
+    }
+
+    // 目印を出すカメラ(空ならCamera.main)
+    private Camera GetTargetCamera()
+    {
+        if (_targetCamera == null)
+            _targetCamera = Camera.main;
+
+        return _targetCamera;
+    }
+
+    // 対象の位置をUICanvas上の座標へ変換して、Viewに渡す
+    private void UpdateLockOn()
     {
         if (_model == null)
         {
@@ -89,16 +111,15 @@ public class CS_UILockOnPresenter : CS_BasePresenter
             return;
         }
 
-        if (_targetCamera == null)
-            _targetCamera = Camera.main;
+        Camera targetCamera = GetTargetCamera();
 
-        if (_targetCamera == null || _canvasRect == null)
+        if (targetCamera == null || _canvasRect == null)
         {
             _view.SetVisible(false, false);
             return;
         }
 
-        Vector3 screenPosition = _targetCamera.WorldToScreenPoint(
+        Vector3 screenPosition = targetCamera.WorldToScreenPoint(
             target.position + _worldOffset
         );
 

@@ -29,6 +29,8 @@ using UnityEngine;
  *   3. 攻撃: 着いてから_strikeDelay秒後に、その悪人1体だけへ奇襲を当てる(範囲の当たり判定は使わないので空振りしない)
  *   4. _strikeDuration秒で奇襲が終わり、動けるようになる。この後に攻撃ボタンを押すと、通常攻撃の1段目から始まる
  * ・奇襲になった時は、その悪人の残りHP以上のダメージを与えて一撃で倒す(仕様「戦闘をすぐに終わらせる」)
+ * ・奇襲を食らった悪人(巻き込んだ悪人も)は、プレイヤーの方を一瞬で向き、背中側へ大きく吹き飛ぶ(CS_VillainKnockback.BlowAway。Issue #379)
+ *   吹き飛ぶ距離・時間は悪人のプレハブ(CS_VillainKnockbackのBlow Away)で変える
  * ・巻き込み(Issue #337。データ表「奇襲攻撃時の巻き込み範囲」5m): 奇襲で倒した悪人の位置から半径_splashRadius以内にいる悪人も、
  *   残りHPに関係なく一撃で倒す(仕様「敵の体力を問わず一定範囲にいる敵を一撃で倒す」)
  *   巻き込むのは悪人だけ(他のプレイヤー・警察・防犯装置は巻き込まない)。壁越しでも巻き込む
@@ -420,14 +422,15 @@ public class CS_PlayerAmbush : NetworkBehaviour
 
         Vector3 center = villain.transform.position;
         DealDamage(villain, villain.currentHp);
-        CS_AttackHitDetector.TryKnockback(villain, position);
+        BlowAway(villain, position);
         NotifyAmbush(villain);
 
-        DefeatVillainsAround(center, villain);
+        DefeatVillainsAround(center, villain, position);
     }
 
     // centerから半径_splashRadius以内にいる悪人(exclude以外)を、残りHP分のダメージで倒す(サーバー、またはオフラインで実行される)
-    private void DefeatVillainsAround(Vector3 center, CS_VillainHealth exclude)
+    // 巻き込んだ悪人も、奇襲したプレイヤーの位置(attackerPosition)から吹き飛ばす
+    private void DefeatVillainsAround(Vector3 center, CS_VillainHealth exclude, Vector3 attackerPosition)
     {
         if (_splashRadius <= 0f) return;
 
@@ -440,9 +443,16 @@ public class CS_PlayerAmbush : NetworkBehaviour
             if (!_splashIncludesRaidBoss && villain.TryGetComponent(out CS_VillainRaidBoss _)) continue;
 
             DealDamage(villain, villain.currentHp);
-            CS_AttackHitDetector.TryKnockback(villain, center);
+            BlowAway(villain, attackerPosition);
             onAmbushSplash?.Invoke(villain);
         }
+    }
+
+    // 奇襲を食らった悪人を、プレイヤーの方へ一瞬で向かせて背中側へ大きく吹き飛ばす(サーバー、またはオフラインで実行される)
+    // 吹き飛ぶ距離・時間は悪人側(CS_VillainKnockbackのBlow Away)で決める。倒した後に呼ぶ(倒れた悪人も吹き飛ぶ)
+    private static void BlowAway(CS_VillainHealth villain, Vector3 attackerPosition)
+    {
+        if (villain.TryGetComponent(out CS_VillainKnockback knockback)) knockback.BlowAway(attackerPosition);
     }
 
     // ダメージを与える。スコア(CS_PlayerScoring)があればそれを通し、誰が倒したかをスコアに反映する

@@ -6,6 +6,7 @@
  * 2026-09-24 | 初回作成
  * 2026-11-02 | 巡回ルートの表示を、子オブジェクトからも描けるようにした(実際の巡回は配列のまま)
  * 2026-11-02 | 巡回ポイントの配列をシリアライズせず、開始時に子オブジェクトから作るようにした
+ * 2026-11-02 | 巡回ルートの表示を、オン/オフの設定ではなく、選択している時だけ表示するようにした
  * ================================================ */
 
 using System;
@@ -75,11 +76,7 @@ public class CS_PoliceSquad : MonoBehaviour, IPoliceGroup
     [Tooltip("隊列の間隔(前の警察との距離。後ろの警察は先頭の通った道筋を一列でたどる)")]
     private float _formationSpacing = 1.5f;
 
-    [Header("＝＝＝ 巡回ルートの表示(エディタのみ) ＝＝＝")]
-    [SerializeField]
-    [Tooltip("オンにすると、巡回ルートをSceneビューに表示する")]
-    private bool _showRoute = false;
-
+    [Header("＝＝＝ 巡回ルートの表示(エディタのみ。グループを選択している時だけ表示する) ＝＝＝")]
     [SerializeField]
     [Tooltip("巡回ルートの線の色(始点のポイント→最後のポイント→始点に戻る、の順に変化する)")]
     private Gradient _routeGradient = CreateDefaultRouteGradient();
@@ -94,7 +91,6 @@ public class CS_PoliceSquad : MonoBehaviour, IPoliceGroup
     private float _shareDuration = 0.5f;
 
     // 巡回ルートの表示用(CSED_PoliceSquadGizmoが参照する)
-    public bool showRoute => _showRoute;
     public Gradient routeGradient => _routeGradient;
     public float routeLineThickness => _routeLineThickness;
 

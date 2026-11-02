@@ -5,6 +5,7 @@
  * ------------------------------------------------
  * 2026-09-24 | 初回作成
  * 2026-11-02 | 子オブジェクトの巡回ポイントも表示するようにした
+ * 2026-11-02 | オン/オフの設定ではなく、グループかその子オブジェクトを選択している時だけ表示するようにした
  * ================================================ */
 
 using System.Collections.Generic;
@@ -28,14 +29,14 @@ public static class CSED_PoliceSquadGizmo
     private const float _labelHeight = 0.5f;
 
     /// <summary>
-    /// 巡回ルートを描画するメソッド(グループの「巡回ルートを表示」がオンなら、選択していなくても表示する)
+    /// 巡回ルートを描画するメソッド(グループか、その子オブジェクト(巡回ポイント)を選択している時だけ表示する)
     /// </summary>
     /// <param name="squad">描画するグループ</param>
     /// <param name="gizmoType">描画の種類(Unityから渡される)</param>
     [DrawGizmo(GizmoType.Selected | GizmoType.NonSelected)]
     private static void DrawPatrolRoute(CS_PoliceSquad squad, GizmoType gizmoType)
     {
-        if (!squad.showRoute) return;
+        if (!IsSelectedOrChildSelected(squad.transform)) return;
 
         // 未設定(None)の巡回ポイントは飛ばす
         List<Transform> points = squad.GetRouteDrawPoints();
@@ -65,6 +66,21 @@ public static class CSED_PoliceSquadGizmo
             DrawGradientLine(squad, start, end, startRate, endRate);
             DrawPatrolPointMarker(squad, start, validIndices[i], startRate);
         }
+    }
+
+    /// <summary>
+    /// 対象か、その子孫のオブジェクトが選択されているかを判定するメソッド(巡回ドローンのルート表示も使う)
+    /// 子オブジェクトだけを選んでいる時(巡回ポイントを動かす時など)も、親のルートを表示するのに使う
+    /// </summary>
+    /// <param name="root">対象(巡回ポイントの親)</param>
+    /// <returns>対象か、その子孫が選択されていればtrue</returns>
+    public static bool IsSelectedOrChildSelected(Transform root)
+    {
+        foreach (Transform selected in Selection.GetTransforms(SelectionMode.Unfiltered))
+        {
+            if (selected == root || selected.IsChildOf(root)) return true;
+        }
+        return false;
     }
 
     /// <summary>

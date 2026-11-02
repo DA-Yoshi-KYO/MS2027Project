@@ -53,9 +53,12 @@ public class CS_PlayerScanMarkerUI : MonoBehaviour
         if (_markerModel == null) BindMarkerUI();
 
         _targets.Clear();
-        foreach (CS_VillainHealth villain in _scan.revealedVillains)
+        foreach (CS_PlayerScan.RevealedVillainGroup group in _scan.revealedVillainGroups)
         {
-            if (villain != null) _targets.Add(villain.transform);
+            foreach (CS_VillainHealth villain in group.members)
+            {
+                if (villain != null) _targets.Add(villain.transform);
+            }
         }
         _markerModel.SetTargets(_targets);
     }

@@ -4,6 +4,7 @@
  * 制作者：宇留野陸斗
  * ------------------------------------------------
  * 2026-09-24 | 初回作成
+ * 2026-11-02 | 子オブジェクトの巡回ポイントも表示するようにした
  * ================================================ */
 
 using System.Collections.Generic;
@@ -13,6 +14,7 @@ using UnityEngine;
 /// <summary>
 /// CS_PoliceSquadの巡回ルートを、Sceneビューに表示するエディタ専用クラス
 /// 巡回ポイントを進む順に線で結び、始点→最後のポイント→始点に戻る、の順に色が変わるグラデーションにする
+/// 巡回ポイントは、グループの子オブジェクトがあれば子オブジェクト(並んでいる順)、無ければ巡回ルートの配列を使う
 /// </summary>
 public static class CSED_PoliceSquadGizmo
 {
@@ -36,10 +38,11 @@ public static class CSED_PoliceSquadGizmo
         if (!squad.showRoute) return;
 
         // 未設定(None)の巡回ポイントは飛ばす
+        List<Transform> points = squad.GetRouteDrawPoints();
         List<int> validIndices = new List<int>();
-        for (int i = 0; i < squad.patrolPoints.Count; i++)
+        for (int i = 0; i < points.Count; i++)
         {
-            if (squad.patrolPoints[i] != null) validIndices.Add(i);
+            if (points[i] != null) validIndices.Add(i);
         }
         if (validIndices.Count == 0) return;
 
@@ -47,14 +50,14 @@ public static class CSED_PoliceSquadGizmo
         float totalLength = 0.0f;
         for (int i = 0; i < validIndices.Count; i++)
         {
-            totalLength += Vector3.Distance(GetPatrolPosition(squad, validIndices, i), GetPatrolPosition(squad, validIndices, i + 1));
+            totalLength += Vector3.Distance(GetPatrolPosition(points, validIndices, i), GetPatrolPosition(points, validIndices, i + 1));
         }
 
         float traveledLength = 0.0f;
         for (int i = 0; i < validIndices.Count; i++)
         {
-            Vector3 start = GetPatrolPosition(squad, validIndices, i);
-            Vector3 end = GetPatrolPosition(squad, validIndices, i + 1);
+            Vector3 start = GetPatrolPosition(points, validIndices, i);
+            Vector3 end = GetPatrolPosition(points, validIndices, i + 1);
             float startRate = totalLength > 0.0f ? traveledLength / totalLength : 0.0f;
             traveledLength += Vector3.Distance(start, end);
             float endRate = totalLength > 0.0f ? traveledLength / totalLength : 0.0f;
@@ -67,13 +70,13 @@ public static class CSED_PoliceSquadGizmo
     /// <summary>
     /// 有効な巡回ポイントの位置を取得するメソッド(最後の次は最初に戻る)
     /// </summary>
-    /// <param name="squad">グループ</param>
+    /// <param name="points">巡回ポイント</param>
     /// <param name="validIndices">有効な巡回ポイントの番号</param>
     /// <param name="order">何番目の有効なポイントか</param>
     /// <returns>巡回ポイントの位置</returns>
-    private static Vector3 GetPatrolPosition(CS_PoliceSquad squad, List<int> validIndices, int order)
+    private static Vector3 GetPatrolPosition(List<Transform> points, List<int> validIndices, int order)
     {
-        return squad.patrolPoints[validIndices[order % validIndices.Count]].position;
+        return points[validIndices[order % validIndices.Count]].position;
     }
 
     /// <summary>

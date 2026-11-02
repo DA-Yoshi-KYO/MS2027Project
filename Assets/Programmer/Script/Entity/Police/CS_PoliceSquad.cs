@@ -4,6 +4,8 @@
  * 制作者：宇留野陸斗
  * ------------------------------------------------
  * 2026-09-24 | 初回作成
+ * 2026-11-02 | 巡回ルートの表示を、子オブジェクトからも描けるようにした(実際の巡回は配列のまま)
+ * 2026-11-02 | 巡回ポイントの配列をシリアライズせず、開始時に子オブジェクトから作るようにした
  * ================================================ */
 
 using System;
@@ -61,8 +63,8 @@ public class CS_PoliceSquad : MonoBehaviour, IPoliceGroup
     private CSO_PlayerStats _playerBaseStats = null;
 
     [Header("＝＝＝ 巡回 ＝＝＝")]
-    [SerializeField]
-    [Tooltip("巡回ルート(順番に回り、最後まで行ったら最初に戻る)")]
+    // 巡回ルート(順番に回り、最後まで行ったら最初に戻る)。シリアライズせず、開始時にこのグループの子オブジェクト(出現位置は除く)から作る
+    // 子オブジェクトの並んでいる順(Hierarchyの上から)が、巡回する順番になる
     private Transform[] _patrolPoints = new Transform[0];
 
     [SerializeField, Min(0f)]
@@ -92,10 +94,36 @@ public class CS_PoliceSquad : MonoBehaviour, IPoliceGroup
     private float _shareDuration = 0.5f;
 
     // 巡回ルートの表示用(CSED_PoliceSquadGizmoが参照する)
-    public IReadOnlyList<Transform> patrolPoints => _patrolPoints;
     public bool showRoute => _showRoute;
     public Gradient routeGradient => _routeGradient;
     public float routeLineThickness => _routeLineThickness;
+
+    /// <summary>
+    /// 巡回ルートの表示用の点を集めるメソッド(エディタのGizmo専用。毎回リストを作るので、ゲーム中の処理では使わない)
+    /// 子オブジェクト(出現位置は除く)を、並んでいる順に返す
+    /// </summary>
+    /// <returns>表示する点</returns>
+    public List<Transform> GetRouteDrawPoints()
+    {
+        return new List<Transform>(CollectChildPoints(transform, _spawnPoint));
+    }
+
+    /// <summary>
+    /// 子オブジェクトを、並んでいる順に集めて、巡回ポイントの配列にするメソッド(巡回ドローンの出現クラスも使う)
+    /// 実際の巡回は、処理の負荷を抑えるため、開始時にこのメソッドで作った配列を参照する
+    /// </summary>
+    /// <param name="parent">子オブジェクトを探す親</param>
+    /// <param name="exclude">子オブジェクトから除くもの(出現位置など。無ければnull)</param>
+    /// <returns>巡回ポイントの配列(子オブジェクトが無ければ空)</returns>
+    public static Transform[] CollectChildPoints(Transform parent, Transform exclude)
+    {
+        List<Transform> points = new List<Transform>();
+        foreach (Transform child in parent)
+        {
+            if (child != exclude) points.Add(child);
+        }
+        return points.ToArray();
+    }
 
     /// <summary>
     /// ネットワーク接続中のクライアント(サーバーではない)かを判定するメソッド
@@ -111,6 +139,9 @@ public class CS_PoliceSquad : MonoBehaviour, IPoliceGroup
     private void Start()
     {
         if (IsNetworkClientOnly()) return;
+
+        // 巡回ポイントは、子オブジェクトから作る(シーンに配列を登録しなくてよい)
+        _patrolPoints = CollectChildPoints(transform, _spawnPoint);
 
         if (!IsSettingValid())
         {

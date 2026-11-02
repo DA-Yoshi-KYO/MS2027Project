@@ -31,7 +31,8 @@ using UnityEngine;
  * ・奇襲になった時は、その悪人の残りHP以上のダメージを与えて一撃で倒す(仕様「戦闘をすぐに終わらせる」)
  * ・奇襲を食らった悪人(巻き込んだ悪人も)は、プレイヤーの方を一瞬で向き、背中側へ大きく吹き飛ぶ(CS_VillainKnockback.BlowAway。Issue #379)
  *   吹き飛ぶ距離・時間は悪人のプレハブ(CS_VillainKnockbackのBlow Away)で変える
- * ・巻き込み(Issue #337。データ表「奇襲攻撃時の巻き込み範囲」5m): 奇襲で倒した悪人の位置から半径_splashRadius以内にいる悪人も、
+ * ・巻き込み(Issue #337): 奇襲で倒した悪人の位置から半径_splashRadius以内にいる悪人も、
+ *   密着している悪人だけを巻き込むよう、既定は0.7m(悪人のカプセルの半径0.5mと合わせ、中心どうしが約1.2m以内なら巻き込む。データ表は5m)
  *   残りHPに関係なく一撃で倒す(仕様「敵の体力を問わず一定範囲にいる敵を一撃で倒す」)
  *   巻き込むのは悪人だけ(他のプレイヤー・警察・防犯装置は巻き込まない)。壁越しでも巻き込む
  *   レイドボスは_splashIncludesRaidBossがオフ(既定)なら巻き込まない(一撃で倒せてしまうため。狙った1体がボスの場合は今まで通り倒す)
@@ -91,7 +92,7 @@ public class CS_PlayerAmbush : NetworkBehaviour
     [SerializeField][Min(0f)] private float _pressGraceTime = 0.3f;       // 押した瞬間に奇襲できなくても、この秒数以内にロックオン表示していた悪人なら奇襲する
 
     [Header("巻き込み")]
-    [SerializeField][Min(0f)] private float _splashRadius = 5f;           // 奇襲で倒した悪人から、この半径以内の悪人も一撃で倒す(m。0で巻き込まない)
+    [SerializeField][Min(0f)] private float _splashRadius = 0.7f;         // 奇襲で倒した悪人から、この半径以内の悪人も一撃で倒す(m。0で巻き込まない。密着している悪人だけ)
     [SerializeField] private bool _splashIncludesRaidBoss = false;        // レイドボスも巻き込むか
 
     private enum Phase

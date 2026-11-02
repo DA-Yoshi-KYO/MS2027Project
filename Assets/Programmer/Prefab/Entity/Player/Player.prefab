@@ -783,6 +783,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::CS_PlayerScan
   _baseRadius: 30
+  _height: 15
   _expandTime: 1
   _fadeTime: 0.3
   _revealDuration: 10
@@ -856,7 +857,7 @@ MonoBehaviour:
     serializedVersion: 2
     m_Bits: 2147483648
   _pressGraceTime: 0.3
-  _splashRadius: 0.7
+  _splashRadius: 1.5
   _splashIncludesRaidBoss: 0
 --- !u!114 &4718293045561290871
 MonoBehaviour:

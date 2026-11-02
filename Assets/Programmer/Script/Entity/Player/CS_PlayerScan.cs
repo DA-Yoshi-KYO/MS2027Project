@@ -14,6 +14,7 @@ using UnityEngine;
  * メモ
  * ・仕様は仕様書「スキャン」(Issue #294)。Apexのブラッドハウンドのスキャンのようなもの
  * ・ボタンを押すと、押した位置から円状の波が_expandTime秒(既定1秒)かけて半径radiusまで広がる
+ *   範囲は円柱型: 横方向の距離が波の半径以内、かつ高さの差が上下それぞれ_height以内(既定15m)の悪人に届く
  *   波が届いた悪人を、_revealDuration秒(既定10秒、仕様の仮の値)のあいだ「見えている」状態にする(建物は関係なく届く)
  *   波が広がりきった後、_fadeTime秒(既定0.3秒)で波が消えるまでは、もう一度使えない(仕様「エフェクトがなくなるまでは再使用できない」)
  * ・モーションは無く、移動しながら使える(移動・攻撃を止めない)
@@ -30,6 +31,7 @@ public class CS_PlayerScan : MonoBehaviour
 {
     [Header("範囲")]
     [SerializeField][Min(0f)] private float _baseRadius = 30f;      // 基本の範囲(m)
+    [SerializeField][Min(0f)] private float _height = 15f;          // 範囲の高さ(使った位置から上下それぞれ、m)
 
     [Header("時間")]
     [SerializeField][Min(0.01f)] private float _expandTime = 1f;    // 波が範囲いっぱいまで広がる時間(秒)
@@ -127,7 +129,7 @@ public class CS_PlayerScan : MonoBehaviour
         onScanFinished?.Invoke();
     }
 
-    // 波の中にいる悪人を見えるようにする(すでに見えている悪人は、見える時間を延ばさない)
+    // 波の中(円柱型)にいる悪人を見えるようにする(すでに見えている悪人は、見える時間を延ばさない)
     private void RevealVillainsWithin(float waveRadius)
     {
         float sqrRadius = waveRadius * waveRadius;
@@ -135,7 +137,11 @@ public class CS_PlayerScan : MonoBehaviour
         {
             if (!IsAlive(villain)) continue;
             if (_revealEndTimes.ContainsKey(villain)) continue;
-            if ((villain.transform.position - _scanOrigin).sqrMagnitude > sqrRadius) continue;
+
+            Vector3 offset = villain.transform.position - _scanOrigin;
+            if (Mathf.Abs(offset.y) > _height) continue;
+            offset.y = 0f;
+            if (offset.sqrMagnitude > sqrRadius) continue;
 
             _revealEndTimes.Add(villain, Time.time + _revealDuration);
         }

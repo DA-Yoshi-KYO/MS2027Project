@@ -25,9 +25,9 @@ UI 側（Model / Presenter / View）と UICanvas への配置は PR #373 で実�
 
 | クラス | ファイル | 役割 |
 |---|---|---|
-| `CS_UIAttentionAlertModel` | `UI/MVP(Model)/UI_AttentionAlert/CS_UIAttentionAlertModel.cs` | 警戒中かどうか（`bool`）を持つ。`Bind()` すると Presenter に見つけてもらえる |
-| `CS_UIAttentionAlertPresenter` | `UI/MVP(Presenter)/UI_AttentionAlert/CS_UIAttentionAlertPresenter.cs` | Bind された Model を購読して View に渡す。UICanvas.prefab の `AttentionAlert` に付いている |
-| `CS_UIAttentionAlertView` | `UI/MVP(View)/UI_AttentionAlert/CS_UIAttentionAlertView.cs` | 警戒中だけ `DisplayRoot` を表示し、`AlertBarUp` / `AlertBarDown` の UV を横にスクロールさせる |
+| `CS_UIAttentionAlertModel` | `UI/UI_AttentionAlert/CS_UIAttentionAlertModel.cs` | 警戒中かどうか（`bool`）を持つ。`Bind()` すると Presenter に見つけてもらえる |
+| `CS_UIAttentionAlertPresenter` | `UI/UI_AttentionAlert/CS_UIAttentionAlertPresenter.cs` | Bind された Model を購読して View に渡す。UICanvas.prefab の `AttentionAlert` に付いている |
+| `CS_UIAttentionAlertView` | `UI/UI_AttentionAlert/CS_UIAttentionAlertView.cs` | 警戒中だけ `DisplayRoot` を表示し、`AlertBarUp` / `AlertBarDown` の UV を横にスクロールさせる |
 
 ### Model の API
 
@@ -163,3 +163,31 @@ UICanvas 側（`UICanvas.prefab` の `AttentionAlert`）は PR #373 で設定済
 | 横方向の移動量 | 1 | 1 で 1周 |
 | 下画像の開始位置をずらす | 0 | 0.5 なら上下で半周ずらす |
 | 移動方向 | ON | ON で左から右（仕様どおり）、OFF で右から左 |
+
+---
+
+## 「警戒状態!」「捜索中」の表示（`CS_UIPlayerAlertModel`）
+
+仕様の元：Confluence「UI」②警戒状態。赤帯と同じく、`CS_PlayerAttentionAlertUI` がローカルプレイヤーの時に Model を作って Bind します。
+
+| 状態（`CSE_PlayerAlertState`） | 表示 |
+|---|---|
+| `None` | 表示しない |
+| `Detected`（見つかって追われている） | 「警戒状態!」（View の `_detectedRoot`） |
+| `Searching`（見失われて捜索されている） | 「捜索中」（View の `_searchingRoot`） |
+
+| クラス | ファイル | 役割 |
+|---|---|---|
+| `CS_UIPlayerAlertModel` | `UI/UI_PlayerAlert/` | 状態を持つ。`Bind()` で公開する（1つだけ） |
+| `CS_UIPlayerAlertPresenter` | `UI/UI_PlayerAlert/` | Bind された Model を購読して View に渡す。UICanvas.prefab に付いている |
+| `CS_UIPlayerAlertView` | `UI/UI_PlayerAlert/` | 状態に合わせて表示を切り替える |
+
+```csharp
+var model = new CS_UIPlayerAlertModel();
+model.SetAlertState(alert.alertState);  // Bind前に今の状態を入れておく
+model.Bind();
+alert.onAlertChanged += model.SetAlertState;  // 実際はハンドラ経由で渡している
+// 使い終わったら Dispose()（Unbind もされる）
+```
+
+Unity での確認：見つかった時に「警戒状態!」、見失われた時に「捜索中」が出て、警戒状態が解けたら消えること。

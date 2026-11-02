@@ -37,10 +37,10 @@ UI 側（Model / Presenter / View / Controller）は元浪さん、警察側か�
 | クラス | ファイル | 役割 |
 |---|---|---|
 | `CS_PoliceDetectionController` | `GameController/CS_PoliceDetectionController.cs` | **外から触るのはこれだけ**。Model を内部で1つ持ち、Presenter に渡す。GameControllerManager.prefab に付いている |
-| `CS_UIPoliceDetectionModel` | `UI/MVP(Model)/UI_PoliceDirection/CS_UIPoliceDetectionModel.cs` | 登録された警察を状態ごと保持（`Safe` も保持する） |
-| `CS_PoliceDetectionData` / `CSE_PlayerDetectionState` | `UI/CS_PoliceDetectionData.cs` | 警察1人分のデータと状態 |
-| `CS_UIPoliceDetectionPresenter` | `UI/MVP(Presenter)/UI_PoliceDirection/CS_UIPoliceDetectionPresenter.cs` | `Safe` 以外の警察について毎フレーム角度・距離を計算し、まとめて View へ |
-| `CS_UIPoliceDetectionView` | `UI/MVP(View)/UI_PoliceDirection/CS_UIPoliceDetectionView.cs` | 楕円上へ配置・色・×N・`Spotted` のアニメーション。UICanvas.prefab に付いている |
+| `CS_UIPoliceDetectionModel` | `UI/UI_PoliceDetection/CS_UIPoliceDetectionModel.cs` | 登録された警察を状態ごと保持（`Safe` も保持する） |
+| `CS_PoliceDetectionData` / `CSE_PlayerDetectionState` | `UI/UI_PoliceDetection/CS_PoliceDetectionData.cs` | 警察1人分のデータと状態 |
+| `CS_UIPoliceDetectionPresenter` | `UI/UI_PoliceDetection/CS_UIPoliceDetectionPresenter.cs` | `Safe` 以外の警察について毎フレーム角度・距離を計算し、まとめて View へ |
+| `CS_UIPoliceDetectionView` | `UI/UI_PoliceDetection/CS_UIPoliceDetectionView.cs` | 楕円上へ配置・色・×N・`Spotted` のアニメーション。UICanvas.prefab に付いている |
 
 ※ 他の UI Model（HP・手配度など）と違い、**Model を `new` して `Bind` する形ではありません**。Model は Controller の中にあり、外からは Controller のメソッド経由でしか触れません。
 

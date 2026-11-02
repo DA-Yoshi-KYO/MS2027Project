@@ -38,7 +38,6 @@ UI/Common/     いくつかのUIで共通に使う物(CS_UIWorldToCanvas・CSO_P
 6. 同じ番号（同じ Transform）に別の Model を `Bind` すると、**後から Bind した方で上書き** されます
 
 - 全 Model の基底クラスは `CS_BaseModel`（`IDisposable` を実装しているだけ）
-- 動作サンプル：`Assets/Programmer/Script/UI/CS_TestUI.cs`
 
 ---
 

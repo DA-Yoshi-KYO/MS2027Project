@@ -4,6 +4,7 @@
  * 制作者：宇留野陸斗
  * ------------------------------------------------
  * 2026-10-21 | 初回作成
+ * 2026-11-02 | 攻撃ディレイ時間を追加
  * ================================================ */
 
 using UnityEngine;
@@ -57,6 +58,11 @@ public class CSO_SecurityDroneData : ScriptableObject
     [Tooltip("テーザーの攻撃の溜め時間(秒)。プレイヤーを追いながら溜める")]
     private float _taserChargeTime = 2.0f;
     public float taserChargeTime => _taserChargeTime;
+
+    [SerializeField, Min(0f)]
+    [Tooltip("攻撃ディレイ時間(秒)。テーザーが外れてから、次のテーザーの溜めを始めるまでの待ち時間(データ表「巡回ドローン別データ」。意味は企画に確認中)")]
+    private float _attackDelayTime = 3.0f;
+    public float attackDelayTime => _attackDelayTime;
 
     [SerializeField, Min(0f)]
     [Tooltip("テーザーが当たったプレイヤーが、スタン(動けない状態)になる時間(秒)")]

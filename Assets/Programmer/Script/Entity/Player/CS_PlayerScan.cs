@@ -14,6 +14,7 @@ using UnityEngine;
  * メモ
  * ・仕様は仕様書「スキャン」(Issue #294)。Apexのブラッドハウンドのスキャンのようなもの
  * ・ボタンを押すと、押した位置から円状の波が_expandTime秒(既定1秒)かけて半径radiusまで広がる
+ *   範囲は円柱型: 横方向の距離が波の半径以内、かつ高さの差が上下それぞれ_height以内(既定15m)の相手に届く
  *   波が届いた悪人グループ・警察・巡回ドローンを、_revealDuration秒(既定10秒、仕様の仮の値)のあいだ「見えている」状態にする(建物は関係なく届く)
  * ・悪人はグループ単位で見えるようにする(仕様 10/31更新。UIでグループごとに1アイコンを出すため)
  *   グループの誰か1人に波が届いたら、そのグループ全員が見えるようになる
@@ -35,6 +36,7 @@ public class CS_PlayerScan : MonoBehaviour
 {
     [Header("範囲")]
     [SerializeField][Min(0f)] private float _baseRadius = 30f;      // 基本の範囲(m)
+    [SerializeField][Min(0f)] private float _height = 15f;          // 範囲の高さ(使った位置から上下それぞれ、m)
 
     [Header("時間")]
     [SerializeField][Min(0.01f)] private float _expandTime = 1f;    // 波が範囲いっぱいまで広がる時間(秒)
@@ -145,7 +147,7 @@ public class CS_PlayerScan : MonoBehaviour
         onScanFinished?.Invoke();
     }
 
-    // 波の中にいる悪人グループ・警察・巡回ドローンを見えるようにする(すでに見えている相手は、見える時間を延ばさない)
+    // 波の中(円柱型)にいる悪人グループ・警察・巡回ドローンを見えるようにする(すでに見えている相手は、見える時間を延ばさない)
     private void RevealWithin(float waveRadius)
     {
         float sqrRadius = waveRadius * waveRadius;
@@ -179,9 +181,14 @@ public class CS_PlayerScan : MonoBehaviour
         }
     }
 
+    // 波の中(円柱型)にいるか: 高さの差が上下それぞれ_height以内で、横方向の距離が波の半径以内
     private bool IsWithin(Transform target, float sqrRadius)
     {
-        return (target.position - _scanOrigin).sqrMagnitude <= sqrRadius;
+        Vector3 offset = target.position - _scanOrigin;
+        if (Mathf.Abs(offset.y) > _height) return false;
+
+        offset.y = 0f;
+        return offset.sqrMagnitude <= sqrRadius;
     }
 
     // 見える時間が過ぎた・倒された・消えた相手を外す

@@ -4,6 +4,7 @@
  * 制作者：吉田京志郎
  * ------------------------------------------------
  * 2026-10-28 | 初回作成(CS_PlayerScanEffectの仮の目印をMVPに分けた)
+ * 2026-11-02 | 相手ごとの種類・位置・距離・犯罪完遂度を持つようにした
  * ================================================ */
 
 using System;
@@ -11,11 +12,12 @@ using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
-/// スキャンの目印(スキャンで見えている悪人の頭上に出す印)の Model。
+/// スキャンの目印(スキャンで見えている悪人グループ・警察・巡回ドローンの頭上に出す印)の Model。
 ///
-/// ・目印を出す相手(悪人の Transform)の一覧を保持する
-///   → SetTargets を呼ぶだけで目印の数・位置が変わる(空なら目印なし)
-///   相手が動くので、Presenter が毎フレーム一覧を読んで位置を追う
+/// ・目印1つ分の表示内容(CS_UIScanMarkerData: 種類・位置・距離・犯罪完遂度)の一覧を保持する
+///   → SetTargets を呼ぶだけで目印の数・位置・表示が変わる(空なら目印なし)
+///   相手が動くので、使う側が毎フレーム一覧を渡し、Presenter が毎フレーム読んで表示する
+/// ・悪人はグループごとに1つ(位置はメンバーの中心)。使う側でまとめてから渡す
 /// ・目印は自分の画面にだけ出すので、アイテムスロットと同じく Bind() で公開する(番号なし)
 /// ・Bind / Unbind のイベントを発火して Presenter に通知する
 ///
@@ -61,12 +63,12 @@ public sealed class CS_UIScanMarkerModel : CS_BaseModel
 
     // ---------------- 状態 ----------------
 
-    private readonly List<Transform> _targets = new List<Transform>();
+    private readonly List<CS_UIScanMarkerData> _targets = new List<CS_UIScanMarkerData>();
 
     /// <summary>
-    /// 目印を出す相手の一覧
+    /// 目印の表示内容の一覧
     /// </summary>
-    public IReadOnlyList<Transform> targets => _targets;
+    public IReadOnlyList<CS_UIScanMarkerData> targets => _targets;
 
     // ---------------- 公開 ----------------
 
@@ -94,17 +96,14 @@ public sealed class CS_UIScanMarkerModel : CS_BaseModel
     // ---------------- 値の変更 ----------------
 
     /// <summary>
-    /// 目印を出す相手の一覧を入れ替える(null・破棄済みのものは入れない)
+    /// 目印の表示内容の一覧を入れ替える
     /// </summary>
-    public void SetTargets(IEnumerable<Transform> targetTransforms)
+    public void SetTargets(IEnumerable<CS_UIScanMarkerData> targets)
     {
         _targets.Clear();
-        if (targetTransforms == null) return;
+        if (targets == null) return;
 
-        foreach (Transform target in targetTransforms)
-        {
-            if (target != null) _targets.Add(target);
-        }
+        _targets.AddRange(targets);
     }
 
     /// <summary>

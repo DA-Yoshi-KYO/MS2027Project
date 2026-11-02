@@ -33,17 +33,57 @@
 
 ## 2. スキャンの目印(`CS_UIScanMarkerModel`)
 
-スキャンで見えている悪人の頭上に、目印を出します。画面に直接重ねるので、建物の向こうにいても見えます。
+スキャンで見えている悪人グループ・警察・巡回ドローンの頭上に、目印を出します(Issue #403・#404)。画面に直接重ねるので、建物の向こうにいても見えます。
+仕様の元：Confluence「UI」スキャンUI、「プレイヤー」スキャン。
 
 | 役割 | クラス | 場所 |
 |---|---|---|
 | Model | `CS_UIScanMarkerModel` | `UI/UI_ScanMarker/` |
+| 表示内容1つ分 | `CS_UIScanMarkerData`(種類・位置・距離・犯罪完遂度) / `CSE_UIScanTargetType` | `UI/UI_ScanMarker/` |
 | Presenter | `CS_UIScanMarkerPresenter` | `UICanvas.prefab` の `ScanMarker` |
 | View | `CS_UIScanMarkerView` | `UICanvas.prefab` の `ScanMarker`(複製元は子の `MarkerTemplate`) |
+| 目印1つ分のView | `CS_UIScanMarkerItemView` | 複製した目印に付く(`MarkerTemplate` に付いていなければ実行時に付ける) |
 | Modelに値を渡す | `CS_PlayerScanMarkerUI` | `Player.prefab` |
 
-- `CS_PlayerScanMarkerUI` は、毎フレーム `CS_PlayerScan.revealedVillains` の一覧を `SetTargets` に渡します。
-- View は、`MarkerTemplate`(非表示)を必要な数だけ複製して使い回します。見た目を変えたいときは `MarkerTemplate` を差し替えてください(今は赤い菱形)。
+### 表示ルール
+
+| 種類 | 目印の数 | 出す情報 |
+|---|---|---|
+| 悪人 | **グループごとに1つ**(位置は生きているメンバーの中心) | 種類(アイコンの色)・距離・犯罪完遂度(下から溜まる赤い板) |
+| 警察 | 1人ずつ | 種類・距離 |
+| 巡回ドローン | 1機ずつ | 種類・距離 |
+
+- 距離は自分のプレイヤーから相手までで、`12m` のように整数で出します。
+- グループの誰か1人に波が届くと、グループ全員が見えるようになります(`CS_PlayerScan`)。
+
+### 流れ
+
+```
+サーバー: CS_VillainGroup ──groupId・完遂度──▶ CS_VillainCrime(NetworkVariable)
+自分のクライアント: CS_PlayerScan(見えている相手を種類ごとに持つ)
+  └─ CS_PlayerScanMarkerUI ──SetTargets(CS_UIScanMarkerDataの一覧)──▶ Model ──▶ Presenter(座標変換) ──▶ View ──▶ ItemView
+```
+
+- `CS_PlayerScan` で見えている相手は、`revealedVillainGroups`(グループ番号・メンバー・中心・完遂度)、`revealedPolice`、`revealedDrones` で取れます。
+- 悪人グループと犯罪の進行度はサーバーにしか無いので、グループが `CS_VillainCrime` の `groupId` / `crimeProgress`(NetworkVariable)へ書き込んでいます。完遂度は1%以上変わった時と、完遂した時だけ送ります。
+- グループに属さない悪人(シーンに直接置いたもの)は、1人で1グループとして出します(完遂度は0)。
+
+### 見た目を変える
+
+画像は仕様書(Confluence「UI」スキャンUI)の物で、`Assets/Programmer/PlaceholderAsset/UI/Scan/` に置いています。`ScanMarker` の View(`CS_UIScanMarkerView`)の Inspector に設定済みです。
+
+| 種類 | 画像 | 出し方 |
+|---|---|---|
+| 悪人グループ | `Icon_Villain_BackGroundEmpty`(灰色の三角) | 背景 |
+| | `Icon_Villain_BackGroundFull`(赤い三角) | 背景に重ね、完遂度の分だけ下から溜まる(Image の Filled・縦・下から) |
+| | `Icon_Villain`(白いマーク) | 一番上に重ねる |
+| 警察 | `Icon_Police` | 1枚 |
+| 巡回ドローン | `Icon_Drone` | 1枚 |
+
+- 目印の大きさは `MarkerTemplate` の大きさ(今は 60×52)で決まります。画像は縦横比を保って収まります。
+- 赤い三角・悪人のマーク・距離の文字は、`MarkerTemplate` に何も設定していなければ実行時に作ります(プレハブを触らなくても表示されます)。
+  悪人のマークの位置・大きさ、距離の文字の大きさ・位置は、`CS_UIScanMarkerItemView` の「実行時に作る時の設定」で変えられます。
+  自分で作った物を使いたい時は、`MarkerTemplate` に `CS_UIScanMarkerItemView` を付けて、各 Image・TextMeshPro を設定してください。
 - 目印を出す高さは Presenter の `_worldOffset` で変えます(既定は足元の2.2m上)。
 - 波の輪はUIではなくワールドに出すエフェクトなので、今まで通り `CS_PlayerScanEffect` が出します。
 

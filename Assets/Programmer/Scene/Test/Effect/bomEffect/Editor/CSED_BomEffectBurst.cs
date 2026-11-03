@@ -42,7 +42,7 @@ public static class CSED_BomEffectBurst
         {
             var mat = AssetDatabase.LoadAssetAtPath<Material>(FireMats[i]);
             if (mat == null) continue;
-            var ps = NewSystem(root, "Fire_" + i, new Vector3(0, Size * 0.01f, 0));
+            var ps = NewSystem(root, "Fire_" + i, new Vector3(0, Size * FireSize * 0.25f, 0)); // もこもこの下端が地面に来る高さ
             var main = ps.main;
             main.startSize = new ParticleSystem.MinMaxCurve(Size * FireSize * 0.75f, Size * FireSize);
             main.startRotation = new ParticleSystem.MinMaxCurve(-0.4f, 0.4f);
@@ -53,9 +53,9 @@ public static class CSED_BomEffectBurst
             emission.SetBursts(new[] { new ParticleSystem.Burst(0, (short)FireCount), new ParticleSystem.Burst(0.04f + 0.02f * i, (short)(FireCount * 0.5f)) });
             var shape = ps.shape; shape.enabled = true;
             shape.shapeType = ParticleSystemShapeType.Cone; shape.angle = 38; shape.radius = Size * 0.04f; shape.rotation = new Vector3(-90, 0, 0); // 地面から上へ立ち上がる
-            var limit = ps.limitVelocityOverLifetime; limit.enabled = true; limit.limit = 0; limit.dampen = 0.22f;
+            var limit = ps.limitVelocityOverLifetime; limit.enabled = true; limit.limit = 0; limit.dampen = 0.4f; // 一気に飛び出してすぐ止まる
             var sizeOver = ps.sizeOverLifetime; sizeOver.enabled = true;
-            sizeOver.size = new ParticleSystem.MinMaxCurve(1, new AnimationCurve(new Keyframe(0, 0.25f), new Keyframe(0.15f, 0.9f), new Keyframe(1, 1.3f)));
+            sizeOver.size = new ParticleSystem.MinMaxCurve(1, new AnimationCurve(new Keyframe(0, 0.5f), new Keyframe(0.04f, 1.0f), new Keyframe(1, 1.3f))); // 一瞬で膨らむ
             var rot = ps.rotationOverLifetime; rot.enabled = true; rot.z = new ParticleSystem.MinMaxCurve(-0.15f, 0.15f);
             { var col = ps.colorOverLifetime; col.enabled = true; var g = new Gradient();
               g.SetKeys(FireColors(),
@@ -70,7 +70,7 @@ public static class CSED_BomEffectBurst
         // ---- 足元: 地面沿いに全方向へ広がる炎(どの向きから見ても足元にかかる)
         {
             var mat = AssetDatabase.LoadAssetAtPath<Material>(FireMats[1]);
-            var ps = NewSystem(root, "GroundFire", new Vector3(0, Size * 0.01f, 0));
+            var ps = NewSystem(root, "GroundFire", new Vector3(0, Size * FireSize * 0.18f, 0));
             var main = ps.main;
             main.startSize = new ParticleSystem.MinMaxCurve(Size * FireSize * 0.5f, Size * FireSize * 0.7f);
             main.startRotation = new ParticleSystem.MinMaxCurve(-0.3f, 0.3f);
@@ -82,9 +82,9 @@ public static class CSED_BomEffectBurst
             var shape = ps.shape; shape.enabled = true;
             shape.shapeType = ParticleSystemShapeType.Cone; shape.angle = 82; shape.radius = Size * 0.03f; shape.rotation = new Vector3(-90, 0, 0);
             shape.arcMode = ParticleSystemShapeMultiModeValue.BurstSpread; // 全方向に均等に出す(ムラ防止)
-            var limit = ps.limitVelocityOverLifetime; limit.enabled = true; limit.limit = 0; limit.dampen = 0.25f;
+            var limit = ps.limitVelocityOverLifetime; limit.enabled = true; limit.limit = 0; limit.dampen = 0.4f;
             var sizeOver = ps.sizeOverLifetime; sizeOver.enabled = true;
-            sizeOver.size = new ParticleSystem.MinMaxCurve(1, new AnimationCurve(new Keyframe(0, 0.3f), new Keyframe(0.15f, 0.9f), new Keyframe(1, 1.3f)));
+            sizeOver.size = new ParticleSystem.MinMaxCurve(1, new AnimationCurve(new Keyframe(0, 0.5f), new Keyframe(0.05f, 1.0f), new Keyframe(1, 1.3f)));
             var col = ps.colorOverLifetime; col.enabled = true; var g = new Gradient();
             g.SetKeys(FireColors(), new[] { new GradientAlphaKey(0, 0), new GradientAlphaKey(FireAlpha * 2.2f, 0.03f), new GradientAlphaKey(FireAlpha, 0.25f), new GradientAlphaKey(FireAlpha * 0.8f, 0.55f), new GradientAlphaKey(0, 0.85f) });
             col.color = g;
@@ -222,7 +222,7 @@ public static class CSED_BomEffectBurst
         var custom = ps.customData; custom.enabled = true;
         custom.SetMode(ParticleSystemCustomData.Custom1, ParticleSystemCustomDataMode.Vector);
         custom.SetVectorComponentCount(ParticleSystemCustomData.Custom1, 4);
-        var curve = new AnimationCurve(new Keyframe(0, 6f), new Keyframe(0.1f, 4f), new Keyframe(0.25f, 1f), new Keyframe(0.4f, 0f), new Keyframe(1, 0)) // 爆発の瞬間だけ発光、その後は光らない(赤黒く);
+        var curve = new AnimationCurve(new Keyframe(0, 6f), new Keyframe(0.1f, 4f), new Keyframe(0.25f, 1f), new Keyframe(0.4f, 0f), new Keyframe(1, 0)); // 爆発の瞬間だけ発光、その後は光らない(赤黒く)
         custom.SetVector(ParticleSystemCustomData.Custom1, 2, new ParticleSystem.MinMaxCurve(1, curve));
     }
 

@@ -29,6 +29,8 @@ using UnityEngine;
  *   攻撃枠は臨戦態勢が終わる(帰還する)・撃退される・逃走する時に空き、様子見のメンバーが代わりに取る
  * ・様子見のメンバーがターゲットを取り囲む時の並び順(GetSurroundOrder)も、グループの中で決める
  *   同じターゲットを取り囲んでいるメンバーの平均位置の方向を扇の中心にし、そこから見た角度(左から右)の順に並べる
+ * ・グループ番号(id)と犯罪の進行度は、スキャンのUIがクライアントでも使うので、メンバー(CS_VillainCrime)のNetworkVariableへ書き込む
+ *   進行度は毎フレーム送らず、前回送った値から_progressSyncStep(1%)以上変わった時と、完遂した時だけ送る
  * ・サーバー(オフライン時はその場)でのみ使う
  */
 // ========================================
@@ -39,11 +41,17 @@ public class CS_VillainGroup
     private readonly List<CS_VillainCrime> _members = new List<CS_VillainCrime>();
     private readonly List<CS_VillainCombat> _combats = new List<CS_VillainCombat>();          // メンバーの反撃(_membersと同じ順)
     private readonly HashSet<CS_VillainCombat> _attackers = new HashSet<CS_VillainCombat>();   // 攻撃枠を持っているメンバー
+    private const float _progressSyncStep = 0.01f;   // 進行度をメンバーへ送る刻み(1%)
+    private static int _nextId;                     // 次に作るグループの番号
+
+    private readonly int _id;
     private readonly int _maxAttackers;
     private readonly bool _usesTimeScaling;
     private float _crimeElapsed;
     private bool _isCrimeCompleted;
+    private float _syncedProgress;   // 最後にメンバーへ送った進行度
 
+    public int id => _id;   // グループ番号(0から。メンバーのCS_VillainCrime.groupIdと同じ)
     public CS_VillainSpawnPoint spawnPoint => _spawnPoint;
     public bool isCrimeCompleted => _isCrimeCompleted;
     public IReadOnlyList<CS_VillainCrime> members => _members;
@@ -65,9 +73,17 @@ public class CS_VillainGroup
     // どのグループが犯罪を完遂しても呼ばれる(サーバーのみ)。スコア側の購読用
     public static event Action<CS_VillainGroup> onAnyCrimeCompleted;
 
+    // Domain Reloadを切っている場合に、前回の再生の番号が残らないようにする
+    [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
+    private static void ResetStatics()
+    {
+        _nextId = 0;
+    }
+
     // usesTimeScaling: 時間経過の段階でステータスを変えるか(レイドのボスなど、固定のステータスのグループはfalse)
     public CS_VillainGroup(CS_VillainSpawnPoint spawnPoint, int maxAttackers, bool usesTimeScaling = true)
     {
+        _id = _nextId++;
         _spawnPoint = spawnPoint;
         _maxAttackers = maxAttackers;
         _usesTimeScaling = usesTimeScaling;
@@ -76,6 +92,7 @@ public class CS_VillainGroup
     public void AddMember(CS_VillainCrime member)
     {
         _members.Add(member);
+        member.SetGroup(_id, crimeProgress);
         CS_VillainCombat combat = member.GetComponent<CS_VillainCombat>();
         _combats.Add(combat);
         combat.SetGroup(this);
@@ -167,6 +184,22 @@ public class CS_VillainGroup
         if (_crimeElapsed >= GetCrimeCompleteTime())
         {
             CompleteCrime();
+            return;
+        }
+
+        SyncProgress(false);
+    }
+
+    // 犯罪の進行度をメンバーへ送る(前回から1%以上変わった時だけ。forceなら必ず送る)
+    private void SyncProgress(bool force)
+    {
+        float progress = _isCrimeCompleted ? 1f : crimeProgress;   // ランダムイベントの時間切れで完遂した時も、完遂度は1にする
+        if (!force && Math.Abs(progress - _syncedProgress) < _progressSyncStep) return;
+
+        _syncedProgress = progress;
+        foreach (CS_VillainCrime member in _members)
+        {
+            if (member != null) member.SetCrimeProgress(progress);
         }
     }
 
@@ -178,6 +211,7 @@ public class CS_VillainGroup
 
         _isCrimeCompleted = true;
         onAnyCrimeCompleted?.Invoke(this);
+        SyncProgress(true);
 
         foreach (CS_VillainCrime member in _members)
         {

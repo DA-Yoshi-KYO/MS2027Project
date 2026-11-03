@@ -22,6 +22,9 @@ using UnityEngine;
  *   → マテリアルのSurface TypeがTransparentでないと見た目は変わらない(最後に消えるだけになる)
  * ・スポナーを通さずシーンに直接置いた悪人はグループに属さないため、犯罪は進まない
  * ・撃退されて倒れている悪人(isDefeated)は逃走しない(死亡モーションの後に消える)
+ * ・groupId / crimeProgress : 所属するグループの番号と、グループの犯罪の進行度(0〜1)
+ *   CS_VillainGroupはサーバーにしか無いので、スキャンのUI(クライアント)が使えるよう、グループがここへ書き込んで全員へ同期する
+ *   グループに属さない悪人(シーンに直接置いたもの)はgroupIdが-1
  */
 // ========================================
 
@@ -43,6 +46,12 @@ public class CS_VillainCrime : NetworkBehaviour
     // 書き込みはサーバーのみ(NetworkVariableのデフォルト)。クライアントはこれを見てフェードを始める
     private readonly NetworkVariable<bool> _isEscaping = new NetworkVariable<bool>();
 
+    // 所属するグループの番号と、犯罪の進行度(0〜1)。書き込みはサーバーのみ(CS_VillainGroupから)
+    private readonly NetworkVariable<int> _groupId = new NetworkVariable<int>(-1);
+    private readonly NetworkVariable<float> _crimeProgress = new NetworkVariable<float>();
+
+    public int groupId => _groupId.Value;                // 所属するグループの番号(グループに属さなければ-1)
+    public float crimeProgress => _crimeProgress.Value;  // グループの犯罪の進行度(0〜1)
     public bool isEscaping => _isEscaping.Value;
     public bool isCommittingCrime => !_isEscaping.Value && _combat.isCommittingCrime;
     public float crimeCompleteTime => _stats.crimeCompleteTime;
@@ -64,6 +73,23 @@ public class CS_VillainCrime : NetworkBehaviour
     public override void OnNetworkDespawn()
     {
         _isEscaping.OnValueChanged -= HandleEscapingChanged;
+    }
+
+    // 所属するグループを設定する(CS_VillainGroup.AddMemberから呼ばれる。サーバー、またはオフライン)
+    public void SetGroup(int groupId, float crimeProgress)
+    {
+        if (IsSpawned && !IsServer) return;
+
+        _groupId.Value = groupId;
+        _crimeProgress.Value = crimeProgress;
+    }
+
+    // グループの犯罪の進行度を設定する(CS_VillainGroupから呼ばれる。サーバー、またはオフライン)
+    public void SetCrimeProgress(float crimeProgress)
+    {
+        if (IsSpawned && !IsServer) return;
+
+        _crimeProgress.Value = crimeProgress;
     }
 
     // 犯罪を完遂したので逃走する(サーバー、またはオフライン)

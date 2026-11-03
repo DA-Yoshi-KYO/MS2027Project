@@ -24,9 +24,9 @@ Presenter / View はUIのプレハブに最初から付いているので、コ�
 
 | クラス | 場所 | 役割 |
 |---|---|---|
-| `CS_UILimitBreakModel` | `Script/UI/MVP(Model)/UI_LimitBreak/` | 表示する%を持つ。使う側が触るのはここだけ |
-| `CS_UILimitBreakPresenter` | `Script/UI/MVP(Presenter)/UI_LimitBreak/` | Bind された Model を購読して View に渡す |
-| `CS_UILimitBreakView` | `Script/UI/MVP(View)/UI_LimitBreak/` | 表示・非表示とカウントアニメーション |
+| `CS_UILimitBreakModel` | `Script/UI/UI_LimitBreak/` | 表示する%を持つ。使う側が触るのはここだけ |
+| `CS_UILimitBreakPresenter` | `Script/UI/UI_LimitBreak/` | Bind された Model を購読して View に渡す |
+| `CS_UILimitBreakView` | `Script/UI/UI_LimitBreak/` | 表示・非表示とカウントアニメーション |
 
 ---
 

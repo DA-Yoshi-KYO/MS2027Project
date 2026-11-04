@@ -83,10 +83,22 @@ public static class CSED_VillainPatrolPreview
         float startYaw = owner.GetStartRotation(route).eulerAngles.y;
         if (points.Length == 0) return new Pose { position = owner.transform.position, yaw = startYaw, label = "" };
 
-        List<Step> steps = BuildSteps(route, points, startYaw, out float total);
+        // 1周目は湧いた時の向きから始める。2周目からは、ポイント1へ戻ってきた向きから始める(ゲーム中と同じ)
+        List<Step> steps = BuildSteps(route, points, startYaw, out float total, out float endYaw);
         if (total < 0.01f) return new Pose { position = points[0], yaw = startYaw, label = "" };
 
-        float t = time % total;
+        float t = time;
+        if (t >= total)
+        {
+            steps = BuildSteps(route, points, endYaw, out float loopTotal, out _);
+            t = (t - total) % loopTotal;
+        }
+        return EvaluateSteps(steps, t);
+    }
+
+    // 流れの中の時刻tの様子
+    private static Pose EvaluateSteps(List<Step> steps, float t)
+    {
         foreach (Step step in steps)
         {
             if (t > step.start + step.duration) continue;
@@ -106,8 +118,10 @@ public static class CSED_VillainPatrolPreview
         return leader.position + Quaternion.Euler(0f, leader.yaw, 0f) * offset;
     }
 
-    // 1周分の流れを作る
-    private static List<Step> BuildSteps(CSO_VillainPatrolPattern.Route route, Vector3[] points, float startYaw, out float total)
+    // 1周分の流れを作る(ポイント1から回り、最後にポイント1へ歩いて戻るまで)
+    // 周回: 最後のポイント → ポイント1 / 往復: ポイント2 → ポイント1 と戻る(戻った後のポイント1のやることは、次の周の最初に行う)
+    // endYaw: ポイント1へ戻ってきた時の向き
+    private static List<Step> BuildSteps(CSO_VillainPatrolPattern.Route route, Vector3[] points, float startYaw, out float total, out float endYaw)
     {
         List<Step> steps = new List<Step>();
         Vector3 position = points[0];
@@ -116,15 +130,7 @@ public static class CSED_VillainPatrolPreview
 
         foreach (int index in route.GetOrder())
         {
-            Leg leg = CalculateLeg(position, points[index]);
-            if (leg.length > 0.01f)
-            {
-                Step move = new Step { start = total, duration = leg.length / route.speed, leg = leg };
-                steps.Add(move);
-                total += move.duration;
-                yaw = GetEndYaw(leg, yaw);
-            }
-            position = points[index];
+            AddMove(steps, route, ref position, points[index], ref yaw, ref total);
 
             foreach (CSO_VillainPatrolPattern.Action action in route.points[index].actions)
             {
@@ -134,7 +140,23 @@ public static class CSED_VillainPatrolPreview
                 if (action.type == CSE_VillainPatrolActionType.Turn) yaw += action.angle;
             }
         }
+
+        AddMove(steps, route, ref position, points[0], ref yaw, ref total);
+        endYaw = yaw;
         return steps;
+    }
+
+    // positionからtoまで歩く流れを足す(ほとんど動かない時は足さない)
+    private static void AddMove(List<Step> steps, CSO_VillainPatrolPattern.Route route, ref Vector3 position, Vector3 to, ref float yaw, ref float total)
+    {
+        Leg leg = CalculateLeg(position, to);
+        position = to;
+        if (leg.length <= 0.01f) return;
+
+        Step move = new Step { start = total, duration = leg.length / route.speed, leg = leg };
+        steps.Add(move);
+        total += move.duration;
+        yaw = GetEndYaw(leg, yaw);
     }
 
     private static Pose EvaluateMove(Step step, float rate)

@@ -1,0 +1,21 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b384e2a27c8e73e4ba693395985ec8b8, type: 3}
+  m_Name: DB_RandomEventMassSpawn
+  m_EditorClassIdentifier: Assembly-CSharp::CSO_RandomEventMassSpawn
+  _displayName: "大量発生"
+  _duration: 60
+  _blockPoliceDetection: 0
+  _groupCount: 4
+  _membersPerGroup: 0
+  _groupPlaceRadiusRate: 0.6
+  _memberRadius: 1.5

@@ -29,7 +29,9 @@ using UnityEngine;
  * ・maxGaugeが変化した際、現在ゲージの上限クランプはCS_PlayerSpecialGauge側が行う
  * ・currentGaugeは実体をCS_PlayerSpecialGaugeが持っており、ここでは読み取りを中継しているだけ
  *   (溜める・消費する処理はCS_PlayerSpecialGauge.Fill / TryConsumeFullを使う)
- * ・jumpPowerは値の保持のみ。ジャンプ処理自体は未実装
+ * ・暗躍ボーナス(CS_PlayerStealthBonus)の倍率は、基準の値とは別にstealthBonusRateで持つ(SetStealthBonusRate)
+ *   移動速度・スプリント速度・ジャンプ力・攻撃力・コンボのモーション速度に掛かる。使う側はcurrentXxx / comboSpeedRateを読む
+ *   (アイテムは基準の値(moveSpeedなど)を読み書きするため、ボーナスを混ぜない。ボーナスが途切れても基準の値はそのまま)
  */
 // ========================================
 
@@ -49,6 +51,7 @@ public class CS_PlayerStats : NetworkBehaviour
     private readonly NetworkVariable<float> _sprintSpeed = new NetworkVariable<float>();
     private readonly NetworkVariable<float> _maxGauge = new NetworkVariable<float>();
     private readonly NetworkVariable<float> _specialAttackPower = new NetworkVariable<float>();
+    private readonly NetworkVariable<float> _stealthBonusRate = new NetworkVariable<float>(1f);   // 暗躍ボーナスの倍率(1で無し)
 
     public float maxHp => _maxHp.Value;
     public float attackPower => _attackPower.Value;
@@ -58,6 +61,14 @@ public class CS_PlayerStats : NetworkBehaviour
     public float sprintSpeed => _sprintSpeed.Value;
     public float maxGauge => _maxGauge.Value;
     public float specialAttackPower => _specialAttackPower.Value;
+    public float stealthBonusRate => _stealthBonusRate.Value;
+
+    // 暗躍ボーナスを掛けた、実際に使う値
+    public float currentMoveSpeed => moveSpeed * stealthBonusRate;
+    public float currentSprintSpeed => sprintSpeed * stealthBonusRate;
+    public float currentJumpPower => jumpPower * stealthBonusRate;
+    public float currentAttackPower => attackPower * stealthBonusRate;
+    public float comboSpeedRate => stealthBonusRate;     // コンボのモーション速度の倍率
     public float currentGauge => _gauge.currentGauge;   // 実体はCS_PlayerSpecialGaugeにある値の中継
 
     public event Action<float> onMaxHpChanged;
@@ -179,6 +190,14 @@ public class CS_PlayerStats : NetworkBehaviour
         if (IsSpawned && !IsServer) return;
 
         _specialAttackPower.Value = Mathf.Max(0f, value);
+    }
+
+    // 暗躍ボーナスの倍率を変更する(サーバーのみ。CS_PlayerStealthBonusが呼ぶ)
+    public void SetStealthBonusRate(float value)
+    {
+        if (IsSpawned && !IsServer) return;
+
+        _stealthBonusRate.Value = Mathf.Max(0f, value);
     }
 
     // 全ステータスをBase Statsの値に戻す(サーバーのみ。リスポーン処理などからの呼び出しを想定)

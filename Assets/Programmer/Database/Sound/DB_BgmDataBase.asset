@@ -1,0 +1,35 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c68b597c486af9742b288e47880e0f9a, type: 3}
+  m_Name: DB_BgmDataBase
+  m_EditorClassIdentifier: Assembly-CSharp::CSO_BgmDataBase
+  _bgmList:
+  - _id: 1
+    _clip: {fileID: 8300000, guid: 306113e5542d3534cbf1e4cfea39c4c9, type: 3}
+    _volume: 1
+    _loop: 1
+  - _id: 2
+    _clip: {fileID: 8300000, guid: 3eaff265f4a157d4ca7317a922c67132, type: 3}
+    _volume: 1
+    _loop: 1
+  - _id: 3
+    _clip: {fileID: 8300000, guid: 306113e5542d3534cbf1e4cfea39c4c9, type: 3}
+    _volume: 1
+    _loop: 1
+  - _id: 4
+    _clip: {fileID: 8300000, guid: 3eaff265f4a157d4ca7317a922c67132, type: 3}
+    _volume: 1
+    _loop: 1
+  - _id: 5
+    _clip: {fileID: 8300000, guid: 3eaff265f4a157d4ca7317a922c67132, type: 3}
+    _volume: 1
+    _loop: 1

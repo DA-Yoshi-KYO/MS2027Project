@@ -6,84 +6,68 @@
  * 2026-09-25 | 初回作成
  * ================================================ */
 
-using R3;
-using UnityEngine;
-
 /// <summary>
-/// スコアの変化をViewに通知する(Model → View の一方向)
-/// スコアUIにアタッチし、指定番号のScoreModelがBindされたら購読を始める
-/// Model・UIのどちらが先に生成されても紐づく
+/// スコアの変化を View に通知する
+/// ・全員分のランキング表示（リアルタイム更新）
+/// ・必殺技ゲージ満タン状態の変化も受け取る
 /// </summary>
 public class CS_UIScorePresenter : CS_BasePresenter
 {
-    [Header("何番目のプレイヤーのスコアを表示するか")]
-    [SerializeField] private int _playerNumber;
+    // =========================================================
+    // 内部フィールド
+    // =========================================================
 
     private CS_UIScoreView _view;
 
-    //今紐づいているModelの購読(新しいModelを入れると前の購読は自動で解除される)
-    private readonly SerialDisposable _modelSubscription = new SerialDisposable();
+    // =========================================================
+    // 初期化
+    // =========================================================
 
     void Awake()
     {
         _view = GetComponent<CS_UIScoreView>();
-        _modelSubscription.AddTo(_disposables);
         _view.SetPresenter(this);
     }
 
     void OnEnable()
     {
-        CS_UIScoreModel.OnBound += HandleBound;
-        CS_UIScoreModel.OnUnbound += HandleUnbound;
+        CS_UIScoreModel.OnRankingUpdated += HandleRankingUpdated;
+        CS_UISpecialGaugeModel.OnGaugeFullChanged += HandleGaugeFullChanged; // ★ 追加
 
-        //UIより先にModelがBindされていた場合
-        if (CS_UIScoreModel.TryGet(_playerNumber, out var model))
-        {
-            gameObject.SetActive(true);
-            BindModel(model);
-        }
-        else
-        {
-            //Modelが存在しない番号ならUIを非表示
-            gameObject.SetActive(false);
-        }
+        // 初期表示
+        HandleRankingUpdated();
     }
 
     void OnDisable()
     {
-        CS_UIScoreModel.OnBound -= HandleBound;
-        CS_UIScoreModel.OnUnbound -= HandleUnbound;
-        UnbindModel();
+        CS_UIScoreModel.OnRankingUpdated -= HandleRankingUpdated;
+        CS_UISpecialGaugeModel.OnGaugeFullChanged -= HandleGaugeFullChanged; // ★ 追加
     }
 
-    private void HandleBound(int playerNumber, CS_UIScoreModel model)
+    // =========================================================
+    // ランキング更新
+    // =========================================================
+
+    private void HandleRankingUpdated()
     {
-        if (playerNumber == _playerNumber)
-        {
-            gameObject.SetActive(true);
-            BindModel(model);
-        }
+        _view.UpdateRanking(CS_UIScoreModel.GetRanking());
     }
 
-    private void HandleUnbound(int playerNumber)
+    // =========================================================
+    // ★ 必殺技ゲージ満タン状態の変化
+    // =========================================================
+
+    private void HandleGaugeFullChanged(int playerNumber, bool isFull)
     {
-        if (playerNumber == _playerNumber)
-        {
-            UnbindModel();
-            gameObject.SetActive(false);
-        }
+        _view.UpdateIconColor(playerNumber, isFull);
     }
 
-    //Modelを購読してViewに反映する
-    private void BindModel(CS_UIScoreModel model)
-    {
-        _modelSubscription.Disposable =
-            model.score.Subscribe(x => _view.UpdateScore(x));
-    }
+    // =========================================================
+    // OnDestroy
+    // =========================================================
 
-    //Modelの購読をやめる
-    private void UnbindModel()
+    protected override void OnDestroy()
     {
-        _modelSubscription.Disposable = null;
+        base.OnDestroy();
     }
 }

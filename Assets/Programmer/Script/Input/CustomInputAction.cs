@@ -126,7 +126,7 @@ public partial class @CustomInputAction: IInputActionCollection2, IDisposable
                     ""name"": ""Attack"",
                     ""type"": ""Button"",
                     ""id"": ""c45581aa-2cc9-4abe-9572-b65eb4018931"",
-                    ""expectedControlType"": ""Button"",
+                    ""expectedControlType"": """",
                     ""processors"": """",
                     ""interactions"": """",
                     ""initialStateCheck"": false,
@@ -136,7 +136,7 @@ public partial class @CustomInputAction: IInputActionCollection2, IDisposable
                     ""name"": ""Jump"",
                     ""type"": ""Button"",
                     ""id"": ""d3f1c9a2-5e4b-4a2b-8a1e-7b6f9c2d4e1a"",
-                    ""expectedControlType"": ""Button"",
+                    ""expectedControlType"": """",
                     ""processors"": """",
                     ""interactions"": """",
                     ""initialStateCheck"": false,
@@ -146,7 +146,7 @@ public partial class @CustomInputAction: IInputActionCollection2, IDisposable
                     ""name"": ""Special"",
                     ""type"": ""Button"",
                     ""id"": ""7e9c2a4b-1d6f-4c8a-b3e5-9a2d4f6c8e10"",
-                    ""expectedControlType"": ""Button"",
+                    ""expectedControlType"": """",
                     ""processors"": """",
                     ""interactions"": """",
                     ""initialStateCheck"": false,
@@ -156,7 +156,7 @@ public partial class @CustomInputAction: IInputActionCollection2, IDisposable
                     ""name"": ""SpecialModifier"",
                     ""type"": ""Button"",
                     ""id"": ""8e92b987-0569-4ddb-9a17-1e8231333598"",
-                    ""expectedControlType"": ""Button"",
+                    ""expectedControlType"": """",
                     ""processors"": """",
                     ""interactions"": """",
                     ""initialStateCheck"": false,
@@ -166,7 +166,7 @@ public partial class @CustomInputAction: IInputActionCollection2, IDisposable
                     ""name"": ""Dash"",
                     ""type"": ""Button"",
                     ""id"": ""9f1b3d5e-7a2c-4f6d-8e1a-3c5b7d9f1a20"",
-                    ""expectedControlType"": ""Button"",
+                    ""expectedControlType"": """",
                     ""processors"": """",
                     ""interactions"": """",
                     ""initialStateCheck"": false,
@@ -176,17 +176,17 @@ public partial class @CustomInputAction: IInputActionCollection2, IDisposable
                     ""name"": ""UseItem"",
                     ""type"": ""Button"",
                     ""id"": ""4c6e8a0b-2d4f-4a6c-8e0b-2d4f6a8c0e21"",
-                    ""expectedControlType"": ""Button"",
+                    ""expectedControlType"": """",
                     ""processors"": """",
                     ""interactions"": """",
                     ""initialStateCheck"": false,
                     ""priority"": 0
                 },
                 {
-                    ""name"": ""Transformation"",
+                    ""name"": ""Scan"",
                     ""type"": ""Button"",
                     ""id"": ""8d0f2a43-6b8c-4e0a-9b3d-5f7a9c1e3b64"",
-                    ""expectedControlType"": ""Button"",
+                    ""expectedControlType"": """",
                     ""processors"": """",
                     ""interactions"": """",
                     ""initialStateCheck"": false,
@@ -296,7 +296,7 @@ public partial class @CustomInputAction: IInputActionCollection2, IDisposable
                 {
                     ""name"": """",
                     ""id"": ""2338b3bf-1d54-4466-bdd1-3d9c550185bd"",
-                    ""path"": ""<Gamepad>/rightTrigger"",
+                    ""path"": ""<Gamepad>/buttonWest"",
                     ""interactions"": """",
                     ""processors"": """",
                     ""groups"": """",
@@ -395,7 +395,7 @@ public partial class @CustomInputAction: IInputActionCollection2, IDisposable
                 {
                     ""name"": """",
                     ""id"": ""5a7c9e1b-3d5f-4a7c-8e1b-3d5f7a9c1e40"",
-                    ""path"": ""<Gamepad>/buttonEast"",
+                    ""path"": ""<Gamepad>/rightTrigger"",
                     ""interactions"": """",
                     ""processors"": """",
                     ""groups"": """",
@@ -432,18 +432,18 @@ public partial class @CustomInputAction: IInputActionCollection2, IDisposable
                     ""interactions"": """",
                     ""processors"": """",
                     ""groups"": """",
-                    ""action"": ""Transformation"",
+                    ""action"": ""Scan"",
                     ""isComposite"": false,
                     ""isPartOfComposite"": false
                 },
                 {
                     ""name"": """",
                     ""id"": ""af2b4c65-8d0e-4a2c-9d5f-7b9c1e3a5d86"",
-                    ""path"": ""<Gamepad>/rightStickPress"",
+                    ""path"": ""<Gamepad>/leftShoulder"",
                     ""interactions"": """",
                     ""processors"": """",
                     ""groups"": """",
-                    ""action"": ""Transformation"",
+                    ""action"": ""Scan"",
                     ""isComposite"": false,
                     ""isPartOfComposite"": false
                 }
@@ -463,7 +463,7 @@ public partial class @CustomInputAction: IInputActionCollection2, IDisposable
         m_Player_SpecialModifier = m_Player.FindAction("SpecialModifier", throwIfNotFound: true);
         m_Player_Dash = m_Player.FindAction("Dash", throwIfNotFound: true);
         m_Player_UseItem = m_Player.FindAction("UseItem", throwIfNotFound: true);
-        m_Player_Transformation = m_Player.FindAction("Transformation", throwIfNotFound: true);
+        m_Player_Scan = m_Player.FindAction("Scan", throwIfNotFound: true);
     }
 
     ~@CustomInputAction()
@@ -553,7 +553,7 @@ public partial class @CustomInputAction: IInputActionCollection2, IDisposable
     private readonly InputAction m_Player_SpecialModifier;
     private readonly InputAction m_Player_Dash;
     private readonly InputAction m_Player_UseItem;
-    private readonly InputAction m_Player_Transformation;
+    private readonly InputAction m_Player_Scan;
     /// <summary>
     /// Provides access to input actions defined in input action map "Player".
     /// </summary>
@@ -602,9 +602,9 @@ public partial class @CustomInputAction: IInputActionCollection2, IDisposable
         /// </summary>
         public InputAction @UseItem => m_Wrapper.m_Player_UseItem;
         /// <summary>
-        /// Provides access to the underlying input action "Player/Transformation".
+        /// Provides access to the underlying input action "Player/Scan".
         /// </summary>
-        public InputAction @Transformation => m_Wrapper.m_Player_Transformation;
+        public InputAction @Scan => m_Wrapper.m_Player_Scan;
         /// <summary>
         /// Provides access to the underlying input action map instance.
         /// </summary>
@@ -658,9 +658,9 @@ public partial class @CustomInputAction: IInputActionCollection2, IDisposable
             @UseItem.started += instance.OnUseItem;
             @UseItem.performed += instance.OnUseItem;
             @UseItem.canceled += instance.OnUseItem;
-            @Transformation.started += instance.OnTransformation;
-            @Transformation.performed += instance.OnTransformation;
-            @Transformation.canceled += instance.OnTransformation;
+            @Scan.started += instance.OnScan;
+            @Scan.performed += instance.OnScan;
+            @Scan.canceled += instance.OnScan;
         }
 
         /// <summary>
@@ -699,9 +699,9 @@ public partial class @CustomInputAction: IInputActionCollection2, IDisposable
             @UseItem.started -= instance.OnUseItem;
             @UseItem.performed -= instance.OnUseItem;
             @UseItem.canceled -= instance.OnUseItem;
-            @Transformation.started -= instance.OnTransformation;
-            @Transformation.performed -= instance.OnTransformation;
-            @Transformation.canceled -= instance.OnTransformation;
+            @Scan.started -= instance.OnScan;
+            @Scan.performed -= instance.OnScan;
+            @Scan.canceled -= instance.OnScan;
         }
 
         /// <summary>
@@ -806,11 +806,11 @@ public partial class @CustomInputAction: IInputActionCollection2, IDisposable
         /// <seealso cref="UnityEngine.InputSystem.InputAction.canceled" />
         void OnUseItem(InputAction.CallbackContext context);
         /// <summary>
-        /// Method invoked when associated input action "Transformation" is either <see cref="UnityEngine.InputSystem.InputAction.started" />, <see cref="UnityEngine.InputSystem.InputAction.performed" /> or <see cref="UnityEngine.InputSystem.InputAction.canceled" />.
+        /// Method invoked when associated input action "Scan" is either <see cref="UnityEngine.InputSystem.InputAction.started" />, <see cref="UnityEngine.InputSystem.InputAction.performed" /> or <see cref="UnityEngine.InputSystem.InputAction.canceled" />.
         /// </summary>
         /// <seealso cref="UnityEngine.InputSystem.InputAction.started" />
         /// <seealso cref="UnityEngine.InputSystem.InputAction.performed" />
         /// <seealso cref="UnityEngine.InputSystem.InputAction.canceled" />
-        void OnTransformation(InputAction.CallbackContext context);
+        void OnScan(InputAction.CallbackContext context);
     }
 }

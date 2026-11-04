@@ -4,14 +4,18 @@
  * 制作者：吉田京志郎
  * ------------------------------------------------
  * 2026-09-24 | 初回作成
+ * 2026-10-14 | 4人に満たない枠をNPCで埋めるようにした(秋野)
+ * 2026-10-23 | 全員のシーン読み込みが終わってから生成するようにした(秋野、Issue #290)
  * ================================================ */
 
+using System.Collections;
 using System.Collections.Generic;
 using Unity.Netcode;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 
 /// <summary>
-/// 接続したクライアントごとにプレイヤーを生成するクラス
+/// 接続したクライアントごとにプレイヤーを生成し、4人に満たない枠はNPCで埋めるクラス
 /// </summary>
 // ========================================
 /*
@@ -20,9 +24,21 @@ using UnityEngine;
  *   オンライン: サーバー/ホストが、接続済みのクライアント全員分と、後から接続したクライアントの分を生成する
  *               (CS_ConnectionGateでCreatePlayerObjectをfalseにしているため、ここで生成する)
  *   オフライン(NetworkManagerが動いていないテストシーン): 自分用のプレイヤーを1体だけ生成する
- * ・生成位置は子オブジェクトのTransformを順番に使う(人数が子の数を超えたら先頭から使い回す)
- * ・プレイヤー番号(0〜3。HP UIなどが表示先を決めるのに使う)も生成順に割り当てる(_playerNumberCapで折り返す)
+ * ・プレイヤー番号(0〜3。HP UIなどが表示先を決めるのに使う)は、空いている一番小さい番号を割り当てる
  *   NetworkObjectをSpawnする前にCS_Player.AssignPlayerNumber()で設定する(スポーン時に全員へ同期される)
+ *   生成位置は、プレイヤー番号と同じ番号の子オブジェクトのTransform(仕様「決められたステージ隅の4地点」。子の数を超えたら折り返す)
+ * ・NPC(仕様書「NPC(他プレイヤー)」、Issue #164)
+ *   4人で遊ぶ前提なので、人が4人に満たない枠をNPCで埋める(ソロなら3体、3人なら1体)
+ *   NPCはサーバーが生成・所有し、判断(CS_PlayerNpcBrain)もサーバーで動く。人と同じプレイヤーのプレハブを使う
+ *   性格は_npcPersonalitiesの順に割り当てる(1体目は[0]、2体目は[1]…。足りなければ先頭から使い回す)
+ *   後から人が接続して枠が足りない時は、NPCを1体消してその番号を人に譲る
+ *   人が切断して枠が空いた時は、またNPCで埋める
+ * ・生成するタイミング(Issue #290)
+ *   オンラインでは、全員のゲームシーンの読み込みが終わった時(NetworkSceneManager.OnLoadEventCompleted)に生成する
+ *   (読み込みの遅いクライアントのプレイヤーが、床ができる前に落ち始めて床の下へ抜けるのを防ぐ)
+ *   ホスト1人だけの時はStartより前に完了が届くことがあるため、購読はAwakeで行い、届いていればStartで生成する
+ *   シーン管理を使わずに始めた時など完了が届かない場合は、_loadWaitTimeout秒後に生成する
+ *   読み込みが時間切れになったクライアントの分も生成する(落ちた場合はCS_Playerの落下の保険でスポーン位置へ戻る)
  * ・切断したクライアントのプレイヤーはNetcodeが自動で破棄する
  * ・プレイヤーのプレハブはNetworkPrefabsList(DefaultNetworkPrefabs)に登録しておくこと
  */
@@ -31,11 +47,25 @@ public class CS_PlayerSpawner : MonoBehaviour
 {
     [SerializeField][Tooltip("生成するプレイヤーのプレハブ")] private NetworkObject _playerPrefab;
 
-    private const int _playerNumberCap = 4;   // プレイヤー番号(0〜3)の折り返し(最大人数)
+    [Header("NPC")]
+    [SerializeField][Tooltip("4人に満たない枠をNPCで埋める")] private bool _fillWithNpc = true;
+    [SerializeField][Tooltip("オフライン(テストシーン)でもNPCで埋める")] private bool _fillWithNpcOffline = false;
+    [SerializeField][Tooltip("空き枠に入れるNPCの性格(入れる順)")] private CSO_NpcPersonality[] _npcPersonalities;
 
+    [Header("生成のタイミング")]
+    [SerializeField][Tooltip("全員のシーン読み込みの完了を待つ最大秒数(届かない時はこの秒数後に生成する)")] private float _loadWaitTimeout = 10f;
+
+    private const int _playerNumberCap = 4;   // プレイヤー番号(0〜3)の数(最大人数)
+
+    private readonly List<CS_Player> _players = new List<CS_Player>();   // 生成したプレイヤー(人・NPC)
     private Transform[] _spawnPoints;
-    private int _spawnCount;    // 生成した人数(生成位置・プレイヤー番号の選択に使う)
+    private int _spawnCount;    // 生成した人数(番号が足りない時の予備)
     private NetworkManager _networkManager;
+
+    private bool _isWaitingLoad;        // 全員のシーン読み込みの完了を待っているか(購読中か)
+    private bool _isLoadCompleted;      // 全員のシーン読み込みが終わったか
+    private bool _isReady;              // Startで生成の準備(生成位置の取得)が終わったか
+    private bool _hasSpawnedPlayers;    // 最初の生成を済ませたか
 
     // このマシンが生成の権威を持つか(オフライン、またはサーバー/ホスト)
     private static bool HasAuthority =>
@@ -43,6 +73,18 @@ public class CS_PlayerSpawner : MonoBehaviour
 
     private static bool IsOnline =>
         NetworkManager.Singleton != null && NetworkManager.Singleton.IsListening;
+
+    // 全員のシーン読み込みの完了は、ホスト1人だとStartより前に届くことがあるため、ここで購読しておく
+    void Awake()
+    {
+        if (!IsOnline || !HasAuthority) return;
+
+        _networkManager = NetworkManager.Singleton;
+        if (_networkManager.SceneManager == null || !_networkManager.NetworkConfig.EnableSceneManagement) return;
+
+        _isWaitingLoad = true;
+        _networkManager.SceneManager.OnLoadEventCompleted += OnLoadEventCompleted;
+    }
 
     void Start()
     {
@@ -52,6 +94,7 @@ public class CS_PlayerSpawner : MonoBehaviour
         if (_playerPrefab == null)
         {
             Debug.LogError("CS_PlayerSpawner: Player Prefab が未設定です", this);
+            StopWaitingLoad();
             return;
         }
 
@@ -60,30 +103,90 @@ public class CS_PlayerSpawner : MonoBehaviour
         {
             _spawnPoints[i] = transform.GetChild(i);
         }
+        _isReady = true;
 
         if (!IsOnline)
         {
             Spawn(null);
+            if (_fillWithNpcOffline) FillWithNpcs();
             return;
         }
 
-        // 既に接続しているクライアント(ホスト自身、マッチングで集まったクライアント)の分を生成する
         _networkManager = NetworkManager.Singleton;
+
+        // シーン管理を使っていない、またはもう全員の読み込みが終わっていれば、すぐに生成する
+        if (!_isWaitingLoad || _isLoadCompleted)
+        {
+            SpawnPlayers();
+            return;
+        }
+
+        StartCoroutine(SpawnPlayersAfterTimeout());
+    }
+
+    void OnDestroy()
+    {
+        StopWaitingLoad();
+
+        if (_networkManager != null)
+        {
+            _networkManager.OnClientConnectedCallback -= OnClientConnected;
+            _networkManager.OnClientDisconnectCallback -= OnClientDisconnected;
+        }
+    }
+
+    // 全員(時間切れのクライアントを除く)のシーン読み込みが終わった時(サーバーで呼ばれる)
+    private void OnLoadEventCompleted(string sceneName, LoadSceneMode loadSceneMode, List<ulong> clientsCompleted, List<ulong> clientsTimedOut)
+    {
+        // このスポナーがいるシーン以外の読み込みは関係ない
+        if (sceneName != gameObject.scene.name) return;
+
+        _isLoadCompleted = true;
+        if (_isReady) SpawnPlayers();
+    }
+
+    // 完了が届かないまま_loadWaitTimeout秒経ったら、待つのをやめて生成する
+    private IEnumerator SpawnPlayersAfterTimeout()
+    {
+        yield return new WaitForSecondsRealtime(_loadWaitTimeout);
+
+        if (_hasSpawnedPlayers) yield break;
+
+        Debug.LogWarning("CS_PlayerSpawner: 全員のシーン読み込みの完了が届かないため、待たずにプレイヤーを生成します", this);
+        SpawnPlayers();
+    }
+
+    private void StopWaitingLoad()
+    {
+        if (!_isWaitingLoad) return;
+
+        _isWaitingLoad = false;
+        if (_networkManager != null && _networkManager.SceneManager != null)
+        {
+            _networkManager.SceneManager.OnLoadEventCompleted -= OnLoadEventCompleted;
+        }
+    }
+
+    // 接続中の全員の分を生成し、空いた枠をNPCで埋める(オンラインで最初の1回だけ)
+    private void SpawnPlayers()
+    {
+        if (_hasSpawnedPlayers) return;
+
+        _hasSpawnedPlayers = true;
+        StopWaitingLoad();
+
+        // 既に接続しているクライアント(ホスト自身、マッチングで集まったクライアント)の分を生成する
         foreach (ulong clientId in new List<ulong>(_networkManager.ConnectedClientsIds))
         {
             Spawn(clientId);
         }
 
-        // 後から接続したクライアントの分
-        _networkManager.OnClientConnectedCallback += OnClientConnected;
-    }
+        // 人が4人に満たない枠をNPCで埋める
+        FillWithNpcs();
 
-    void OnDestroy()
-    {
-        if (_networkManager != null)
-        {
-            _networkManager.OnClientConnectedCallback -= OnClientConnected;
-        }
+        // 後から接続・切断したクライアントの分
+        _networkManager.OnClientConnectedCallback += OnClientConnected;
+        _networkManager.OnClientDisconnectCallback += OnClientDisconnected;
     }
 
     private void OnClientConnected(ulong clientId)
@@ -91,8 +194,26 @@ public class CS_PlayerSpawner : MonoBehaviour
         Spawn(clientId);
     }
 
+    // 切断したプレイヤーはNetcodeが破棄するので、破棄が終わってから空いた枠をNPCで埋める
+    private void OnClientDisconnected(ulong clientId)
+    {
+        if (!_networkManager.IsServer) return;
+
+        StartCoroutine(FillWithNpcsNextFrame());
+    }
+
+    private IEnumerator FillWithNpcsNextFrame()
+    {
+        yield return null;
+
+        // 通信の終了中(ゲーム終了など)は埋めない
+        if (_networkManager == null || !_networkManager.IsServer || _networkManager.ShutdownInProgress) yield break;
+
+        FillWithNpcs();
+    }
+
     /// <summary>
-    /// プレイヤーを生成する
+    /// 人のプレイヤーを生成する
     /// </summary>
     /// <param name="clientId">操作するクライアントのID(オフラインの場合はnull)</param>
     private void Spawn(ulong? clientId)
@@ -100,12 +221,14 @@ public class CS_PlayerSpawner : MonoBehaviour
         // 同じクライアントのプレイヤーを二重に生成しない
         if (clientId.HasValue && _networkManager.SpawnManager.GetPlayerNetworkObject(clientId.Value) != null) return;
 
-        Transform point = GetNextSpawnPoint();
-        NetworkObject player = Instantiate(_playerPrefab, point.position, point.rotation);
+        // 枠が埋まっていれば、NPCを1体消して人に譲る
+        int number = FindFreeNumber();
+        if (number < 0 && TryRemoveNpc())
+        {
+            number = FindFreeNumber();
+        }
 
-        // NetworkVariableなので、Spawnする前に設定しておく(Spawn時に全員へ同期される)
-        player.GetComponent<CS_Player>()?.AssignPlayerNumber(_spawnCount % _playerNumberCap);
-        _spawnCount++;
+        NetworkObject player = Create(number);
 
         if (clientId.HasValue)
         {
@@ -113,10 +236,114 @@ public class CS_PlayerSpawner : MonoBehaviour
         }
     }
 
-    private Transform GetNextSpawnPoint()
+    /// <summary>
+    /// 空いている枠をNPCで埋める(人とNPCを合わせて4人になるまで)
+    /// </summary>
+    private void FillWithNpcs()
+    {
+        if (!_fillWithNpc) return;
+
+        int number;
+        while ((number = FindFreeNumber()) >= 0)
+        {
+            SpawnNpc(number);
+        }
+    }
+
+    private void SpawnNpc(int number)
+    {
+        int npcIndex = CountNpcs();
+        NetworkObject npc = Create(number, isNpc: true);
+
+        CS_PlayerNpcBrain brain = npc.GetComponent<CS_PlayerNpcBrain>();
+        if (brain != null && _npcPersonalities != null && _npcPersonalities.Length > 0)
+        {
+            brain.Setup(_npcPersonalities[npcIndex % _npcPersonalities.Length]);
+        }
+
+        // NPCはサーバーが所有する
+        if (IsOnline)
+        {
+            npc.Spawn(true);
+        }
+    }
+
+    // プレイヤーのプレハブを生成し、番号(とNPCの印)を付ける。Spawnは呼び出し側で行う
+    private NetworkObject Create(int number, bool isNpc = false)
+    {
+        // 番号が足りない時(5人目以降)は、これまで通り生成順で折り返す
+        if (number < 0) number = _spawnCount % _playerNumberCap;
+        _spawnCount++;
+
+        Transform point = GetSpawnPoint(number);
+        NetworkObject instance = Instantiate(_playerPrefab, point.position, point.rotation);
+
+        // NetworkVariableなので、Spawnする前に設定しておく(Spawn時に全員へ同期される)
+        CS_Player player = instance.GetComponent<CS_Player>();
+        if (player != null)
+        {
+            player.AssignPlayerNumber(number);
+            if (isNpc) player.MarkAsNpc();
+            _players.Add(player);
+        }
+
+        return instance;
+    }
+
+    // NPCを1体消す(番号の大きいものから)。消せたらtrue
+    private bool TryRemoveNpc()
+    {
+        RemoveDestroyedPlayers();
+
+        CS_Player target = null;
+        foreach (CS_Player player in _players)
+        {
+            if (!player.isNpc) continue;
+            if (target == null || player.playerNumber > target.playerNumber) target = player;
+        }
+
+        if (target == null) return false;
+
+        _players.Remove(target);
+        if (IsOnline && target.NetworkObject.IsSpawned)
+        {
+            target.NetworkObject.Despawn(true);
+        }
+        else
+        {
+            Destroy(target.gameObject);
+        }
+        return true;
+    }
+
+    // 空いている一番小さいプレイヤー番号(空きが無ければ-1)
+    private int FindFreeNumber()
+    {
+        RemoveDestroyedPlayers();
+
+        for (int number = 0; number < _playerNumberCap; number++)
+        {
+            if (!_players.Exists(player => player.playerNumber == number)) return number;
+        }
+        return -1;
+    }
+
+    private int CountNpcs()
+    {
+        RemoveDestroyedPlayers();
+        return _players.FindAll(player => player.isNpc).Count;
+    }
+
+    // 切断などで破棄されたプレイヤーを一覧から外す
+    private void RemoveDestroyedPlayers()
+    {
+        _players.RemoveAll(player => player == null);
+    }
+
+    private Transform GetSpawnPoint(int number)
     {
         if (_spawnPoints.Length == 0) return transform;
 
-        return _spawnPoints[_spawnCount % _spawnPoints.Length];
+        return _spawnPoints[number % _spawnPoints.Length];
     }
 }

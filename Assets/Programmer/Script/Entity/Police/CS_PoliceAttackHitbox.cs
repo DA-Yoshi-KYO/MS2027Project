@@ -36,6 +36,9 @@ public class CS_PoliceAttackHitbox : MonoBehaviour
     // 攻撃を出した位置(警察の中心)。ここから相手までの間に壁などがあれば当てない
     private Vector3 _origin = Vector3.zero;
 
+    // 攻撃した警察(プレイヤー側が「警察に倒された」と判定するために、ダメージと一緒に渡す)
+    private GameObject _attacker = null;
+
     // 初期化処理を行わずに判定するのを防ぐためのフラグ
     private bool _isInitialized = false;
 
@@ -44,17 +47,19 @@ public class CS_PoliceAttackHitbox : MonoBehaviour
     /// </summary>
     /// <param name="position">判定の中心</param>
     /// <param name="origin">攻撃を出した位置(ここから壁越しになる相手には当たらない)</param>
+    /// <param name="attacker">攻撃した警察(警察本体のGameObject)</param>
     /// <param name="damage">与えるダメージ</param>
     /// <param name="radius">判定の球の半径</param>
     /// <param name="lifetime">判定が残る時間(秒)</param>
     /// <returns>生成した攻撃判定</returns>
-    public static CS_PoliceAttackHitbox Create(Vector3 position, Vector3 origin, float damage, float radius, float lifetime)
+    public static CS_PoliceAttackHitbox Create(Vector3 position, Vector3 origin, GameObject attacker, float damage, float radius, float lifetime)
     {
         GameObject hitboxObject = new GameObject("PoliceAttackHitbox");
         hitboxObject.transform.position = position;
 
         CS_PoliceAttackHitbox hitbox = hitboxObject.AddComponent<CS_PoliceAttackHitbox>();
         hitbox._origin = origin;
+        hitbox._attacker = attacker;
         hitbox._damage = damage;
         hitbox._radius = radius;
         hitbox._remainingTime = lifetime;
@@ -95,7 +100,7 @@ public class CS_PoliceAttackHitbox : MonoBehaviour
             if (!CS_PoliceLineOfSight.IsClear(_origin, hitCollider.bounds.center, targetRoot)) continue;
 
             _hitTargets.Add(target);
-            target.TakeDamage(_damage);
+            target.TakeDamage(_damage, _attacker);
         }
     }
 

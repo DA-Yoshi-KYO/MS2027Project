@@ -8,9 +8,12 @@ EditorBuildSettings:
   - enabled: 0
     path: Assets/OutdoorsScene.unity
     guid: 8124e5870f4fd4c779e7a5f994e84ad1
-  - enabled: 0
-    path: Assets/Programmer/Scene/InGame/NetWork/MatchingRoom.unity
-    guid: dca7ce41b2a60694e921b8ee65212523
+  - enabled: 1
+    path: Assets/Programmer/Scene/InGame/NetWork/RoomConnection.unity
+    guid: faeb041dd77d32948b89339df7b11454
+  - enabled: 1
+    path: Assets/Programmer/Scene/InGame/NetWork/WaitingforaMatch.unity
+    guid: 42f2f0c5e33c32144b49adf235601fad
   - enabled: 1
     path: Assets/Programmer/Scene/InGame/NetWork/MainGame.unity
     guid: c0162bfb2ecdc3b43a11866ebeb93c3c

@@ -32,7 +32,7 @@ public class CS_Matching : MonoBehaviour
     private const int _maxPlayers = 4;
     public int MaxPlayers => _maxPlayers;
 
-    [SerializeField] private string _matchingWaitingSceneName = "MatchingWaitingScene";
+    [SerializeField] private string _matchingWaitingSceneName = "WaitingforaMatch";
 
     private void Start()
     {

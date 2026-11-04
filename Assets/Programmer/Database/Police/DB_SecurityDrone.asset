@@ -1,0 +1,27 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 71b900192dba4e338d4811277ce7355f, type: 3}
+  m_Name: DB_SecurityDrone
+  m_EditorClassIdentifier: Assembly-CSharp::CSO_SecurityDroneData
+  _patrolSpeedMultiplier: 0.3
+  _chaseSpeedMultiplier: 0.8
+  _viewAngle: 120
+  _viewDistance: 10
+  _viewHeight: 6
+  _chaseDuration: 6
+  _modeTransitionTime: 5
+  _taserChargeTime: 2
+  _taserStunTime: 10
+  _killChargeTime: 5
+  _recoveryTime: 5
+  _stunDuration: 5
+  _backAngle: 120

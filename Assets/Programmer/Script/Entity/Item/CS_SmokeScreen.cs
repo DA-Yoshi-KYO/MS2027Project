@@ -4,11 +4,13 @@
  * 制作者：宇留野陸斗
  * ------------------------------------------------
  * 2026-09-29 | 初回作成
+ * 2026-10-17 | 煙の見た目(VFX)を追加
  * ================================================ */
 
 using System.Collections.Generic;
 using Unity.Netcode;
 using UnityEngine;
+using UnityEngine.VFX;
 
 /// <summary>
 /// 煙幕の実体
@@ -20,6 +22,8 @@ using UnityEngine;
 /// ・見た目を全員に見せるためNetworkObjectでSpawnする。寿命の管理と消去はサーバー(またはオフライン)で行う
 /// ・NetworkPrefabsList(DefaultNetworkPrefabs)にこのプレハブを登録しておくこと
 /// ・煙の中にいても攻撃は当たる(隠れるのは「見つからない」ことだけ)
+/// ・煙のVFX(VEG_Smoke)の広がる速さと粒の大きさは、半径1mの時の値で調整しておく(半径倍にして使う)
+/// ・消える時にぷつっと消えないよう、煙の粒の寿命だけ前から煙の発生を止めて薄くしていく
 /// </remarks>
 [RequireComponent(typeof(NetworkObject))]
 public class CS_SmokeScreen : NetworkBehaviour
@@ -27,8 +31,20 @@ public class CS_SmokeScreen : NetworkBehaviour
     // 出ている煙幕(AIからの問い合わせに使う)
     private static readonly List<CS_SmokeScreen> _activeSmokes = new List<CS_SmokeScreen>();
 
+    // 煙のVFXのプロパティ・イベント
+    private static readonly int SpreadSpeedId = Shader.PropertyToID("Initial Velocity Divergence");
+    private static readonly int SizeOverLifeId = Shader.PropertyToID("Size Over Life");
+    private static readonly int LifeTimeId = Shader.PropertyToID("LifeTime");
+    private const string StopEventName = "OnStop";
+
     // 煙が消えるまでの残り時間
     private float _remainingTime = 0.0f;
+
+    // 出てからの経過時間(見た目用。サーバー・クライアントの両方で数える)
+    private float _elapsedTime = 0.0f;
+
+    // 煙の発生を止めたか
+    private bool _isEffectStopped = false;
 
     [Header("＝＝＝ 煙幕 ＝＝＝")]
     [SerializeField, Min(0.1f)]
@@ -42,6 +58,10 @@ public class CS_SmokeScreen : NetworkBehaviour
     [SerializeField]
     [Tooltip("煙の見た目(半径に合わせて大きさを変える)")]
     private Transform _visual = null;
+
+    [SerializeField]
+    [Tooltip("煙のVFX(広がる速さと粒の大きさは半径1mの時の値で調整しておく)")]
+    private VisualEffect _smokeEffect = null;
 
     // このマシンが煙幕の寿命を管理するか(オフライン、またはサーバー)
     private bool hasAuthority => !IsSpawned || IsServer;
@@ -82,6 +102,23 @@ public class CS_SmokeScreen : NetworkBehaviour
 
         // 見た目の球(直径1)を煙の範囲の大きさに合わせる(サーバー・クライアントの両方で行う)
         if (_visual != null) _visual.localScale = Vector3.one * (_radius * 2.0f);
+
+        // 煙のVFXを煙の範囲の大きさに合わせる(広がる速さと粒の大きさを半径倍にする)
+        if (_smokeEffect != null)
+        {
+            _smokeEffect.SetFloat(SpreadSpeedId, _smokeEffect.GetFloat(SpreadSpeedId) * _radius);
+
+            AnimationCurve sizeOverLife = _smokeEffect.GetAnimationCurve(SizeOverLifeId);
+            Keyframe[] keys = sizeOverLife.keys;
+            for (int i = 0; i < keys.Length; ++i)
+            {
+                keys[i].value *= _radius;
+                keys[i].inTangent *= _radius;
+                keys[i].outTangent *= _radius;
+            }
+            sizeOverLife.keys = keys;
+            _smokeEffect.SetAnimationCurve(SizeOverLifeId, sizeOverLife);
+        }
     }
 
     private void OnEnable()
@@ -96,6 +133,8 @@ public class CS_SmokeScreen : NetworkBehaviour
 
     private void Update()
     {
+        UpdateEffect();
+
         if (!hasAuthority) return;
 
         _remainingTime -= Time.deltaTime;
@@ -109,6 +148,21 @@ public class CS_SmokeScreen : NetworkBehaviour
         }
 
         Destroy(gameObject);
+    }
+
+    /// <summary>
+    /// 煙のVFXを更新するメソッド
+    /// 消える時刻の、煙の粒の寿命だけ前に煙の発生を止め、残った粒が薄くなって消えるようにする
+    /// </summary>
+    private void UpdateEffect()
+    {
+        if (_smokeEffect == null || _isEffectStopped) return;
+
+        _elapsedTime += Time.deltaTime;
+        if (_elapsedTime < _duration - _smokeEffect.GetFloat(LifeTimeId)) return;
+
+        _smokeEffect.SendEvent(StopEventName);
+        _isEffectStopped = true;
     }
 
     /// <summary>

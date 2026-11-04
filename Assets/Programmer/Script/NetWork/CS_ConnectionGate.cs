@@ -10,9 +10,10 @@ public class CS_ConnectionGate : MonoBehaviour
     [SerializeField] private bool _acceptingConnections = true;
 
     public bool IsAcceptingConnections => _acceptingConnections;
+    public int MaxPlayers => _maxPlayers;
    
 
-    void Start()
+    void Awake()
     {
         GetComponent<NetworkManager>().ConnectionApprovalCallback = Approve;
     }

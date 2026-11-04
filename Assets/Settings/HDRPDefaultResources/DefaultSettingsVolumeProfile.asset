@@ -645,6 +645,57 @@ MonoBehaviour:
   minSolidAngle:
     m_OverrideState: 1
     m_Value: 4
+--- !u!114 &-3187100799325981341
+MonoBehaviour:
+  m_ObjectHideFlags: 3
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8a2d4dd812d841b999814203bc267a75, type: 3}
+  m_Name: CSV_ScreenEffectTiming
+  m_EditorClassIdentifier: Assembly-CSharp::CSV_ScreenEffectTiming
+  active: 1
+  priority:
+    m_OverrideState: 1
+    m_Value: 100
+  fadeInTime:
+    m_OverrideState: 1
+    m_Value: 0.05
+  fadeOutTime:
+    m_OverrideState: 1
+    m_Value: 0.25
+  playDuration:
+    m_OverrideState: 1
+    m_Value: 0.3
+  playWeightCurve:
+    m_OverrideState: 1
+    m_Value:
+      serializedVersion: 2
+      m_Curve:
+      - serializedVersion: 3
+        time: 0
+        value: 1
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      - serializedVersion: 3
+        time: 1
+        value: 0
+        inSlope: 0
+        outSlope: 0
+        tangentMode: 0
+        weightedMode: 0
+        inWeight: 0
+        outWeight: 0
+      m_PreInfinity: 2
+      m_PostInfinity: 2
+      m_RotationOrder: 4
 --- !u!114 &-2633116419224160244
 MonoBehaviour:
   m_ObjectHideFlags: 3
@@ -982,6 +1033,52 @@ MonoBehaviour:
   m_MaxSamples:
     m_OverrideState: 1
     m_Value: 6
+--- !u!114 &-1268136327117847989
+MonoBehaviour:
+  m_ObjectHideFlags: 3
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6740cee879e941afb7fdae91a82cf430, type: 3}
+  m_Name: CSV_SpeedLines
+  m_EditorClassIdentifier: Assembly-CSharp::CSV_SpeedLines
+  active: 1
+  intensity:
+    m_OverrideState: 1
+    m_Value: 0
+  color:
+    m_OverrideState: 1
+    m_Value: {r: 1, g: 1, b: 1, a: 0.8}
+  center:
+    m_OverrideState: 1
+    m_Value: {x: 0.5, y: 0.5}
+  lineCount:
+    m_OverrideState: 1
+    m_Value: 120
+  density:
+    m_OverrideState: 1
+    m_Value: 0.4
+  lineWidth:
+    m_OverrideState: 1
+    m_Value: 0.5
+  streakLength:
+    m_OverrideState: 1
+    m_Value: 0.3
+  innerRadius:
+    m_OverrideState: 1
+    m_Value: 0.35
+  softness:
+    m_OverrideState: 1
+    m_Value: 0.25
+  flickerRate:
+    m_OverrideState: 1
+    m_Value: 0
+  flowSpeed:
+    m_OverrideState: 1
+    m_Value: 0
 --- !u!114 &-1016694868962581565
 MonoBehaviour:
   m_ObjectHideFlags: 3
@@ -1187,6 +1284,8 @@ MonoBehaviour:
   - {fileID: 7365509278000085474}
   - {fileID: 4980636371935722034}
   - {fileID: 2105802090242699278}
+  - {fileID: -3187100799325981341}
+  - {fileID: -1268136327117847989}
 --- !u!114 &448115243408767295
 MonoBehaviour:
   m_ObjectHideFlags: 3

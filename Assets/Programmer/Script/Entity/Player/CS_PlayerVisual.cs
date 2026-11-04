@@ -16,8 +16,11 @@ using UnityEngine;
  * ■ ネットワークの考え方
  *   Animatorは全クライアントが「自分のもの」をローカルで動かす(NetworkAnimatorは使わない)。
  *   ・移動、接地、死亡 : 全クライアントで、座標の変化や同期済みのHPから自分で計算する(通信なし)
+ *     走っているか(Sprint)も、座標の変化の速さが通常の移動より速いかで決める
+ *     (CS_Player.isSprinting / isDashingは操作している本人の手元にしか無いため)
  *   ・被弾           : 同期済みのHPが減ったのを各クライアントが検知して再生する(通信なし)
- *   ・ジャンプ、ダッシュ、攻撃、必殺技 : 操作している本人が再生し、同時にRPCで他クライアントへ通知する
+ *   ・ジャンプ、ダッシュ、攻撃、必殺技、奇襲 : 操作している本人が再生し、同時にRPCで他クライアントへ通知する
+ *   ・パリー(反撃) : CS_PlayerParry.onParriedが全クライアントで発生するので、各クライアントが再生する(通信なし)
  *   後から参加したクライアントには単発の動作は再生されないが、死亡は状態から判定するので反映される
  *   ・復活直後の無敵の点滅 : 同期済みの無敵終了時刻(CS_PlayerRespawn.isRespawnInvincible)から全クライアントで判定する
  *
@@ -25,19 +28,12 @@ using UnityEngine;
  *   復活直後の無敵中は、子のRenderer(モデル)を_blinkInterval秒ごとに表示/非表示する
  *   Renderer.enabledは触らず、forceRenderingOffで隠す(他の処理が設定した表示状態を壊さないため)
  *
- * ■ 変身後の見た目
- *   変身が完了している間(CS_PlayerTransformation.isTransformed)は、_animatorのモデルを隠して
- *   _transformedAnimatorのモデルを表示し、以降のアニメーションは表示中の方のAnimatorへ送る
- *   変身状態は同期済みなので、全クライアント(途中参加も含む)で同じ見た目になる
- *   _transformedAnimatorが空なら、変身しても見た目は変わらない
- *
- * ■ 変身途中のエフェクト
- *   変身途中(CS_PlayerTransformation.isTransforming)の間だけ_transformingEffectを再生する(全クライアント)
- *   終わったら放出だけ止め、出ている粒は自然に消えるのを待つ。_transformingEffectが空なら何も出さない
+ * ■ 見た目は1つ
+ *   常時変身(Issue #277)になったため、通常の見た目と変身後の見た目の切り替え、変身途中のエフェクトは無くした
+ *   見た目は_animatorのモデル(Player.prefabのModel)だけ
  *
  * ■ 差し替え
  *   ・Animatorは自動で子オブジェクトから探す(_animatorが空のとき)。Modelの子を差し替えるだけでよい
- *   ・変身後の見た目はTransformedModel(_transformedAnimator)。通常の見た目と同じパラメータを持つControllerを使う
  *   ・Controller側に用意するパラメータはCS_PlayerAnimatorParamsを参照。無いパラメータは無視される
  *   ・ルートモーションは使わない(移動はRigidbodyが行うため、強制的にオフにする)
  *   ・詳しくは ClaudeUsers/プレイヤー見た目の差し替えガイド.md
@@ -54,14 +50,15 @@ public class CS_PlayerVisual : NetworkBehaviour
         Dash,
         Attack,
         Special,
+        Parry,
+        Ambush,
     }
 
-    [SerializeField] private Animator _animator;                // 通常の見た目のAnimator
-    [SerializeField] private Animator _transformedAnimator;     // 変身後の見た目のAnimator(空なら変身しても見た目は変わらない)
+    [SerializeField] private Animator _animator;                // 見た目のAnimator(空なら子オブジェクトから探す)
     [SerializeField] private float _locomotionDamping = 0.08f;  // 移動パラメータのなめらかさ(小さいほど素早く追従)
     [SerializeField] private float _maxTrackedSpeed = 40f;      // これを超える座標の変化はテレポートとみなして無視する(m/秒)
     [SerializeField] private float _blinkInterval = 0.1f;       // 復活直後の無敵中に点滅する間隔(秒)
-    [SerializeField] private ParticleSystem _transformingEffect;    // 変身途中に出すパーティクル(空なら出さない)
+    [SerializeField][Min(1)] private int _attackMotionCount = 3;    // Animatorにある通常攻撃のモーションの数。これを超えた段(5段コンボの4・5段目など)は先頭から使い回す
 
     private CS_Player _player;
     private CS_PlayerStats _stats;
@@ -69,10 +66,8 @@ public class CS_PlayerVisual : NetworkBehaviour
     private CS_PlayerAttack _attack;
     private CS_PlayerSpecialAttack _special;
     private CS_PlayerRespawn _respawn;
-    private CS_PlayerTransformation _transformation;
-    private Animator _normalAnimator;       // 通常の見た目のAnimator(_animatorは表示中の方を指す)
-    private bool _isShowingTransformed;     // 変身後の見た目を表示しているか
-    private bool _isPlayingTransformingEffect;  // 変身途中のエフェクトを再生しているか
+    private CS_PlayerParry _parry;
+    private CS_PlayerAmbush _ambush;
     private Renderer[] _renderers;
     private bool _isHidden;     // 点滅で隠している最中か
 
@@ -88,20 +83,13 @@ public class CS_PlayerVisual : NetworkBehaviour
         _attack = GetComponent<CS_PlayerAttack>();
         _special = GetComponent<CS_PlayerSpecialAttack>();
         _respawn = GetComponent<CS_PlayerRespawn>();
-        _transformation = GetComponent<CS_PlayerTransformation>();
+        _parry = GetComponent<CS_PlayerParry>();
+        _ambush = GetComponent<CS_PlayerAmbush>();
         _renderers = GetComponentsInChildren<Renderer>(true);
 
         if (_animator == null)
         {
             _animator = GetComponentInChildren<Animator>();
-        }
-
-        _normalAnimator = _animator;
-
-        // 変身後の見た目は、変身するまで隠しておく
-        if (_transformedAnimator != null)
-        {
-            _transformedAnimator.gameObject.SetActive(false);
         }
 
         CacheAnimatorParams();
@@ -121,6 +109,8 @@ public class CS_PlayerVisual : NetworkBehaviour
 
         if (_attack != null) _attack.onStepStarted += HandleAttackStepStarted;
         if (_special != null) _special.onSpecialStarted += HandleSpecialStarted;
+        if (_parry != null) _parry.onParried += HandleParried;
+        if (_ambush != null) _ambush.onAmbushStarted += HandleAmbushStarted;
     }
 
     private void OnDisable()
@@ -131,12 +121,12 @@ public class CS_PlayerVisual : NetworkBehaviour
 
         if (_attack != null) _attack.onStepStarted -= HandleAttackStepStarted;
         if (_special != null) _special.onSpecialStarted -= HandleSpecialStarted;
+        if (_parry != null) _parry.onParried -= HandleParried;
+        if (_ambush != null) _ambush.onAmbushStarted -= HandleAmbushStarted;
     }
 
     private void LateUpdate()
     {
-        UpdateModel();
-        UpdateTransformingEffect();
         UpdateBlink();
 
         if (_animator == null) return;
@@ -144,40 +134,7 @@ public class CS_PlayerVisual : NetworkBehaviour
         UpdateLocomotion(Time.deltaTime);
         SetBool(CS_PlayerAnimatorParams.groundedHash, _player.isGrounded);
         SetBool(CS_PlayerAnimatorParams.deadHash, _health.isDead);
-    }
-
-    // 変身が完了している間だけ変身後のモデルを表示し、アニメーションの送り先も切り替える
-    private void UpdateModel()
-    {
-        if (_normalAnimator == null || _transformedAnimator == null) return;
-
-        bool transformed = _transformation != null && _transformation.isTransformed;
-        if (transformed == _isShowingTransformed) return;
-
-        _isShowingTransformed = transformed;
-        _normalAnimator.gameObject.SetActive(!transformed);
-        _transformedAnimator.gameObject.SetActive(transformed);
-
-        _animator = transformed ? _transformedAnimator : _normalAnimator;
-        CacheAnimatorParams();
-    }
-
-    // 変身途中の間だけエフェクトを再生する
-    private void UpdateTransformingEffect()
-    {
-        if (_transformingEffect == null) return;
-
-        bool transforming = _transformation != null && _transformation.isTransforming;
-        if (transforming == _isPlayingTransformingEffect) return;
-
-        _isPlayingTransformingEffect = transforming;
-        if (transforming)
-        {
-            _transformingEffect.Play(true);
-            return;
-        }
-
-        _transformingEffect.Stop(true, ParticleSystemStopBehavior.StopEmitting);
+        if (Has(CS_PlayerAnimatorParams.attackSpeedHash)) _animator.SetFloat(CS_PlayerAnimatorParams.attackSpeedHash, _stats.comboSpeedRate);
     }
 
     // 復活直後の無敵中は点滅させ、無敵が終わったら表示に戻す
@@ -226,18 +183,26 @@ public class CS_PlayerVisual : NetworkBehaviour
         }
 
         Vector3 local = Quaternion.Inverse(transform.rotation) * velocity;
-        float reference = Mathf.Max(0.01f, _stats.moveSpeed);
+        float reference = Mathf.Max(0.01f, _stats.currentMoveSpeed);
         Vector2 move = Vector2.ClampMagnitude(new Vector2(local.x, local.z) / reference, 1f);
 
         SetFloat(CS_PlayerAnimatorParams.moveXHash, move.x, deltaTime);
         SetFloat(CS_PlayerAnimatorParams.moveZHash, move.y, deltaTime);
         SetFloat(CS_PlayerAnimatorParams.speedHash, move.magnitude, deltaTime);
+
+        // 通常の移動の速さと、走る速さ(ダッシュボタンを押し続けている間)の中間より速ければ走っている
+        float sprintThreshold = Mathf.Max(reference * 1.1f, (reference + _stats.currentSprintSpeed) * 0.5f);
+        SetBool(CS_PlayerAnimatorParams.sprintHash, velocity.magnitude > sprintThreshold);
     }
 
     private void HandleJumped() => PerformOwnerAction(ActionType.Jump, 0);
     private void HandleDashStarted() => PerformOwnerAction(ActionType.Dash, 0);
     private void HandleAttackStepStarted(int step) => PerformOwnerAction(ActionType.Attack, step);
     private void HandleSpecialStarted() => PerformOwnerAction(ActionType.Special, 0);
+    private void HandleAmbushStarted(CS_VillainHealth villain) => PerformOwnerAction(ActionType.Ambush, 0);
+
+    // パリー(反撃)は全クライアントで発生するので、通知せずにそれぞれで再生する
+    private void HandleParried(GameObject target) => PlayAction(ActionType.Parry, 0);
 
     // HPが減ったら被弾。全クライアントで同期済みのHPの変化から検知する
     private void HandleHpChanged(float current, float max)
@@ -280,11 +245,17 @@ public class CS_PlayerVisual : NetworkBehaviour
                 SetTrigger(CS_PlayerAnimatorParams.dashHash);
                 break;
             case ActionType.Attack:
-                SetInteger(CS_PlayerAnimatorParams.comboStepHash, parameter);
+                SetInteger(CS_PlayerAnimatorParams.comboStepHash, parameter % _attackMotionCount);
                 SetTrigger(CS_PlayerAnimatorParams.attackHash);
                 break;
             case ActionType.Special:
                 SetTrigger(CS_PlayerAnimatorParams.specialHash);
+                break;
+            case ActionType.Parry:
+                SetTrigger(CS_PlayerAnimatorParams.parryHash);
+                break;
+            case ActionType.Ambush:
+                SetTrigger(CS_PlayerAnimatorParams.ambushHash);
                 break;
         }
     }

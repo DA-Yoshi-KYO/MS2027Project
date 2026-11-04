@@ -1,0 +1,74 @@
+﻿/* ================================================
+ *
+ * ================================================
+ * 制作者：吉田京志郎
+ * ------------------------------------------------
+ * 2026-10-16 | 初回作成
+ * ================================================ */
+
+using Unity.Netcode;
+
+/// <summary>
+/// フィールド上のアイテムをミニマップ(CS_MiniMapController)にアイテムアイコンとして登録するクラス
+/// ・出現時に登録し、拾われて消える時に登録を解除する(位置の更新はCS_MiniMapControllerが行う)
+/// ・ネットワーク接続中は、各クライアントがそれぞれ自分のミニマップに登録する
+/// ・シーンにCS_MiniMapControllerが無ければ何もしない(ミニマップの無いテストシーンでも動く)
+/// ・アイテムのプレハブ(CS_ItemBaseと同じオブジェクト)にアタッチする
+/// </summary>
+public class CS_ItemMiniMapIcon : NetworkBehaviour
+{
+    // 登録先のミニマップ
+    private CS_MiniMapController _miniMap = null;
+
+    // ミニマップに登録した時のid(登録していなければnull)
+    private string _miniMapId = null;
+
+    // オフライン(NetworkManagerが動いていない)のテストシーン用
+    private void Start()
+    {
+        if (IsSpawned) return;
+        if (NetworkManager.Singleton != null && NetworkManager.Singleton.IsListening) return;
+
+        Register($"Item_{GetInstanceID()}");
+    }
+
+    public override void OnNetworkSpawn()
+    {
+        Register($"Item_{NetworkObjectId}");
+    }
+
+    public override void OnNetworkDespawn()
+    {
+        Unregister();
+    }
+
+    public override void OnDestroy()
+    {
+        Unregister();
+        base.OnDestroy();
+    }
+
+    /// <summary>
+    /// ミニマップにアイテムアイコンとして登録するメソッド
+    /// </summary>
+    /// <param name="id">アイコンのid(他の種類と重ならないよう「Item_」を付ける)</param>
+    private void Register(string id)
+    {
+        _miniMap = FindAnyObjectByType<CS_MiniMapController>();
+        if (_miniMap == null) return;
+
+        _miniMapId = id;
+        _miniMap.RegisterItem(_miniMapId, transform);
+    }
+
+    /// <summary>
+    /// ミニマップの登録を解除するメソッド(解除しないとアイコンが最後の位置に残り続ける)
+    /// </summary>
+    private void Unregister()
+    {
+        if (_miniMap == null || _miniMapId == null) return;
+
+        _miniMap.UnregisterItem(_miniMapId);
+        _miniMapId = null;
+    }
+}

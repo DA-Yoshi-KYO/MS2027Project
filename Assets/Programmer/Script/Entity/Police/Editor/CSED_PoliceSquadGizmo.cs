@@ -26,13 +26,15 @@ public static class CSED_PoliceSquadGizmo
     private const float _labelHeight = 0.5f;
 
     /// <summary>
-    /// 巡回ルートを描画するメソッド(選択していなくても常に表示する)
+    /// 巡回ルートを描画するメソッド(グループの「巡回ルートを表示」がオンなら、選択していなくても表示する)
     /// </summary>
     /// <param name="squad">描画するグループ</param>
     /// <param name="gizmoType">描画の種類(Unityから渡される)</param>
     [DrawGizmo(GizmoType.Selected | GizmoType.NonSelected)]
     private static void DrawPatrolRoute(CS_PoliceSquad squad, GizmoType gizmoType)
     {
+        if (!squad.showRoute) return;
+
         // 未設定(None)の巡回ポイントは飛ばす
         List<int> validIndices = new List<int>();
         for (int i = 0; i < squad.patrolPoints.Count; i++)

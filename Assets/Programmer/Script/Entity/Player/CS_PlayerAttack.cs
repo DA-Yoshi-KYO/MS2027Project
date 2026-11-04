@@ -3,8 +3,8 @@ using Unity.Netcode;
 using UnityEngine;
 
 /*
- * プレイヤーの3段コンボ攻撃を行うクラス
- * 攻撃ボタンを続けて押すと、1段目 → 2段目 → 3段目と派生する
+ * プレイヤーの5段コンボ攻撃を行うクラス(仕様書「攻撃」)
+ * 攻撃ボタンを続けて押すと、1段目 → 2段目 → … → 5段目と派生する(段数はAttack Stepsの数で決まる)
  *
  * 制作者：　秋野翔太
  */
@@ -13,25 +13,32 @@ using UnityEngine;
 /*
  * メモ
  * ・各段の数値や追加効果は CSO_AttackData(ScriptableObject) で決める
- *   Attack Steps に 1段目、2段目、3段目の順で割り当てる
+ *   Attack Steps に 1段目、2段目…の順で割り当てる(DB_PlayerAttack1〜5)
  * ・派生できる受付時間は、各段の CSO_AttackData の Combo Window で変更できる
+ *   (データ表「次コンボのバッファ」1秒。モーションが終わってから1秒以内に押せば次の段へつながる)
  * ・コンボの流れ
  *   待機 → 攻撃ボタン → [n段目] → 攻撃モーション終了 → 受付時間内にボタン → [n+1段目]
  *   ・攻撃モーション中に押したボタンは「先行入力」として覚え、モーション終了と同時に派生する
  *   ・受付時間を過ぎる、または最終段が終わると待機に戻る
  * ・攻撃判定の流れ
- *   1. 操作しているプレイヤー(Owner)が、判定のタイミングでHitRpcを呼ぶ
- *   2. サーバーが正面に球状の判定を出し、当たったIDamageableのTakeDamageを呼ぶ
+ *   1. 操作しているプレイヤー(Owner)が、判定のタイミングでHitRpcを呼ぶ(手元の位置・向きも一緒に送る)
+ *   2. サーバーが、送られてきた位置・向きの正面に球状の判定を出し、当たったIDamageableのTakeDamageを呼ぶ
+ *      (手元の向きはエイムアシスト(CS_PlayerAimAssist)で補正済み。サーバー上の位置から大きく離れていれば使わない)
  *   ※ オフライン(NetworkManagerが動いていない)のテストシーンでは、その場で判定する
  * ・入力(攻撃ボタン)はCS_Playerが持っているものを使う
+ *   攻撃ボタンはインタラクト(CS_PlayerInteractor)と共有。操作できるものの近く・操作中は攻撃を出さない
  * ・フレンドリーファイアは常に有効(チーム判定なし)。IDamageableを実装していれば
  *   プレイヤーだろうと敵だろうと関係なく当たる
- * ・実際のダメージ = CSO_AttackData.CalculateDamage() × CS_PlayerStats.attackPower(倍率)
+ * ・実際のダメージ = CSO_AttackData.CalculateDamage() × CS_PlayerStats.currentAttackPower(倍率。暗躍ボーナス込み)
  * ・ヒットする度に、各段のGauge Gain分だけCS_PlayerSpecialGaugeが溜まる
+ *   (仕様では通常攻撃のヒットでは溜まらないため、DB_PlayerAttack1〜5のGauge Gainは0にしている)
+ * ・奇襲(CS_PlayerAmbush)はこの5段コンボとは別の攻撃
+ *   待機中に攻撃ボタンを押した時、奇襲できる悪人がいれば1段目の代わりに奇襲を始める(いなければ1段目から)
+ *   奇襲中は通常攻撃を出さない。奇襲が終わった後にボタンを押すと、1段目から始まる
+ * ・ハイド中(CS_PlayerHide。ハイドポイントへ飛んでいる・張り付いている間)は通常攻撃を出さない
+ *   張り付いている間に攻撃ボタンを押すと、奇襲できる悪人がいれば奇襲する(CS_PlayerHide.TryAmbush)
+ * ・動けなくなった(死亡・スタン)時はコンボを中断する
  * ・必殺技(CS_PlayerSpecialAttack)を行っている間は、通常攻撃を行わない(isAttacking/isPerformingSpecialで排他制御)
- * ・変身中(CS_PlayerTransformation.isTransformed)でないと発動できない
- *   変身完了中はCS_PlayerTransformation側で解除できないよう制御しているため、
- *   コンボ開始後に変身が解けることは基本的に無い(死亡時の強制解除を除く)
  */
 // ========================================
 
@@ -39,11 +46,10 @@ using UnityEngine;
 [RequireComponent(typeof(CS_PlayerStats))]
 [RequireComponent(typeof(CS_PlayerSpecialGauge))]
 [RequireComponent(typeof(CS_PlayerSpecialAttack))]
-[RequireComponent(typeof(CS_PlayerTransformation))]
 public class CS_PlayerAttack : NetworkBehaviour
 {
     [Header("コンボ")]
-    [SerializeField] private CSO_AttackData[] _attackSteps;     // 1段目、2段目、3段目の順に割り当てる
+    [SerializeField] private CSO_AttackData[] _attackSteps;     // 1段目、2段目…の順に割り当てる
 
     [Header("攻撃判定")]
     [SerializeField] private LayerMask _targetLayers;           // ダメージを与える対象のレイヤー
@@ -55,7 +61,10 @@ public class CS_PlayerAttack : NetworkBehaviour
     private CS_PlayerStats _stats;
     private CS_PlayerSpecialGauge _gauge;
     private CS_PlayerSpecialAttack _specialAttack;
-    private CS_PlayerTransformation _transformation;
+    private CS_PlayerScoring _scoring;
+    private CS_PlayerInteractor _interactor;   // ケアパッケージなどの操作(攻撃と同じボタンを使う)。付いていなければnull
+    private CS_PlayerHide _hide;               // ハイド。張り付いている間は通常攻撃の代わりに奇襲だけ出す。付いていなければnull
+    private CS_PlayerAmbush _ambush;           // 奇襲(コンボとは別の攻撃)。付いていなければ奇襲しない
     private readonly Collider[] _hitBuffer = new Collider[_hitBufferSize];
     private readonly HashSet<IDamageable> _hitTargets = new HashSet<IDamageable>();
 
@@ -64,7 +73,8 @@ public class CS_PlayerAttack : NetworkBehaviour
     private bool _hasHit;                   // 現在の段の攻撃判定を行ったか
     private bool _isInputBuffered;          // 攻撃モーション中に次の入力があったか(先行入力)
 
-    public bool isAttacking => _currentStep != _noStep;   // コンボ中か(CS_PlayerSpecialAttackが参照)
+    public bool isAttacking => _currentStep != _noStep || isAmbushing;   // コンボ中・奇襲中か(CS_PlayerSpecialAttackが参照)
+    private bool isAmbushing => _ambush != null && _ambush.isAmbushing;
 
     // 操作しているクライアントでだけ発生する(引数は何段目か、0始まり)。見た目などが購読する
     public event System.Action<int> onStepStarted;
@@ -72,6 +82,7 @@ public class CS_PlayerAttack : NetworkBehaviour
     public event System.Action<int> onStepHitTiming;
     public int currentStep => _currentStep;               // 現在の段(0始まり、攻撃していなければ-1)
     public IReadOnlyList<CSO_AttackData> attackSteps => _attackSteps;
+    public LayerMask targetLayers => _targetLayers;       // ダメージを与える対象のレイヤー(カメラの揺れの当たり確認にも使う)
 
     private void Awake()
     {
@@ -79,7 +90,10 @@ public class CS_PlayerAttack : NetworkBehaviour
         _stats = GetComponent<CS_PlayerStats>();
         _gauge = GetComponent<CS_PlayerSpecialGauge>();
         _specialAttack = GetComponent<CS_PlayerSpecialAttack>();
-        _transformation = GetComponent<CS_PlayerTransformation>();
+        _scoring = GetComponent<CS_PlayerScoring>();
+        _interactor = GetComponent<CS_PlayerInteractor>();
+        _ambush = GetComponent<CS_PlayerAmbush>();
+        _hide = GetComponent<CS_PlayerHide>();
 
         if (HasValidSteps()) return;
 
@@ -89,12 +103,27 @@ public class CS_PlayerAttack : NetworkBehaviour
 
     private void Update()
     {
-        // 自分が操作していないプレイヤー、必殺技中、変身していない間は何もしない
-        if (!_player.canAct || _specialAttack.isPerformingSpecial || !_transformation.isTransformed) return;
+        // 動けなくなった(死亡・スタン)ら、コンボを中断する(止まっていた判定が、動けるようになった後に出ないように)
+        if (!_player.canAct)
+        {
+            if (isAttacking) ResetCombo();
+            return;
+        }
+
+        // 必殺技中、奇襲中は何もしない
+        if (_specialAttack.isPerformingSpecial || isAmbushing) return;
+
+        // ハイド中は通常攻撃を出さない。張り付いている間の攻撃ボタンは、奇襲できる悪人がいれば奇襲する
+        if (_player.isHiding)
+        {
+            if (_player.attackAction.WasPressedThisFrame() && !_player.isSpecialModifierHeld) _hide.TryAmbush();
+            return;
+        }
 
         // ゲームパッドは攻撃(RT)と必殺技(RT+LT)が同じRTを共有するため、
         // LTを押しながらの場合は必殺技の合図とみなし、攻撃としては発動させない
-        if (_player.attackAction.WasPressedThisFrame() && !_player.isSpecialModifierHeld)
+        // 通常攻撃ボタンはインタラクトと共有のため、操作できるもの(ケアパッケージなど)の近く・操作中は攻撃しない
+        if (_player.attackAction.WasPressedThisFrame() && !_player.isSpecialModifierHeld && !IsInteractPriority())
         {
             OnAttackPressed();
         }
@@ -102,12 +131,22 @@ public class CS_PlayerAttack : NetworkBehaviour
         UpdateCombo();
     }
 
+    // インタラクトを攻撃より優先する状況か(操作できるものが近くにある、または操作の途中)
+    private bool IsInteractPriority()
+    {
+        if (_interactor == null) return false;
+
+        return _interactor.isInteracting || _interactor.hasInteractTarget;
+    }
+
     // 攻撃ボタンが押されたときの処理
     private void OnAttackPressed()
     {
-        // 待機中 → 1段目から開始する
+        // 待機中 → 奇襲できる悪人がいれば奇襲、いなければ1段目から開始する
         if (_currentStep == _noStep)
         {
+            if (_ambush != null && _ambush.TryStartAmbush()) return;
+
             StartStep(0);
             return;
         }
@@ -129,7 +168,7 @@ public class CS_PlayerAttack : NetworkBehaviour
         if (_currentStep == _noStep) return;
 
         CSO_AttackData step = _attackSteps[_currentStep];
-        _elapsed += Time.deltaTime;
+        _elapsed += Time.deltaTime * _stats.comboSpeedRate;   // 暗躍ボーナスでコンボのモーションが速くなる
 
         // 判定のタイミングになったら、一度だけ判定を依頼する
         if (!_hasHit && _elapsed >= step.hitDelay)
@@ -206,45 +245,62 @@ public class CS_PlayerAttack : NetworkBehaviour
     // 攻撃判定を依頼する(ダメージはサーバーで確定させる)
     private void RequestHit(int stepIndex)
     {
+        // 判定は、攻撃した本人の手元の位置・向き(エイムアシストで補正済み)で行う
+        // (サーバー上の位置・向きはNetworkTransformの同期で少し遅れるため、補正した向きがまだ届いていないことがある)
+        Vector3 position = transform.position;
+        Vector3 forward = transform.forward;
+
         // オフライン(テストシーン)では、その場で判定する
         if (!IsSpawned)
         {
-            ExecuteHit(stepIndex);
+            ExecuteHit(stepIndex, position, forward);
             return;
         }
 
-        HitRpc(stepIndex);
+        HitRpc(stepIndex, position, forward);
     }
 
     // Ownerからサーバーへ、判定の実行を依頼する
     [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Owner)]
-    private void HitRpc(int stepIndex)
+    private void HitRpc(int stepIndex, Vector3 position, Vector3 forward)
     {
-        ExecuteHit(stepIndex);
+        ExecuteHit(stepIndex, position, forward);
     }
 
     // 攻撃判定を行い、当たった相手のダメージ処理を呼ぶ(サーバー、またはオフラインで実行される)
-    private void ExecuteHit(int stepIndex)
+    private void ExecuteHit(int stepIndex, Vector3 position, Vector3 forward)
     {
         // 不正な段番号は無視する(クライアントからの値は信用しない)
         if (stepIndex < 0 || stepIndex >= _attackSteps.Length) return;
 
-        // 判定タイミングまでの間に変身が解けていた場合は不発にする(死亡時の強制解除など)
-        if (!_transformation.isTransformed) return;
-
         CSO_AttackData step = _attackSteps[stepIndex];
         AttackContext context = new AttackContext(transform, stepIndex);
 
-        CS_AttackHitDetector.FindTargets(transform, step, _targetLayers, _hitBuffer, _hitTargets);
+        // 送られてきた位置・向きが、サーバー上の位置から大きく離れていないか確かめてから使う
+        CS_AttackHitDetector.ResolvePose(transform, ref position, ref forward);
+        CS_AttackHitDetector.FindTargets(transform, position, forward, step, _targetLayers, _hitBuffer, _hitTargets);
 
         foreach (IDamageable target in _hitTargets)
         {
-            float damage = step.CalculateDamage(context, target) * _stats.attackPower;
-            target.TakeDamage(damage);
-            CS_AttackHitDetector.TryKnockback(target, transform.position);   // 攻撃した位置から離れる方向へ下がる
+            float damage = step.CalculateDamage(context, target) * _stats.currentAttackPower;
+
+            DealDamage(target, damage);
+            CS_AttackHitDetector.TryKnockback(target, position);   // 攻撃した位置から離れる方向へ下がる
             step.OnHit(context, target);
             _gauge.Fill(step.gaugeGain);
         }
+    }
+
+    // ダメージを与える。スコア(CS_PlayerScoring)があればそれを通し、誰が倒したかをスコアに反映する
+    private void DealDamage(IDamageable target, float damage)
+    {
+        if (_scoring != null)
+        {
+            _scoring.DealDamage(target, damage);
+            return;
+        }
+
+        target.TakeDamage(damage, gameObject);
     }
 
     // 選択中に、各段の判定範囲をシーンビューへ表示する(調整用)

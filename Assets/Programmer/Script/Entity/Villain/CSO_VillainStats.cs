@@ -13,6 +13,7 @@ using UnityEngine;
  * ・悪人の種類(A, Bなど)ごとにアセットを作る
  *   右クリック → Create → Villain → Villain Stats
  * ・moveSpeedMultiplier はプレイヤーの通常移動速度を1とした倍率
+ * ・patrolSpeedMultiplier は見張り役が巡回する時の速さ。プレイヤーの通常移動速度を1とした倍率(データ表「悪人データ」巡回時)
  * ・attackPower はプレイヤーに与えるダメージ量(プレイヤーのHPと同じ単位)
  * ・engageRange はプレイヤーがこの距離(m)以内に入ると臨戦態勢になる範囲
  * ・crimeCompleteTime は放置されてから犯罪を完遂するまでの時間(秒)
@@ -25,6 +26,7 @@ public class CSO_VillainStats : ScriptableObject
     [Header("基礎値")]
     [SerializeField] private float _maxHp = 3f;
     [SerializeField] private float _moveSpeedMultiplier = 1f;   // プレイヤーの通常移動速度を1とした倍率
+    [SerializeField] private float _patrolSpeedMultiplier = 0.3f; // 見張り役が巡回する時の速さ(プレイヤーの通常移動速度を1とした倍率)
     [SerializeField] private float _attackPower = 1f;           // プレイヤーに与えるダメージ量
 
     [Header("行動")]
@@ -33,6 +35,7 @@ public class CSO_VillainStats : ScriptableObject
 
     public float maxHp => _maxHp;
     public float moveSpeedMultiplier => _moveSpeedMultiplier;
+    public float patrolSpeedMultiplier => _patrolSpeedMultiplier;
     public float attackPower => _attackPower;
     public float engageRange => _engageRange;
     public float crimeCompleteTime => _crimeCompleteTime;
@@ -41,6 +44,7 @@ public class CSO_VillainStats : ScriptableObject
     {
         _maxHp = Mathf.Max(1f, _maxHp);
         _moveSpeedMultiplier = Mathf.Max(0f, _moveSpeedMultiplier);
+        _patrolSpeedMultiplier = Mathf.Max(0f, _patrolSpeedMultiplier);
         _attackPower = Mathf.Max(0f, _attackPower);
         _engageRange = Mathf.Max(0f, _engageRange);
         _crimeCompleteTime = Mathf.Max(0f, _crimeCompleteTime);

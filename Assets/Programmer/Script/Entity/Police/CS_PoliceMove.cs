@@ -56,6 +56,11 @@ public class CS_PoliceMove : MonoBehaviour
     [Tooltip("路地裏のNavMesh Area名。巡回中はこのAreaを通らない")]
     private string _alleyAreaName = "Alley";
 
+    [Header("＝＝＝ 目的地 ＝＝＝")]
+    [SerializeField, Min(0.01f)]
+    [Tooltip("目的地がこの距離より動かない限り、経路を作り直さない(動く標的を追う時に、毎回経路を計算しないため)")]
+    private float _repathDistance = 0.5f;
+
     [Header("＝＝＝ 到達判定 ＝＝＝")]
     [SerializeField, Min(0f)]
     [Tooltip("目的地に到達したとみなす距離")]
@@ -131,6 +136,16 @@ public class CS_PoliceMove : MonoBehaviour
     }
 
     /// <summary>
+    /// 移動状態ごとの速度を取得するメソッド
+    /// </summary>
+    /// <param name="moveState">移動状態</param>
+    /// <returns>その移動状態の速度(設定されていなければ0)</returns>
+    public float GetStateSpeed(CSE_PoliceMoveState moveState)
+    {
+        return _moveStateSpeeds.TryGetValue(moveState, out float speed) ? speed : 0.0f;
+    }
+
+    /// <summary>
     /// 指定した目的地へ、指定した移動状態の速度で移動するメソッド
     /// </summary>
     /// <param name="position">目的地</param>
@@ -147,8 +162,8 @@ public class CS_PoliceMove : MonoBehaviour
         // 移動状態に応じて路地裏を通れるかを切り替える(切り替わった場合は元の目的地で経路を再計算する)
         UpdateAreaMask();
 
-        // 同じ目的地を何度も指示された場合は、経路の再計算をしない
-        if (_hasDestination && (_requestedDestination - position).sqrMagnitude < 0.01f) return;
+        // ほぼ同じ目的地を何度も指示された場合は、経路の再計算をしない
+        if (_hasDestination && (_requestedDestination - position).sqrMagnitude < _repathDistance * _repathDistance) return;
 
         _agent.SetDestination(position);
         _requestedDestination = position;

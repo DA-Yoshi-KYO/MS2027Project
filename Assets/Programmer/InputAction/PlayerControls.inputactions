@@ -1,4 +1,5 @@
 {
+    "version": 1,
     "name": "PlayerControls",
     "maps": [
         {
@@ -12,7 +13,8 @@
                     "expectedControlType": "Vector2",
                     "processors": "",
                     "interactions": "",
-                    "initialStateCheck": true
+                    "initialStateCheck": true,
+                    "priority": 0
                 },
                 {
                     "name": "Look",
@@ -21,7 +23,8 @@
                     "expectedControlType": "Vector2",
                     "processors": "",
                     "interactions": "",
-                    "initialStateCheck": true
+                    "initialStateCheck": true,
+                    "priority": 0
                 },
                 {
                     "name": "LookStick",
@@ -30,70 +33,78 @@
                     "expectedControlType": "Vector2",
                     "processors": "",
                     "interactions": "",
-                    "initialStateCheck": true
+                    "initialStateCheck": true,
+                    "priority": 0
                 },
                 {
                     "name": "Attack",
                     "type": "Button",
                     "id": "c45581aa-2cc9-4abe-9572-b65eb4018931",
-                    "expectedControlType": "Button",
+                    "expectedControlType": "",
                     "processors": "",
                     "interactions": "",
-                    "initialStateCheck": false
+                    "initialStateCheck": false,
+                    "priority": 0
                 },
                 {
                     "name": "Jump",
                     "type": "Button",
                     "id": "d3f1c9a2-5e4b-4a2b-8a1e-7b6f9c2d4e1a",
-                    "expectedControlType": "Button",
+                    "expectedControlType": "",
                     "processors": "",
                     "interactions": "",
-                    "initialStateCheck": false
+                    "initialStateCheck": false,
+                    "priority": 0
                 },
                 {
                     "name": "Special",
                     "type": "Button",
                     "id": "7e9c2a4b-1d6f-4c8a-b3e5-9a2d4f6c8e10",
-                    "expectedControlType": "Button",
+                    "expectedControlType": "",
                     "processors": "",
                     "interactions": "",
-                    "initialStateCheck": false
+                    "initialStateCheck": false,
+                    "priority": 0
                 },
                 {
                     "name": "SpecialModifier",
                     "type": "Button",
                     "id": "8e92b987-0569-4ddb-9a17-1e8231333598",
-                    "expectedControlType": "Button",
+                    "expectedControlType": "",
                     "processors": "",
                     "interactions": "",
-                    "initialStateCheck": false
+                    "initialStateCheck": false,
+                    "priority": 0
                 },
                 {
                     "name": "Dash",
                     "type": "Button",
                     "id": "9f1b3d5e-7a2c-4f6d-8e1a-3c5b7d9f1a20",
-                    "expectedControlType": "Button",
+                    "expectedControlType": "",
                     "processors": "",
                     "interactions": "",
-                    "initialStateCheck": false
+                    "initialStateCheck": false,
+                    "priority": 0
                 },
                 {
                     "name": "UseItem",
                     "type": "Button",
                     "id": "4c6e8a0b-2d4f-4a6c-8e0b-2d4f6a8c0e21",
-                    "expectedControlType": "Button",
+                    "expectedControlType": "",
                     "processors": "",
                     "interactions": "",
-                    "initialStateCheck": false
+                    "initialStateCheck": false,
+                    "priority": 0
                 },
                 {
-                    "name": "Transformation",
+                    "name": "Scan",
                     "type": "Button",
                     "id": "8d0f2a43-6b8c-4e0a-9b3d-5f7a9c1e3b64",
-                    "expectedControlType": "Button",
+                    "expectedControlType": "",
                     "processors": "",
                     "interactions": "",
-                    "initialStateCheck": false
+                    "initialStateCheck": false,
+                    "priority": 0
                 }
             ],
             "bindings": [
@@ -199,7 +210,7 @@
                 {
                     "name": "",
                     "id": "2338b3bf-1d54-4466-bdd1-3d9c550185bd",
-                    "path": "<Gamepad>/rightTrigger",
+                    "path": "<Gamepad>/buttonWest",
                     "interactions": "",
                     "processors": "",
                     "groups": "",
@@ -298,7 +309,7 @@
                 {
                     "name": "",
                     "id": "5a7c9e1b-3d5f-4a7c-8e1b-3d5f7a9c1e40",
-                    "path": "<Gamepad>/buttonEast",
+                    "path": "<Gamepad>/rightTrigger",
                     "interactions": "",
                     "processors": "",
                     "groups": "",
@@ -335,18 +346,18 @@
                     "interactions": "",
                     "processors": "",
                     "groups": "",
-                    "action": "Transformation",
+                    "action": "Scan",
                     "isComposite": false,
                     "isPartOfComposite": false
                 },
                 {
                     "name": "",
                     "id": "af2b4c65-8d0e-4a2c-9d5f-7b9c1e3a5d86",
-                    "path": "<Gamepad>/rightStickPress",
+                    "path": "<Gamepad>/leftShoulder",
                     "interactions": "",
                     "processors": "",
                     "groups": "",
-                    "action": "Transformation",
+                    "action": "Scan",
                     "isComposite": false,
                     "isPartOfComposite": false
                 }

@@ -13,9 +13,10 @@ MonoBehaviour:
   m_Name: DB_VillainAttack
   m_EditorClassIdentifier: Assembly-CSharp::CSO_AttackData
   _damage: 1
-  _hitDelay: 0.15
-  _duration: 0.4
+  _hitDelay: 0.2
+  _duration: 0.2
   _comboWindow: 0.5
   _hitRange: 1.2
   _hitRadius: 0.9
   _gaugeGain: 10
+  _cameraShakeForce: 0

@@ -21,7 +21,7 @@ using UnityEngine;
  *   3. 飛ぶ: 体の底(足元)が立つ位置に来る所へ、高さも含めて_flySpeedでまっすぐ飛ぶ(CS_Player.Fly)。街灯の上・車の上などにも飛べる
  *      飛んでいる間は物にぶつからず(Rigidbody.detectCollisionsを切る)、重力も切る。_maxFlyTime秒以内に着けなかった時はやめる
  *      (飛べるのは、壁などに遮られず見えているハイドポイントだけなので、壁を抜けて飛ぶことはない)
- *   4. 着いた: 位置(高さ込み)を合わせ、ハイドポイントの正面を向いて、すぐ普通の状態に戻る(歩ける・ジャンプできる・重力あり)
+ *   4. 着いた: 位置(高さ込み)を合わせ、飛ぶ前に向いていた向きに戻して、すぐ普通の状態に戻る(歩ける・ジャンプできる・重力あり)
  *      以前の「張り付いて動かない」は無くした(仕様「SAポイント移動後も通常の状態と変わらないように移動できる」)
  * ・隠れている判定(isHidden)
  *   プレイヤーの体の中心(当たり判定の中心)が、どれかのハイドポイントの隠れられる箱(CS_HidePoint)の中にある間は隠れている
@@ -63,6 +63,7 @@ public class CS_PlayerHide : NetworkBehaviour
     // 本人の手元の状態
     private bool _isFlying;
     private CS_HidePoint _point;            // 飛んでいる先のハイドポイント
+    private float _yawBeforeFly;            // 飛ぶ前に向いていた向き(度。着いたらこの向きに戻す)
     private CS_HidePoint _candidate;        // 今ダッシュボタンを押したら飛ぶハイドポイント
     private float _elapsed;
     private bool _isFloating;               // 重力を切っているか(元に戻すため)
@@ -125,6 +126,7 @@ public class CS_PlayerHide : NetworkBehaviour
         _candidate = null;
         _isFlying = true;
         _elapsed = 0f;
+        _yawBeforeFly = transform.eulerAngles.y;
         _player.SetAimFacing(Quaternion.LookRotation(HorizontalDirection(_point.standPosition)).eulerAngles.y);
         return true;
     }
@@ -233,16 +235,14 @@ public class CS_PlayerHide : NetworkBehaviour
         _player.Fly(toPoint / distance, distance, distance / _flySpeed);
     }
 
-    // 着いた: 位置(高さ込み)を合わせ、ハイドポイントの正面を向いて、普通の状態に戻る
+    // 着いた: 位置(高さ込み)を合わせ、飛ぶ前に向いていた向きに戻して、普通の状態に戻る
     private void Arrive()
     {
-        CS_HidePoint point = _point;
-        _player.SnapPosition(GetArrivePosition(point));
+        _player.SnapPosition(GetArrivePosition(_point));
         EndFly();
 
-        // 正面(隠れる物の方)を向いておく。移動キーを押せば、いつも通り進む方向へ向く
-        Vector3 forward = point.standForward;
-        if (forward.sqrMagnitude > 0.0001f) _player.SetAimFacing(Quaternion.LookRotation(forward).eulerAngles.y);
+        // 飛ぶ前の向きに戻す(ハイドポイントの向きには合わせない)。移動キーを押せば、いつも通り進む方向へ向く
+        _player.SetAimFacing(_yawBeforeFly);
         _player.ClearAimFacing();
     }
 

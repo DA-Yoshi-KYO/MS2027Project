@@ -15,7 +15,15 @@ using UnityEngine;
  * ・SAの流れ(本人の手元で進める)
  *   1. 飛んでいない間、飛べるハイドポイント(currentCandidate)を探す
  *      条件: 足元がそのハイドポイントのSAできる範囲の箱(CS_HidePoint.IsInSAReachBox)の中にある・画面に映っている・
- *            カメラの高さから見て壁などに遮られていない・カメラの正面に一番近い
+ *            カメラから見て、そのハイドポイントの隠れられる箱が_requiredVisibleRatio(既定30%)以上見えている・カメラの正面に一番近い
+ *            体の中心がそのハイドポイントの隠れられる箱の中にある(今いるハイドポイント)時は、そこへは飛ばない
+ * ・見えている割合
+ *   隠れられる箱の中に、1辺_sightSampleCount個(既定3。3×3×3 = 27点)の点を並べ、カメラから各点へレイを飛ばす
+ *   壁などに遮られずに届いた点の割合が_requiredVisibleRatio以上なら見えているとみなす(大きな物の一部に隠れていても、見えていれば飛べる)
+ *   点は箱の端から少し内側(_sightSampleInset)に置く(箱の底が地面・屋根の面と重なっていても、面に当たって遮られないようにするため)
+ *   届いたかの判定では、プレイヤー自身・キャラクター(IDamageable)は遮るものとして扱わない
+ *   警察の視線と同じレイヤー(CS_PoliceLayers.obstacleLayers)を使う。警察の判定(CS_PoliceLineOfSight)とは別に持つ
+ *   隠れられる箱が空のハイドポイントは、立つ位置の_pointHeight上の1点だけで調べる
  *   2. 飛べるハイドポイントがある時にダッシュボタン(RT/SHIFT)を押すと、ダッシュの代わりに飛ぶ(CS_PlayerがTryBeginHideを呼ぶ)
  *      無い時は今まで通りダッシュになる
  *   3. 飛ぶ: 体の底(足元)が立つ位置に来る所へ、高さも含めて_flySpeedでまっすぐ飛ぶ(CS_Player.Fly)。街灯の上・車の上などにも飛べる
@@ -40,8 +48,10 @@ using UnityEngine;
 public class CS_PlayerHide : NetworkBehaviour
 {
     [Header("飛べるハイドポイントを探す")]
-    [SerializeField] private float _sightHeight = 1.3f;                 // 遮るものを調べる視線の高さ(足元から。カメラの高さに合わせる)
-    [SerializeField] private float _pointHeight = 1f;                   // ハイドポイントの立つ位置から、視線を通す先の高さ(m)
+    [SerializeField] private float _pointHeight = 1f;                   // ハイドポイントの立つ位置から、画面に映っているか・カメラの正面に近いかを調べる点の高さ(m)
+    [SerializeField][Range(0f, 1f)] private float _requiredVisibleRatio = 0.3f;   // 隠れられる箱がこの割合以上カメラから見えていれば飛べる
+    [SerializeField][Range(2, 5)] private int _sightSampleCount = 3;              // 見えている割合を調べる点の、箱の1辺あたりの数(3なら27点)
+    [SerializeField][Range(0f, 0.5f)] private float _sightSampleInset = 0.1f;     // 点を箱の端からどれだけ内側に置くか(箱の大きさに対する割合)
 
     [Header("飛ぶ")]
     [SerializeField][Min(0.1f)] private float _flySpeed = 25f;          // 飛ぶ速さ(m/秒)
@@ -53,6 +63,9 @@ public class CS_PlayerHide : NetworkBehaviour
 
     // 隠れているか(書き込みはサーバー、またはオフラインのみ。全員で分かる)
     private readonly NetworkVariable<bool> _isHidden = new NetworkVariable<bool>();
+
+    private const int _sightHitBufferSize = 16;   // 視線の判定で一度に調べる当たりの上限
+    private readonly RaycastHit[] _sightHits = new RaycastHit[_sightHitBufferSize];
 
     private CS_Player _player;
     private Rigidbody _rigidbody;
@@ -186,7 +199,7 @@ public class CS_PlayerHide : NetworkBehaviour
 
         Vector3 cameraForward = viewCamera.transform.forward;
         Vector3 feet = GetFeetPosition();
-        Vector3 sightPosition = feet + Vector3.up * _sightHeight;
+        Vector3 sightPosition = viewCamera.transform.position;
         CS_HidePoint best = null;
         float bestAngle = float.MaxValue;
         foreach (CS_HidePoint point in CS_HidePoint.activePoints)
@@ -194,19 +207,79 @@ public class CS_PlayerHide : NetworkBehaviour
             // SAできる範囲の箱はハイドポイントごと。足元が箱の中にある時だけ飛べる
             if (!point.IsInSAReachBox(feet)) continue;
 
+            // 今いるハイドポイント(体の中心が隠れられる箱の中にある)へは飛ばない
+            if (point.Contains(bodyCenter)) continue;
+
             Vector3 target = point.standPosition + Vector3.up * _pointHeight;
             if (!IsOnScreen(viewCamera, target)) continue;
 
             float angle = Vector3.Angle(cameraForward, target - viewCamera.transform.position);
             if (angle >= bestAngle) continue;
 
-            // 壁などの向こうのハイドポイントには飛べない(キャラクターは遮るものとして扱わない)
-            if (!CS_PoliceLineOfSight.IsClear(sightPosition, target, transform)) continue;
+            // 壁などに隠れて、隠れられる箱が十分に見えていないハイドポイントには飛べない
+            if (!IsVisibleEnough(sightPosition, point, target)) continue;
 
             best = point;
             bestAngle = angle;
         }
         return best;
+    }
+
+    // fromから見て、pointの隠れられる箱が_requiredVisibleRatio以上見えているか(箱が空ならfallbackの1点で調べる)
+    private bool IsVisibleEnough(Vector3 from, CS_HidePoint point, Vector3 fallback)
+    {
+        if (!point.hasHideBox) return IsSightClear(from, fallback);
+
+        int perSide = _sightSampleCount;
+        int total = perSide * perSide * perSide;
+        int required = Mathf.Max(1, Mathf.CeilToInt(total * _requiredVisibleRatio));
+        float extent = 0.5f - _sightSampleInset;   // 箱の中心から点を置く端までの距離(箱の大きさに対する割合)
+
+        int visible = 0;
+        int checkedCount = 0;
+        for (int x = 0; x < perSide; x++)
+        {
+            for (int y = 0; y < perSide; y++)
+            {
+                for (int z = 0; z < perSide; z++)
+                {
+                    Vector3 local = new Vector3(SampleOffset(x, perSide, extent), SampleOffset(y, perSide, extent), SampleOffset(z, perSide, extent));
+                    if (IsSightClear(from, point.GetHideBoxPoint(local))) visible++;
+                    checkedCount++;
+
+                    // 足りた・残りを全部足しても足りない時は、そこで打ち切る
+                    if (visible >= required) return true;
+                    if (visible + (total - checkedCount) < required) return false;
+                }
+            }
+        }
+        return false;
+    }
+
+    // 箱の1辺にcount個の点を並べた時の、index番目の点の位置(箱の中心から-extent〜+extent)
+    private static float SampleOffset(int index, int count, float extent)
+    {
+        return Mathf.Lerp(-extent, extent, index / (float)(count - 1));
+    }
+
+    // fromからtoまでの間に、壁など(CS_PoliceLayers.obstacleLayers)が無いか
+    // プレイヤー自身・キャラクター(IDamageableを持つもの)は遮るものとして扱わない
+    private bool IsSightClear(Vector3 from, Vector3 to)
+    {
+        Vector3 toTarget = to - from;
+        float distance = toTarget.magnitude;
+        if (distance <= 0.0001f) return true;
+
+        int count = Physics.RaycastNonAlloc(from, toTarget / distance, _sightHits, distance, CS_PoliceLayers.obstacleLayers, QueryTriggerInteraction.Ignore);
+        for (int i = 0; i < count; i++)
+        {
+            Transform hit = _sightHits[i].collider.transform;
+            if (hit.IsChildOf(transform)) continue;
+            if (hit.GetComponentInParent<IDamageable>() != null) continue;
+
+            return false;
+        }
+        return true;
     }
 
     // 着く位置(体の底が立つ位置に来る所)へ直進し、着いたら普通の状態に戻る

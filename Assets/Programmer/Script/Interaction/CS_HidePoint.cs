@@ -28,6 +28,9 @@ using UnityEngine;
  *   (SAを使わずに歩いて入った時も同じ)。_standPointとは別のオブジェクトなので、_standPointを動かした時はHideBoxも合わせて動かす
  *   プレハブの既定は位置 (0, 6.65, 0)・Scale (1.5, 3.3, 1.5)(StandPointの足元が底。高さ3.3m = プレイヤーの高さ2m + ジャンプの高さ約1.3m、幅・奥行1.5m)
  *   _hideBoxが空なら隠れられない。シーンビューでは、選んでいない時も箱をギズモで描く
+ * ・SAオブジェクト(_SAObjects。街灯・信号機など、このハイドポイントが付いている物。複数可)
+ *   飛べるかを調べる視線(CS_PlayerHide)が、これらの物(またはその子)に当たっても遮られたとみなさない
+ *   着く位置がその物の上や陰にあっても、物自体に引っかかって飛べなくならないようにするため。空なら何も無視しない
  * ・1つのハイドポイントに何人でも入れる(以前の「1か所に1人まで」の予約は無くした)
  * ・有効な間は一覧(activePoints)に登録する
  * ・ネットワークの同期はしない(全員のフィールドに同じ位置で置かれている前提)
@@ -39,6 +42,7 @@ public class CS_HidePoint : MonoBehaviour
     [SerializeField] private Transform _standPoint;                                     // 着く位置と向き(空ならこのオブジェクト自身)
     [SerializeField] private Transform _SAReachBox;                                     // SAできる範囲の箱(位置・回転・Scaleを使う。空ならSAできない)。強調UIもこの箱で出る
     [SerializeField] private Transform _hideBox;                                        // 隠れられる箱(位置・回転・Scaleを使う。空なら隠れられない)
+    [SerializeField] private Transform[] _SAObjects;                                    // SAオブジェクト(飛べるかを調べる視線が当たっても無視する物。複数可)
 
     // 有効なハイドポイントの一覧
     private static readonly List<CS_HidePoint> _activePoints = new List<CS_HidePoint>();
@@ -80,6 +84,18 @@ public class CS_HidePoint : MonoBehaviour
     public bool Contains(Vector3 position)
     {
         return IsInsideBox(_hideBox, position);
+    }
+
+    // hitが、このハイドポイントのSAオブジェクト(またはその子)か
+    public bool IsSAObject(Transform hit)
+    {
+        if (hit == null || _SAObjects == null) return false;
+
+        foreach (Transform saObject in _SAObjects)
+        {
+            if (saObject != null && hit.IsChildOf(saObject)) return true;
+        }
+        return false;
     }
 
     // positionが、SAできる範囲の箱(SAReachBox)の中にあるか

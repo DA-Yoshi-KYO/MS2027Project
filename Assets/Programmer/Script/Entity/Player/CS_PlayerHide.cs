@@ -16,6 +16,9 @@ using UnityEngine;
  *   1. 飛んでいない間、飛べるハイドポイント(currentCandidate)を探す
  *      条件: 足元がそのハイドポイントのSAできる範囲の箱(CS_HidePoint.IsInSAReachBox)の中にある・画面に映っている・
  *            カメラの高さから見て壁などに遮られていない・カメラの正面に一番近い
+ *            体の中心がそのハイドポイントの隠れられる箱の中にある(今いるハイドポイント)時は、そこへは飛ばない
+ *            視線の判定では、プレイヤー自身・キャラクター(IDamageable)・そのハイドポイントのSAオブジェクト(CS_HidePoint._SAObjects)は遮るものとして扱わない
+ *            (警察の視線と同じレイヤー(CS_PoliceLayers.obstacleLayers)を使う。警察の判定(CS_PoliceLineOfSight)とは別に持つ)
  *   2. 飛べるハイドポイントがある時にダッシュボタン(RT/SHIFT)を押すと、ダッシュの代わりに飛ぶ(CS_PlayerがTryBeginHideを呼ぶ)
  *      無い時は今まで通りダッシュになる
  *   3. 飛ぶ: 体の底(足元)が立つ位置に来る所へ、高さも含めて_flySpeedでまっすぐ飛ぶ(CS_Player.Fly)。街灯の上・車の上などにも飛べる
@@ -53,6 +56,9 @@ public class CS_PlayerHide : NetworkBehaviour
 
     // 隠れているか(書き込みはサーバー、またはオフラインのみ。全員で分かる)
     private readonly NetworkVariable<bool> _isHidden = new NetworkVariable<bool>();
+
+    private const int _sightHitBufferSize = 16;   // 視線の判定で一度に調べる当たりの上限
+    private readonly RaycastHit[] _sightHits = new RaycastHit[_sightHitBufferSize];
 
     private CS_Player _player;
     private Rigidbody _rigidbody;
@@ -194,19 +200,43 @@ public class CS_PlayerHide : NetworkBehaviour
             // SAできる範囲の箱はハイドポイントごと。足元が箱の中にある時だけ飛べる
             if (!point.IsInSAReachBox(feet)) continue;
 
+            // 今いるハイドポイント(体の中心が隠れられる箱の中にある)へは飛ばない
+            if (point.Contains(bodyCenter)) continue;
+
             Vector3 target = point.standPosition + Vector3.up * _pointHeight;
             if (!IsOnScreen(viewCamera, target)) continue;
 
             float angle = Vector3.Angle(cameraForward, target - viewCamera.transform.position);
             if (angle >= bestAngle) continue;
 
-            // 壁などの向こうのハイドポイントには飛べない(キャラクターは遮るものとして扱わない)
-            if (!CS_PoliceLineOfSight.IsClear(sightPosition, target, transform)) continue;
+            // 壁などの向こうのハイドポイントには飛べない(キャラクター・そのハイドポイントのSAオブジェクトは遮るものとして扱わない)
+            if (!IsSightClear(sightPosition, target, point)) continue;
 
             best = point;
             bestAngle = angle;
         }
         return best;
+    }
+
+    // fromからtoまでの間に、壁など(CS_PoliceLayers.obstacleLayers)が無いか
+    // プレイヤー自身・キャラクター(IDamageableを持つもの)・pointのSAオブジェクトは遮るものとして扱わない
+    private bool IsSightClear(Vector3 from, Vector3 to, CS_HidePoint point)
+    {
+        Vector3 toTarget = to - from;
+        float distance = toTarget.magnitude;
+        if (distance <= 0.0001f) return true;
+
+        int count = Physics.RaycastNonAlloc(from, toTarget / distance, _sightHits, distance, CS_PoliceLayers.obstacleLayers, QueryTriggerInteraction.Ignore);
+        for (int i = 0; i < count; i++)
+        {
+            Transform hit = _sightHits[i].collider.transform;
+            if (hit.IsChildOf(transform)) continue;
+            if (hit.GetComponentInParent<IDamageable>() != null) continue;
+            if (point.IsSAObject(hit)) continue;
+
+            return false;
+        }
+        return true;
     }
 
     // 着く位置(体の底が立つ位置に来る所)へ直進し、着いたら普通の状態に戻る

@@ -25,6 +25,7 @@ public static class MutouCompareSetup
     const string GraphDir = ToonRoot + "/Shader/Graph";
     const string OutlineTplDir = ToonRoot + "/Materiar";
     const float OutlineWidthScale = 2.5f;   // Teto より線を太く (分かりやすさ優先)
+    const float SkinOutlineDepthPush = 4f;  // 肌の線を線の太さ 4 本分だけ奥へ (口の切れ込みから線が透けないように)
 
     enum Part { Skin, Hair, Eye, Clothes, Gun }
 

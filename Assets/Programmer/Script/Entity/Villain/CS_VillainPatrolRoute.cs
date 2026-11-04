@@ -2,8 +2,8 @@ using UnityEngine;
 using UnityEngine.AI;
 
 /*
- * 悪人1人分の巡回ルート
- * スポーン位置(CS_VillainSpawnPoint)の子に人数分置き、Pointsに巡回する地点を順番に並べる
+ * スポーン位置で使う巡回パターン(CSO_VillainPatrolPattern)を指定するクラス
+ * スポーン位置(CS_VillainSpawnPoint)と同じオブジェクトに付ける
  *
  * 制作者：　中出峻輔
  */
@@ -11,84 +11,72 @@ using UnityEngine.AI;
 // ========================================
 /*
  * メモ
- * ・置き方
- *   VillainSpawnPoint
- *   ├ PatrolRoute_0   ← このコンポーネント。Pointsに地点を順番に入れる(最初と最後が端)
- *   │  ├ Point_0
- *   │  ├ Point_1
- *   │  └ Point_2
- *   └ PatrolRoute_1   ← 2人目のルート
- * ・グループのメンバーは、生成した順に子の上から順のルートへ割り当てられる(ルートより人数が多ければ、また最初のルートから)
- *   同じルートに割り当てられた人同士は、間を空けて並んで回る(間隔はCS_VillainSpawnPointのPatrol Spacing)
- * ・回り方は往復。端に着いたらグループ全員で見回してから、折り返す(CS_VillainGroup参照)
- * ・地点が2つ未満、または空の要素があるルートは使わない(警告を出す)
- * ・地点はNavMeshの上に合わせて使う(見つからない時はそのままの位置)
- * ・Sceneビューで、このルートかスポーン位置を選ぶと、ルートが水色の線で表示される
+ * ・巡回はSceneビューの巡回エディタで作る(スポーン位置を選ぶとツールバーが出る。ClaudeDocs/巡回エディタの使い方.md)
+ *   「悪人を置く」を押すと、このコンポーネントとパターンのアセットが無ければ自動で作る
+ * ・パターンのポイントはスポーン位置からの相対位置。ワールド座標への変換はこのクラスで行う
+ *   スポーン位置の向き(Y軸の回転)だけを掛け、Scaleは掛けない(犯罪完遂ゲージがスポーン位置のScaleを変えるため)
+ * ・パターンが無い・ルートが1本も無いスポーン位置は、今までどおり路地裏の両端を全員で往復する(CS_VillainSpawnPoint.CreatePatrolPaths)
  */
 // ========================================
 
+[RequireComponent(typeof(CS_VillainSpawnPoint))]
 public class CS_VillainPatrolRoute : MonoBehaviour
 {
-    private const float _navMeshSampleRadius = 2f;   // 地点をNavMeshの上に合わせる時に探す半径(m)
+    private const float _navMeshSampleRadius = 2f;   // ポイントをNavMeshの上に合わせる時に探す半径(m)
 
     [SerializeField]
-    [Tooltip("巡回する地点(上から順に通り、最後まで行ったら折り返す)。2つ以上入れる")]
-    private Transform[] _points = new Transform[0];
+    [Tooltip("このスポーン位置で使う巡回パターン。同じパターンを別のスポーン位置でも使える")]
+    private CSO_VillainPatrolPattern _pattern;
 
-    // 使えるルートか(地点が2つ以上あり、空の要素が無い)
-    public bool isValid
+    public CSO_VillainPatrolPattern pattern
     {
-        get
-        {
-            if (_points == null || _points.Length < 2) return false;
-
-            foreach (Transform point in _points)
-            {
-                if (point == null) return false;
-            }
-            return true;
-        }
+        get => _pattern;
+        set => _pattern = value;
     }
 
-    // ルートの形を作る(地点はNavMeshの上に合わせる)。使えないルートならnull
-    public CS_VillainPatrolPath CreatePath()
-    {
-        if (!isValid)
-        {
-            Debug.LogWarning($"CS_VillainPatrolRoute: {name} は地点が2つ未満か、空の要素があるため使いません", this);
-            return null;
-        }
+    // 巡回パターンで巡回するか(ポイントのあるルートが1本以上ある)
+    public bool hasPattern => _pattern != null && _pattern.slotCount > 0;
 
-        Vector3[] positions = new Vector3[_points.Length];
-        for (int i = 0; i < _points.Length; i++)
-        {
-            positions[i] = SnapToNavMesh(_points[i].position);
-        }
-        return new CS_VillainPatrolPath(positions);
+    // スポーン位置の向き(Y軸の回転だけ)
+    public Quaternion yawRotation => Quaternion.Euler(0f, transform.eulerAngles.y, 0f);
+
+    // スポーン位置からの相対位置 → ワールド座標
+    public Vector3 ToWorld(Vector3 localPosition)
+    {
+        return transform.position + yawRotation * localPosition;
     }
 
-    private static Vector3 SnapToNavMesh(Vector3 position)
+    // ワールド座標 → スポーン位置からの相対位置
+    public Vector3 ToLocal(Vector3 worldPosition)
+    {
+        return Quaternion.Inverse(yawRotation) * (worldPosition - transform.position);
+    }
+
+    // ルートのポイントのワールド座標(NavMeshの上に合わせる。見つからない時はそのままの位置)
+    public Vector3 GetPointWorldPosition(CSO_VillainPatrolPattern.Route route, int pointIndex)
+    {
+        return SnapToNavMesh(ToWorld(route.points[pointIndex].localPosition));
+    }
+
+    // ルートの悪人が湧いた時の向き(ワールド)
+    public Quaternion GetStartRotation(CSO_VillainPatrolPattern.Route route)
+    {
+        return yawRotation * Quaternion.Euler(0f, route.startAngle, 0f);
+    }
+
+    // 湧いた時の位置(先頭はポイント1、付いてくる人はポイント1から隊列の位置)
+    public Vector3 GetSpawnPosition(int routeIndex, int followerIndex)
+    {
+        CSO_VillainPatrolPattern.Route route = _pattern.routes[routeIndex];
+        Vector3 start = ToWorld(route.points[0].localPosition);
+        if (followerIndex < 0) return SnapToNavMesh(start);
+
+        Vector3 offset = CSO_VillainPatrolPattern.GetFormationOffset(route.formation.shape, followerIndex, route.formation.spacing);
+        return SnapToNavMesh(start + GetStartRotation(route) * offset);
+    }
+
+    public static Vector3 SnapToNavMesh(Vector3 position)
     {
         return NavMesh.SamplePosition(position, out NavMeshHit hit, _navMeshSampleRadius, NavMesh.AllAreas) ? hit.position : position;
-    }
-
-    private void OnDrawGizmosSelected()
-    {
-        DrawGizmos();
-    }
-
-    // ルートを線で描く(スポーン位置を選んだ時にも、CS_VillainSpawnPointから呼ばれる)
-    public void DrawGizmos()
-    {
-        if (_points == null) return;
-
-        Gizmos.color = Color.cyan;
-        for (int i = 0; i < _points.Length; i++)
-        {
-            if (_points[i] == null) continue;
-
-            Gizmos.DrawWireSphere(_points[i].position, 0.3f);
-            if (i > 0 && _points[i - 1] != null) Gizmos.DrawLine(_points[i - 1].position, _points[i].position);
-        }
     }
 }

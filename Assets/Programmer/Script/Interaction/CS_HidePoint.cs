@@ -21,7 +21,7 @@ using UnityEngine;
  *   箱の位置・向きは、子の空オブジェクト(_SAReachBox)の位置(箱の中心)と水平の回転だけを使う
  *   _standPointとは別に動かせる(_standPointを回しても箱は回らない。子なので、HidePointごと回した時は一緒に回る)
  *   _SAReachBoxが空なら、このオブジェクト自身の位置・向きを使う
- *   シーンビューでは、選んでいる時に箱をギズモで描く(隠れられる箱とは色を分ける)
+ *   シーンビューでは、このハイドポイントか子(SAReachBox・StandPoint)を選んでいる時に箱をギズモで描く(隠れられる箱とは色を分ける)
  * ・隠れられる箱(_hideBoxSize。幅・高さ・奥行)
  *   立つ位置の足元を底にして、立つ位置の向きに合わせて回した箱。プレイヤーの体の中心が中に入っている間は隠れている扱い
  *   (SAを使わずに歩いて入った時も同じ)。既定は高さ3.3m(プレイヤーの高さ2m + ジャンプの高さ約1.3m)、幅・奥行1.5m
@@ -132,15 +132,30 @@ public class CS_HidePoint : MonoBehaviour
         Gizmos.color = new Color(0.3f, 1f, 0.5f, 0.8f);
         Gizmos.DrawWireCube(new Vector3(0f, _hideBoxSize.y * 0.5f, 0f), _hideBoxSize);
         Gizmos.matrix = previous;
+
+        // このハイドポイントか、その子(SAReachBox・StandPoint)を選んでいる時は、SAできる範囲の箱(SAReachBox)も描く
+        if (IsSelectedInEditor()) DrawSAReachBox();
     }
 
-    // 選んでいる時は、SAできる範囲の箱(SAReachBox)も描く
-    private void OnDrawGizmosSelected()
+    // SAできる範囲の箱(SAReachBox)を描く
+    private void DrawSAReachBox()
     {
         Matrix4x4 previous = Gizmos.matrix;
         Gizmos.matrix = Matrix4x4.TRS(SAReachBoxTransform.position, GetSAReachBoxRotation(), Vector3.one);
         Gizmos.color = new Color(1f, 0.8f, 0.2f, 0.5f);
         Gizmos.DrawWireCube(Vector3.zero, _SAReachBoxSize);
         Gizmos.matrix = previous;
+    }
+
+    // エディタで、このハイドポイントか、その子のどれかを選んでいるか
+    private bool IsSelectedInEditor()
+    {
+#if UNITY_EDITOR
+        foreach (Transform selected in UnityEditor.Selection.transforms)
+        {
+            if (selected.IsChildOf(transform)) return true;
+        }
+#endif
+        return false;
     }
 }

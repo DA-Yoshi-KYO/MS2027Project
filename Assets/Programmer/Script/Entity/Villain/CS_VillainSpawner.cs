@@ -35,9 +35,9 @@ using UnityEngine.AI;
  * ・timeScalingが未設定なら、1グループの人数は minMembers ～ maxMembers 人(両端を含む)からランダム
  *   各メンバーの種類は villainPrefabs からランダムに選ぶ
  * ・グループのうち同時に攻撃してくるのは maxAttackersPerGroup 人まで(残りは様子見。CS_VillainGroup参照)
- * ・グループが2人以上なら、最後に生成した1人を見張り役にする(CS_VillainCombat.SetWatcher)
- *   見張り役はスポーン位置の巡回ルート(CS_VillainSpawnPoint.GetPatrolEnds)を巡回する。残りは犯罪を実行する
- *   ランダムイベントのグループ(スポーン位置が無い)には見張り役を付けない
+ * ・スポーン位置のグループは、メンバー全員がスポーン位置の巡回ルートを往復する(CS_VillainGroup・CS_VillainPatrol)
+ *   メンバーは、自分に割り当てられるルートの今の進み具合の位置に生成する(足元の高さはNavMeshに合わせる)
+ *   ランダムイベントのグループ(スポーン位置が無い)は巡回しない
  * ・グループのメンバーが全員いなくなったら(撃退・逃走でDestroyされたら)、そのスポーン位置は空く
  * ・グループがいなくなった(全員撃退された、または犯罪を完遂して逃走した)位置には、respawnCooldown 秒間リスポーンしない
  *   ただし同時にいるグループ数を保てない場合は、待ち中の位置にも生成する(グループ数を優先する)
@@ -309,20 +309,19 @@ public class CS_VillainSpawner : MonoBehaviour
         CSO_VillainTimeScaling.Stage stage = _timeScaling != null ? _timeScaling.GetStage(GetElapsedTime()) : null;
         int memberCount = stage != null ? stage.memberCount : Random.Range(_minMembers, _maxMembers + 1);
 
-        CS_VillainCombat lastMember = null;
+        // 加わる順番が決まるので、生成する前に全員の位置を決めておく(1人ずつ加えると、同じルートの人数が数え直されるため)
+        Vector3[] positions = new Vector3[memberCount];
         for (int i = 0; i < memberCount; i++)
         {
-            Vector3 position = point.GetMemberPosition(i, memberCount);
-            NetworkObject villain = SpawnVillain(position, point.transform.position, stage);
-            group.AddMember(villain.GetComponent<CS_VillainCrime>());
-            lastMember = villain.GetComponent<CS_VillainCombat>();
+            positions[i] = group.hasPatrol
+                ? SnapToNavMesh(group.GetPatrolPositionForNewMember(i, memberCount))
+                : point.GetMemberPosition(i, memberCount);
         }
 
-        // 2人以上なら、1人を見張り役にして路地裏を巡回させる(残りは犯罪を実行する)
-        if (memberCount >= 2 && lastMember != null)
+        for (int i = 0; i < memberCount; i++)
         {
-            point.GetPatrolEnds(out Vector3 endA, out Vector3 endB);
-            lastMember.SetWatcher(endA, endB);
+            NetworkObject villain = SpawnVillain(positions[i], point.transform.position, stage);
+            group.AddMember(villain.GetComponent<CS_VillainCrime>());
         }
 
         point.isOccupied = true;

@@ -16,10 +16,11 @@ using UnityEngine;
  *   _standPointの位置へ飛び、_standPointの正面(青い矢印)を向く。正面は隠れる物(壁など)の方へ向けておく
  *   _standPointが空なら、このオブジェクト自身の位置・向きを使う
  * ・_standPointは、着いた時の足元の位置に置く(地面・街灯の上・車の上など。高さも含めてそこへ飛ぶ)
- * ・SAReachBox(SAできる範囲の箱。_SAReachBoxCenter・_SAReachBoxSize)はハイドポイントごとに決める(Issue #414)
+ * ・SAReachBox(SAできる範囲の箱。_SAReachBox・_SAReachBoxSize)はハイドポイントごとに決める(Issue #414)
  *   プレイヤーの足元がこの箱の中にある時だけSAできる。強調UIもこの箱に入った時だけ出る
- *   基準はこのオブジェクト(HidePoint)自身の位置と、水平の回転だけ(_standPointの向きとは別。HidePointを回すと箱も回る)
- *   _SAReachBoxCenterはこのオブジェクトの位置からのずれ(このオブジェクトの水平の回転に合わせて回る)
+ *   箱の位置・向きは、子の空オブジェクト(_SAReachBox)の位置(箱の中心)と水平の回転だけを使う
+ *   HidePoint・_standPointとは別に動かせる(HidePointや_standPointを回しても、子のSAReachBoxを回さなければ箱は回らない)
+ *   _SAReachBoxが空なら、このオブジェクト自身の位置・向きを使う
  *   シーンビューでは、選んでいる時に箱をギズモで描く(隠れられる箱とは色を分ける)
  * ・隠れられる箱(_hideBoxSize。幅・高さ・奥行)
  *   立つ位置の足元を底にして、立つ位置の向きに合わせて回した箱。プレイヤーの体の中心が中に入っている間は隠れている扱い
@@ -34,7 +35,7 @@ using UnityEngine;
 public class CS_HidePoint : MonoBehaviour
 {
     [SerializeField] private Transform _standPoint;                                     // 着く位置と向き(空ならこのオブジェクト自身)
-    [SerializeField] private Vector3 _SAReachBoxCenter = Vector3.zero;                  // SAできる範囲の箱の中心(このオブジェクトの位置からのずれ。m)
+    [SerializeField] private Transform _SAReachBox;                                     // SAできる範囲の箱の中心と向き(空ならこのオブジェクト自身)
     [SerializeField] private Vector3 _SAReachBoxSize = new Vector3(20f, 10f, 20f);      // SAできる範囲の箱の大きさ(x: 幅, y: 高さ, z: 奥行。m)。強調UIもこの箱で出る
     [SerializeField] private Vector3 _hideBoxSize = new Vector3(1.5f, 3.3f, 1.5f);      // 隠れられる箱の大きさ(x: 幅, y: 高さ, z: 奥行。m)
 
@@ -90,19 +91,21 @@ public class CS_HidePoint : MonoBehaviour
         return forward.sqrMagnitude > 0.0001f ? Quaternion.LookRotation(forward, Vector3.up) : Quaternion.identity;
     }
 
+    private Transform SAReachBoxTransform => _SAReachBox != null ? _SAReachBox : transform;   // SAできる範囲の箱の中心と向き
+
     // positionが、SAできる範囲の箱(SAReachBox)の中にあるか
     public bool IsInSAReachBox(Vector3 position)
     {
-        Vector3 local = Quaternion.Inverse(GetSAReachBoxRotation()) * (position - transform.position) - _SAReachBoxCenter;
+        Vector3 local = Quaternion.Inverse(GetSAReachBoxRotation()) * (position - SAReachBoxTransform.position);
         return Mathf.Abs(local.x) <= _SAReachBoxSize.x * 0.5f
             && Mathf.Abs(local.y) <= _SAReachBoxSize.y * 0.5f
             && Mathf.Abs(local.z) <= _SAReachBoxSize.z * 0.5f;
     }
 
-    // SAできる範囲の箱の向き(このオブジェクトの向きの、水平の回転だけ)
+    // SAできる範囲の箱の向き(SAReachBoxの向きの、水平の回転だけ)
     private Quaternion GetSAReachBoxRotation()
     {
-        Vector3 forward = Vector3.ProjectOnPlane(transform.forward, Vector3.up);
+        Vector3 forward = Vector3.ProjectOnPlane(SAReachBoxTransform.forward, Vector3.up);
         return forward.sqrMagnitude > 0.0001f ? Quaternion.LookRotation(forward.normalized, Vector3.up) : Quaternion.identity;
     }
 
@@ -135,9 +138,9 @@ public class CS_HidePoint : MonoBehaviour
     private void OnDrawGizmosSelected()
     {
         Matrix4x4 previous = Gizmos.matrix;
-        Gizmos.matrix = Matrix4x4.TRS(transform.position, GetSAReachBoxRotation(), Vector3.one);
+        Gizmos.matrix = Matrix4x4.TRS(SAReachBoxTransform.position, GetSAReachBoxRotation(), Vector3.one);
         Gizmos.color = new Color(1f, 0.8f, 0.2f, 0.5f);
-        Gizmos.DrawWireCube(_SAReachBoxCenter, _SAReachBoxSize);
+        Gizmos.DrawWireCube(Vector3.zero, _SAReachBoxSize);
         Gizmos.matrix = previous;
     }
 }

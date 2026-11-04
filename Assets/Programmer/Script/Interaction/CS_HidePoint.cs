@@ -19,7 +19,7 @@ using UnityEngine;
  * ・SAReachBox(SAできる範囲の箱。_SAReachBox・_SAReachBoxSize)はハイドポイントごとに決める(Issue #414)
  *   プレイヤーの足元がこの箱の中にある時だけSAできる。強調UIもこの箱に入った時だけ出る
  *   箱の位置・向きは、子の空オブジェクト(_SAReachBox)の位置(箱の中心)と水平の回転だけを使う
- *   HidePoint・_standPointとは別に動かせる(HidePointや_standPointを回しても、子のSAReachBoxを回さなければ箱は回らない)
+ *   _standPointとは別に動かせる(_standPointを回しても箱は回らない。子なので、HidePointごと回した時は一緒に回る)
  *   _SAReachBoxが空なら、このオブジェクト自身の位置・向きを使う
  *   シーンビューでは、選んでいる時に箱をギズモで描く(隠れられる箱とは色を分ける)
  * ・隠れられる箱(_hideBoxSize。幅・高さ・奥行)

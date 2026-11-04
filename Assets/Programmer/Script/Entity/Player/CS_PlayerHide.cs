@@ -14,7 +14,7 @@ using UnityEngine;
  * ・仕様は仕様書「プレイヤー」のSA(SAポイントの仕様について)と、Issue #381
  * ・SAの流れ(本人の手元で進める)
  *   1. 飛んでいない間、飛べるハイドポイント(currentCandidate)を探す
- *      条件: そのハイドポイントの飛べる距離(CS_HidePoint.reachDistance)以内(高さ込み)・画面に映っている・
+ *      条件: 足元がそのハイドポイントのSAできる範囲の箱(CS_HidePoint.IsInSAReachBox)の中にある・画面に映っている・
  *            カメラの高さから見て壁などに遮られていない・カメラの正面に一番近い
  *   2. 飛べるハイドポイントがある時にダッシュボタン(RT/SHIFT)を押すと、ダッシュの代わりに飛ぶ(CS_PlayerがTryBeginHideを呼ぶ)
  *      無い時は今まで通りダッシュになる
@@ -189,8 +189,8 @@ public class CS_PlayerHide : NetworkBehaviour
         float bestAngle = float.MaxValue;
         foreach (CS_HidePoint point in CS_HidePoint.activePoints)
         {
-            // 飛べる距離はハイドポイントごと。足元同士の距離で比べる
-            if (Vector3.Distance(feet, point.standPosition) > point.reachDistance) continue;
+            // SAできる範囲の箱はハイドポイントごと。足元が箱の中にある時だけ飛べる
+            if (!point.IsInSAReachBox(feet)) continue;
 
             Vector3 target = point.standPosition + Vector3.up * _pointHeight;
             if (!IsOnScreen(viewCamera, target)) continue;

@@ -152,6 +152,11 @@ public class CS_MayaPreviewRuntimeServer : MonoBehaviour
         public string meshName;      // Mesh更新の場合のみ
         public Vector3[] vertices;
         public int[] triangles;
+
+        // MESH_DATA_V2 / SESSION / MATERIAL_DEF / MESH_REMOVE の場合のみ
+        // (Unityの処理が要るのでMainThreadで解析・反映する)
+        public CSST_MessageHeader header;
+        public string json;
     }
 
 
@@ -416,6 +421,18 @@ public class CS_MayaPreviewRuntimeServer : MonoBehaviour
         {
             CS_MayaPreviewIdleThrottle.Wake();
 
+            if (received.header != null)
+            {
+                // 届いた順番を守るため、先にまとめ待ちのMeshを反映してから処理する
+                FlushPendingMeshes();
+
+                ProcessHeaderMessage(
+                    received
+                );
+
+                continue;
+            }
+
             if (received.meshName == null)
             {
                 Debug.Log(
@@ -435,6 +452,17 @@ public class CS_MayaPreviewRuntimeServer : MonoBehaviour
             _pendingMeshes[received.meshName] = received;
         }
 
+        FlushPendingMeshes();
+
+
+        // Inspectorで変えたマテリアル設定をまとめて保存
+        _library?.Tick(
+            Time.unscaledTime
+        );
+    }
+
+    private void FlushPendingMeshes()
+    {
         foreach (string meshName in _pendingOrder)
         {
             CSST_ReceivedMessage pending = _pendingMeshes[meshName];
@@ -446,11 +474,57 @@ public class CS_MayaPreviewRuntimeServer : MonoBehaviour
             );
         }
 
+        _pendingMeshes.Clear();
+        _pendingOrder.Clear();
+    }
 
-        // Inspectorで変えたマテリアル設定をまとめて保存
-        _library?.Tick(
-            Time.unscaledTime
-        );
+
+    // MESH_DATA_V2 / SESSION / MATERIAL_DEF / MESH_REMOVE をMainThreadで処理する
+    private void ProcessHeaderMessage(
+        CSST_ReceivedMessage received
+    )
+    {
+        try
+        {
+            switch (received.header.type)
+            {
+                case "MESH_DATA_V2":
+                    ProcessMeshDataV2(
+                        JsonUtility.FromJson<CSST_MeshDataV2>(
+                            received.json
+                        )
+                    );
+                    break;
+
+                case "SESSION":
+                    _library?.SetFolder(
+                        received.header.materialFolder
+                    );
+                    break;
+
+                case "MATERIAL_DEF":
+                    ProcessMaterialDef(
+                        JsonUtility.FromJson<CS_MayaPreviewMaterialLibrary.MaterialDef>(
+                            received.json
+                        )
+                    );
+                    break;
+
+                case "MESH_REMOVE":
+                    RemoveLiveObject(
+                        received.header.name
+                    );
+                    break;
+            }
+        }
+        catch (Exception exception)
+        {
+            Debug.LogError(
+                "Maya Preview Runtime : " +
+                "JSON解析失敗\n" +
+                exception
+            );
+        }
     }
 
     private readonly System.Collections.Generic.Dictionary<string, CSST_ReceivedMessage> _pendingMeshes =
@@ -643,63 +717,23 @@ public class CS_MayaPreviewRuntimeServer : MonoBehaviour
                 );
 
 
+            // MESH_DATA_V2 / SESSION / MATERIAL_DEF / MESH_REMOVE は
+            // Unityの処理が要るので、ここでは種類と本文だけ渡してMainThreadで処理する
             if (
                 header != null &&
-                header.type ==
-                "MESH_DATA_V2"
+                (
+                    header.type == "MESH_DATA_V2" ||
+                    header.type == "SESSION" ||
+                    header.type == "MATERIAL_DEF" ||
+                    header.type == "MESH_REMOVE"
+                )
             )
             {
-                ProcessMeshDataV2(
-                    JsonUtility.FromJson<CSST_MeshDataV2>(
-                        message
-                    )
-                );
-
-                return;
-            }
-
-
-            if (
-                header != null &&
-                header.type ==
-                "SESSION"
-            )
-            {
-                _library?.SetFolder(
-                    header.materialFolder
-                );
-
-                return;
-            }
-
-
-            if (
-                header != null &&
-                header.type ==
-                "MATERIAL_DEF"
-            )
-            {
-                ProcessMaterialDef(
-                    JsonUtility.FromJson<CS_MayaPreviewMaterialLibrary.MaterialDef>(
-                        message
-                    )
-                );
-
-                return;
-            }
-
-
-            if (
-                header != null &&
-                header.type ==
-                "MESH_REMOVE"
-            )
-            {
-                RemoveLiveObject(
-                    header.name
-                );
-
-                return;
+                return new CSST_ReceivedMessage
+                {
+                    header = header,
+                    json = message,
+                };
             }
 
 

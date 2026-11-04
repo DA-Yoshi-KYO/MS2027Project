@@ -46,6 +46,9 @@ using UnityEngine.AI;
  *   イベントのグループは通常のグループ数に数えず、犯罪も進めない(時間経過の段階の反映は通常と同じ)
  * ・グループ単位の犯罪の進行は、生成したCS_VillainGroupのTickを毎フレーム呼んで進める
  *   進行度はスポーン位置の犯罪完遂ゲージ(CS_VillainCrimeGauge)にも毎フレーム渡す(付いていなければ何もしない)
+ * ・スポーン位置に巡回パターン(CS_VillainPatrolRoute)があれば、湧く人数はパターンの人数(先頭 + 付いてくる人)まで
+ *   先頭を全員先に、次に付いてくる人を、パターンの順(CSO_VillainPatrolPattern.GetSlot)に生成し、ルートごとの組(CS_VillainPatrolCrew)に入れる
+ *   先頭はポイント1に、付いてくる人はポイント1から隊列の位置に、ルートの最初の向きで生成する
  * ・生成する悪人のプレハブはNetworkPrefabsList(DefaultNetworkPrefabs)に登録し、CS_VillainCrimeを付けておくこと
  */
 // ========================================
@@ -309,6 +312,15 @@ public class CS_VillainSpawner : MonoBehaviour
         CSO_VillainTimeScaling.Stage stage = _timeScaling != null ? _timeScaling.GetStage(GetElapsedTime()) : null;
         int memberCount = stage != null ? stage.memberCount : Random.Range(_minMembers, _maxMembers + 1);
 
+        // 巡回パターンがあれば、パターンの人数までを、先頭・付いてくる人として生成する
+        CS_VillainPatrolRoute patrolRoute = point.patrolRoute;
+        if (patrolRoute != null && patrolRoute.hasPattern)
+        {
+            SpawnPatternMembers(group, patrolRoute, Mathf.Min(memberCount, patrolRoute.pattern.slotCount), stage);
+            point.isOccupied = true;
+            return group;
+        }
+
         // 加わる順番が決まるので、生成する前に全員の位置を決めておく(1人ずつ加えると、同じルートの人数が数え直されるため)
         Vector3[] positions = new Vector3[memberCount];
         for (int i = 0; i < memberCount; i++)
@@ -328,15 +340,41 @@ public class CS_VillainSpawner : MonoBehaviour
         return group;
     }
 
+    // 巡回パターンの役割(先頭を全員先に、次に付いてくる人)の順に生成し、ルートごとの組(CS_VillainPatrolCrew)に入れる
+    // 先頭はポイント1に、付いてくる人はポイント1から隊列の位置に、ルートの最初の向きで生成する
+    private void SpawnPatternMembers(CS_VillainGroup group, CS_VillainPatrolRoute patrolRoute, int memberCount, CSO_VillainTimeScaling.Stage stage)
+    {
+        CSO_VillainPatrolPattern pattern = patrolRoute.pattern;
+        CS_VillainPatrolCrew[] crews = new CS_VillainPatrolCrew[pattern.routes.Count];
+        for (int i = 0; i < memberCount; i++)
+        {
+            if (!pattern.GetSlot(i, out int routeIndex, out int followerIndex)) break;
+
+            Vector3 position = patrolRoute.GetSpawnPosition(routeIndex, followerIndex) + Vector3.up * _bodyCenterHeight;
+            Quaternion rotation = patrolRoute.GetStartRotation(pattern.routes[routeIndex]);
+            NetworkObject villain = SpawnVillain(position, rotation, stage);
+            group.AddMember(villain.GetComponent<CS_VillainCrime>());
+
+            if (!villain.TryGetComponent(out CS_VillainPatrol patrol)) continue;
+            if (crews[routeIndex] == null) crews[routeIndex] = new CS_VillainPatrolCrew(patrolRoute, routeIndex);
+            patrol.SetCrew(crews[routeIndex]);
+        }
+    }
+
     // 悪人を1人生成する。グループの中心(犯罪を行う場所)を向かせる
     // prefabがnullなら villainPrefabs からランダムに選ぶ
     private NetworkObject SpawnVillain(Vector3 position, Vector3 center, CSO_VillainTimeScaling.Stage stage, NetworkObject prefab = null)
     {
-        if (prefab == null) prefab = _villainPrefabs[Random.Range(0, _villainPrefabs.Length)];
-
         Vector3 lookDirection = center - position;
         lookDirection.y = 0f;
         Quaternion rotation = lookDirection.sqrMagnitude > 0f ? Quaternion.LookRotation(lookDirection) : Quaternion.identity;
+        return SpawnVillain(position, rotation, stage, prefab);
+    }
+
+    // 悪人を1人、指定した向きで生成する
+    private NetworkObject SpawnVillain(Vector3 position, Quaternion rotation, CSO_VillainTimeScaling.Stage stage, NetworkObject prefab = null)
+    {
+        if (prefab == null) prefab = _villainPrefabs[Random.Range(0, _villainPrefabs.Length)];
 
         NetworkObject villain = Instantiate(prefab, position, rotation);
 

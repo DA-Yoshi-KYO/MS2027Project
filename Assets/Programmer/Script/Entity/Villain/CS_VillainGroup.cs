@@ -14,6 +14,8 @@ using UnityEngine;
  * メモ
  * ・犯罪はグループ単位で進む。残っているメンバー全員が犯罪中(CS_VillainCrime.isCommittingCrime)の間だけ進行する
  *   巡回している間も犯罪中の扱い。1人でも臨戦態勢・帰還中になったら、グループ全体が手を止める(それまでの進行度は保持する)
+ * ・巡回パターン(スポーン位置のCS_VillainPatrolRoute)があるグループは、ここでは巡回しない(hasPatrolがfalse)
+ *   悪人ごとにパターンのルートを回る(CS_VillainPatrolCrew・CS_VillainPatrol)。以下はパターンが無い時の全員での往復
  * ・巡回(スポーン位置のあるグループのみ。ルートはCS_VillainSpawnPoint.CreatePatrolPaths)
  *   メンバー全員で1つの進み具合(patrolProgress、0～1)を共有し、全員がそれぞれのルートの同じ割合の位置を回る
  *   → 進み具合は、一番長いルートを、メンバーの中で一番遅い巡回速度で歩く速さで進む(長いルートの人ほど速く歩く)

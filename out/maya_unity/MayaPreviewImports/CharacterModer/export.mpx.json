@@ -1,0 +1,989 @@
+{
+    "version": 1,
+    "name": "CharacterModer",
+    "exportedAt": "2026-10-11 20:32:07",
+    "units": "1 unit = 1 m (Maya cm x 0.01)",
+    "nodes": [
+        {
+            "name": "pCube1",
+            "parent": -1,
+            "position": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0
+            },
+            "rotation": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0,
+                "w": 1.0
+            },
+            "scale": {
+                "x": 1.0,
+                "y": 1.0,
+                "z": 1.0
+            },
+            "mesh": "meshes/pCube1.mpxmesh",
+            "materials": [
+                0,
+                1
+            ],
+            "mayaPath": "|pCube1|pCubeShape1"
+        }
+    ],
+    "materials": [
+        {
+            "name": "standardSurface1",
+            "shader": "HDRP/Lit",
+            "maya": true,
+            "mayaSettings": "{\"version\":1,\"name\":\"standardSurface1\",\"shader\":\"HDRP/Lit\",\"floats\":[{\"prop\":\"_Smoothness\",\"value\":0.9134226441383362}],\"colors\":[],\"vectors\":[],\"textures\":[]}",
+            "renderQueue": 2225,
+            "keywords": [
+                "_DISABLE_SSR_TRANSPARENT",
+                "_NORMALMAP_TANGENT_SPACE"
+            ],
+            "floats": [
+                {
+                    "prop": "_Metallic",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_Smoothness",
+                    "value": 0.9134226441383362
+                },
+                {
+                    "prop": "_MetallicRemapMin",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_MetallicRemapMax",
+                    "value": 1.0
+                },
+                {
+                    "prop": "_SmoothnessRemapMin",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_SmoothnessRemapMax",
+                    "value": 1.0
+                },
+                {
+                    "prop": "_AlphaRemapMin",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_AlphaRemapMax",
+                    "value": 1.0
+                },
+                {
+                    "prop": "_AORemapMin",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_AORemapMax",
+                    "value": 1.0
+                },
+                {
+                    "prop": "_NormalScale",
+                    "value": 1.0
+                },
+                {
+                    "prop": "_HeightAmplitude",
+                    "value": 0.019999999552965165
+                },
+                {
+                    "prop": "_HeightCenter",
+                    "value": 0.5
+                },
+                {
+                    "prop": "_HeightMapParametrization",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_HeightOffset",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_HeightMin",
+                    "value": -1.0
+                },
+                {
+                    "prop": "_HeightMax",
+                    "value": 1.0
+                },
+                {
+                    "prop": "_HeightTessAmplitude",
+                    "value": 2.0
+                },
+                {
+                    "prop": "_HeightTessCenter",
+                    "value": 0.5
+                },
+                {
+                    "prop": "_HeightPoMAmplitude",
+                    "value": 2.0
+                },
+                {
+                    "prop": "_DetailAlbedoScale",
+                    "value": 1.0
+                },
+                {
+                    "prop": "_DetailNormalScale",
+                    "value": 1.0
+                },
+                {
+                    "prop": "_DetailSmoothnessScale",
+                    "value": 1.0
+                },
+                {
+                    "prop": "_Anisotropy",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_SubsurfaceMask",
+                    "value": 1.0
+                },
+                {
+                    "prop": "_TransmissionMask",
+                    "value": 1.0
+                },
+                {
+                    "prop": "_Thickness",
+                    "value": 1.0
+                },
+                {
+                    "prop": "_IridescenceThickness",
+                    "value": 1.0
+                },
+                {
+                    "prop": "_IridescenceMask",
+                    "value": 1.0
+                },
+                {
+                    "prop": "_CoatMask",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_EnergyConservingSpecularColor",
+                    "value": 1.0
+                },
+                {
+                    "prop": "_SpecularOcclusionMode",
+                    "value": 1.0
+                },
+                {
+                    "prop": "_AlbedoAffectEmissive",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_EmissiveIntensityUnit",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_UseEmissiveIntensity",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_EmissiveIntensity",
+                    "value": 1.0
+                },
+                {
+                    "prop": "_EmissiveExposureWeight",
+                    "value": 1.0
+                },
+                {
+                    "prop": "_UseShadowThreshold",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_AlphaCutoffEnable",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_AlphaCutoff",
+                    "value": 0.5
+                },
+                {
+                    "prop": "_AlphaCutoffShadow",
+                    "value": 0.5
+                },
+                {
+                    "prop": "_AlphaCutoffPrepass",
+                    "value": 0.5
+                },
+                {
+                    "prop": "_AlphaCutoffPostpass",
+                    "value": 0.5
+                },
+                {
+                    "prop": "_TransparentDepthPrepassEnable",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_TransparentBackfaceEnable",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_TransparentDepthPostpassEnable",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_TransparentSortPriority",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_RefractionModel",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_Ior",
+                    "value": 1.5
+                },
+                {
+                    "prop": "_ATDistance",
+                    "value": 1.0
+                },
+                {
+                    "prop": "_TransparentWritingMotionVec",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_PerPixelSorting",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_StencilRef",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_StencilWriteMask",
+                    "value": 6.0
+                },
+                {
+                    "prop": "_StencilRefGBuffer",
+                    "value": 10.0
+                },
+                {
+                    "prop": "_StencilWriteMaskGBuffer",
+                    "value": 15.0
+                },
+                {
+                    "prop": "_StencilRefDepth",
+                    "value": 8.0
+                },
+                {
+                    "prop": "_StencilWriteMaskDepth",
+                    "value": 9.0
+                },
+                {
+                    "prop": "_StencilRefMV",
+                    "value": 40.0
+                },
+                {
+                    "prop": "_StencilWriteMaskMV",
+                    "value": 41.0
+                },
+                {
+                    "prop": "_SurfaceType",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_BlendMode",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_SrcBlend",
+                    "value": 1.0
+                },
+                {
+                    "prop": "_DstBlend",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_DstBlend2",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_AlphaSrcBlend",
+                    "value": 1.0
+                },
+                {
+                    "prop": "_AlphaDstBlend",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_ZWrite",
+                    "value": 1.0
+                },
+                {
+                    "prop": "_TransparentZWrite",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_CullMode",
+                    "value": 2.0
+                },
+                {
+                    "prop": "_CullModeForward",
+                    "value": 2.0
+                },
+                {
+                    "prop": "_TransparentCullMode",
+                    "value": 2.0
+                },
+                {
+                    "prop": "_OpaqueCullMode",
+                    "value": 2.0
+                },
+                {
+                    "prop": "_ZTestDepthEqualForOpaque",
+                    "value": 3.0
+                },
+                {
+                    "prop": "_ZTestGBuffer",
+                    "value": 4.0
+                },
+                {
+                    "prop": "_ZTestTransparent",
+                    "value": 4.0
+                },
+                {
+                    "prop": "_EnableFogOnTransparent",
+                    "value": 1.0
+                },
+                {
+                    "prop": "_EnableBlendModePreserveSpecularLighting",
+                    "value": 1.0
+                },
+                {
+                    "prop": "_DoubleSidedEnable",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_DoubleSidedNormalMode",
+                    "value": 1.0
+                },
+                {
+                    "prop": "_DoubleSidedGIMode",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_UVBase",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_ObjectSpaceUVMapping",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_TexWorldScale",
+                    "value": 1.0
+                },
+                {
+                    "prop": "_InvTilingScale",
+                    "value": 1.0
+                },
+                {
+                    "prop": "_NormalMapSpace",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_MaterialID",
+                    "value": 1.0
+                },
+                {
+                    "prop": "_TransmissionEnable",
+                    "value": 1.0
+                },
+                {
+                    "prop": "_DisplacementMode",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_DisplacementLockObjectScale",
+                    "value": 1.0
+                },
+                {
+                    "prop": "_DisplacementLockTilingScale",
+                    "value": 1.0
+                },
+                {
+                    "prop": "_DepthOffsetEnable",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_EnableGeometricSpecularAA",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_SpecularAAScreenSpaceVariance",
+                    "value": 0.10000000149011612
+                },
+                {
+                    "prop": "_SpecularAAThreshold",
+                    "value": 0.20000000298023225
+                },
+                {
+                    "prop": "_PPDMinSamples",
+                    "value": 5.0
+                },
+                {
+                    "prop": "_PPDMaxSamples",
+                    "value": 15.0
+                },
+                {
+                    "prop": "_PPDLodThreshold",
+                    "value": 5.0
+                },
+                {
+                    "prop": "_PPDPrimitiveLength",
+                    "value": 1.0
+                },
+                {
+                    "prop": "_PPDPrimitiveWidth",
+                    "value": 1.0
+                },
+                {
+                    "prop": "_UVDetail",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_LinkDetailsWithBase",
+                    "value": 1.0
+                },
+                {
+                    "prop": "_EmissiveColorMode",
+                    "value": 1.0
+                },
+                {
+                    "prop": "_UVEmissive",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_ObjectSpaceUVMappingEmissive",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_TexWorldScaleEmissive",
+                    "value": 1.0
+                },
+                {
+                    "prop": "_Cutoff",
+                    "value": 0.5
+                },
+                {
+                    "prop": "_SupportDecals",
+                    "value": 1.0
+                },
+                {
+                    "prop": "_ReceivesSSR",
+                    "value": 1.0
+                },
+                {
+                    "prop": "_ReceivesSSRTransparent",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_AddPrecomputedVelocity",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_RayTracing",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_DiffusionProfile",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_DiffusionProfileHash",
+                    "value": 0.0
+                }
+            ],
+            "ints": [],
+            "colors": [
+                {
+                    "prop": "_BaseColor",
+                    "value": {
+                        "r": 0.3999999761581421,
+                        "g": 0.3999999761581421,
+                        "b": 0.3999999761581421,
+                        "a": 1.0
+                    }
+                },
+                {
+                    "prop": "_SpecularColor",
+                    "value": {
+                        "r": 1.0,
+                        "g": 1.0,
+                        "b": 1.0,
+                        "a": 1.0
+                    }
+                },
+                {
+                    "prop": "_EmissiveColor",
+                    "value": {
+                        "r": 0.0,
+                        "g": 0.0,
+                        "b": 0.0,
+                        "a": 1.0
+                    }
+                },
+                {
+                    "prop": "_EmissiveColorLDR",
+                    "value": {
+                        "r": 0.0,
+                        "g": 0.0,
+                        "b": 0.0,
+                        "a": 1.0
+                    }
+                },
+                {
+                    "prop": "_TransmittanceColor",
+                    "value": {
+                        "r": 1.0,
+                        "g": 1.0,
+                        "b": 1.0,
+                        "a": 1.0
+                    }
+                },
+                {
+                    "prop": "_UVMappingMask",
+                    "value": {
+                        "r": 1.0,
+                        "g": 0.0,
+                        "b": 0.0,
+                        "a": 0.0
+                    }
+                },
+                {
+                    "prop": "_UVDetailsMappingMask",
+                    "value": {
+                        "r": 1.0,
+                        "g": 0.0,
+                        "b": 0.0,
+                        "a": 0.0
+                    }
+                },
+                {
+                    "prop": "_UVMappingMaskEmissive",
+                    "value": {
+                        "r": 1.0,
+                        "g": 0.0,
+                        "b": 0.0,
+                        "a": 0.0
+                    }
+                },
+                {
+                    "prop": "_EmissionColor",
+                    "value": {
+                        "r": 1.0,
+                        "g": 1.0,
+                        "b": 1.0,
+                        "a": 1.0
+                    }
+                },
+                {
+                    "prop": "_Color",
+                    "value": {
+                        "r": 0.3999999463558197,
+                        "g": 0.3999999463558197,
+                        "b": 0.3999999463558197,
+                        "a": 1.0
+                    }
+                }
+            ],
+            "vectors": [
+                {
+                    "prop": "_ThicknessRemap",
+                    "value": {
+                        "x": 0.0,
+                        "y": 1.0,
+                        "z": 0.0,
+                        "w": 0.0
+                    }
+                },
+                {
+                    "prop": "_IridescenceThicknessRemap",
+                    "value": {
+                        "x": 0.0,
+                        "y": 1.0,
+                        "z": 0.0,
+                        "w": 0.0
+                    }
+                },
+                {
+                    "prop": "_DoubleSidedConstants",
+                    "value": {
+                        "x": 1.0,
+                        "y": 1.0,
+                        "z": -1.0,
+                        "w": 0.0
+                    }
+                },
+                {
+                    "prop": "_InvPrimScale",
+                    "value": {
+                        "x": 1.0,
+                        "y": 1.0,
+                        "z": 0.0,
+                        "w": 0.0
+                    }
+                },
+                {
+                    "prop": "_DiffusionProfileAsset",
+                    "value": {
+                        "x": 0.0,
+                        "y": 0.0,
+                        "z": 0.0,
+                        "w": 0.0
+                    }
+                }
+            ],
+            "textures": []
+        },
+        {
+            "name": "MT_head",
+            "shader": "Shader Graphs/SHG_NTE_Cloth",
+            "maya": true,
+            "mayaSettings": "{\"version\":1,\"name\":\"MT_head\",\"shader\":\"Shader Graphs/SHG_NTE_Cloth\",\"floats\":[{\"prop\":\"_DetailScale\",\"value\":100.0},{\"prop\":\"_DetailStrength\",\"value\":0.5},{\"prop\":\"_FabricSheen\",\"value\":1.0},{\"prop\":\"_LightSharpness\",\"value\":0.31629058718681338},{\"prop\":\"_CelSpecStrength\",\"value\":0.0}],\"colors\":[],\"vectors\":[],\"textures\":[]}",
+            "renderQueue": 2450,
+            "keywords": [
+                "_ALPHATEST_ON",
+                "_DOUBLESIDED_ON"
+            ],
+            "floats": [
+                {
+                    "prop": "_CelShadowThreshold",
+                    "value": 0.44999998807907107
+                },
+                {
+                    "prop": "_CelShadowSoftness",
+                    "value": 0.15000000596046449
+                },
+                {
+                    "prop": "_CelShadowSaturation",
+                    "value": 0.5
+                },
+                {
+                    "prop": "_CelRimStrength",
+                    "value": 0.07999999821186066
+                },
+                {
+                    "prop": "_CelRimWidth",
+                    "value": 0.30000001192092898
+                },
+                {
+                    "prop": "_CelShadowStrength",
+                    "value": 0.44999998807907107
+                },
+                {
+                    "prop": "_CelBrightness",
+                    "value": 1.149999976158142
+                },
+                {
+                    "prop": "_CelCastShadowStrength",
+                    "value": 0.800000011920929
+                },
+                {
+                    "prop": "_CelSpecStrength",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_CelSpecSize",
+                    "value": 0.5
+                },
+                {
+                    "prop": "_SkyLight",
+                    "value": 0.20000000298023225
+                },
+                {
+                    "prop": "_BottomShade",
+                    "value": 0.44999998807907107
+                },
+                {
+                    "prop": "_BackFaceShade",
+                    "value": 0.5
+                },
+                {
+                    "prop": "_DetailScale",
+                    "value": 100.0
+                },
+                {
+                    "prop": "_DetailStrength",
+                    "value": 0.5
+                },
+                {
+                    "prop": "_FabricSheen",
+                    "value": 1.0
+                },
+                {
+                    "prop": "_LightSharpness",
+                    "value": 0.31629058718681338
+                },
+                {
+                    "prop": "_RenderQueueType",
+                    "value": 1.0
+                },
+                {
+                    "prop": "_AddPrecomputedVelocity",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_DepthOffsetEnable",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_ConservativeDepthOffsetEnable",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_TransparentWritingMotionVec",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_AlphaCutoffEnable",
+                    "value": 1.0
+                },
+                {
+                    "prop": "_TransparentSortPriority",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_UseShadowThreshold",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_DoubleSidedEnable",
+                    "value": 1.0
+                },
+                {
+                    "prop": "_DoubleSidedNormalMode",
+                    "value": 1.0
+                },
+                {
+                    "prop": "_DoubleSidedGIMode",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_TransparentDepthPrepassEnable",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_TransparentDepthPostpassEnable",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_PerPixelSorting",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_SurfaceType",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_BlendMode",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_SrcBlend",
+                    "value": 1.0
+                },
+                {
+                    "prop": "_DstBlend",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_DstBlend2",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_AlphaSrcBlend",
+                    "value": 1.0
+                },
+                {
+                    "prop": "_AlphaDstBlend",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_ZWrite",
+                    "value": 1.0
+                },
+                {
+                    "prop": "_TransparentZWrite",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_CullMode",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_EnableFogOnTransparent",
+                    "value": 1.0
+                },
+                {
+                    "prop": "_CullModeForward",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_TransparentCullMode",
+                    "value": 2.0
+                },
+                {
+                    "prop": "_OpaqueCullMode",
+                    "value": 2.0
+                },
+                {
+                    "prop": "_ZTestDepthEqualForOpaque",
+                    "value": 3.0
+                },
+                {
+                    "prop": "_ZTestTransparent",
+                    "value": 4.0
+                },
+                {
+                    "prop": "_TransparentBackfaceEnable",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_ShadowMatteFilter",
+                    "value": 2.313824024293138e-41
+                },
+                {
+                    "prop": "_EnableBlendModePreserveSpecularLighting",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_ExcludeFromTUAndAA",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_StencilRef",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_StencilWriteMask",
+                    "value": 6.0
+                },
+                {
+                    "prop": "_StencilRefDepth",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_StencilWriteMaskDepth",
+                    "value": 9.0
+                },
+                {
+                    "prop": "_StencilRefMV",
+                    "value": 32.0
+                },
+                {
+                    "prop": "_StencilWriteMaskMV",
+                    "value": 43.0
+                },
+                {
+                    "prop": "_StencilRefDistortionVec",
+                    "value": 4.0
+                },
+                {
+                    "prop": "_StencilWriteMaskDistortionVec",
+                    "value": 4.0
+                }
+            ],
+            "ints": [],
+            "colors": [
+                {
+                    "prop": "_BaseColor",
+                    "value": {
+                        "r": 1.0,
+                        "g": 1.0,
+                        "b": 1.0,
+                        "a": 1.0
+                    }
+                },
+                {
+                    "prop": "_ShadowColor",
+                    "value": {
+                        "r": 0.699999988079071,
+                        "g": 0.699999988079071,
+                        "b": 0.699999988079071,
+                        "a": 1.0
+                    }
+                },
+                {
+                    "prop": "_CelRimColor",
+                    "value": {
+                        "r": 1.0,
+                        "g": 0.9699999690055847,
+                        "b": 0.9399999976158142,
+                        "a": 1.0
+                    }
+                },
+                {
+                    "prop": "_CelSpecColor",
+                    "value": {
+                        "r": 1.0,
+                        "g": 0.949999988079071,
+                        "b": 0.8500000238418579,
+                        "a": 1.0
+                    }
+                },
+                {
+                    "prop": "_EmissionColor",
+                    "value": {
+                        "r": 1.0,
+                        "g": 1.0,
+                        "b": 1.0,
+                        "a": 1.0
+                    }
+                }
+            ],
+            "vectors": [
+                {
+                    "prop": "_MainLightDirection",
+                    "value": {
+                        "x": 0.0,
+                        "y": 1.0,
+                        "z": 0.0,
+                        "w": 0.0
+                    }
+                },
+                {
+                    "prop": "_DoubleSidedConstants",
+                    "value": {
+                        "x": 1.0,
+                        "y": 1.0,
+                        "z": -1.0,
+                        "w": 0.0
+                    }
+                }
+            ],
+            "textures": [
+                {
+                    "prop": "_BaseMap",
+                    "file": "textures/Codex_画像_2026年9月7日_21_43_41.png",
+                    "textureName": "Codex 画像 2026年9月7日 21_43_41.png",
+                    "source": "C:/Users/吉本　竜/Desktop/dog/refarence/Codex 画像 2026年9月7日 21_43_41.png",
+                    "normal": false,
+                    "linear": false,
+                    "scale": {
+                        "x": 1.0,
+                        "y": 1.0
+                    },
+                    "offset": {
+                        "x": 0.0,
+                        "y": 0.0
+                    }
+                }
+            ]
+        }
+    ],
+    "entries": [
+        {
+            "label": "pCube1",
+            "mayaGroup": "",
+            "mayaMesh": "|pCube1|pCubeShape1",
+            "scenePath": ""
+        }
+    ]
+}

@@ -64,7 +64,7 @@ public class CS_MayaPreviewCameraController : MonoBehaviour
             return;
         }
         Vector2 position = mouse.position.ReadValue();
-        if (_inspector != null && _inspector.BlocksInput(position))
+        if (_inspector != null && _inspector.BlocksInput(position, false))
         {
             _dragButton = -1;
             return;
@@ -72,7 +72,14 @@ public class CS_MayaPreviewCameraController : MonoBehaviour
 
         bool alt = keyboard.leftAltKey.isPressed || keyboard.rightAltKey.isPressed;
         bool typing = _inspector != null && _inspector.Typing;
+        // The handles come before the type icons: a Maya mesh at the origin often sits on a
+        // Volume / light icon, which used to hide and block its move / rotate / scale handles.
         if (!alt && !typing && _transformTool.HandleInput(mouse, keyboard)) return;
+        if (_inspector != null && _inspector.BlocksInput(position))
+        {
+            _dragButton = -1;
+            return;
+        }
         float scroll = mouse.scroll.ReadValue().y;
         if (scroll != 0f && _camera.pixelRect.Contains(position))
         {

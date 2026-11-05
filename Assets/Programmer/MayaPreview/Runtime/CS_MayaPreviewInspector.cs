@@ -79,13 +79,15 @@ public partial class CS_MayaPreviewInspector : MonoBehaviour
     private readonly List<Rect> _iconRects = new List<Rect>();
 
     // Camera / transform tools ask this before using the mouse (screen position, y up).
-    public bool BlocksInput(Vector2 screenPosition)
+    // icons = false: only the panels count (the move / rotate / scale handles are drawn and
+    // grabbed above the type icons, e.g. a mesh at the origin on top of a Volume icon).
+    public bool BlocksInput(Vector2 screenPosition, bool icons = true)
     {
         if (_uiHidden) return false;
-        if (_typing || _drag != null || _previewDragging || _splitUpper >= 0) return true;
+        if (_typing || _drag != null || _previewDragging || _splitUpper >= 0 || _scrubKey != null) return true;
         Vector2 point = new Vector2(screenPosition.x, Screen.height - screenPosition.y) / _scale;
         if (OverPanel(point)) return true;
-        foreach (Rect rect in _iconRects) if (rect.Contains(point)) return true;
+        if (icons) foreach (Rect rect in _iconRects) if (rect.Contains(point)) return true;
         return false;
     }
 
@@ -132,6 +134,7 @@ public partial class CS_MayaPreviewInspector : MonoBehaviour
         if (Time.unscaledTime >= _nextScan && UnityEngine.Rendering.OnDemandRendering.willCurrentFrameRender) Scan();
         _selection.Prune();
         TickPerformance();
+        TickLadder();
 
         var mouse = Mouse.current;
         bool held = mouse != null && (mouse.leftButton.isPressed || mouse.rightButton.isPressed || mouse.middleButton.isPressed);
@@ -190,7 +193,13 @@ public partial class CS_MayaPreviewInspector : MonoBehaviour
     {
         if (Event.current.type == EventType.Layout) _iconRects.Clear();
         HandleShortcuts();
-        if (_uiHidden) return;
+        if (_uiHidden)
+        {
+            if (_scrubKey != null) EndScrub();
+            if (_scrubCursorShown && Event.current.type == EventType.Repaint)
+            { _scrubCursorShown = false; Cursor.SetCursor(null, Vector2.zero, CursorMode.Auto); }
+            return;
+        }
 
         EnsureSkin();
         GUISkin previousSkin = GUI.skin;
@@ -217,6 +226,7 @@ public partial class CS_MayaPreviewInspector : MonoBehaviour
         DrawDragGhost();
         DrawFlash();
         DrawTooltip();
+        DrawScrubOverlay();
 
         _typing = GUI.GetNameOfFocusedControl().StartsWith("F.");
         if (Event.current.type == EventType.MouseDown && !OverPanel(Event.current.mousePosition))
@@ -349,7 +359,9 @@ public partial class CS_MayaPreviewInspector : MonoBehaviour
             bool selected = _selection.IsSelected(target.gameObject);
             bool enabled = IsEnabled(target);
 
-            if (GUI.Button(rect, GUIContent.none, GUIStyle.none))
+            // While a handle is dragged the icon under it must not take the click.
+            bool handleBusy = _tool != null && _tool.IsDragging;
+            if (!handleBusy && GUI.Button(rect, GUIContent.none, GUIStyle.none))
             {
                 GUI.FocusControl(null);
                 var keyboard = Keyboard.current;

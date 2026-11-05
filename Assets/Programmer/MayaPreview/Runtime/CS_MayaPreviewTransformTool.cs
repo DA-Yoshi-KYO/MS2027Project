@@ -292,7 +292,7 @@ public class CS_MayaPreviewTransformTool : MonoBehaviour
         if (targets.Count == 0) return;
         Vector3 pivot = Pivot(), centre = _camera.WorldToScreenPoint(pivot);
         if (centre.z <= _camera.nearClipPlane || !_camera.pixelRect.Contains(centre)) return;
-        if (_inspector.BlocksInput(centre)) return;
+        if (_inspector.BlocksInput(centre, false)) return;
         Quaternion frame = IsDragging ? _frame : Frame(targets);
         Vector2 start = new Vector2(centre.x, Screen.height - centre.y);
         Color previous = GUI.color;
@@ -306,7 +306,7 @@ public class CS_MayaPreviewTransformTool : MonoBehaviour
                     Vector3 a = RingPoint(frame, pivot, centre.z, i, j);
                     Vector3 b = RingPoint(frame, pivot, centre.z, i, j + 1);
                     if (a.z <= _camera.nearClipPlane || b.z <= _camera.nearClipPlane
-                        || _inspector.BlocksInput(a) || _inspector.BlocksInput(b)) continue;
+                        || _inspector.BlocksInput(a, false) || _inspector.BlocksInput(b, false)) continue;
                     Line(new Vector2(a.x, Screen.height - a.y), new Vector2(b.x, Screen.height - b.y));
                 }
             }
@@ -318,7 +318,7 @@ public class CS_MayaPreviewTransformTool : MonoBehaviour
         {
             Vector3 axis = _scaleMode ? frame * _axes[i] : _axes[i];
             Vector3 projected = _camera.WorldToScreenPoint(pivot + axis * HandleLength(centre.z));
-            if (projected.z <= _camera.nearClipPlane || _inspector.BlocksInput(projected)) continue;
+            if (projected.z <= _camera.nearClipPlane || _inspector.BlocksInput(projected, false)) continue;
             Vector2 end = new Vector2(projected.x, Screen.height - projected.y);
             if ((end - start).magnitude < 12) continue;
             GUI.color = _axis == i ? Color.yellow : _colors[i];

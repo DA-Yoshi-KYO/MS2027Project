@@ -19,6 +19,7 @@ using UnityEngine;
  *      背後: 悪人の正面から見て、自分のいる方向が_backAngle度(既定120度)以上うしろ(真後ろを中心に左右60度ずつ)
  *      上  : 自分が悪人より_aboveHeight(既定1.5m)以上高い位置にいる
  *      ハイドポイントの隠れられる箱の中にいる時(CS_PlayerHide)は、③を見ない(正面からでも奇襲できる。ペルソナ5のカバーからの奇襲)
+ *      必殺技の「正面からの奇襲」の効果が続いている間(CS_PlayerCharacter。ギロ)も、③を見ない
  * ・奇襲の流れ(攻撃している本人の手元で進める)
  *   1. 待機中に攻撃ボタン → 奇襲できる悪人(FindAmbushTarget)がいれば奇襲を始める(いなければCS_PlayerAttackが1段目を出す)
  *   2. 飛び込み: 悪人の今の位置を毎フレーム追いながら、_dashSpeedで_strikeDistanceの距離まで近づく(CS_Player.Lunge)
@@ -110,6 +111,7 @@ public class CS_PlayerAmbush : NetworkBehaviour
     private CS_Player _player;
     private CS_PlayerScoring _scoring;       // 付いていればスコアを通してダメージを与える
     private CS_PlayerHide _hide;             // ハイド。隠れられる箱の中にいる時は「背後か上」を見ない(付いていなければ見る)
+    private CS_PlayerCharacter _character;   // キャラクター。必殺技の「正面からの奇襲」の間は「背後か上」を見ない(付いていなければ見る)
     private Rigidbody _rigidbody;
     private Collider _collider;              // 自分の当たり判定(足元の高さを調べる)
     private LayerMask _defaultExcludeLayers;   // 飛び込む前のRigidbody.excludeLayers(飛び込み後に戻す)
@@ -137,6 +139,7 @@ public class CS_PlayerAmbush : NetworkBehaviour
         _player = GetComponent<CS_Player>();
         _scoring = GetComponent<CS_PlayerScoring>();
         _hide = GetComponent<CS_PlayerHide>();
+        _character = GetComponent<CS_PlayerCharacter>();
         _rigidbody = GetComponent<Rigidbody>();
         _collider = GetComponent<Collider>();
     }
@@ -564,7 +567,7 @@ public class CS_PlayerAmbush : NetworkBehaviour
 
         if (flat.magnitude > _range) return false;
         if (IsNoticed(villain)) return false;
-        if (!IsHidingAttacker() && !IsAbove(toAttacker.y) && !IsBehind(villainTransform.forward, flat)) return false;
+        if (!IsHidingAttacker() && !IsFrontalAmbushActive() && !IsAbove(toAttacker.y) && !IsBehind(villainTransform.forward, flat)) return false;
         return IsClearLine(attackerPosition, villainTransform);
     }
 
@@ -601,6 +604,12 @@ public class CS_PlayerAmbush : NetworkBehaviour
     private bool IsHidingAttacker()
     {
         return _hide != null && (_hide.isInHideBox || _hide.isHidden);
+    }
+
+    // 必殺技の「正面からの奇襲」の効果が続いているか(効果の残り時間は同期されているので、全員で分かる)
+    private bool IsFrontalAmbushActive()
+    {
+        return _character != null && _character.IsEffectActive(CSE_PlayerSpecialEffect.FrontalAmbush);
     }
 
     private bool IsAbove(float heightDifference)

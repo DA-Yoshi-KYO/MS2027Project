@@ -1748,7 +1748,7 @@ RectTransform:
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
   m_AnchoredPosition: {x: 0, y: 0}
-  m_SizeDelta: {x: 100, y: 100}
+  m_SizeDelta: {x: 60, y: 60}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!222 &3592295443026879913
 CanvasRenderer:
@@ -1778,7 +1778,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_Sprite: {fileID: -5668518402485374812, guid: 88a368f5658894b41a9f6f4f63f4bbd9, type: 3}
+  m_Sprite: {fileID: -7449738884794880301, guid: 3dc5cc7379a358044901defc298c1a58, type: 3}
   m_Type: 0
   m_PreserveAspect: 0
   m_FillCenter: 1
@@ -2575,7 +2575,7 @@ GameObject:
   - component: {fileID: 5976538108426358688}
   - component: {fileID: 4142645542267518585}
   m_Layer: 0
-  m_Name: RT
+  m_Name: X
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -2628,7 +2628,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_text: RT
+  m_text: X
   m_isRightToLeft: 0
   m_fontAsset: {fileID: 11400000, guid: 637706870527c2340a528739604d6855, type: 2}
   m_sharedMaterial: {fileID: 1888382106943637220, guid: 637706870527c2340a528739604d6855, type: 2}

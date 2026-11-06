@@ -28,6 +28,7 @@ using UnityEngine;
  *   (SAを使わずに歩いて入った時も同じ)。_standPointとは別のオブジェクトなので、_standPointを動かした時はHideBoxも合わせて動かす
  *   プレハブの既定は位置 (0, 6.65, 0)・Scale (1.5, 3.3, 1.5)(StandPointの足元が底。高さ3.3m = プレイヤーの高さ2m + ジャンプの高さ約1.3m、幅・奥行1.5m)
  *   _hideBoxが空なら隠れられない。シーンビューでは、選んでいない時も箱をギズモで描く
+ *   飛べるかを調べる時(CS_PlayerHide)は、この箱がカメラからどれだけ見えているかも使う(GetHideBoxPoint)
  * ・1つのハイドポイントに何人でも入れる(以前の「1か所に1人まで」の予約は無くした)
  * ・有効な間は一覧(activePoints)に登録する
  * ・ネットワークの同期はしない(全員のフィールドに同じ位置で置かれている前提)
@@ -80,6 +81,14 @@ public class CS_HidePoint : MonoBehaviour
     public bool Contains(Vector3 position)
     {
         return IsInsideBox(_hideBox, position);
+    }
+
+    public bool hasHideBox => _hideBox != null;   // 隠れられる箱があるか
+
+    // 隠れられる箱の中の点(localは箱の中心が(0, 0, 0)、端が±0.5)を、ワールドの位置にする。箱が空なら立つ位置を返す
+    public Vector3 GetHideBoxPoint(Vector3 local)
+    {
+        return _hideBox != null ? _hideBox.TransformPoint(local) : standPosition;
     }
 
     // positionが、SAできる範囲の箱(SAReachBox)の中にあるか

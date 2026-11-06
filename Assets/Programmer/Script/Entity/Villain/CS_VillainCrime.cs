@@ -12,7 +12,7 @@ using UnityEngine;
 // ========================================
 /*
  * メモ
- * ・isCommittingCrime : スポーン位置で犯罪を進めているか(CS_VillainGroupが参照)
+ * ・isCommittingCrime : 犯罪を進めているか(巡回している間も含む)(CS_VillainGroupが参照)
  *   臨戦態勢中・スポーン位置へ戻っている間・逃走中はfalse
  * ・crimeCompleteTime : CS_VillainStats.crimeCompleteTime(CS_VillainGroupが完遂時間の計算に使う)
  * ・Escape() : グループが犯罪を完遂した時にCS_VillainGroupから呼ばれる(サーバー、またはオフライン)

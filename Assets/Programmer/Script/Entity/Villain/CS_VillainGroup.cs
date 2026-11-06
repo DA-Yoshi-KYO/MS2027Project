@@ -13,8 +13,18 @@ using UnityEngine;
 /*
  * メモ
  * ・犯罪はグループ単位で進む。残っているメンバー全員が犯罪中(CS_VillainCrime.isCommittingCrime)の間だけ進行する
- *   1人でも臨戦態勢・帰還中になったら、グループ全体が手を止める(それまでの進行度は保持する)
- *   実行役(見張り役ではないメンバー)が全員倒されて見張り役だけになった時も、見張り役が引き継ぐまで止める
+ *   巡回している間も犯罪中の扱い。1人でも臨戦態勢・帰還中になったら、グループ全体が手を止める(それまでの進行度は保持する)
+ * ・巡回パターン(スポーン位置のCS_VillainPatrolRoute)があるグループは、ここでは巡回しない(hasPatrolがfalse)
+ *   悪人ごとにパターンのルートを回る(CS_VillainPatrolCrew・CS_VillainPatrol)。以下はパターンが無い時の全員での往復
+ * ・巡回(スポーン位置のあるグループのみ。ルートはCS_VillainSpawnPoint.CreatePatrolPaths)
+ *   メンバー全員で1つの進み具合(patrolProgress、0～1)を共有し、全員がそれぞれのルートの同じ割合の位置を回る
+ *   → 進み具合は、一番長いルートを、メンバーの中で一番遅い巡回速度で歩く速さで進む(長いルートの人ほど速く歩く)
+ *   → 端(0か1)に着いたら、スポーン位置のlookAroundTime秒は全員で見回してから折り返す(往復)
+ *   → メンバーが臨戦態勢・帰還中でも進める。戻ってきたメンバーは、自分のルートの今の進み具合の位置へ合流する
+ *   ルートの割り当て: 加わった順に、ルートの上から順に割り当てる(順番 % ルートの数)。途中で加わったメンバーも同じ
+ *   同じルートのメンバー同士は、スポーン位置のpatrolSpacing(m)の間隔で並ぶ(倒れた人の分は詰める)
+ *   → slot番目の人は、ルートの範囲をslot人分ずらした範囲を往復する(並んだまま往復するので、折り返しても追い越さない)
+ *     短くて全員が並びきらないルートでは、間隔を詰める
  * ・完遂までの時間は、残っているメンバーのcrimeCompleteTimeのうち一番長いもの
  * ・完遂したら
  *   1. onAnyCrimeCompleted を1回だけ呼ぶ
@@ -41,6 +51,8 @@ public class CS_VillainGroup
     private readonly List<CS_VillainCrime> _members = new List<CS_VillainCrime>();
     private readonly List<CS_VillainCombat> _combats = new List<CS_VillainCombat>();          // メンバーの反撃(_membersと同じ順)
     private readonly HashSet<CS_VillainCombat> _attackers = new HashSet<CS_VillainCombat>();   // 攻撃枠を持っているメンバー
+    private readonly List<CS_VillainPatrolPath> _patrolPaths = new List<CS_VillainPatrolPath>();   // 巡回ルート(スポーン位置が無ければ空)
+    private readonly List<int> _patrolRouteIndices = new List<int>();   // メンバーごとの巡回ルートの番号(_combatsと同じ順)
     private const float _progressSyncStep = 0.01f;   // 進行度をメンバーへ送る刻み(1%)
     private static int _nextId;                     // 次に作るグループの番号
 
@@ -50,6 +62,9 @@ public class CS_VillainGroup
     private float _crimeElapsed;
     private bool _isCrimeCompleted;
     private float _syncedProgress;   // 最後にメンバーへ送った進行度
+    private float _patrolProgress;          // 巡回の進み具合(0～1。全員で共有する)
+    private int _patrolDirection = 1;       // 巡回の進む向き(+1: 最後の地点へ / -1: 最初の地点へ)
+    private float _lookAroundRemaining;     // 端で見回している残り時間(秒。0なら歩いている)
 
     public int id => _id;   // グループ番号(0から。メンバーのCS_VillainCrime.groupIdと同じ)
     public CS_VillainSpawnPoint spawnPoint => _spawnPoint;
@@ -59,6 +74,9 @@ public class CS_VillainGroup
 
     // Destroyされたメンバーはnull扱いになるので、撃退されていないメンバーが1人でも残っていれば生存
     public bool isAlive => _members.Exists(IsActive);
+
+    public bool hasPatrol => _patrolPaths.Count > 0;            // 巡回するグループか(スポーン位置のあるグループ)
+    public bool isLookingAround => _lookAroundRemaining > 0f;   // 巡回の端で、全員で見回している間か
 
     // 犯罪の進行度(0～1)
     public float crimeProgress
@@ -87,6 +105,8 @@ public class CS_VillainGroup
         _spawnPoint = spawnPoint;
         _maxAttackers = maxAttackers;
         _usesTimeScaling = usesTimeScaling;
+
+        if (spawnPoint != null) _patrolPaths.AddRange(spawnPoint.CreatePatrolPaths());
     }
 
     public void AddMember(CS_VillainCrime member)
@@ -95,8 +115,152 @@ public class CS_VillainGroup
         member.SetGroup(_id, crimeProgress);
         CS_VillainCombat combat = member.GetComponent<CS_VillainCombat>();
         _combats.Add(combat);
+        _patrolRouteIndices.Add(hasPatrol ? (_combats.Count - 1) % _patrolPaths.Count : -1);
         combat.SetGroup(this);
     }
+
+    // ---- 巡回 ----
+
+    // これから index 番目(0始まり)に加わるメンバーが、今の進み具合で立つ位置(生成位置に使う)
+    // memberCount: 一緒に生成するメンバーの人数(同じルートの人数を数えるのに使う)
+    public Vector3 GetPatrolPositionForNewMember(int index, int memberCount)
+    {
+        int routeIndex = (_combats.Count + index) % _patrolPaths.Count;
+
+        // 既にいるメンバーの後ろに、一緒に生成するメンバーが加わった時の並び
+        int existing = CountActiveOnRoute(routeIndex);
+        int slot = existing;
+        int count = existing;
+        for (int i = 0; i < memberCount; i++)
+        {
+            if ((_combats.Count + i) % _patrolPaths.Count != routeIndex) continue;
+
+            if (i < index) slot++;
+            count++;
+        }
+
+        CS_VillainPatrolPath path = _patrolPaths[routeIndex];
+        return path.Evaluate(GetSlotProgress(path, slot, count, _patrolProgress));
+    }
+
+    // メンバーが今向かう巡回の位置(サーバーのみ)。巡回しないグループ・メンバーならfalse
+    // lookAhead: 歩いている間、今の位置からどれだけ先(m)を目的地にするか(目的地に追い付いて止まらないように)
+    // speed: 進み具合に合わせて歩く速さ(m/秒) / forward: 進む向き(見回す時の中心の向き)
+    public bool TryGetPatrolTarget(CS_VillainCombat combat, float lookAhead, out Vector3 destination, out Vector3 position, out float speed, out Vector3 forward)
+    {
+        destination = position = forward = Vector3.zero;
+        speed = 0f;
+
+        int index = _combats.IndexOf(combat);
+        if (!hasPatrol || index < 0) return false;
+
+        int routeIndex = _patrolRouteIndices[index];
+        CS_VillainPatrolPath path = _patrolPaths[routeIndex];
+        GetSlot(index, routeIndex, out int slot, out int count);
+
+        float spacing = GetSlotSpacing(path, count);
+        float range = 1f - spacing * (count - 1);   // このメンバーが往復する範囲の、ルートに対する割合
+        float progress = GetSlotProgress(path, slot, count, _patrolProgress);
+
+        position = path.Evaluate(progress);
+        forward = path.GetForward(progress, _patrolDirection);
+        speed = range * path.length * GetProgressSpeed();
+
+        // 見回している間は端の位置。歩いている間は少し先の位置を目的地にする(自分の往復する範囲の中に収める)
+        float aheadProgress = isLookingAround || path.length <= 0f ? 0f : lookAhead / path.length * _patrolDirection;
+        float min = spacing * slot;
+        float max = min + range;
+        destination = path.Evaluate(Mathf.Clamp(progress + aheadProgress, min, max));
+        return true;
+    }
+
+    // 巡回を進める(サーバーのみ。Tickから毎フレーム呼ばれる)。端に着いたら見回してから折り返す
+    private void TickPatrol(float deltaTime)
+    {
+        if (!hasPatrol) return;
+
+        if (isLookingAround)
+        {
+            _lookAroundRemaining -= deltaTime;
+            if (_lookAroundRemaining <= 0f) _patrolDirection = -_patrolDirection;
+            return;
+        }
+
+        _patrolProgress += _patrolDirection * GetProgressSpeed() * deltaTime;
+        if (_patrolProgress > 0f && _patrolProgress < 1f) return;
+
+        // 端に着いたら、全員で見回す(見回す時間が0ならすぐ折り返す)
+        _patrolProgress = Mathf.Clamp01(_patrolProgress);
+        _lookAroundRemaining = _spawnPoint.lookAroundTime;
+        if (_lookAroundRemaining <= 0f) _patrolDirection = -_patrolDirection;
+    }
+
+    // 進み具合が1秒に進む量。一番長いルートを、メンバーの中で一番遅い巡回速度で歩く速さ
+    private float GetProgressSpeed()
+    {
+        float longest = 0f;
+        foreach (CS_VillainPatrolPath path in _patrolPaths)
+        {
+            longest = Math.Max(longest, path.length);
+        }
+        if (longest <= 0f) return 0f;
+
+        float slowest = float.MaxValue;
+        foreach (CS_VillainCombat combat in _combats)
+        {
+            if (combat != null && combat.enabled) slowest = Math.Min(slowest, combat.patrolSpeed);
+        }
+        return slowest == float.MaxValue ? 0f : slowest / longest;
+    }
+
+    // 同じルートのメンバーのうち、何番目か(slot)と、全部で何人か(count)。倒れた・逃走中のメンバーは数えない
+    private void GetSlot(int index, int routeIndex, out int slot, out int count)
+    {
+        slot = 0;
+        count = 0;
+        for (int i = 0; i < _combats.Count; i++)
+        {
+            if (_patrolRouteIndices[i] != routeIndex || !IsPatrolling(_combats[i])) continue;
+
+            if (i < index) slot++;
+            count++;
+        }
+        if (!IsPatrolling(_combats[index])) count++;   // 自分自身(倒れる直前などで数えられなかった時)
+    }
+
+    private int CountActiveOnRoute(int routeIndex)
+    {
+        int count = 0;
+        for (int i = 0; i < _combats.Count; i++)
+        {
+            if (_patrolRouteIndices[i] == routeIndex && IsPatrolling(_combats[i])) count++;
+        }
+        return count;
+    }
+
+    // 同じルートのメンバー同士の間隔(ルートに対する割合)。全員が並びきらない短いルートでは詰める
+    private float GetSlotSpacing(CS_VillainPatrolPath path, int count)
+    {
+        if (count <= 1 || path.length <= 0f) return 0f;
+
+        return Math.Min(_spawnPoint.patrolSpacing / path.length, 1f / (count - 1));
+    }
+
+    // slot 番目のメンバーの進み具合。ルートの範囲をslot人分ずらした範囲を、共有の進み具合の割合で進む
+    private float GetSlotProgress(CS_VillainPatrolPath path, int slot, int count, float progress)
+    {
+        float spacing = GetSlotSpacing(path, count);
+        float range = 1f - spacing * (count - 1);
+        return spacing * slot + range * progress;
+    }
+
+    // 巡回に加わっているメンバーか(倒れた・逃走中のメンバーは並びに数えない)
+    private static bool IsPatrolling(CS_VillainCombat combat)
+    {
+        return combat != null && combat.enabled;
+    }
+
+    // ---- 戦闘 ----
 
     // メンバーが新しく臨戦態勢になったことを、他のメンバーへ知らせる(サーバーのみ)
     public void NotifyEngaged(CS_VillainCombat source, Transform target, CS_PlayerHealth player)
@@ -172,13 +336,15 @@ public class CS_VillainGroup
         _attackers.Remove(attacker);
     }
 
-    // 犯罪を進める。完遂時間に達したら完遂する
+    // 巡回と犯罪を進める。完遂時間に達したら完遂する
+    // 巡回はメンバーが臨戦態勢・帰還中でも進める(犯罪は全員が犯罪中の間だけ進む)
     public void Tick(float deltaTime)
     {
         if (_isCrimeCompleted) return;
         if (!isAlive) return;
+
+        TickPatrol(deltaTime);
         if (!IsAllMembersCommittingCrime()) return;
-        if (!HasExecutor()) return;   // 見張り役だけ残った時は、見張り役が引き継ぐまで進めない
 
         _crimeElapsed += deltaTime;
         if (_crimeElapsed >= GetCrimeCompleteTime())
@@ -217,16 +383,6 @@ public class CS_VillainGroup
         {
             if (IsActive(member)) member.Escape();
         }
-    }
-
-    // 犯罪の実行役(見張り役ではないメンバー)が1人でも残っているか
-    public bool HasExecutor()
-    {
-        foreach (CS_VillainCombat combat in _combats)
-        {
-            if (combat != null && combat.enabled && !combat.isWatcher) return true;   // 倒れている・逃走中のメンバーは数えない
-        }
-        return false;
     }
 
     // まだ残っていて、撃退されていない(倒れていない)メンバーか

@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using Unity.AI.Navigation;
 using UnityEngine;
 using UnityEngine.AI;
@@ -17,7 +18,12 @@ using UnityEngine.AI;
  *   (使用中かどうかの管理はCS_VillainSpawnerが行う)
  * ・グループがいなくなる(全滅・犯罪完遂の逃走)と、しばらくリスポーンを待つ状態(isCoolingDown)になる
  *   待ち時間の開始と、待ち中でも生成してよいかの判断はCS_VillainSpawnerが行う
- * ・見張り役の巡回ルート(GetPatrolEnds)
+ * ・巡回
+ *   巡回パターン(CS_VillainPatrolRoute + CSO_VillainPatrolPattern)があれば、悪人ごとにパターンのルートを回る
+ *   (割り当て・動きはCS_VillainSpawner・CS_VillainPatrolが行う。CreatePatrolPathsは空を返す)
+ *   パターンが無ければ、路地裏の両端を往復するルート(GetPatrolEnds)を全員で使う(CreatePatrolPaths)
+ *   端で見回す時間(lookAroundTime)と、同じルートを回る人同士の間隔(patrolSpacing)は、この両端の往復で使う
+ * ・路地裏の両端(GetPatrolEnds)
  *   路地裏の範囲(Patrol Area)の、
  *   長い方向の両端(端から patrolEndMargin 内側)を巡回の端とする
  *   → 路地裏の範囲が無い時は、この位置から前後(Z方向)に fallbackPatrolDistance 離れた2点
@@ -25,7 +31,8 @@ using UnityEngine.AI;
  *   Patrol Areaが空なら、親のNavMeshModifierVolume、無ければこの位置を真上から見て含む路地裏
  *   (BackAlleyのNavMeshModifierVolume)を探して使う
  *   出現点はField_Multi・Field_Solo1などに直接置き、路地裏(Field_Common)とは別のプレハブになるため
- * ・Sceneビューで選択すると、生成範囲が赤い円、巡回ルートが黄色い線で表示される
+ * ・Sceneビューで選択すると、生成範囲が赤い円、巡回パターンが無ければ路地裏の両端が黄色い線で表示される
+ *   (巡回パターンは巡回エディタが表示する)
  */
 // ========================================
 
@@ -37,9 +44,18 @@ public class CS_VillainSpawnPoint : MonoBehaviour
     [Tooltip("グループのメンバーを並べる円の半径(m)")]
     private float _groupRadius = 1.5f;
 
-    [Header("見張り役の巡回")]
+    [Header("巡回(巡回パターンが無い時)")]
+    [SerializeField, Min(0f)]
+    [Tooltip("巡回ルートの端に着いてから、グループ全員で見回す時間(秒)")]
+    private float _lookAroundTime = 3f;
+
+    [SerializeField, Min(0f)]
+    [Tooltip("同じルートを回る人同士の間隔(m)")]
+    private float _patrolSpacing = 2f;
+
+    [Header("巡回ルートが無い時(路地裏の両端を往復)")]
     [SerializeField]
-    [Tooltip("見張り役が巡回する路地裏の範囲。空なら親、無ければこの位置を含む路地裏から探す")]
+    [Tooltip("巡回する路地裏の範囲。空なら親、無ければこの位置を含む路地裏から探す")]
     private NavMeshModifierVolume _patrolArea;
 
     [SerializeField, Min(0f)]
@@ -55,6 +71,8 @@ public class CS_VillainSpawnPoint : MonoBehaviour
     private float _cooldownEndTime;   // リスポーンの待ちが終わる時刻(Time.time)
 
     public float groupRadius => _groupRadius;
+    public float lookAroundTime => _lookAroundTime;
+    public float patrolSpacing => _patrolSpacing;
 
     // グループが生成されていて、まだ残っているか
     public bool isOccupied
@@ -91,7 +109,23 @@ public class CS_VillainSpawnPoint : MonoBehaviour
         return transform.position + offset;
     }
 
-    // 見張り役が巡回する両端(NavMeshの上に合わせた位置)
+    // 巡回パターン(CS_VillainPatrolRoute)。付いていなければnull
+    public CS_VillainPatrolRoute patrolRoute => GetComponent<CS_VillainPatrolRoute>();
+
+    // 全員で往復する巡回ルートの形(グループが共有する)
+    // 巡回パターンがあれば空(悪人ごとにパターンのルートを回る)。無ければ、路地裏の両端を往復するルート1本
+    public List<CS_VillainPatrolPath> CreatePatrolPaths()
+    {
+        List<CS_VillainPatrolPath> paths = new List<CS_VillainPatrolPath>();
+        CS_VillainPatrolRoute route = patrolRoute;
+        if (route != null && route.hasPattern) return paths;
+
+        GetPatrolEnds(out Vector3 endA, out Vector3 endB);
+        paths.Add(new CS_VillainPatrolPath(new[] { endA, endB }));
+        return paths;
+    }
+
+    // 路地裏の範囲の両端(NavMeshの上に合わせた位置)。巡回ルートが無い時に往復する
     public void GetPatrolEnds(out Vector3 endA, out Vector3 endB)
     {
         GetRawPatrolEnds(out endA, out endB);
@@ -163,6 +197,10 @@ public class CS_VillainSpawnPoint : MonoBehaviour
     {
         Gizmos.color = Color.red;
         Gizmos.DrawWireSphere(transform.position, _groupRadius);
+
+        // 巡回パターンがあれば巡回エディタが表示するので、無い時だけ路地裏の両端を表示する
+        CS_VillainPatrolRoute route = patrolRoute;
+        if (route != null && route.hasPattern) return;
 
         GetRawPatrolEnds(out Vector3 endA, out Vector3 endB);
         Gizmos.color = Color.yellow;

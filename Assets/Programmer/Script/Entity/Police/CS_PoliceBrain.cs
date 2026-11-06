@@ -9,6 +9,7 @@
  * 2026-11-01 | 追跡中は、移動の向きではなく標的の方を向き続けるように変更(切り返されても視界から外れにくくする)
  * 2026-11-01 | 標的が直接目指す距離以内にいる間は、毎フレーム目的地を更新するように変更
  * 2026-11-01 | 巡回時の視界に入ったプレイヤーも、警戒UIの黄色い目の対象にするように変更
+ * 2026-11-06 | 見つけた瞬間にスコアへ知らせる(減点する)のをやめ、追跡している間、毎フレームCS_PoliceAlertManagerへ知らせるようにした(時間で減点する)
  * ================================================ */
 
 using System.Collections.Generic;
@@ -43,6 +44,9 @@ public class CS_PoliceBrain : MonoBehaviour, IStunnable
 
     // 標的を最後に見た位置(見失った時に探しに行く場所)
     private Vector3 _lastSeenPosition = Vector3.zero;
+
+    // 追跡している標的のプレイヤー(標的がプレイヤーでなければnull。追跡している間、スコアの減点のために知らせる)
+    private CS_PlayerHealth _chasedPlayer = null;
 
     // 駆け付けの指示を受けているか
     private bool _hasRushRequest = false;
@@ -269,6 +273,9 @@ public class CS_PoliceBrain : MonoBehaviour, IStunnable
             return;
         }
 
+        // 追跡している間は、毎フレーム、追跡されている時間として知らせる(スコアの減点)
+        if (_state == CSE_PoliceMoveState.Chase && _chasedPlayer != null) CS_PoliceAlertManager.ReportExposure(_chasedPlayer);
+
         // 攻撃のチャージ中は、止まらずに標的を追いかけ続ける(攻撃判定は、溜め終わった時の標的の方向へ出る)
         // 攻撃判定を出した後の硬直の間だけ、その場で止まる(判断は続け、硬直が終わったらその時の目的地へ移動を再開する)
         _move.SetStopped(_attack.isRecovering);
@@ -430,8 +437,8 @@ public class CS_PoliceBrain : MonoBehaviour, IStunnable
     /// <param name="target">追跡する標的</param>
     private void Chase(Transform target)
     {
-        // 新しく標的にした(見つけた)瞬間に、プレイヤーのスコア(暗躍ボーナス)へ知らせる
-        if (target != _currentTarget) ReportFound(target);
+        // 追う標的が変わった時に、標的のプレイヤーを覚える(追跡している間、毎フレーム知らせるため。プレイヤーでなければnull)
+        if (target != _currentTarget) _chasedPlayer = target.GetComponentInParent<CS_PlayerHealth>();
 
         _state = CSE_PoliceMoveState.Chase;
         _currentTarget = target;
@@ -471,17 +478,6 @@ public class CS_PoliceBrain : MonoBehaviour, IStunnable
     {
         CS_PlayerHealth player = target.GetComponentInParent<CS_PlayerHealth>();
         if (player != null) CS_PoliceAlertManager.Report(player, target.position, transform.position);
-    }
-
-    /// <summary>
-    /// 標的がプレイヤーなら、警察に見つかったことをプレイヤーのスコアへ知らせるメソッド(暗躍ボーナスがリセットされる)
-    /// 判断はサーバー(またはオフライン)だけで行うので、ここもサーバーで呼ばれる
-    /// </summary>
-    /// <param name="target">新しく標的にしたもの</param>
-    private void ReportFound(Transform target)
-    {
-        CS_PlayerScoring scoring = target.GetComponentInParent<CS_PlayerScoring>();
-        if (scoring != null) scoring.ReportFoundByPolice();
     }
 
     /// <summary>

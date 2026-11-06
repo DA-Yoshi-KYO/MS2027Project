@@ -7,6 +7,7 @@
  * 2026-10-23 | 警戒状態の本体をCS_PlayerAlertに揃え、付近の警察を向かわせる役だけにした
  * 2026-11-01 | 警戒状態になった時に、プレイヤーの近くへ増援を出すようにした(手配度は復活させない)
  * 2026-11-06 | 増援を、見つけた警察と挟む形の位置に、遠くから出すようにした
+ * 2026-11-06 | 警察に追跡・ドローンに目撃・ライトに照射されている時間と、レーザーに当たった時に、プレイヤーを減点するようにした(見つかった瞬間の減点はやめた)
  * ================================================ */
 
 using System.Collections.Generic;
@@ -23,6 +24,10 @@ using UnityEngine;
 /// ・プレイヤーが警戒状態になった時(警戒状態でなかったプレイヤーが見つかった時)に、そのプレイヤーの近くへ増援の警察を出す
 ///   増援は、プレイヤーから見て、見つけた警察(防犯装置)の反対側に出る(挟む形)。警戒状態の間、そのプレイヤーの現在地を追い、
 ///   警戒状態が解除されたら、追う標的も指示も無くなった時に帰還する
+/// ・警察に追跡されている間・巡回ドローンに見られている間・ストリートライトに照らされている間は、決められた秒数ごとに、決められた点数を
+///   プレイヤーのスコアから引く(ReportExposureで知らせてもらう。途切れたら、数えた時間を捨てる)
+///   複数に同時に見られていても、減点は1人分。防犯レーザーに当たった時は、決められた点数を1回引く(ReportLaserHit)
+///   点数は、スコアの結果(CS_PlayerResultDataHolder)の「警察に見つかった」へ加える
 /// ・警戒状態が解除されたら(CS_PlayerAlertが「なし」に戻ったら)、そのプレイヤーへの指示をやめる
 /// 警察への指示はサーバー(またはオフライン)だけで行う
 /// </summary>
@@ -43,6 +48,9 @@ public class CS_PoliceAlertManager : MonoBehaviour
 
     // 増援の出現位置が見つからない時に、反対側の向きから左右へ試す向きを広げる角度の上限(度)
     private const float _reinforceWidenAngle = 60.0f;
+
+    // 最後に見られていると知らされてから、この時間(秒)以内なら、今も見られているとみなす
+    private const float _exposureGrace = 0.2f;
 
     // 見つけた警察がプレイヤーにこの距離(m)より近い時は、反対側の向きを決めない(向きが安定しないため)
     private const float _minFinderDistance = 1.0f;
@@ -88,6 +96,15 @@ public class CS_PoliceAlertManager : MonoBehaviour
     // 次に警察へ指示を出し直すまでの残り時間
     private float _dispatchTimer = 0.0f;
 
+    // 見られているプレイヤーごとの、最後に見られていると知らされた時刻(秒)
+    private readonly Dictionary<CS_PlayerHealth, float> _lastExposedTimes = new Dictionary<CS_PlayerHealth, float>();
+
+    // 見られているプレイヤーごとの、減点までに数えた時間(秒。見られなくなったら消える)
+    private readonly Dictionary<CS_PlayerHealth, float> _exposedTimes = new Dictionary<CS_PlayerHealth, float>();
+
+    // 見られなくなったプレイヤーを集める際に使い回すリスト
+    private readonly List<CS_PlayerHealth> _exposureBuffer = new List<CS_PlayerHealth>();
+
     [Header("＝＝＝ 警戒状態 ＝＝＝")]
     [SerializeField]
     [Tooltip("警戒状態の設定(付近の範囲)。警戒状態が続く時間は、プレイヤー側のCS_PlayerAlertで設定する")]
@@ -117,6 +134,30 @@ public class CS_PoliceAlertManager : MonoBehaviour
     }
 
     /// <summary>
+    /// プレイヤーが、警察に追跡されている・ドローンに見られている・ライトに照らされていることを知らせるメソッド
+    /// 見られている間は、毎フレーム(または短い間隔で)呼び続けること。サーバー、またはオフラインで呼ぶこと
+    /// </summary>
+    /// <param name="player">見られているプレイヤー</param>
+    public static void ReportExposure(CS_PlayerHealth player)
+    {
+        if (player == null || _instance == null || CS_PoliceSquad.IsNetworkClientOnly()) return;
+
+        _instance._lastExposedTimes[player] = Time.time;
+    }
+
+    /// <summary>
+    /// プレイヤーが防犯レーザーに当たったことを知らせるメソッド(当たるたびに、決められた点数を1回減点する)
+    /// サーバー、またはオフラインで呼ぶこと
+    /// </summary>
+    /// <param name="player">当たったプレイヤー</param>
+    public static void ReportLaserHit(CS_PlayerHealth player)
+    {
+        if (player == null || _instance == null || _instance._alertData == null || CS_PoliceSquad.IsNetworkClientOnly()) return;
+
+        _instance.ApplyPenalty(player, _instance._alertData.laserPenaltyPoint);
+    }
+
+    /// <summary>
     /// プレイヤーが警戒状態かを判定するメソッド
     /// </summary>
     /// <param name="player">判定するプレイヤー</param>
@@ -141,11 +182,16 @@ public class CS_PoliceAlertManager : MonoBehaviour
     {
         if (_instance == this) _instance = null;
         _states.Clear();
+        _lastExposedTimes.Clear();
+        _exposedTimes.Clear();
     }
 
     private void Update()
     {
-        if (_instance != this || _states.Count == 0) return;
+        if (_instance != this) return;
+
+        UpdateExposurePenalty(Time.deltaTime);
+        if (_states.Count == 0) return;
 
         _dispatchTimer -= Time.deltaTime;
         if (_dispatchTimer > 0.0f) return;
@@ -244,6 +290,59 @@ public class CS_PoliceAlertManager : MonoBehaviour
             brain.RequestRush(state.point);
             state.dispatched.Add(brain);
         }
+    }
+
+    /// <summary>
+    /// 見られている時間を数え、決められた秒数がたつごとに、プレイヤーを減点するメソッド(サーバー、またはオフラインだけ)
+    /// 見られなくなったプレイヤーの、数えた時間は捨てる(次に見られたら、0から数え直す)
+    /// </summary>
+    /// <param name="deltaTime">前のフレームからの経過時間</param>
+    private void UpdateExposurePenalty(float deltaTime)
+    {
+        if (_alertData == null || CS_PoliceSquad.IsNetworkClientOnly()) return;
+
+        RemoveUnexposed();
+        if (_alertData.exposurePenaltyPoint <= 0) return;
+
+        foreach (CS_PlayerHealth player in _lastExposedTimes.Keys)
+        {
+            _exposedTimes.TryGetValue(player, out float time);
+            time += deltaTime;
+            while (time >= _alertData.exposurePenaltyInterval)
+            {
+                time -= _alertData.exposurePenaltyInterval;
+                ApplyPenalty(player, _alertData.exposurePenaltyPoint);
+            }
+            _exposedTimes[player] = time;
+        }
+    }
+
+    /// <summary>
+    /// 見られなくなった(知らされてから一定時間たった)プレイヤーを、数えている中から外すメソッド
+    /// </summary>
+    private void RemoveUnexposed()
+    {
+        _exposureBuffer.Clear();
+        foreach (KeyValuePair<CS_PlayerHealth, float> pair in _lastExposedTimes)
+        {
+            if (pair.Key == null || pair.Key.isDead || Time.time - pair.Value > _exposureGrace) _exposureBuffer.Add(pair.Key);
+        }
+
+        foreach (CS_PlayerHealth player in _exposureBuffer)
+        {
+            _lastExposedTimes.Remove(player);
+            _exposedTimes.Remove(player);
+        }
+    }
+
+    /// <summary>
+    /// プレイヤーを減点するメソッド(スコアの結果の「警察に見つかった」に加える)
+    /// </summary>
+    private void ApplyPenalty(CS_PlayerHealth player, int point)
+    {
+        if (point <= 0) return;
+
+        if (player.TryGetComponent(out CS_PlayerResultDataHolder holder)) holder.AddFoundByPolice(-point);
     }
 
     /// <summary>

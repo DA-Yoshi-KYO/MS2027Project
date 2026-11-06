@@ -6,6 +6,7 @@
  * 2026-10-21 | 初回作成
  * 2026-11-01 | 増援(警戒状態の間、プレイヤーの近くに出る警察)の設定を追加
  * 2026-11-06 | 増援を、見つけた警察と挟む形の位置に、遠くから出すようにした(距離を伸ばし、並べる角度の間隔を追加)
+ * 2026-11-06 | 追跡・目撃・照射されている時間による減点の設定(間隔・点数)と、レーザーに当たった時の減点を追加
  * ================================================ */
 
 using UnityEngine;
@@ -22,6 +23,23 @@ public class CSO_PoliceAlertData : ScriptableObject
     [Tooltip("付近の範囲(m)。プレイヤーが見つかった場所からこの距離以内にいる警察が、その場所へ向かう")]
     private float _alertRadius = 30.0f;
     public float alertRadius => _alertRadius;
+
+    [Header("＝＝＝ 見られている時間の減点(警察に追跡される・ドローンに見られる・ライトに照らされる) ＝＝＝")]
+    [SerializeField, Min(0.1f)]
+    [Tooltip("警察に追跡されている間・ドローンに見られている間・ライトに照らされている間、この秒数ごとに減点する(秒)。それらが途切れたら、数えた時間は捨てる")]
+    private float _exposurePenaltyInterval = 1.0f;
+    public float exposurePenaltyInterval => _exposurePenaltyInterval;
+
+    [SerializeField, Min(0)]
+    [Tooltip("上の秒数ごとに減る点数。0なら減点しない")]
+    private int _exposurePenaltyPoint = 1;
+    public int exposurePenaltyPoint => _exposurePenaltyPoint;
+
+    [Header("＝＝＝ レーザーに当たった時の減点 ＝＝＝")]
+    [SerializeField, Min(0)]
+    [Tooltip("防犯レーザーに当たった時に減る点数(当たるたびに1回)。0なら減点しない")]
+    private int _laserPenaltyPoint = 1;
+    public int laserPenaltyPoint => _laserPenaltyPoint;
 
     [Header("＝＝＝ 増援(警戒状態の間、プレイヤーの近くに出る警察) ＝＝＝")]
     [SerializeField]

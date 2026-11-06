@@ -194,3 +194,19 @@ Artist/Houdini_Project/backup/Env_Field_Beta01_bak12.hipnc
 Artist/Houdini_Project/backup/Env_Field_Beta01_bak11.hipnc
 Artist/Houdini_Project/backup/Env_Field_Beta01_bak10.hipnc
 Artist/Houdini_Project/backup/Env_Field_Beta01_bak1.hipnc
+
+# Maya preview host: track only the compressed archive and its tools, never the unpacked build
+/out/maya_unity/*
+!/out/maya_unity/Clause.bat
+!/out/maya_unity/Open.bat
+!/out/maya_unity/Unpack.ps1
+!/out/maya_unity/data.mpk.*
+
+# DCC Launcher: same rule, only the compressed archive and its tools
+/out/launcher/*
+!/out/launcher/DCCLauncher/
+/out/launcher/DCCLauncher/*
+!/out/launcher/DCCLauncher/Clause.bat
+!/out/launcher/DCCLauncher/Open.bat
+!/out/launcher/DCCLauncher/Unpack.ps1
+!/out/launcher/DCCLauncher/data.mpk.*

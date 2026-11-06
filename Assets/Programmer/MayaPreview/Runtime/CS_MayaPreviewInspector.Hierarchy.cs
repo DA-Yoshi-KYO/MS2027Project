@@ -50,7 +50,8 @@ public partial class CS_MayaPreviewInspector
 
     private void Scan()
     {
-        _nextScan = Time.unscaledTime + 1f;
+        // Hierarchy / icons on screen: once a second. Otherwise (or the exe behind Maya) every 3 s.
+        _nextScan = Time.unscaledTime + (Application.isFocused && (_hierarchyOpen || _iconsVisible) ? 1f : 3f);
         var visible = new HashSet<Transform>();
         _markers.Clear();
 
@@ -70,6 +71,7 @@ public partial class CS_MayaPreviewInspector
             if (CS_MayaPreviewSelection.Selectable(r)) Add(r, false);
 
         _scanModelRoot = CS_MayaPreviewExport.ModelRoot();
+        ApplyMayaScaler();
         var roots = new List<Transform>();
         foreach (Transform t in visible) if (t.parent == null) roots.Add(t);
         roots.Sort((a, b) => a.GetSiblingIndex().CompareTo(b.GetSiblingIndex()));

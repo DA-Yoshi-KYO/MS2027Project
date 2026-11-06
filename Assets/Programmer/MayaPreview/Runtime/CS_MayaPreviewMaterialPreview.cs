@@ -30,11 +30,20 @@ public class CS_MayaPreviewMaterialPreview : MonoBehaviour
     private float _keyScale = 1f;
     // The scene uses a fixed, night-time exposure: a few candela is already a bright key.
     private const float KeyIntensity = 12f;
-    public bool Cube { get; set; }
+    private bool _useCube;
+    public bool Cube { get => _useCube; set { if (_useCube != value) { _useCube = value; _dirty = true; } } }
+
+    // The ball is drawn at most RefreshInterval apart while nothing changes (it is a full
+    // HDRP camera); turning it or switching material / mesh draws it at once.
+    private const float RefreshInterval = 0.25f;
+    private float _nextRender;
+    private float _lastOrbit = -10f;
+    private bool _dirty = true;
+    private Material _lastMaterial;
     public float KeyLight
     {
         get => _keyScale;
-        set { _keyScale = Mathf.Max(0f, value); if (_key != null) _key.intensity = KeyIntensity * _keyScale; }
+        set { float v = Mathf.Max(0f, value); if (v != _keyScale) _dirty = true; _keyScale = v; if (_key != null) _key.intensity = KeyIntensity * _keyScale; }
     }
 
     public static CS_MayaPreviewMaterialPreview Create()
@@ -79,6 +88,18 @@ public class CS_MayaPreviewMaterialPreview : MonoBehaviour
         if (!cameraObject.TryGetComponent(out HDAdditionalCameraData data))
             data = cameraObject.AddComponent<HDAdditionalCameraData>();
         data.clearColorMode = HDAdditionalCameraData.ClearColorMode.Sky;
+        // A material ball needs none of the expensive screen effects.
+        data.customRenderingSettings = true;
+        foreach (FrameSettingsField field in new[]
+        {
+            FrameSettingsField.VolumetricClouds, FrameSettingsField.Volumetrics, FrameSettingsField.SSR,
+            FrameSettingsField.SSAO, FrameSettingsField.SSGI, FrameSettingsField.RayTracing,
+            FrameSettingsField.ContactShadows, FrameSettingsField.MotionBlur, FrameSettingsField.DepthOfField
+        })
+        {
+            data.renderingPathCustomFrameSettingsOverrideMask.mask[(uint)field] = true;
+            data.renderingPathCustomFrameSettings.SetEnabled(field, false);
+        }
 
         var lightObject = new GameObject("Key light");
         lightObject.transform.SetParent(transform, false);
@@ -104,13 +125,21 @@ public class CS_MayaPreviewMaterialPreview : MonoBehaviour
         var filter = _renderer.GetComponent<MeshFilter>();
         Mesh mesh = Cube ? _cube : _sphere;
         if (filter.sharedMesh != mesh) filter.sharedMesh = mesh;
-        _requestedFrame = Time.frameCount;
-        if (!_camera.enabled) _camera.enabled = true;
+        if (material != _lastMaterial) { _lastMaterial = material; _dirty = true; }
+        float now = Time.unscaledTime;
+        if (_dirty || now >= _nextRender || now - _lastOrbit < 0.3f)
+        {
+            _dirty = false;
+            _nextRender = now + RefreshInterval;
+            _requestedFrame = Time.frameCount;
+            if (!_camera.enabled) _camera.enabled = true;
+        }
         return _texture;
     }
 
     public void Orbit(Vector2 delta)
     {
+        _lastOrbit = Time.unscaledTime;
         _orbit.x += delta.x * 0.5f;
         _orbit.y = Mathf.Clamp(_orbit.y + delta.y * 0.5f, -80f, 80f);
         UpdateCamera();
@@ -127,6 +156,7 @@ public class CS_MayaPreviewMaterialPreview : MonoBehaviour
     private void LateUpdate()
     {
         // Stop rendering as soon as nobody looks at the ball.
-        if (_camera.enabled && Time.frameCount - _requestedFrame > 2) _camera.enabled = false;
+        // Only the frame after a request renders the ball.
+        if (_camera.enabled && Time.frameCount - _requestedFrame > 1) _camera.enabled = false;
     }
 }

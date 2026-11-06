@@ -11,7 +11,7 @@ using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
-/// ミニマップに表示するエンティティの種類
+/// ミニマップに表示するエンティティの種類。
 /// </summary>
 public enum CSE_MiniMapEntityType
 {
@@ -25,15 +25,49 @@ public enum CSE_MiniMapEntityType
 }
 
 /// <summary>
-/// ミニマップ上に表示する各エンティティのデータ
+/// ミニマップへ表示するエンティティのデータ。
 /// </summary>
 public class MiniMapEntityData
 {
-    public string entityId { get; private set; }
-    public CSE_MiniMapEntityType entityType { get; private set; }
-    public Vector3 entityWorldPosition { get; set; }
-    public float entityRotation { get; set; }
-    public bool entityIsActive { get; set; }
+    public string entityId
+    {
+        get;
+        private set;
+    }
+
+    public CSE_MiniMapEntityType entityType
+    {
+        get;
+        private set;
+    }
+
+    public Vector3 entityWorldPosition
+    {
+        get;
+        set;
+    }
+
+    public float entityRotation
+    {
+        get;
+        set;
+    }
+
+    public bool entityIsActive
+    {
+        get;
+        set;
+    }
+
+    /// <summary>
+    /// 悪人の犯罪完遂率。
+    /// 0～100で保持する。
+    /// </summary>
+    public float crimeProgressPercent
+    {
+        get;
+        set;
+    }
 
     public MiniMapEntityData(
         string id,
@@ -46,26 +80,59 @@ public class MiniMapEntityData
         entityWorldPosition = worldPosition;
         entityRotation = rotation;
         entityIsActive = true;
+        crimeProgressPercent = 0f;
     }
 }
 
 /// <summary>
 /// ミニマップのModel。
-/// プレイヤー・敵・他プレイヤー・警察・アイテム・ランダムイベントを管理する。
 /// </summary>
 public class CS_UIMiniMapModel : CS_BaseModel
 {
     private MiniMapEntityData _localPlayer;
 
-    private readonly Dictionary<string, MiniMapEntityData> _enemies = new();
-    private readonly Dictionary<string, MiniMapEntityData> _multiplayerAllies = new();
-    private readonly Dictionary<string, MiniMapEntityData> _polices = new();
-    private readonly Dictionary<string, MiniMapEntityData> _items = new();
-    private readonly Dictionary<string, MiniMapEntityData> _randomEvents = new();
+    private readonly Dictionary<
+        string,
+        MiniMapEntityData
+    > _enemies = new();
 
-    public float miniMapRadius { get; private set; }
-    public float miniMapWorldSize { get; private set; }
-    public bool rotatePlayer { get; private set; }
+    private readonly Dictionary<
+        string,
+        MiniMapEntityData
+    > _multiplayerAllies = new();
+
+    private readonly Dictionary<
+        string,
+        MiniMapEntityData
+    > _polices = new();
+
+    private readonly Dictionary<
+        string,
+        MiniMapEntityData
+    > _items = new();
+
+    private readonly Dictionary<
+        string,
+        MiniMapEntityData
+    > _randomEvents = new();
+
+    public float miniMapRadius
+    {
+        get;
+        private set;
+    }
+
+    public float miniMapWorldSize
+    {
+        get;
+        private set;
+    }
+
+    public bool rotatePlayer
+    {
+        get;
+        private set;
+    }
 
     public event Action OnDataChanged;
 
@@ -74,8 +141,12 @@ public class CS_UIMiniMapModel : CS_BaseModel
         float mapWorldSize = 240f,
         bool rotateWithPlayer = true)
     {
-        miniMapRadius = mapRadius;
-        miniMapWorldSize = mapWorldSize;
+        miniMapRadius =
+            Mathf.Max(0.01f, mapRadius);
+
+        miniMapWorldSize =
+            Mathf.Max(0.01f, mapWorldSize);
+
         rotatePlayer = rotateWithPlayer;
     }
 
@@ -83,30 +154,39 @@ public class CS_UIMiniMapModel : CS_BaseModel
     // ローカルプレイヤー
     // =========================================================
 
-    public void SetLocalPlayer(Vector3 worldPosition, float rotation)
+    public void SetLocalPlayer(
+        Vector3 worldPosition,
+        float rotation)
     {
         if (_localPlayer == null)
         {
-            _localPlayer = new MiniMapEntityData(
-                "LocalPlayer",
-                CSE_MiniMapEntityType.Player,
-                worldPosition,
-                rotation
-            );
+            _localPlayer =
+                new MiniMapEntityData(
+                    "LocalPlayer",
+                    CSE_MiniMapEntityType.Player,
+                    worldPosition,
+                    rotation
+                );
         }
         else
         {
-            _localPlayer.entityWorldPosition = worldPosition;
-            _localPlayer.entityRotation = rotation;
+            _localPlayer.entityWorldPosition =
+                worldPosition;
+
+            _localPlayer.entityRotation =
+                rotation;
         }
 
         OnDataChanged?.Invoke();
     }
 
-    public MiniMapEntityData GetLocalPlayer() => _localPlayer;
+    public MiniMapEntityData GetLocalPlayer()
+    {
+        return _localPlayer;
+    }
 
     // =========================================================
-    // 敵
+    // 悪人
     // =========================================================
 
     public void AddOrUpdateEnemy(
@@ -123,12 +203,63 @@ public class CS_UIMiniMapModel : CS_BaseModel
         );
     }
 
-    public void RemoveEnemy(string id) => Remove(_enemies, id);
-    public void SetEnemyActive(string id, bool isActive) =>
-        SetActive(_enemies, id, isActive);
+    public void RemoveEnemy(string id)
+    {
+        Remove(_enemies, id);
+    }
 
-    public IReadOnlyDictionary<string, MiniMapEntityData> GetEnemies() =>
-        _enemies;
+    public void SetEnemyActive(
+        string id,
+        bool isActive)
+    {
+        SetActive(
+            _enemies,
+            id,
+            isActive
+        );
+    }
+
+    /// <summary>
+    /// 悪人の犯罪完遂率を設定する。
+    /// </summary>
+    public void SetEnemyCrimeProgress(
+        string id,
+        float progressPercent)
+    {
+        if (!_enemies.TryGetValue(
+            id,
+            out MiniMapEntityData enemyData))
+        {
+            return;
+        }
+
+        float clampedProgress =
+            Mathf.Clamp(
+                progressPercent,
+                0f,
+                100f
+            );
+
+        if (Mathf.Approximately(
+            enemyData.crimeProgressPercent,
+            clampedProgress))
+        {
+            return;
+        }
+
+        enemyData.crimeProgressPercent =
+            clampedProgress;
+
+        OnDataChanged?.Invoke();
+    }
+
+    public IReadOnlyDictionary<
+        string,
+        MiniMapEntityData
+    > GetEnemies()
+    {
+        return _enemies;
+    }
 
     // =========================================================
     // 他プレイヤー
@@ -148,11 +279,22 @@ public class CS_UIMiniMapModel : CS_BaseModel
         );
     }
 
-    public void RemoveMultiplayerAlly(string id) =>
-        Remove(_multiplayerAllies, id);
+    public void RemoveMultiplayerAlly(
+        string id)
+    {
+        Remove(
+            _multiplayerAllies,
+            id
+        );
+    }
 
-    public IReadOnlyDictionary<string, MiniMapEntityData>
-        GetMultiplayerAllies() => _multiplayerAllies;
+    public IReadOnlyDictionary<
+        string,
+        MiniMapEntityData
+    > GetMultiplayerAllies()
+    {
+        return _multiplayerAllies;
+    }
 
     // =========================================================
     // 警察
@@ -172,12 +314,29 @@ public class CS_UIMiniMapModel : CS_BaseModel
         );
     }
 
-    public void RemovePolice(string id) => Remove(_polices, id);
-    public void SetPoliceActive(string id, bool isActive) =>
-        SetActive(_polices, id, isActive);
+    public void RemovePolice(string id)
+    {
+        Remove(_polices, id);
+    }
 
-    public IReadOnlyDictionary<string, MiniMapEntityData> GetPolices() =>
-        _polices;
+    public void SetPoliceActive(
+        string id,
+        bool isActive)
+    {
+        SetActive(
+            _polices,
+            id,
+            isActive
+        );
+    }
+
+    public IReadOnlyDictionary<
+        string,
+        MiniMapEntityData
+    > GetPolices()
+    {
+        return _polices;
+    }
 
     // =========================================================
     // アイテム
@@ -197,12 +356,29 @@ public class CS_UIMiniMapModel : CS_BaseModel
         );
     }
 
-    public void RemoveItem(string id) => Remove(_items, id);
-    public void SetItemActive(string id, bool isActive) =>
-        SetActive(_items, id, isActive);
+    public void RemoveItem(string id)
+    {
+        Remove(_items, id);
+    }
 
-    public IReadOnlyDictionary<string, MiniMapEntityData> GetItems() =>
-        _items;
+    public void SetItemActive(
+        string id,
+        bool isActive)
+    {
+        SetActive(
+            _items,
+            id,
+            isActive
+        );
+    }
+
+    public IReadOnlyDictionary<
+        string,
+        MiniMapEntityData
+    > GetItems()
+    {
+        return _items;
+    }
 
     // =========================================================
     // ランダムイベント
@@ -222,21 +398,42 @@ public class CS_UIMiniMapModel : CS_BaseModel
         );
     }
 
-    public void RemoveRandomEvent(string id) =>
-        Remove(_randomEvents, id);
+    public void RemoveRandomEvent(string id)
+    {
+        Remove(
+            _randomEvents,
+            id
+        );
+    }
 
-    public void SetRandomEventActive(string id, bool isActive) =>
-        SetActive(_randomEvents, id, isActive);
+    public void SetRandomEventActive(
+        string id,
+        bool isActive)
+    {
+        SetActive(
+            _randomEvents,
+            id,
+            isActive
+        );
+    }
 
-    public IReadOnlyDictionary<string, MiniMapEntityData>
-        GetRandomEvents() => _randomEvents;
+    public IReadOnlyDictionary<
+        string,
+        MiniMapEntityData
+    > GetRandomEvents()
+    {
+        return _randomEvents;
+    }
 
     // =========================================================
     // 共通処理
     // =========================================================
 
     private void AddOrUpdate(
-        Dictionary<string, MiniMapEntityData> entities,
+        Dictionary<
+            string,
+            MiniMapEntityData
+        > entities,
         string id,
         CSE_MiniMapEntityType type,
         Vector3 worldPosition,
@@ -245,54 +442,82 @@ public class CS_UIMiniMapModel : CS_BaseModel
         if (string.IsNullOrWhiteSpace(id))
             return;
 
-        if (entities.TryGetValue(id, out MiniMapEntityData data))
+        if (entities.TryGetValue(
+            id,
+            out MiniMapEntityData data))
         {
-            data.entityWorldPosition = worldPosition;
-            data.entityRotation = rotation;
-            data.entityIsActive = true;
+            data.entityWorldPosition =
+                worldPosition;
+
+            data.entityRotation =
+                rotation;
+
+            data.entityIsActive =
+                true;
         }
         else
         {
-            entities[id] = new MiniMapEntityData(
-                id,
-                type,
-                worldPosition,
-                rotation
-            );
+            entities[id] =
+                new MiniMapEntityData(
+                    id,
+                    type,
+                    worldPosition,
+                    rotation
+                );
         }
 
         OnDataChanged?.Invoke();
     }
 
     private void Remove(
-        Dictionary<string, MiniMapEntityData> entities,
+        Dictionary<
+            string,
+            MiniMapEntityData
+        > entities,
         string id)
     {
         if (entities.Remove(id))
+        {
             OnDataChanged?.Invoke();
+        }
     }
 
     private void SetActive(
-        Dictionary<string, MiniMapEntityData> entities,
+        Dictionary<
+            string,
+            MiniMapEntityData
+        > entities,
         string id,
         bool isActive)
     {
-        if (!entities.TryGetValue(id, out MiniMapEntityData data))
+        if (!entities.TryGetValue(
+            id,
+            out MiniMapEntityData data))
+        {
+            return;
+        }
+
+        if (data.entityIsActive == isActive)
             return;
 
         data.entityIsActive = isActive;
+
         OnDataChanged?.Invoke();
     }
 
     public void SetMapRadius(float radius)
     {
-        miniMapRadius = radius;
+        miniMapRadius =
+            Mathf.Max(0.01f, radius);
+
         OnDataChanged?.Invoke();
     }
 
     public void SetMapWorldSize(float size)
     {
-        miniMapWorldSize = size;
+        miniMapWorldSize =
+            Mathf.Max(0.01f, size);
+
         OnDataChanged?.Invoke();
     }
 
@@ -305,11 +530,13 @@ public class CS_UIMiniMapModel : CS_BaseModel
     public override void Dispose()
     {
         OnDataChanged = null;
+
         _enemies.Clear();
         _multiplayerAllies.Clear();
         _polices.Clear();
         _items.Clear();
         _randomEvents.Clear();
+
         _localPlayer = null;
     }
 }

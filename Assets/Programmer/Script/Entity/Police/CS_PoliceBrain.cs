@@ -470,7 +470,7 @@ public class CS_PoliceBrain : MonoBehaviour, IStunnable
     private void ReportAlert(Transform target)
     {
         CS_PlayerHealth player = target.GetComponentInParent<CS_PlayerHealth>();
-        if (player != null) CS_PoliceAlertManager.Report(player, target.position);
+        if (player != null) CS_PoliceAlertManager.Report(player, target.position, transform.position);
     }
 
     /// <summary>

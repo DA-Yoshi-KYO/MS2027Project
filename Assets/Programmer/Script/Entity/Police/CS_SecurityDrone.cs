@@ -280,7 +280,7 @@ public class CS_SecurityDrone : NetworkBehaviour, IDamageable, IStunnable
         _chaseTimer = _data.chaseDuration;
         SetState(CSE_SecurityDroneState.Detected);
 
-        CS_PoliceAlertManager.Report(player.GetComponent<CS_PlayerHealth>(), player.position);
+        CS_PoliceAlertManager.Report(player.GetComponent<CS_PlayerHealth>(), player.position, transform.position);
 
         // 見ている時間がたまったら、制圧モードに入る(プレイヤーを攻撃する)
         _detectedTime += _thinkInterval;

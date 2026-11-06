@@ -264,7 +264,7 @@ public class CS_SecurityDroneSuppression : NetworkBehaviour
 
         _reportTimer = _reportInterval;
         CS_PlayerHealth health = _target.GetComponent<CS_PlayerHealth>();
-        if (health != null) CS_PoliceAlertManager.Report(health, _target.position);
+        if (health != null) CS_PoliceAlertManager.Report(health, _target.position, _drone.transform.position);
     }
 
     /// <summary>

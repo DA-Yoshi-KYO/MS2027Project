@@ -149,7 +149,7 @@ public class CS_SecurityLaser : MonoBehaviour
         if (CS_PoliceSquad.IsNetworkClientOnly()) return;
 
         player.TakeDamage(_data.damage, gameObject);
-        CS_PoliceAlertManager.Report(player, player.transform.position);
+        CS_PoliceAlertManager.Report(player, player.transform.position, transform.position);
     }
 
     /// <summary>

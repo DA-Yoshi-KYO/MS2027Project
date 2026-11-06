@@ -6,6 +6,7 @@
  * 2026-10-21 | 初回作成
  * 2026-10-23 | 警戒状態の本体をCS_PlayerAlertに揃え、付近の警察を向かわせる役だけにした
  * 2026-11-01 | 警戒状態になった時に、プレイヤーの近くへ増援を出すようにした(手配度は復活させない)
+ * 2026-11-06 | 増援を、見つけた警察と挟む形の位置に、遠くから出すようにした
  * ================================================ */
 
 using System.Collections.Generic;
@@ -20,7 +21,8 @@ using UnityEngine;
 ///   見つかっている間は追跡し、見失ったら周囲を探す(この動きはCS_PoliceBrainが行う)
 ///   見つかった場所が変わったら、付近の警察へ新しい場所を知らせる
 /// ・プレイヤーが警戒状態になった時(警戒状態でなかったプレイヤーが見つかった時)に、そのプレイヤーの近くへ増援の警察を出す
-///   増援は、警戒状態の間、そのプレイヤーの現在地を追い、警戒状態が解除されたら、追う標的も指示も無くなった時に帰還する
+///   増援は、プレイヤーから見て、見つけた警察(防犯装置)の反対側に出る(挟む形)。警戒状態の間、そのプレイヤーの現在地を追い、
+///   警戒状態が解除されたら、追う標的も指示も無くなった時に帰還する
 /// ・警戒状態が解除されたら(CS_PlayerAlertが「なし」に戻ったら)、そのプレイヤーへの指示をやめる
 /// 警察への指示はサーバー(またはオフライン)だけで行う
 /// </summary>
@@ -38,6 +40,12 @@ public class CS_PoliceAlertManager : MonoBehaviour
 
     // 見つかった場所がこの距離より動いたら、警察へ新しい場所を知らせる(m)
     private const float _repointDistance = 4.0f;
+
+    // 増援の出現位置が見つからない時に、反対側の向きから左右へ試す向きを広げる角度の上限(度)
+    private const float _reinforceWidenAngle = 60.0f;
+
+    // 見つけた警察がプレイヤーにこの距離(m)より近い時は、反対側の向きを決めない(向きが安定しないため)
+    private const float _minFinderDistance = 1.0f;
 
     /// <summary>
     /// プレイヤー1人分の、警察への指示の記録(警戒状態そのものではなく、誰に・どこへ指示したか)
@@ -91,7 +99,8 @@ public class CS_PoliceAlertManager : MonoBehaviour
     /// </summary>
     /// <param name="player">見つけたプレイヤー</param>
     /// <param name="position">プレイヤーが見つかった場所</param>
-    public static void Report(CS_PlayerHealth player, Vector3 position)
+    /// <param name="finderPosition">見つけた警察(防犯装置)の位置。増援を、その反対側(挟む形)に出すのに使う。分からなければ省略(向きはランダム)</param>
+    public static void Report(CS_PlayerHealth player, Vector3 position, Vector3? finderPosition = null)
     {
         if (player == null || CS_PoliceSquad.IsNetworkClientOnly()) return;
 
@@ -104,7 +113,7 @@ public class CS_PoliceAlertManager : MonoBehaviour
         alert.NotifyDetected();
 
         // 管理クラスが無いシーンでも、警戒状態にはなる(警察を向かわせないだけ)
-        if (TryGetInstance(out CS_PoliceAlertManager manager)) manager.OnFound(alert, player, position);
+        if (TryGetInstance(out CS_PoliceAlertManager manager)) manager.OnFound(alert, player, position, finderPosition);
     }
 
     /// <summary>
@@ -179,7 +188,7 @@ public class CS_PoliceAlertManager : MonoBehaviour
     /// <summary>
     /// プレイヤーが見つかった時の処理(警戒状態なら、見つかった場所を更新して、警察へ知らせる準備をする)
     /// </summary>
-    private void OnFound(CS_PlayerAlert alert, CS_PlayerHealth player, Vector3 position)
+    private void OnFound(CS_PlayerAlert alert, CS_PlayerHealth player, Vector3 position, Vector3? finderPosition)
     {
         // 死亡中などで警戒状態にならなかった時は、警察を向かわせない
         if (_alertData == null || !alert.isAlerted) return;
@@ -189,7 +198,7 @@ public class CS_PoliceAlertManager : MonoBehaviour
             // 警戒状態になった時に、一度だけ増援を出す(解除されるまで、見つかるたびには出さない)
             state = new DispatchState(alert);
             _states.Add(alert, state);
-            SpawnReinforcements(alert, player);
+            SpawnReinforcements(alert, player, finderPosition);
         }
 
         // 見つかった場所が大きく動いた時だけ、新しい場所として警察へ知らせ直す
@@ -239,26 +248,50 @@ public class CS_PoliceAlertManager : MonoBehaviour
 
     /// <summary>
     /// 警戒状態になったプレイヤーから決められた距離の外縁に、増援の警察を出すメソッド
+    /// プレイヤーから見て、見つけた警察の反対側(挟む形)に出す。複数いる時は、反対側の向きを中心に、決められた角度の間隔で左右に並べる
     /// 増援は、警戒状態の間、そのプレイヤーの現在地を追う
     /// </summary>
-    private void SpawnReinforcements(CS_PlayerAlert alert, CS_PlayerHealth player)
+    /// <param name="alert">プレイヤーの警戒状態</param>
+    /// <param name="player">警戒状態になったプレイヤー</param>
+    /// <param name="finderPosition">見つけた警察(防犯装置)の位置(分からなければnull。その時は向きをランダムにする)</param>
+    private void SpawnReinforcements(CS_PlayerAlert alert, CS_PlayerHealth player, Vector3? finderPosition)
     {
         if (!_alertData.hasReinforcement) return;
 
+        Vector3 playerPosition = player.transform.position;
+        Vector3 oppositeDirection = GetOppositeDirection(playerPosition, finderPosition);
         Dictionary<CSE_PoliceMoveState, float> speedTable =
             CS_PoliceSpawnUtility.CreateSpeedTable(_alertData.playerBaseStats, _alertData.reinforceStatus);
-        for (int i = 0; i < _alertData.reinforceCount; i++)
+
+        int count = _alertData.reinforceCount;
+        for (int i = 0; i < count; i++)
         {
-            if (!CS_PoliceSpawnUtility.TryFindSpawnPosition(
-                player.transform.position, _alertData.reinforceDistance, _alertData.reinforceDistance, out Vector3 position)) continue;
+            // 反対側の向きを中心に、左右へ並べる(1体なら、ちょうど反対側)
+            float yawOffset = (i - (count - 1) * 0.5f) * _alertData.reinforceSpreadAngle;
+            if (!CS_PoliceSpawnUtility.TryFindSpawnPositionToward(
+                playerPosition, oppositeDirection, yawOffset, _reinforceWidenAngle,
+                _alertData.reinforceDistance, _alertData.reinforceDistance, out Vector3 position)) continue;
 
             // 出現した時に、プレイヤーの方を向いている
-            Vector3 toPlayer = player.transform.position - position;
+            Vector3 toPlayer = playerPosition - position;
             toPlayer.y = 0.0f;
             Quaternion rotation = toPlayer.sqrMagnitude > 0.01f ? Quaternion.LookRotation(toPlayer) : Quaternion.identity;
 
             CS_PoliceBrain police = CS_PoliceSpawnUtility.Spawn(_alertData.reinforcePolice, position, rotation);
             police.Setting(new CS_PoliceInformantGroup(player, alert), speedTable, _alertData.reinforceStatus);
         }
+    }
+
+    /// <summary>
+    /// プレイヤーから見て、見つけた警察の反対側の向き(水平方向)を求めるメソッド
+    /// 見つけた警察の位置が分からない・プレイヤーとほぼ同じ位置の時は、向きを決められないので、ゼロを返す(出現位置の向きはランダムになる)
+    /// </summary>
+    private static Vector3 GetOppositeDirection(Vector3 playerPosition, Vector3? finderPosition)
+    {
+        if (!finderPosition.HasValue) return Vector3.zero;
+
+        Vector3 away = playerPosition - finderPosition.Value;
+        away.y = 0.0f;
+        return away.sqrMagnitude < _minFinderDistance * _minFinderDistance ? Vector3.zero : away.normalized;
     }
 }

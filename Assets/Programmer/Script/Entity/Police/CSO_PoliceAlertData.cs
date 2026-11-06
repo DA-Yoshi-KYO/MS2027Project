@@ -5,6 +5,7 @@
  * ------------------------------------------------
  * 2026-10-21 | 初回作成
  * 2026-11-01 | 増援(警戒状態の間、プレイヤーの近くに出る警察)の設定を追加
+ * 2026-11-06 | 増援を、見つけた警察と挟む形の位置に、遠くから出すようにした(距離を伸ばし、並べる角度の間隔を追加)
  * ================================================ */
 
 using UnityEngine;
@@ -44,9 +45,14 @@ public class CSO_PoliceAlertData : ScriptableObject
     public int reinforceCount => _reinforceCount;
 
     [SerializeField, Min(0f)]
-    [Tooltip("増援が出る位置の、プレイヤーからの距離(m)。この距離の外縁の、歩ける方向からランダムに選ぶ")]
-    private float _reinforceDistance = 10.0f;
+    [Tooltip("増援が出る位置の、プレイヤーからの距離(m)。この距離の外縁に出す")]
+    private float _reinforceDistance = 25.0f;
     public float reinforceDistance => _reinforceDistance;
+
+    [SerializeField, Range(0f, 180f)]
+    [Tooltip("増援を並べる角度の間隔(度)。増援は、プレイヤーから見て、見つけた警察の反対側(挟む形)に出る。複数いる時は、反対側の向きを中心に、この間隔で左右に並べる")]
+    private float _reinforceSpreadAngle = 30.0f;
+    public float reinforceSpreadAngle => _reinforceSpreadAngle;
 
     // 増援を出せるだけの設定(プレハブ・ステータス・基準ステータス・人数)が揃っているか
     public bool hasReinforcement => _reinforcePolice != null && _reinforceStatus != null && _playerBaseStats != null && _reinforceCount > 0;

@@ -18,7 +18,8 @@ using UnityEngine.AI;
  *   ポイント1から、回り方の順にポイントへ歩き(ルートの速さ)、着いたらやることを上から順に実行する
  *   見回し: 左右を1往復 / 向きを変える: CSO_VillainPatrolPattern.turnDuration秒かけて回る
  * ・1周が終わったら最初から繰り返す
- * ・付いてくる人は、先頭の位置と向きから隊列の位置を求める(壁などは考えない)
+ * ・付いてくる人は、先頭がそれまでに歩いた道(足跡)の上で、隊列の形の分だけ後ろ・横の位置に置く(ゲーム中と同じCS_VillainPatrolTrailの計算)
+ *   歩き始める前は、ルートを1周してポイント1へ戻ってくる道を逆にたどった足跡を使う(ゲーム中に湧いた時と同じ並び)
  */
 // ========================================
 
@@ -38,7 +39,11 @@ public static class CSED_VillainPatrolPreview
         public Vector3 position;
         public float yaw;        // 向き(度)
         public string label;     // していること(移動 / 停止 / 見回し / 向きを変える)
+        public List<Vector3> trail;   // それまでに歩いた道(古い順)。付いてくる人の位置に使う。nullなら湧いた時の向きのまっすぐな足跡
     }
+
+    private const float _seedTrailMargin = 2f;    // 歩き始める前の足跡を、一番後ろの人の距離よりどれだけ長くするか(m)
+    private const int _keptCycles = 2;            // 足跡に入れておく、前の周の数(付いてくる人の距離に足りる分)
 
     private class Step
     {
@@ -83,17 +88,69 @@ public static class CSED_VillainPatrolPreview
         float startYaw = owner.GetStartRotation(route).eulerAngles.y;
         if (points.Length == 0) return new Pose { position = owner.transform.position, yaw = startYaw, label = "" };
 
+        List<Vector3> trail = CreateSeedTrail(route, points, startYaw);
+
         // 1周目は湧いた時の向きから始める。2周目からは、ポイント1へ戻ってきた向きから始める(ゲーム中と同じ)
         List<Step> steps = BuildSteps(route, points, startYaw, out float total, out float endYaw);
-        if (total < 0.01f) return new Pose { position = points[0], yaw = startYaw, label = "" };
+        if (total < 0.01f) return new Pose { position = points[0], yaw = startYaw, label = "", trail = trail };
 
-        float t = time;
-        if (t >= total)
+        Pose pose;
+        if (time < total)
         {
-            steps = BuildSteps(route, points, endYaw, out float loopTotal, out _);
-            t = (t - total) % loopTotal;
+            AppendTraveled(trail, steps, time);
+            pose = EvaluateSteps(steps, time);
         }
-        return EvaluateSteps(steps, t);
+        else
+        {
+            AppendTraveled(trail, steps, total);
+            List<Step> loopSteps = BuildSteps(route, points, endYaw, out float loopTotal, out _);
+            float rest = time - total;
+            int cycles = Mathf.FloorToInt(rest / loopTotal);
+            float t = rest - cycles * loopTotal;
+            for (int i = 0; i < Mathf.Min(cycles, _keptCycles); i++)
+            {
+                AppendTraveled(trail, loopSteps, loopTotal);
+            }
+            AppendTraveled(trail, loopSteps, t);
+            pose = EvaluateSteps(loopSteps, t);
+        }
+
+        pose.trail = trail;
+        return pose;
+    }
+
+    // 歩き始める前の足跡(ルートを1周してポイント1へ戻ってくる道を逆にたどる。ゲーム中と同じ)
+    private static List<Vector3> CreateSeedTrail(CSO_VillainPatrolPattern.Route route, Vector3[] points, float yaw)
+    {
+        Vector3 forward = Quaternion.Euler(0f, yaw, 0f) * Vector3.forward;
+        return CS_VillainPatrolTrail.CreateSeed(points, route.GetOrder(), forward, route.formation.farthestDistance + _seedTrailMargin);
+    }
+
+    // 流れの時刻tまでに歩いた道を、足跡に足す
+    private static void AppendTraveled(List<Vector3> trail, List<Step> steps, float t)
+    {
+        foreach (Step step in steps)
+        {
+            if (step.leg == null) continue;
+            if (step.start >= t) return;
+
+            Vector3[] corners = step.leg.corners;
+            float rate = step.duration > 0f ? Mathf.Clamp01((t - step.start) / step.duration) : 1f;
+            float distance = step.leg.length * rate;
+            for (int i = 1; i < corners.Length; i++)
+            {
+                float segment = Vector3.Distance(corners[i - 1], corners[i]);
+                if (distance >= segment)
+                {
+                    trail.Add(corners[i]);
+                    distance -= segment;
+                    continue;
+                }
+
+                trail.Add(Vector3.Lerp(corners[i - 1], corners[i], segment > 0f ? distance / segment : 1f));
+                return;
+            }
+        }
     }
 
     // 流れの中の時刻tの様子
@@ -111,11 +168,13 @@ public static class CSED_VillainPatrolPreview
         return last.leg != null ? EvaluateMove(last, 1f) : EvaluateAction(last, 1f);
     }
 
-    // 先頭の様子から、隊列のfollowerIndex番目の人の位置
-    public static Vector3 GetFollowerPosition(CSO_VillainPatrolPattern.Route route, Pose leader, int followerIndex)
+    // 先頭の様子(それまでに歩いた道)から、隊列のfollowerIndex番目の人の位置と向き(度。立っている所の道の進む向き)
+    public static Vector3 GetFollowerPosition(CSO_VillainPatrolPattern.Route route, Pose leader, int followerIndex, out float yaw)
     {
-        Vector3 offset = CSO_VillainPatrolPattern.GetFormationOffset(route.formation.shape, followerIndex, route.formation.spacing);
-        return leader.position + Quaternion.Euler(0f, leader.yaw, 0f) * offset;
+        List<Vector3> trail = leader.trail ?? new List<Vector3> { leader.position - Quaternion.Euler(0f, leader.yaw, 0f) * Vector3.forward, leader.position };
+        Vector3 position = CS_VillainPatrolTrail.GetFollowerPosition(trail, leader.position, route.formation, followerIndex, out Vector3 forward);
+        yaw = forward.sqrMagnitude > 0f ? Quaternion.LookRotation(forward).eulerAngles.y : leader.yaw;
+        return position;
     }
 
     // 1周分の流れを作る(ポイント1から回り、最後にポイント1へ歩いて戻るまで)

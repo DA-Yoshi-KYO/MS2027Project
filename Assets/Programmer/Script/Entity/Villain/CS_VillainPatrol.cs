@@ -14,8 +14,12 @@ using UnityEngine;
  * メモ
  * ・巡回パターン(スポーン位置にCS_VillainPatrolRouteがある時。CS_VillainSpawnerがSetCrewで組に入れる)
  *   先頭: 組の進み具合に従ってポイントを回り、ポイントでやることを実行する(CS_VillainPatrolCrew.TickLeader)
- *   付いてくる人: 先頭の位置と向きから求めた隊列の位置へ歩き、着いたら先頭と同じ向きを向く
- *     (先頭が止まる・見回すと、付いてくる人もその場で先頭と同じ向きになる)
+ *   付いてくる人: 先頭が通った道(足跡)の上で求めた隊列の位置へ、自分の進む向きを向いて歩く
+ *     先頭が歩いている間は、隊列の位置より formationLookAhead(m) 先を目的地にして止まらずに歩き、
+ *     先頭と同じ速さに、遅れている分(m)を足した速さで歩く(遅れた分を1秒で取り戻す。先に出ていれば遅くする)
+ *     → 止まる・歩くを繰り返して遅れないので、先頭と1人目の間も、ほかの人の間と同じ間隔になる
+ *     先頭が止まっている間は、隊列の位置ちょうどへ歩き、着いたら立っている所の道の進む向きを向いて待つ
+ *     (先頭の見回し・向きを変えるは真似しない)
  *   隊列の位置から catchUpDistance 以上離れている時(戦った後など)は、戦闘時の速さで合流する
  *   帰還(戦った後): 先頭は今向かっているポイント、付いてくる人は隊列の位置へ、戦闘時の速さで向かう
  * ・巡回パターンが無い時(路地裏の両端を全員で往復)
@@ -50,7 +54,8 @@ public class CS_VillainPatrol : MonoBehaviour
     private float _catchUpDistance = 1.5f;
 
     private const float _formationArriveDistance = 0.3f;   // 隊列の位置に着いたとみなす距離(m)
-    private const float _formationSpeedRate = 1.3f;        // 付いてくる人が隊列の位置へ歩く速さ(ルートの速さの倍率。遅れずに付いていくため)
+    private const float _formationLookAhead = 1f;          // 付いてくる人が歩いている間、隊列の位置より道の上でどれだけ先(m)を目的地にするか
+    private const float _minFormationSpeedRate = 0.5f;     // 付いてくる人が隊列の位置より先に出ている時の、一番遅い速さ(ルートの速さの倍率)
 
     private CS_VillainMove _move;
     private CS_VillainCombat _combat;
@@ -134,7 +139,8 @@ public class CS_VillainPatrol : MonoBehaviour
         }
         if (leader == null) return;
 
-        Vector3 position = _crew.GetFormationPosition(leader.transform, _crew.GetFollowerIndex(this));
+        int followerIndex = _crew.GetFollowerIndex(this);
+        Vector3 position = _crew.GetFormationPosition(leader.transform, followerIndex, out Vector3 forward);
         float distance = GetFlatDistance(position);
         if (distance > _catchUpDistance)
         {
@@ -142,15 +148,27 @@ public class CS_VillainPatrol : MonoBehaviour
             return;
         }
 
-        // 隊列の位置へ、先頭と同じ向きのまま歩く。着いたら先頭と同じ向きで待つ
-        if (distance > _formationArriveDistance)
+        // 先頭が止まっている間は、隊列の位置ちょうどへ歩き、着いたら立っている所の道の進む向きを向いて待つ
+        if (_crew.isActing)
         {
-            _move.MoveToFacing(position, _crew.speed * _formationSpeedRate, leader.transform.forward);
+            if (distance > _formationArriveDistance)
+            {
+                _move.MoveTo(position, _crew.speed);
+                return;
+            }
+
+            _move.Stop();
+            _move.FaceTowards(forward);
             return;
         }
 
-        _move.Stop();
-        _move.FaceTowards(leader.transform.forward);
+        // 先頭が歩いている間は、隊列の位置より少し先を目的地にして、止まらずに歩き続ける(追い付いて止まると遅れるため)
+        // 速さは先頭と同じにし、遅れている分(m)だけ速く歩いて追い付く(先に出ていれば遅くする)
+        Vector3 destination = _crew.GetFormationPosition(leader.transform, followerIndex, out _, _formationLookAhead);
+        Vector3 toPosition = position - transform.position;
+        toPosition.y = 0f;
+        float behind = Vector3.Dot(toPosition, forward);
+        _move.MoveTo(destination, Mathf.Max(_crew.speed * _minFormationSpeedRate, _crew.speed + behind));
     }
 
     // 戦った後、先頭は今向かっているポイント、付いてくる人は隊列の位置へ向かう。合流できたらtrue
@@ -159,7 +177,7 @@ public class CS_VillainPatrol : MonoBehaviour
         CS_VillainPatrol leader = _crew.GetLeader();
         Vector3 position = leader == this || leader == null
             ? _crew.currentTarget
-            : _crew.GetFormationPosition(leader.transform, _crew.GetFollowerIndex(this));
+            : _crew.GetFormationPosition(leader.transform, _crew.GetFollowerIndex(this), out _);
 
         _isLookingAround = false;
         _move.MoveTo(position, speed);

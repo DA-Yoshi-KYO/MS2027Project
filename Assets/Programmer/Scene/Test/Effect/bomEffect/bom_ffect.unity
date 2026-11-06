@@ -2269,7 +2269,7 @@ ParticleSystem:
     donutRadius: 0.2
     m_Position: {x: 0, y: 2.55, z: 0}
     m_Rotation: {x: -90, y: 0, z: 0}
-    m_Scale: {x: 0.8, y: 1, z: 0.8}
+    m_Scale: {x: 0.8, y: 0.8, z: 0.8}
     placementMode: 0
     m_MeshMaterialIndex: 0
     m_MeshNormalOffset: 0
@@ -30091,7 +30091,7 @@ ParticleSystem:
       serializedVersion: 2
       minMaxState: 0
       minColor: {r: 0.79607844, g: 0.23137255, b: 1, a: 1}
-      maxColor: {r: 1, g: 0.3254902, b: 0.09019608, a: 1}
+      maxColor: {r: 1, g: 0.26311314, b: 0, a: 1}
       maxGradient:
         serializedVersion: 2
         key0: {r: 1, g: 1, b: 1, a: 1}
@@ -30155,8 +30155,8 @@ ParticleSystem:
     startSize:
       serializedVersion: 2
       minMaxState: 3
-      scalar: 5
-      minScalar: 3
+      scalar: 6
+      minScalar: 4
       maxCurve:
         serializedVersion: 2
         m_Curve:
@@ -35428,7 +35428,7 @@ ParticleSystem:
     donutRadius: 0.2
     m_Position: {x: 0, y: 0, z: 0}
     m_Rotation: {x: -90, y: 0, z: 0}
-    m_Scale: {x: 1.5, y: 1.15, z: 1}
+    m_Scale: {x: 1.2, y: 1.2, z: 1}
     placementMode: 0
     m_MeshMaterialIndex: 0
     m_MeshNormalOffset: 0
@@ -40202,7 +40202,7 @@ ParticleSystemRenderer:
   m_ForceMeshLod: -1
   m_MeshLodSelectionBias: 0
   m_RenderingLayerMask: 1
-  m_RendererPriority: 0
+  m_RendererPriority: 10
   m_Materials:
   - {fileID: 2100000, guid: b252482955c9f45459b9f97c9471e213, type: 2}
   m_StaticBatchInfo:
@@ -40448,7 +40448,7 @@ ParticleSystem:
       serializedVersion: 2
       minMaxState: 0
       minColor: {r: 0.79607844, g: 0.23137255, b: 1, a: 1}
-      maxColor: {r: 1, g: 0.3254902, b: 0.09019608, a: 1}
+      maxColor: {r: 1, g: 0.2627451, b: 0, a: 1}
       maxGradient:
         serializedVersion: 2
         key0: {r: 1, g: 1, b: 1, a: 1}
@@ -41205,7 +41205,7 @@ ParticleSystem:
       countCurve:
         serializedVersion: 2
         minMaxState: 0
-        scalar: 10
+        scalar: 30
         minScalar: 30
         maxCurve:
           serializedVersion: 2
@@ -45609,7 +45609,7 @@ GameObject:
   - component: {fileID: 2002358263}
   - component: {fileID: 2002358262}
   m_Layer: 0
-  m_Name: Particle System
+  m_Name: bom_spark
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0

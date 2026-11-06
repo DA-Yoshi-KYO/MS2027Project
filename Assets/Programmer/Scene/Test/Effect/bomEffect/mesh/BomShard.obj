@@ -1,0 +1,17 @@
+# BomShard - irregular debris plate (~1x1), pivot center, faces -Z
+# X is pre-mirrored because Unity flips X on OBJ import
+o BomShard
+v 0.35 -0.5 0
+v -0.4 -0.35 0
+v -0.5 0.15 0
+v -0.05 0.5 0
+v 0.5 0.2 0
+vt 0.15 0
+vt 0.9 0.15
+vt 1 0.65
+vt 0.55 1
+vt 0 0.7
+vn 0 0 -1
+f 1/1/1 2/2/1 3/3/1
+f 1/1/1 3/3/1 4/4/1
+f 1/1/1 4/4/1 5/5/1

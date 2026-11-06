@@ -279,9 +279,14 @@ public static class CSED_VillainPatrolSceneGUI
     {
         if (Event.current.type != EventType.Repaint) return;
 
-        CSED_VillainPatrolPreview.Pose pose = CSED_VillainPatrolEditorState.isPlaying
-            ? CSED_VillainPatrolPreview.Evaluate(owner, route, CSED_VillainPatrolEditorState.playTime)
-            : new CSED_VillainPatrolPreview.Pose { position = owner.GetPointWorldPosition(route, 0), yaw = owner.GetStartRotation(route).eulerAngles.y };
+        // 止まっている時は、湧いた時の並び(ポイント1に最初の向きで。付いてくる人はルートを逆にたどった所)を描く
+        bool isPlaying = CSED_VillainPatrolEditorState.isPlaying;
+        CSED_VillainPatrolPreview.Pose pose = CSED_VillainPatrolPreview.Evaluate(owner, route, isPlaying ? CSED_VillainPatrolEditorState.playTime : 0f);
+        if (!isPlaying)
+        {
+            pose.position = owner.GetPointWorldPosition(route, 0);
+            pose.yaw = owner.GetStartRotation(route).eulerAngles.y;
+        }
 
         DrawBody(pose.position, pose.yaw, _villainRadius, color, true);
         if (CSED_VillainPatrolEditorState.isPlaying && !string.IsNullOrEmpty(pose.label))
@@ -291,7 +296,8 @@ public static class CSED_VillainPatrolSceneGUI
 
         for (int i = 0; i < route.formation.followerCount; i++)
         {
-            DrawBody(CSED_VillainPatrolPreview.GetFollowerPosition(route, pose, i), pose.yaw, _followerRadius, color, false);
+            Vector3 follower = CSED_VillainPatrolPreview.GetFollowerPosition(route, pose, i, out float followerYaw);
+            DrawBody(follower, followerYaw, _followerRadius, color, false);
         }
     }
 

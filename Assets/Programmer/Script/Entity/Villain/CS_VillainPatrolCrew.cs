@@ -18,7 +18,9 @@ using UnityEngine;
  * ・先頭の動き(TickLeader)
  *   今向かっているポイントへ歩き(ルートの速さ)、着いたら、やることを上から順に実行してから次のポイントへ向かう
  *   停止: その場で止まる / 見回し: 着いた時の向きを中心に左右へ首を振る / 向きを変える: turnDuration秒かけて回る
- * ・付いてくる人は、先頭の位置と向きから隊列の位置を求めて、そこへ歩く(CS_VillainPatrol)
+ * ・付いてくる人は、先頭が通った道(足跡。CS_VillainPatrolTrail)の上で、隊列の形の分だけ後ろ・横の位置へ歩く(CS_VillainPatrol)
+ *   → 先頭の今の向きを基準にしないので、曲がり角で外側へ振られず、先頭が通った道をなぞる
+ *   足跡は先頭が巡回している間に記録する(先頭が替わっても同じ足跡を使う)
  * ・ポイントの位置は生成時にワールド座標(NavMeshの上)へ変換して持つ(途中でスポーン位置を動かすことは無いため)
  * ・サーバー(オフライン時はその場)でのみ使う
  */
@@ -27,11 +29,13 @@ using UnityEngine;
 public class CS_VillainPatrolCrew
 {
     private const float _arriveDistance = 0.3f;   // ポイントに着いたとみなす距離(m)
+    private const float _trailMargin = 2f;        // 足跡を、一番後ろの人の距離よりどれだけ長く残すか(m)
 
     private readonly CSO_VillainPatrolPattern.Route _route;
     private readonly Vector3[] _pointPositions;   // ポイントのワールド座標(NavMeshの上)
     private readonly List<int> _order;            // 1周で回るポイントの順番
     private readonly List<CS_VillainPatrol> _members = new List<CS_VillainPatrol>();   // 加わった順(最初が先頭)
+    private readonly CS_VillainPatrolTrail _trail;   // 先頭が通った道
 
     private int _orderIndex;      // 今向かっている(やることを実行している)ポイントの、_orderの中の番号
     private bool _isActing;       // ポイントに着いて、やることを実行している途中か
@@ -41,6 +45,7 @@ public class CS_VillainPatrolCrew
 
     public CSO_VillainPatrolPattern.Route route => _route;
     public float speed => _route.speed;
+    public bool isActing => _isActing;   // 先頭がポイントに着いて、やることを実行している(止まっている)間か
 
     // 今向かっているポイント(やることの実行中は、そのポイント)の位置
     public Vector3 currentTarget => _pointPositions[_order[_orderIndex]];
@@ -54,6 +59,19 @@ public class CS_VillainPatrolCrew
             _pointPositions[i] = owner.GetPointWorldPosition(_route, i);
         }
         _order = _route.GetOrder();
+
+        // 最初の足跡は、ルートを1周してポイント1へ戻ってくる道(湧いた時も付いてくる人がルートの上に並ぶように)
+        float trailLength = _route.formation.farthestDistance + _trailMargin;
+        Vector3 startForward = owner.GetStartRotation(_route) * Vector3.forward;
+        _trail = new CS_VillainPatrolTrail(CS_VillainPatrolTrail.CreateSeed(_pointPositions, _order, startForward, trailLength), trailLength);
+    }
+
+    // 隊列のfollowerIndex番目の人が湧く位置と向き(ポイント1にいる先頭の後ろ、最初の足跡の上)
+    public Vector3 GetSpawnPosition(int followerIndex, out Quaternion rotation)
+    {
+        Vector3 position = _trail.GetFollowerPosition(_pointPositions[0], _route.formation, followerIndex, out Vector3 forward);
+        rotation = forward.sqrMagnitude > 0f ? Quaternion.LookRotation(forward) : Quaternion.identity;
+        return CS_VillainPatrolRoute.SnapToNavMesh(position);
     }
 
     public void AddMember(CS_VillainPatrol member)
@@ -84,17 +102,18 @@ public class CS_VillainPatrolCrew
         return index;
     }
 
-    // 先頭の向きと位置から、隊列のfollowerIndex番目の人が並ぶ位置
-    public Vector3 GetFormationPosition(Transform leader, int followerIndex)
+    // 先頭が通った道の上で、隊列のfollowerIndex番目の人が並ぶ位置と、そこでの進む向き
+    // ahead: 並ぶ位置より、道の上でどれだけ前(先頭の側)を求めるか(m。歩いている間の目的地に使う)
+    public Vector3 GetFormationPosition(Transform leader, int followerIndex, out Vector3 forward, float ahead = 0f)
     {
-        Vector3 offset = CSO_VillainPatrolPattern.GetFormationOffset(_route.formation.shape, followerIndex, _route.formation.spacing);
-        Quaternion yaw = Quaternion.Euler(0f, leader.eulerAngles.y, 0f);
-        return leader.position + yaw * offset;
+        return _trail.GetFollowerPosition(leader.position, _route.formation, followerIndex, out forward, ahead);
     }
 
     // 先頭が巡回を1回分進める(先頭のCS_VillainPatrolから、犯罪中の間毎回呼ばれる)
     public void TickLeader(Transform leader, CS_VillainMove move, float deltaTime)
     {
+        _trail.Record(leader.position);
+
         if (_isActing)
         {
             Act(leader, move, deltaTime);

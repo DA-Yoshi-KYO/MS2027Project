@@ -48,7 +48,7 @@ using UnityEngine.AI;
  *   進行度はスポーン位置の犯罪完遂ゲージ(CS_VillainCrimeGauge)にも毎フレーム渡す(付いていなければ何もしない)
  * ・スポーン位置に巡回パターン(CS_VillainPatrolRoute)があれば、湧く人数はパターンの人数(先頭 + 付いてくる人)まで
  *   先頭を全員先に、次に付いてくる人を、パターンの順(CSO_VillainPatrolPattern.GetSlot)に生成し、ルートごとの組(CS_VillainPatrolCrew)に入れる
- *   先頭はポイント1に、付いてくる人はポイント1から隊列の位置に、ルートの最初の向きで生成する
+ *   先頭はポイント1にルートの最初の向きで、付いてくる人はポイント1からルートを逆にたどった隊列の位置に、そこの進む向きで生成する
  * ・生成する悪人のプレハブはNetworkPrefabsList(DefaultNetworkPrefabs)に登録し、CS_VillainCrimeを付けておくこと
  */
 // ========================================
@@ -341,7 +341,7 @@ public class CS_VillainSpawner : MonoBehaviour
     }
 
     // 巡回パターンの役割(先頭を全員先に、次に付いてくる人)の順に生成し、ルートごとの組(CS_VillainPatrolCrew)に入れる
-    // 先頭はポイント1に、付いてくる人はポイント1から隊列の位置に、ルートの最初の向きで生成する
+    // 先頭はポイント1に、付いてくる人はポイント1からルートを逆にたどった隊列の位置に生成する
     private void SpawnPatternMembers(CS_VillainGroup group, CS_VillainPatrolRoute patrolRoute, int memberCount, CSO_VillainTimeScaling.Stage stage)
     {
         CSO_VillainPatrolPattern pattern = patrolRoute.pattern;
@@ -350,14 +350,25 @@ public class CS_VillainSpawner : MonoBehaviour
         {
             if (!pattern.GetSlot(i, out int routeIndex, out int followerIndex)) break;
 
-            Vector3 position = patrolRoute.GetSpawnPosition(routeIndex, followerIndex) + Vector3.up * _bodyCenterHeight;
-            Quaternion rotation = patrolRoute.GetStartRotation(pattern.routes[routeIndex]);
-            NetworkObject villain = SpawnVillain(position, rotation, stage);
+            if (crews[routeIndex] == null) crews[routeIndex] = new CS_VillainPatrolCrew(patrolRoute, routeIndex);
+
+            // 先頭はポイント1に最初の向きで、付いてくる人はルートを逆にたどった所に、そこの進む向きで生成する
+            Vector3 position;
+            Quaternion rotation;
+            if (followerIndex < 0)
+            {
+                position = patrolRoute.GetStartPosition(routeIndex);
+                rotation = patrolRoute.GetStartRotation(pattern.routes[routeIndex]);
+            }
+            else
+            {
+                position = crews[routeIndex].GetSpawnPosition(followerIndex, out rotation);
+            }
+
+            NetworkObject villain = SpawnVillain(position + Vector3.up * _bodyCenterHeight, rotation, stage);
             group.AddMember(villain.GetComponent<CS_VillainCrime>());
 
-            if (!villain.TryGetComponent(out CS_VillainPatrol patrol)) continue;
-            if (crews[routeIndex] == null) crews[routeIndex] = new CS_VillainPatrolCrew(patrolRoute, routeIndex);
-            patrol.SetCrew(crews[routeIndex]);
+            if (villain.TryGetComponent(out CS_VillainPatrol patrol)) patrol.SetCrew(crews[routeIndex]);
         }
     }
 

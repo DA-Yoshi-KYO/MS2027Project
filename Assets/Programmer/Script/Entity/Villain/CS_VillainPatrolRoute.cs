@@ -64,15 +64,10 @@ public class CS_VillainPatrolRoute : MonoBehaviour
         return yawRotation * Quaternion.Euler(0f, route.startAngle, 0f);
     }
 
-    // 湧いた時の位置(先頭はポイント1、付いてくる人はポイント1から隊列の位置)
-    public Vector3 GetSpawnPosition(int routeIndex, int followerIndex)
+    // 先頭が湧く位置(ポイント1)。付いてくる人の位置はCS_VillainPatrolCrew.GetSpawnPositionで求める(ルートの上に並べるため)
+    public Vector3 GetStartPosition(int routeIndex)
     {
-        CSO_VillainPatrolPattern.Route route = _pattern.routes[routeIndex];
-        Vector3 start = ToWorld(route.points[0].localPosition);
-        if (followerIndex < 0) return SnapToNavMesh(start);
-
-        Vector3 offset = CSO_VillainPatrolPattern.GetFormationOffset(route.formation.shape, followerIndex, route.formation.spacing);
-        return SnapToNavMesh(start + GetStartRotation(route) * offset);
+        return GetPointWorldPosition(_pattern.routes[routeIndex], 0);
     }
 
     public static Vector3 SnapToNavMesh(Vector3 position)

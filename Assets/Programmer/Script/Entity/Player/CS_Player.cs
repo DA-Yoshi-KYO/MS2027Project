@@ -515,7 +515,8 @@ public class CS_Player : NetworkBehaviour
         DisableCamera();
     }
 
-    // 自分のプレイヤーの初期化(入力の取得、カーソル固定)
+    // 自分のプレイヤーの初期化(入力の取得)
+    // ※ カーソルはCS_ExhibitionRuntimeがonLocalPlayerSetを受けて固定する
     private void SetupAsLocalPlayer()
     {
         _isControlled = true;
@@ -527,9 +528,6 @@ public class CS_Player : NetworkBehaviour
 
         // 今向いている方向を視点の初期値にする
         _yaw = transform.eulerAngles.y;
-
-        Cursor.lockState = CursorLockMode.Locked;
-        Cursor.visible = false;
 
         RegisterAsLocalPlayer();
     }
@@ -553,7 +551,8 @@ public class CS_Player : NetworkBehaviour
         onLocalPlayerSet?.Invoke(this);
     }
 
-    // 自分のプレイヤーの後片付け(入力参照の解放、カーソル解除)
+    // 自分のプレイヤーの後片付け(入力参照の解放)
+    // ※ カーソルはCS_ExhibitionRuntimeがonLocalPlayerSetを受けて元に戻す
     // ※ CS_CustomInputActionManagerは共有のシングルトンなので、Disable/Disposeはしない
     private void ReleaseLocalPlayer()
     {
@@ -581,15 +580,7 @@ public class CS_Player : NetworkBehaviour
             _viewDirectionAnchor = null;
         }
 
-        // NPCはカーソルを触っていない
-        if (_npcInput != null)
-        {
-            _npcInput = null;
-            return;
-        }
-
-        Cursor.lockState = CursorLockMode.None;
-        Cursor.visible = true;
+        _npcInput = null;
     }
 
     // 他人のプレイヤーの初期化(物理とカメラを切る)

@@ -18,6 +18,9 @@ using UnityEngine.AI;
  *   犯罪中(Idle) → [プレイヤーが臨戦態勢範囲に入る / 攻撃される] → 追跡(Chase) ⇔ 攻撃(Attack)
  *   追跡中に以下のどれかになったら → 帰還(Return) → 犯罪中
  *     ・ターゲットが倒れた・いなくなった
+ *     ・ターゲットのプレイヤーが隠れた(SAなどでハイドポイントの隠れられる箱に入った。CS_PlayerHide.isHidden)
+ *       → 近づかれていても見失う(新しく見つける時の「revealDistance以内なら隠れていても見つかる」は、追跡中の相手には使わない)
+ *       → 同じプレイヤーを追っている仲間も、それぞれ同じ判定で戻る。仲間から知らされた時も、隠れているプレイヤーは追わない
  *     ・ターゲットが路地裏の外に出てから leaveAlleyGiveUpTime 秒たった
  *     ・戻り先(巡回するグループはルートの今の位置、それ以外はスポーン位置)から leashRange 以上離れた(路地裏判定の取りこぼし対策)
  *   帰還は、巡回するグループなら自分のルートの今の進み具合の位置へ合流する(CS_VillainPatrol.TickReturn)。それ以外はスポーン位置へ戻る
@@ -212,6 +215,7 @@ public class CS_VillainCombat : NetworkBehaviour
     private Transform _target;               // 標的(プレイヤー、警察、または陽動ホログラム)
     private CS_PlayerHealth _targetPlayer;   // 標的がプレイヤーの時のHP(倒れたかの判定に使う)。それ以外の時はnull
     private CS_PoliceBrain _targetPolice;    // 標的が警察の時の行動(消える演出中かの判定に使う)。それ以外の時はnull
+    private CS_PlayerHide _targetHide;       // 標的がプレイヤーの時の隠れている判定。それ以外の時・付いていない時はnull
     private Vector3 _homePosition;        // スポーンした位置(犯罪を行う場所)
     private Quaternion _homeRotation;
     private float _scanTimer;
@@ -364,7 +368,7 @@ public class CS_VillainCombat : NetworkBehaviour
         // 標的が倒れた・ホログラムが消えた時は、近くに別の標的がいればそちらを狙う
         if (!IsTargetValid() && TryEngageInRange(engageRange, true)) return;
 
-        if (!IsTargetValid() || HasTargetLeftAlley() || IsTooFarFromHome())
+        if (!IsTargetValid() || IsTargetHidden() || HasTargetLeftAlley() || IsTooFarFromHome())
         {
             ClearTarget();
             _state = State.Return;
@@ -651,6 +655,7 @@ public class CS_VillainCombat : NetworkBehaviour
         _target = target;
         _targetPlayer = player;
         _targetPolice = player == null ? target.GetComponentInParent<CS_PoliceBrain>() : null;
+        _targetHide = player != null ? player.GetComponent<CS_PlayerHide>() : null;
         _state = State.Chase;
 
         // 追跡を始めた時点では路地裏にいるものとして数え直す
@@ -667,6 +672,7 @@ public class CS_VillainCombat : NetworkBehaviour
     {
         if (!enabled || _state != State.Idle) return;
         if (target == null || (player != null && !IsValidTarget(player))) return;
+        if (player != null && player.TryGetComponent(out CS_PlayerHide hide) && hide.isHidden) return;   // 隠れているプレイヤーは追わない
         if (IsOutsideConfinedArea(target.position)) return;
 
         SetTarget(target, player, false);
@@ -696,6 +702,14 @@ public class CS_VillainCombat : NetworkBehaviour
         _target = null;
         _targetPlayer = null;
         _targetPolice = null;
+        _targetHide = null;
+    }
+
+    // 追っているプレイヤーが隠れたか(SAなどでハイドポイントの隠れられる箱に入った。サーバーが決めて全員に同期している値)
+    // 近づかれていても見失う(追跡をやめて戻る)
+    private bool IsTargetHidden()
+    {
+        return _targetHide != null && _targetHide.isHidden;
     }
 
     // 標的がまだ狙える状態か(プレイヤーは倒れていない、警察は消える演出中でない、ホログラムは消えていない)

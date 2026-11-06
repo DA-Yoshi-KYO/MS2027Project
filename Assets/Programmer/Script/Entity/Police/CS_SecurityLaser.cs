@@ -150,6 +150,7 @@ public class CS_SecurityLaser : MonoBehaviour
 
         player.TakeDamage(_data.damage, gameObject);
         CS_PoliceAlertManager.Report(player, player.transform.position, transform.position);
+        CS_PoliceAlertManager.ReportLaserHit(player);
     }
 
     /// <summary>

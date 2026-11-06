@@ -142,7 +142,11 @@ public class CS_SecurityLight : MonoBehaviour
         {
             CS_PlayerHealth player = _overlapBuffer[i].GetComponentInParent<CS_PlayerHealth>();
             if (player == null || player.isDead || !IsInsideCircle(player.transform.position, radius)) continue;
-            if (!IsStandingOnLitFloor(_overlapBuffer[i].bounds.min.y, player.transform.position) || !CanHit(player)) continue;
+            if (!IsStandingOnLitFloor(_overlapBuffer[i].bounds.min.y, player.transform.position)) continue;
+
+            // 照らされている間は、毎回、照らされている時間として知らせる(スコアの減点。点滅の間隔とは関係なく数える)
+            if (!CS_PoliceSquad.IsNetworkClientOnly()) CS_PoliceAlertManager.ReportExposure(player);
+            if (!CanHit(player)) continue;
 
             OnLit(player);
         }

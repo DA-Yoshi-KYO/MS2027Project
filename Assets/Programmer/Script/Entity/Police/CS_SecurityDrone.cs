@@ -193,6 +193,9 @@ public class CS_SecurityDrone : NetworkBehaviour, IDamageable, IStunnable
             return;
         }
 
+        // プレイヤーを見ている間は、毎フレーム、見られている時間として知らせる(スコアの減点)
+        if (_currentState == CSE_SecurityDroneState.Detected && _target != null) ReportExposure(_target);
+
         // 見つけたかの判断は、一定間隔で行う(視界判定の負荷を抑えるため)
         _thinkTimer -= Time.deltaTime;
         if (_thinkTimer <= 0.0f)
@@ -236,6 +239,14 @@ public class CS_SecurityDrone : NetworkBehaviour, IDamageable, IStunnable
         _detectedTime = 0.0f;
         if (_suppression != null) _suppression.Cancel();
         SetState(CSE_SecurityDroneState.Stunned);
+    }
+
+    /// <summary>
+    /// 見ているプレイヤーを、見られている時間として警察側の管理へ知らせるメソッド(スコアの減点に使う)
+    /// </summary>
+    private static void ReportExposure(Transform player)
+    {
+        if (player.TryGetComponent(out CS_PlayerHealth health)) CS_PoliceAlertManager.ReportExposure(health);
     }
 
     /// <summary>

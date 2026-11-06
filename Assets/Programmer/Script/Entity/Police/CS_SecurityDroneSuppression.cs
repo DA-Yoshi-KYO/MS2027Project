@@ -157,6 +157,7 @@ public class CS_SecurityDroneSuppression : NetworkBehaviour
         }
 
         ReportTarget(deltaTime);
+        ReportExposure();
         _timer -= deltaTime;
 
         switch (_phase)
@@ -265,6 +266,14 @@ public class CS_SecurityDroneSuppression : NetworkBehaviour
         _reportTimer = _reportInterval;
         CS_PlayerHealth health = _target.GetComponent<CS_PlayerHealth>();
         if (health != null) CS_PoliceAlertManager.Report(health, _target.position, _drone.transform.position);
+    }
+
+    /// <summary>
+    /// 攻撃している間、プレイヤーを、見られている時間として警察側の管理へ知らせ続けるメソッド(毎フレーム。スコアの減点に使う)
+    /// </summary>
+    private void ReportExposure()
+    {
+        if (_target != null && _target.TryGetComponent(out CS_PlayerHealth health)) CS_PoliceAlertManager.ReportExposure(health);
     }
 
     /// <summary>

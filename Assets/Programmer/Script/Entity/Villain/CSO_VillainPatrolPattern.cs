@@ -22,7 +22,8 @@ using UnityEngine;
  *   ポイントに着いたら、やることを上から順に実行してから次へ向かう(何も無ければ止まらずに次へ)
  *     停止(秒) / 見回し(左右の角度・秒。秒数で左右を1往復する) / 向きを変える(角度。turnDuration秒かけて回る)
  * ・隊列
- *   ルートごとに、先頭に付いてくる人数・形・間隔を決める。付いてくる人は先頭の向きに合わせて並び、先頭と一緒に止まる・見回す
+ *   ルートごとに、先頭に付いてくる人数・形・間隔を決める。付いてくる人は先頭が通った道をなぞって並び、それぞれ自分の進む向きを向く
+ *   (先頭が止まると一緒に止まるが、見回し・向きを変えるは真似しない)
  * ・湧く人数と割り当て(CS_VillainSpawner)
  *   湧く人数は、このパターンの人数(先頭 + 付いてくる人)まで(それより多くは湧かない)
  *   先頭を上のルートから全員先に埋め、次に付いてくる人をルート1の隊列 → ルート2の隊列…の順に埋める(GetSlot)
@@ -109,6 +110,20 @@ public class CSO_VillainPatrolPattern : ScriptableObject
         public int followerCount => _followerCount;
         public CSE_VillainFormationShape shape => _shape;
         public float spacing => _spacing;
+
+        // 一番後ろの人が、先頭から何m後ろに並ぶか(足跡を残す長さに使う)
+        public float farthestDistance
+        {
+            get
+            {
+                float farthest = 0f;
+                for (int i = 0; i < _followerCount; i++)
+                {
+                    farthest = Mathf.Max(farthest, -GetFormationOffset(_shape, i, _spacing).z);
+                }
+                return farthest;
+            }
+        }
     }
 
     // 悪人(先頭)1人分のルート

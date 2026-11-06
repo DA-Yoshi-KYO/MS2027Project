@@ -28,6 +28,12 @@ using UnityEngine;
  * ・スキャンは自分の画面だけのもの(見えるのは使った本人だけ)。そのため自分のプレイヤー(CS_Player.isLocalPlayer)だけで動き、通信はしない
  *   (位置・HP・グループ番号は同期済みなので、各クライアントの手元で判定できる。一覧はCS_NpcWorldのvillains / police / securityDronesを使う)
  * ・波の見た目はCS_PlayerScanEffectが、見えている相手の目印(UI)はCS_PlayerScanMarkerUIが、ここの状態を見て出す
+ * ・自動スキャン(仕様書「スキャン」の試してみたいこと): _autoScanEnabledの時、_autoScanInterval秒(既定20秒)ごとに自動でスキャンする
+ *   _autoScanOnStartなら、操作できるようになった最初に1回スキャンする(ゲーム開始時)。手動でも今まで通り使える
+ *   波が出ている間・動けない間に時間が来た時は、使えるようになった時にスキャンする
+ *   _resetAutoScanOnManualなら、手動で使った時も次の自動スキャンまでの時間を数え直す(続けて2回出ないように)
+ * ・必殺技の「全員が見える」効果(CS_PlayerCharacter。キース)の間は、全ての悪人グループ・警察・巡回ドローンを見えている状態にし続ける
+ *   (効果が終わってから_revealAllLinger秒で見えなくなる)
  */
 // ========================================
 
@@ -43,7 +49,18 @@ public class CS_PlayerScan : MonoBehaviour
     [SerializeField][Min(0f)] private float _fadeTime = 0.3f;       // 広がりきった後、波が消えるまでの時間(秒)。この間は再使用できない
     [SerializeField][Min(0f)] private float _revealDuration = 10f;  // 波が届いた悪人が見え続ける時間(秒)
 
+    [Header("自動スキャン")]
+    [SerializeField] private bool _autoScanEnabled = true;          // 自動でスキャンするか
+    [SerializeField][Min(1f)] private float _autoScanInterval = 20f; // 自動でスキャンする間隔(秒)
+    [SerializeField] private bool _autoScanOnStart = true;          // 操作できるようになった最初に1回スキャンするか(ゲーム開始時)
+    [SerializeField] private bool _resetAutoScanOnManual = true;    // 手動で使った時も、次の自動スキャンまでの時間を数え直すか
+
     private CS_Player _player;
+    private CS_PlayerCharacter _character;   // 付いていれば、必殺技の「全員が見える」効果を見る
+
+    private const float _revealAllLinger = 0.5f;   // 「全員が見える」効果が終わってから、見えなくなるまでの時間(秒)
+    private float _autoScanRemaining;   // 次の自動スキャンまでの時間(秒)
+    private bool _hasAutoScanStarted;   // 自動スキャンの数え始めをしたか
 
     private float _bonusRadius;         // 暗躍ボーナスなどで足される範囲(m)
     private bool _isScanning;           // 波が出ている間か(広がる途中と、消える途中)
@@ -77,9 +94,13 @@ public class CS_PlayerScan : MonoBehaviour
     public event Action onScanStarted;      // スキャンを使った時(自分のプレイヤーのみ)
     public event Action onScanFinished;     // 波が消えて、また使えるようになった時(自分のプレイヤーのみ)
 
+    public bool autoScanEnabled => _autoScanEnabled;
+    public float autoScanRemaining => _autoScanRemaining;   // 次の自動スキャンまでの時間(秒。UI用)
+
     private void Awake()
     {
         _player = GetComponent<CS_Player>();
+        _character = GetComponent<CS_PlayerCharacter>();
     }
 
     private void Update()
@@ -88,7 +109,9 @@ public class CS_PlayerScan : MonoBehaviour
         if (!_player.isLocalPlayer) return;
 
         ReadInput();
+        UpdateAutoScan(Time.deltaTime);
         UpdateWave(Time.deltaTime);
+        UpdateRevealAll();
         UpdateReveals();
         RebuildRevealedGroups();
     }
@@ -122,6 +145,26 @@ public class CS_PlayerScan : MonoBehaviour
         if (_player.scanAction == null || !_player.scanAction.WasPressedThisFrame()) return;
 
         StartScan();
+        if (_resetAutoScanOnManual) _autoScanRemaining = _autoScanInterval;
+    }
+
+    // 自動スキャン: 間隔ごとにスキャンする(時間が来た時に使えなければ、使えるようになった時にスキャンする)
+    private void UpdateAutoScan(float deltaTime)
+    {
+        if (!_autoScanEnabled) return;
+
+        if (!_hasAutoScanStarted)
+        {
+            _hasAutoScanStarted = true;
+            _autoScanRemaining = _autoScanOnStart ? 0f : _autoScanInterval;
+        }
+
+        _autoScanRemaining -= deltaTime;
+        if (_autoScanRemaining > 0f) return;
+        if (_isScanning || !_player.canAct) return;
+
+        StartScan();
+        _autoScanRemaining = _autoScanInterval;
     }
 
     private void StartScan()
@@ -179,6 +222,38 @@ public class CS_PlayerScan : MonoBehaviour
 
             _droneRevealEndTimes.TryAdd(drone, endTime);
         }
+    }
+
+    // 必殺技の「全員が見える」効果の間は、全ての悪人グループ・警察・巡回ドローンを見えている状態にし続ける
+    private void UpdateRevealAll()
+    {
+        if (_character == null || !_character.IsEffectActive(CSE_PlayerSpecialEffect.RevealAll)) return;
+
+        float endTime = Time.time + _revealAllLinger;
+        foreach (CS_VillainHealth villain in CS_NpcWorld.villains)
+        {
+            if (!IsAlive(villain)) continue;
+
+            int groupId = GetGroupId(villain);
+            if (groupId >= 0) Extend(_groupRevealEndTimes, groupId, endTime);
+            else Extend(_loneVillainRevealEndTimes, villain, endTime);
+        }
+        foreach (CS_PoliceBrain police in CS_NpcWorld.police)
+        {
+            if (IsAlive(police)) Extend(_policeRevealEndTimes, police, endTime);
+        }
+        foreach (CS_SecurityDrone drone in CS_NpcWorld.securityDrones)
+        {
+            if (IsAlive(drone)) Extend(_droneRevealEndTimes, drone, endTime);
+        }
+    }
+
+    // 見えなくなる時刻を、endTimeより早ければ延ばす(見えていなければ見えるようにする)
+    private static void Extend<T>(Dictionary<T, float> revealEndTimes, T key, float endTime)
+    {
+        if (revealEndTimes.TryGetValue(key, out float current) && current >= endTime) return;
+
+        revealEndTimes[key] = endTime;
     }
 
     // 波の中(円柱型)にいるか: 高さの差が上下それぞれ_height以内で、横方向の距離が波の半径以内

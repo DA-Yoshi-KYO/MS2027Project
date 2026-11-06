@@ -23,7 +23,7 @@ public static class CS_MayaPreviewIcons
     private const int Size = 32;
     private static readonly Vector2 C = new Vector2(16f, 16f);
     private static readonly Dictionary<CS_MayaPreviewKind, Texture2D> s_icons = new Dictionary<CS_MayaPreviewKind, Texture2D>();
-    private static Texture2D s_disc, s_ring, s_right, s_down, s_close;
+    private static Texture2D s_disc, s_ring, s_right, s_down, s_up, s_close;
 
 
     // =========================================================
@@ -44,6 +44,7 @@ public static class CS_MayaPreviewIcons
     public static Texture2D Ring => s_ring != null ? s_ring : s_ring = Build(p => Cov(RingD(p, C, 14.2f, 2.2f)));
     public static Texture2D ArrowRight => s_right != null ? s_right : s_right = Build(p => Cov(Tri(p, new Vector2(11, 8), new Vector2(22, 16), new Vector2(11, 24))));
     public static Texture2D ArrowDown => s_down != null ? s_down : s_down = Build(p => Cov(Tri(p, new Vector2(8, 11), new Vector2(24, 11), new Vector2(16, 22))));
+    public static Texture2D ArrowUp => s_up != null ? s_up : s_up = Build(p => Cov(Tri(p, new Vector2(8, 22), new Vector2(24, 22), new Vector2(16, 11))));
     public static Texture2D Close => s_close != null ? s_close : s_close = Build(p => Mathf.Max(
         Cov(Seg(p, new Vector2(9, 9), new Vector2(23, 23), 3f)), Cov(Seg(p, new Vector2(23, 9), new Vector2(9, 23), 3f))));
 

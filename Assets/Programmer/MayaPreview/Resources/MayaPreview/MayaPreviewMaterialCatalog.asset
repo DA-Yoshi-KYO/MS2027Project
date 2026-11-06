@@ -19,27 +19,78 @@ MonoBehaviour:
   - name: MT_DefaultSampleTextureLit
     guid: 2313a543cc94596409710ee16a668273
     material: {fileID: 2100000, guid: 2313a543cc94596409710ee16a668273, type: 2}
-  - name: MT_head
-    guid: 6128741b946dd5a428c426ff4493a1da
-    material: {fileID: 2100000, guid: 6128741b946dd5a428c426ff4493a1da, type: 2}
+  - name: MT_DitherLit
+    guid: c99c84bbd47526849b027f9e247f4317
+    material: {fileID: 2100000, guid: c99c84bbd47526849b027f9e247f4317, type: 2}
   - name: MT_DebugRange
     guid: e46dddc4853c73a43a167d13b56f9853
     material: {fileID: 2100000, guid: e46dddc4853c73a43a167d13b56f9853, type: 2}
+  - name: MT_EnemyArea
+    guid: c0b0e148d64e6da418e389b7b3e8e996
+    material: {fileID: 2100000, guid: c0b0e148d64e6da418e389b7b3e8e996, type: 2}
+  - name: MT_SAPoint
+    guid: 9cfc3b5e441109a4688db27bec074611
+    material: {fileID: 2100000, guid: 9cfc3b5e441109a4688db27bec074611, type: 2}
+  - name: MT_SecurityDrone
+    guid: 9d179ed587a14c0aa2dbfd44483701a9
+    material: {fileID: 2100000, guid: 9d179ed587a14c0aa2dbfd44483701a9, type: 2}
+  - name: MT_SecurityLaser
+    guid: 9a13cd9135654faeb5c1609d74cc1c23
+    material: {fileID: 2100000, guid: 9a13cd9135654faeb5c1609d74cc1c23, type: 2}
   - name: MT_Villain
     guid: fabc17d2b128a0344822b1227388242d
     material: {fileID: 2100000, guid: fabc17d2b128a0344822b1227388242d, type: 2}
   - name: MT_VillainAttackArea
     guid: 3d9867fd319368a40a143a64644529cb
     material: {fileID: 2100000, guid: 3d9867fd319368a40a143a64644529cb, type: 2}
+  - name: MT_PlayerOpticalCamo
+    guid: c106c1c6d57f90a4c9aa20e19a25ea22
+    material: {fileID: 2100000, guid: c106c1c6d57f90a4c9aa20e19a25ea22, type: 2}
+  - name: MT_Bill
+    guid: 93dc5de8c8fdade4a8a389739727a447
+    material: {fileID: 2100000, guid: 93dc5de8c8fdade4a8a389739727a447, type: 2}
   - name: MT_PlayerMannequin
     guid: 1ebfe4f753152d34188162aafda08c33
     material: {fileID: 2100000, guid: 1ebfe4f753152d34188162aafda08c33, type: 2}
-  - name: MT_PlayerTransformingParticle
-    guid: c5f4ecd0e717ea64fbdffce669a6b984
-    material: {fileID: 2100000, guid: c5f4ecd0e717ea64fbdffce669a6b984, type: 2}
+  - name: MT_VillainAttackWarning
+    guid: cba1c80f59f3e694ea7b5909a86521c1
+    material: {fileID: 2100000, guid: cba1c80f59f3e694ea7b5909a86521c1, type: 2}
   - name: MT_VillainMannequin
     guid: 53438d18cc0d57f428ad0b5c65547da9
     material: {fileID: 2100000, guid: 53438d18cc0d57f428ad0b5c65547da9, type: 2}
+  - name: MT_Munkki_Costume1
+    guid: 7d400719fce344c46905d8c899cb58b7
+    material: {fileID: 2100000, guid: 7d400719fce344c46905d8c899cb58b7, type: 2}
+  - name: MT_Munkki_Costume2
+    guid: b1d87fc67450b9e4a9c2b6ab261983dd
+    material: {fileID: 2100000, guid: b1d87fc67450b9e4a9c2b6ab261983dd, type: 2}
+  - name: MT_Munkki_Face
+    guid: 51b6ffe8205195f4f8e222cb9c0c5dbb
+    material: {fileID: 2100000, guid: 51b6ffe8205195f4f8e222cb9c0c5dbb, type: 2}
+  - name: MT_Munkki_FaceEX
+    guid: 2c8906b0d0f176045bd5edcaa8bdc639
+    material: {fileID: 2100000, guid: 2c8906b0d0f176045bd5edcaa8bdc639, type: 2}
+  - name: MT_Munkki_Hair
+    guid: 769375591591f00418a1e5683ef1406d
+    material: {fileID: 2100000, guid: 769375591591f00418a1e5683ef1406d, type: 2}
+  - name: MT_Munkki_Skin
+    guid: 740338777883f6541824559e7480c178
+    material: {fileID: 2100000, guid: 740338777883f6541824559e7480c178, type: 2}
+  - name: MT_circle_up_line
+    guid: 9d5361d0545bcd346aec09c0fe753924
+    material: {fileID: 2100000, guid: 9d5361d0545bcd346aec09c0fe753924, type: 2}
+  - name: MT_circle_up_ring
+    guid: f527b83d107bbc442808c19f496df83c
+    material: {fileID: 2100000, guid: f527b83d107bbc442808c19f496df83c, type: 2}
+  - name: MT_circle_up_sparkling
+    guid: 10d3953ff80e8c24dbbf068d4db9d7d2
+    material: {fileID: 2100000, guid: 10d3953ff80e8c24dbbf068d4db9d7d2, type: 2}
+  - name: MT_down_cross_01
+    guid: da99d9d24db96cf4aa73255ba031cfa9
+    material: {fileID: 2100000, guid: da99d9d24db96cf4aa73255ba031cfa9, type: 2}
+  - name: MT_down_cross_02
+    guid: a186ec6694a967e468bfa668b3be479f
+    material: {fileID: 2100000, guid: a186ec6694a967e468bfa668b3be479f, type: 2}
   - name: MT_Outline_N00_000_00_Body_00_SKIN
     guid: 41c3165385459724888305820ce18e80
     material: {fileID: 2100000, guid: 41c3165385459724888305820ce18e80, type: 2}

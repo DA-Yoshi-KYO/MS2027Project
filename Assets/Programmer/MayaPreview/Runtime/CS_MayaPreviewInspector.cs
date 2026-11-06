@@ -7,11 +7,13 @@ using UnityEngine.Rendering;
 +=====================================
  File   : CS_MayaPreviewInspector
  Summary: Runtime GUI of the Maya preview player (Unity editor dark look).
-          Toolbar  left : [Hierarchy] [View] [Export]   right : [Outline] [Material] [Inspector]
-                   (Outline: yellow outline of the selected objects on / off)
-          Panels   left : Hierarchy > View > Export, packed to the left in that order
-                   right: Inspector at the top right, Material below it
-                          (Material alone goes to the top right).
+          Panels   left : Hierarchy / Performance / View / Export (top to bottom)
+                   right: Inspector / Material / Graphics (top to bottom)
+                   Arrow at the right of each title bar folds / opens it; drag the gap between
+                   panels to resize (.Layout).
+          Toolbar  right: [MayaScaler] [SelectLine] check buttons only
+                   (MayaScaler: models from Maya x100 on / off, .Scaler)
+                   (SelectLine: yellow line around the selected objects on / off)
           - The Inspector lists the materials of the selection; Edit shows one of them in the
             Material panel (the Material panel is empty until a material is picked).
           - Type icons in the view for lights, cameras, volumes, audio and probes.
@@ -65,90 +67,27 @@ public partial class CS_MayaPreviewInspector : MonoBehaviour
     private const float HeaderHeight = 22f;
     private const float RowHeight = 18f;
     private const float HierarchyWidth = 260f;
-    private const float ViewWidth = 230f;
-    private const float ExportWidth = 300f;
     private const float RightWidth = 420f;
 
     private float _scale = 1f;
     private float VW => Screen.width / _scale;
     private float VH => Screen.height / _scale;
 
-    private Rect _hierarchyButton, _viewButton, _exportButton, _outlineButton, _materialButton, _inspectorButton;
+    private Rect _outlineButton;
     private Rect _hierarchyRect, _viewRect, _exportRect, _materialRect, _inspectorRect;
     private float _inspectorContentHeight = 120f;
     private readonly List<Rect> _iconRects = new List<Rect>();
 
-    private void Layout()
-    {
-        float top = Margin;
-        _hierarchyButton = new Rect(Margin, top, 104f, ButtonHeight);
-        _viewButton = new Rect(_hierarchyButton.xMax + ButtonGap, top, 74f, ButtonHeight);
-        _exportButton = new Rect(_viewButton.xMax + ButtonGap, top, 84f, ButtonHeight);
-        _inspectorButton = new Rect(VW - Margin - 104f, top, 104f, ButtonHeight);
-        _materialButton = new Rect(_inspectorButton.x - ButtonGap - 98f, top, 98f, ButtonHeight);
-        _outlineButton = new Rect(_materialButton.x - ButtonGap - 92f, top, 92f, ButtonHeight);
-
-        float panelTop = top + ButtonHeight + PanelGap;
-        float full = Mathf.Max(60f, VH - Margin - panelTop);
-        float rightWidth = Mathf.Min(RightWidth, VW * 0.42f);
-        float rightX = VW - Margin - rightWidth;
-
-        // Left: Hierarchy > View > Export, each packed against the previous open one.
-        float x = Margin;
-        _hierarchyRect = _viewRect = _exportRect = Rect.zero;
-        if (_hierarchyOpen) { _hierarchyRect = new Rect(x, panelTop, Mathf.Min(HierarchyWidth, VW * 0.3f), full); x = _hierarchyRect.xMax + PanelGap; }
-        if (_viewOpen) { _viewRect = new Rect(x, panelTop, ViewWidth, Mathf.Min(full, HeaderHeight + 214f)); x = _viewRect.xMax + PanelGap; }
-        if (_exportOpen) { _exportRect = new Rect(x, panelTop, ExportWidth, full); }
-
-        // Right: Inspector on top, Material below.
-        _inspectorRect = _materialRect = Rect.zero;
-        bool selected = _selection != null && _selection.Count > 0;
-        float inspectorHeight = selected ? _inspectorContentHeight + HeaderHeight + 30f : HeaderHeight + 34f;
-        if (_inspectorOpen && _materialOpen)
-        {
-            // Nothing picked for the Material panel: the Inspector may use almost all the height.
-            float inspectorMax = _activeMaterialKey != null ? full * 0.5f : full - 60f - PanelGap;
-            inspectorHeight = Mathf.Clamp(inspectorHeight, HeaderHeight + 34f, Mathf.Max(HeaderHeight + 34f, inspectorMax));
-            _inspectorRect = new Rect(rightX, panelTop, rightWidth, inspectorHeight);
-            float materialTop = _inspectorRect.yMax + PanelGap;
-            _materialRect = new Rect(rightX, materialTop, rightWidth, Mathf.Max(60f, VH - Margin - materialTop));
-        }
-        else if (_inspectorOpen) _inspectorRect = new Rect(rightX, panelTop, rightWidth, Mathf.Min(full, Mathf.Max(inspectorHeight, selected ? full : 0f)));
-        else if (_materialOpen) _materialRect = new Rect(rightX, panelTop, rightWidth, full);
-    }
-
-    private bool OverPanel(Vector2 point)
-    {
-        if (_hierarchyButton.Contains(point) || _viewButton.Contains(point) || _exportButton.Contains(point)
-            || _outlineButton.Contains(point) || _materialButton.Contains(point) || _inspectorButton.Contains(point)) return true;
-        if (_hierarchyOpen && _hierarchyRect.Contains(point)) return true;
-        if (_viewOpen && _viewRect.Contains(point)) return true;
-        if (_exportOpen && _exportRect.Contains(point)) return true;
-        if (_inspectorOpen && _inspectorRect.Contains(point)) return true;
-        if (_materialOpen && _materialRect.Contains(point)) return true;
-        return false;
-    }
-
-    private bool OverlapsPanel(Rect rect)
-    {
-        if (_hierarchyButton.Overlaps(rect) || _viewButton.Overlaps(rect) || _exportButton.Overlaps(rect)
-            || _outlineButton.Overlaps(rect) || _materialButton.Overlaps(rect) || _inspectorButton.Overlaps(rect)) return true;
-        if (_hierarchyOpen && _hierarchyRect.Overlaps(rect)) return true;
-        if (_viewOpen && _viewRect.Overlaps(rect)) return true;
-        if (_exportOpen && _exportRect.Overlaps(rect)) return true;
-        if (_inspectorOpen && _inspectorRect.Overlaps(rect)) return true;
-        if (_materialOpen && _materialRect.Overlaps(rect)) return true;
-        return false;
-    }
-
     // Camera / transform tools ask this before using the mouse (screen position, y up).
-    public bool BlocksInput(Vector2 screenPosition)
+    // icons = false: only the panels count (the move / rotate / scale handles are drawn and
+    // grabbed above the type icons, e.g. a mesh at the origin on top of a Volume icon).
+    public bool BlocksInput(Vector2 screenPosition, bool icons = true)
     {
         if (_uiHidden) return false;
-        if (_typing || _drag != null || _previewDragging) return true;
+        if (_typing || _drag != null || _previewDragging || _splitUpper >= 0 || _scrubKey != null) return true;
         Vector2 point = new Vector2(screenPosition.x, Screen.height - screenPosition.y) / _scale;
         if (OverPanel(point)) return true;
-        foreach (Rect rect in _iconRects) if (rect.Contains(point)) return true;
+        if (icons) foreach (Rect rect in _iconRects) if (rect.Contains(point)) return true;
         return false;
     }
 
@@ -166,9 +105,14 @@ public partial class CS_MayaPreviewInspector : MonoBehaviour
         _guides = GetComponent<CS_MayaPreviewGuides>();
         _window = GetComponent<CS_MayaPreviewWindow>();
         if (_window == null) _window = gameObject.AddComponent<CS_MayaPreviewWindow>();
+        // Draw the 3D scene only when it can have changed (big GPU saving while idle / using panels).
+        if (GetComponent<CS_MayaPreviewFrameCache>() == null) gameObject.AddComponent<CS_MayaPreviewFrameCache>();
         _selection.Changed += OnSelectionChanged;
         CS_MayaPreviewUndo.Applied += ClearFields;
         Scan();
+        LoadMayaScaler();
+        LoadPanels();
+        LoadGraphics();
     }
 
     private void OnDestroy()
@@ -176,6 +120,8 @@ public partial class CS_MayaPreviewInspector : MonoBehaviour
         if (_selection != null) _selection.Changed -= OnSelectionChanged;
         CS_MayaPreviewUndo.Applied -= ClearFields;
         foreach (var asset in _owned) if (asset != null) Destroy(asset);
+        StopPerformance();
+        RestoreRenderScale();
         foreach (var copy in _sceneOriginals.Values) if (copy != null) Destroy(copy);
         if (_preview != null) Destroy(_preview.gameObject);
     }
@@ -184,8 +130,11 @@ public partial class CS_MayaPreviewInspector : MonoBehaviour
     {
         if (_tool == null) _tool = GetComponent<CS_MayaPreviewTransformTool>();
         if (_controller == null) _controller = GetComponent<CS_MayaPreviewCameraController>();
-        if (Time.unscaledTime >= _nextScan) Scan();
+        // Scan the scene only on frames that are drawn (nothing changes on screen otherwise).
+        if (Time.unscaledTime >= _nextScan && UnityEngine.Rendering.OnDemandRendering.willCurrentFrameRender) Scan();
         _selection.Prune();
+        TickPerformance();
+        TickLadder();
 
         var mouse = Mouse.current;
         bool held = mouse != null && (mouse.leftButton.isPressed || mouse.rightButton.isPressed || mouse.middleButton.isPressed);
@@ -244,7 +193,13 @@ public partial class CS_MayaPreviewInspector : MonoBehaviour
     {
         if (Event.current.type == EventType.Layout) _iconRects.Clear();
         HandleShortcuts();
-        if (_uiHidden) return;
+        if (_uiHidden)
+        {
+            if (_scrubKey != null) EndScrub();
+            if (_scrubCursorShown && Event.current.type == EventType.Repaint)
+            { _scrubCursorShown = false; Cursor.SetCursor(null, Vector2.zero, CursorMode.Auto); }
+            return;
+        }
 
         EnsureSkin();
         GUISkin previousSkin = GUI.skin;
@@ -256,17 +211,22 @@ public partial class CS_MayaPreviewInspector : MonoBehaviour
         if (_dropFocus) { GUI.FocusControl(null); _dropFocus = false; }
 
         Layout();
+        HandleSplitters();
         HandleDrag();
         if (_iconsVisible) DrawWorldIcons();
         DrawToolbar();
         if (_hierarchyOpen) DrawHierarchy();
+        if (_performanceOpen) DrawPerformance();
         if (_viewOpen) DrawView();
         if (_exportOpen) DrawExport();
         if (_inspectorOpen) DrawInspector();
         if (_materialOpen) DrawMaterialPanel();
+        if (_graphicsOpen) DrawGraphics();
+        for (int i = 0; i < (int)PanelId.Count; i++) DrawPanelHeader((PanelId)i);
         DrawDragGhost();
         DrawFlash();
         DrawTooltip();
+        DrawScrubOverlay();
 
         _typing = GUI.GetNameOfFocusedControl().StartsWith("F.");
         if (Event.current.type == EventType.MouseDown && !OverPanel(Event.current.mousePosition))
@@ -278,23 +238,10 @@ public partial class CS_MayaPreviewInspector : MonoBehaviour
 
     private void DrawToolbar()
     {
-        if (ToolbarButton(_hierarchyButton, "Hierarchy", _hierarchyOpen)) _hierarchyOpen = !_hierarchyOpen;
-        if (ToolbarButton(_viewButton, "View", _viewOpen)) _viewOpen = !_viewOpen;
-        if (ToolbarButton(_exportButton, "Export", _exportOpen)) _exportOpen = !_exportOpen;
-        if (ToolbarToggle(_outlineButton, "Outline", _selection.ShowOutlines, "Yellow outline of the selected objects: on / off"))
+        if (ToolbarToggle(_mayaScalerButton, "MayaScaler", _mayaScaler, "Show the models received from Maya x" + MayaScalerFactor + ": on / off (view only)"))
+            SetMayaScaler(!_mayaScaler);
+        if (ToolbarToggle(_outlineButton, "SelectLine", _selection.ShowOutlines, "Yellow line around the selected objects: on / off"))
             _selection.ShowOutlines = !_selection.ShowOutlines;
-        if (ToolbarButton(_materialButton, "Material", _materialOpen)) _materialOpen = !_materialOpen;
-        if (ToolbarButton(_inspectorButton, "Inspector", _inspectorOpen)) _inspectorOpen = !_inspectorOpen;
-    }
-
-    private bool ToolbarButton(Rect rect, string text, bool open)
-    {
-        bool clicked = GUI.Button(rect, GUIContent.none, open ? _toolbarOn : _toolbar);
-        Texture2D arrow = open ? CS_MayaPreviewIcons.ArrowDown : CS_MayaPreviewIcons.ArrowRight;
-        DrawTinted(new Rect(rect.x + 8, rect.y + 6, 10, 10), arrow, open ? Color.white : DimColor);
-        GUI.Label(new Rect(rect.x + 22, rect.y, rect.width - 26, rect.height), text, open ? _toolbarLabelOn : _toolbarLabel);
-        if (clicked) { GUI.FocusControl(null); _typing = false; }
-        return clicked;
     }
 
     // On / off button for a display setting (check box instead of the panel arrow).
@@ -322,7 +269,7 @@ public partial class CS_MayaPreviewInspector : MonoBehaviour
         Fill(new Rect(rect.x, header.yMax - 1, rect.width, 1), BorderColor);
         GUI.Label(new Rect(header.x + 8, header.y, header.width - 16, header.height), title, _title);
         if (!string.IsNullOrEmpty(note))
-            GUI.Label(new Rect(header.x + 8, header.y, header.width - 16, header.height), note, _dimRight);
+            GUI.Label(new Rect(header.x + 8, header.y, header.width - 34, header.height), note, _dimRight);
         // Clicks on an empty part of a panel must not reach the view.
         if (Event.current.type == EventType.MouseDown && rect.Contains(Event.current.mousePosition))
         { GUI.FocusControl(null); }
@@ -357,10 +304,13 @@ public partial class CS_MayaPreviewInspector : MonoBehaviour
     // View panel (aspect ratio / window size / display)
     // =========================================================
 
+    private Vector2 _viewScroll;
+
     private void DrawView()
     {
         Rect content = DrawWindow(_viewRect, "View");
         GUILayout.BeginArea(new Rect(content.x + 6, content.y + 4, content.width - 12, content.height - 6));
+        _viewScroll = GUILayout.BeginScrollView(_viewScroll, false, false, GUIStyle.none, _skin.verticalScrollbar, GUIStyle.none);
         GUILayout.Label("Aspect ratio", _dim);
         GUILayout.BeginHorizontal();
         for (int i = 0; i < CS_MayaPreviewWindow.AspectNames.Length; i++)
@@ -385,6 +335,7 @@ public partial class CS_MayaPreviewInspector : MonoBehaviour
         GUILayout.EndHorizontal();
         GUILayout.Space(6);
         GUILayout.Label("Tab: hide UI   Ctrl+Z / Ctrl+Y: undo / redo   Ctrl+D: duplicate   Delete: delete   F: frame   A: frame all", _wrapDim);
+        GUILayout.EndScrollView();
         GUILayout.EndArea();
     }
 
@@ -408,7 +359,9 @@ public partial class CS_MayaPreviewInspector : MonoBehaviour
             bool selected = _selection.IsSelected(target.gameObject);
             bool enabled = IsEnabled(target);
 
-            if (GUI.Button(rect, GUIContent.none, GUIStyle.none))
+            // While a handle is dragged the icon under it must not take the click.
+            bool handleBusy = _tool != null && _tool.IsDragging;
+            if (!handleBusy && GUI.Button(rect, GUIContent.none, GUIStyle.none))
             {
                 GUI.FocusControl(null);
                 var keyboard = Keyboard.current;

@@ -118,12 +118,13 @@ public partial class CS_MayaPreviewInspector
     // Widgets (return the edited value; callers record undo before applying)
     // =========================================================
 
+    // X / Y / Z labels are drag handles (see Scrub): left drag = 1 per step, middle drag = ladder.
     private Vector3 VectorField(string title, Vector3 value)
     {
         BeginRow(title);
-        GUILayout.Label("X", _axisX, GUILayout.Width(12)); value.x = NumberBox(title + ".x", value.x);
-        GUILayout.Label("Y", _axisY, GUILayout.Width(12)); value.y = NumberBox(title + ".y", value.y);
-        GUILayout.Label("Z", _axisZ, GUILayout.Width(12)); value.z = NumberBox(title + ".z", value.z);
+        value.x = NumberBox(title + ".x", Scrub(title + ".x", value.x, "X", _axisX));
+        value.y = NumberBox(title + ".y", Scrub(title + ".y", value.y, "Y", _axisY));
+        value.z = NumberBox(title + ".z", Scrub(title + ".z", value.z, "Z", _axisZ));
         EndRow();
         return value;
     }
@@ -278,10 +279,17 @@ public partial class CS_MayaPreviewInspector
         string id = FieldId(key);
         if (!_fields.ContainsKey(id) || GUI.GetNameOfFocusedControl() != id)
             _fields[id] = value.ToString("G6", CultureInfo.InvariantCulture);
+        // The box size never depends on its text, so long values do not push the row apart
+        // (the text is clipped instead). Boxes in one row share the width equally.
+        GUIStyle style = GUI.skin.textField;
+        Rect rect = width > 0
+            ? GUILayoutUtility.GetRect(width, RowHeight - 2, style, GUILayout.Width(width))
+            : GUILayoutUtility.GetRect(30, RowHeight - 2, style, GUILayout.MinWidth(30), GUILayout.ExpandWidth(true));
+        // Middle button on the box: Houdini-style ladder (see Scrub).
+        if (rect.Contains(Event.current.mousePosition)) TryStartLadder(id, value);
+        if (_scrubKey == id) { value = _scrubValue; _fields[id] = value.ToString("G6", CultureInfo.InvariantCulture); }
         GUI.SetNextControlName(id);
-        string text = width > 0
-            ? GUILayout.TextField(_fields[id], GUILayout.Width(width))
-            : GUILayout.TextField(_fields[id], GUILayout.MinWidth(30), GUILayout.ExpandWidth(true));
+        string text = GUI.TextField(rect, _fields[id], style);
         bool changed = text != _fields[id];
         _fields[id] = text;
         if (changed && float.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out float parsed)

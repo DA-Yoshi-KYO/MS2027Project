@@ -419,7 +419,7 @@ public class CS_MayaPreviewRuntimeServer : MonoBehaviour
             )
         )
         {
-            CS_MayaPreviewIdleThrottle.Wake();
+            CS_MayaPreviewIdleThrottle.WakeFromMaya();
 
             if (received.header != null)
             {

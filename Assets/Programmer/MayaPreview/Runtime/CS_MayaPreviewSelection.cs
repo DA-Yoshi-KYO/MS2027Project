@@ -512,6 +512,8 @@ public class CS_MayaPreviewSelection : MonoBehaviour
     private void LateUpdate()
     {
         if (_outlines.Count == 0 || _camera == null) return;
+        // Frames that are not drawn (idle throttle) do not need the ribbons.
+        if (!UnityEngine.Rendering.OnDemandRendering.willCurrentFrameRender) return;
         if (_outlines.Exists(o => o.target == null || o.go == null))
         {
             _objects.RemoveAll(o => o == null);

@@ -3,6 +3,7 @@ using System.IO;
 using UnityEditor;
 using UnityEditor.Build.Reporting;
 using UnityEngine;
+using UnityEngine.Rendering;
 
 /*
 +=====================================
@@ -19,6 +20,7 @@ using UnityEngine;
           into <project>/Assets/Designer by default.
  History: 2026/10/11 New
           2026/10/11 Project path for the export
+          2026/11/05 Built with DirectX 11 (less memory), project setting restored afterwards
 =====================================+
 */
 public static class CSE_MayaPreviewHostBuild
@@ -58,7 +60,23 @@ public static class CSE_MayaPreviewHostBuild
             targetGroup = BuildTargetGroup.Standalone,
             options = BuildOptions.None
         };
-        BuildReport report = BuildPipeline.BuildPlayer(options);
+        // The preview player uses DirectX 11: much less driver memory than DirectX 12 and no
+        // ray tracing structures (ray tracing is off in the preview anyway). The project's own
+        // setting (DX12 first) is put back right after the build.
+        GraphicsDeviceType[] previousApis = PlayerSettings.GetGraphicsAPIs(BuildTarget.StandaloneWindows64);
+        bool previousAuto = PlayerSettings.GetUseDefaultGraphicsAPIs(BuildTarget.StandaloneWindows64);
+        BuildReport report;
+        try
+        {
+            PlayerSettings.SetUseDefaultGraphicsAPIs(BuildTarget.StandaloneWindows64, false);
+            PlayerSettings.SetGraphicsAPIs(BuildTarget.StandaloneWindows64, new[] { GraphicsDeviceType.Direct3D11 });
+            report = BuildPipeline.BuildPlayer(options);
+        }
+        finally
+        {
+            PlayerSettings.SetGraphicsAPIs(BuildTarget.StandaloneWindows64, previousApis);
+            PlayerSettings.SetUseDefaultGraphicsAPIs(BuildTarget.StandaloneWindows64, previousAuto);
+        }
         if (report.summary.result == BuildResult.Succeeded)
         {
             try

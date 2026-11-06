@@ -16,16 +16,26 @@ using UnityEngine;
  * ・今の役割は、タグを変身中のタグ(PlayerTransformation)にすることだけ。警察の視界(CS_PoliceVision)はこのタグのプレイヤーを見つける
  *   (Player.prefabのタグは通常のタグのままなので、起動時にここで切り替える)
  * ・常に変身しているので、攻撃・必殺技・パリーの反撃は変身しているかを確認しない
+ * ・必殺技の「警察に見つからない」効果(CS_PlayerCharacter。イシュ)の間だけ、タグを通常のタグ(_normalTag)に戻す(SetHiddenFromPolice)
+ *   警察の視界は変身中のタグのプレイヤーしか見つけないので、その間は見つからない。効果が終わったら変身中のタグに戻す
  */
 // ========================================
 
 public class CS_PlayerTransformation : NetworkBehaviour
 {
     private const string _transformedTag = "PlayerTransformation";
+    private const string _normalTag = "PlayerNoTransformation";   // Player.prefabのタグ(警察に見つからない)
 
     // どのクライアントでも、スポーンより前に変身中のタグにしておく
     private void Awake()
     {
         gameObject.tag = _transformedTag;
+    }
+
+    // 警察に見つからない状態にする・戻す(必殺技の効果。CS_PlayerCharacterが全員の手元で呼ぶ)
+    public void SetHiddenFromPolice(bool hidden)
+    {
+        string tag = hidden ? _normalTag : _transformedTag;
+        if (!gameObject.CompareTag(tag)) gameObject.tag = tag;
     }
 }

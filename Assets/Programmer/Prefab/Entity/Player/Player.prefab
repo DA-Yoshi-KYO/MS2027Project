@@ -63,6 +63,7 @@ GameObject:
   - component: {fileID: 1000006798085298387}
   - component: {fileID: 1000004464205835075}
   - component: {fileID: 192866817224853479}
+  - component: {fileID: 3150130518343412178}
   m_Layer: 31
   m_Name: Player
   m_TagString: PlayerNoTransformation
@@ -787,6 +788,10 @@ MonoBehaviour:
   _expandTime: 1
   _fadeTime: 0.3
   _revealDuration: 10
+  _autoScanEnabled: 1
+  _autoScanInterval: 20
+  _autoScanOnStart: 1
+  _resetAutoScanOnManual: 1
 --- !u!114 &6619284730158836402
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -886,8 +891,10 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::CS_PlayerHide
   ShowTopMostFoldoutHeaderGroup: 1
-  _sightHeight: 1.3
   _pointHeight: 1
+  _requiredVisibleRatio: 0.3
+  _sightSampleCount: 3
+  _sightSampleInset: 0.1
   _flySpeed: 25
   _arriveDistance: 0.3
   _maxFlyTime: 1
@@ -1070,6 +1077,20 @@ MonoBehaviour:
   _camoMaterial: {fileID: 2100000, guid: c106c1c6d57f90a4c9aa20e19a25ea22, type: 2}
   _selfAlpha: 0.25
   _othersAlpha: 0.05
+--- !u!114 &3150130518343412178
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1825699444668748530}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5dbbcc706883eb143bf930299cb51290, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CS_PlayerCharacter
+  ShowTopMostFoldoutHeaderGroup: 1
+  _roster: {fileID: 11400000, guid: 4aca111469ac0e14091b3239ffd4a62d, type: 2}
 --- !u!1 &3298430547158640491
 GameObject:
   m_ObjectHideFlags: 0

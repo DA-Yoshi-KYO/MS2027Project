@@ -24,7 +24,7 @@ Material:
   m_LightmapFlags: 4
   m_EnableInstancingVariants: 0
   m_DoubleSidedGI: 1
-  m_CustomRenderQueue: 3050
+  m_CustomRenderQueue: 3000
   stringTagMap:
     RenderType: Transparent
   disabledShaderPasses:
@@ -235,7 +235,7 @@ Material:
     - _ParallaxMapSliceCount: 4
     - _ParallaxMapTarget: 1
     - _ParallaxStrength: 0.3
-    - _QueueOffset: 50
+    - _QueueOffset: 0
     - _RenderType: 2
     - _RimTransparencyEnabled: 0
     - _RimTransparencyProgress: 0.5

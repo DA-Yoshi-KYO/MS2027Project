@@ -9,8 +9,8 @@ Material:
   m_PrefabAsset: {fileID: 0}
   m_Name: MT_Bom_03
   m_Shader: {fileID: 4800000, guid: 1bc5c6a70411243779ce486a98012125, type: 3}
-  m_Parent: {fileID: 2100000, guid: 84def36ba507c474496935325a3a2ef5, type: 2}
-  m_ModifiedSerializedProperties: 8
+  m_Parent: {fileID: 2100000, guid: c115d68ac63181f45a56051fe9cf2d2d, type: 2}
+  m_ModifiedSerializedProperties: 24
   m_ValidKeywords:
   - _ALPHA_TRANSITION_MAP_MODE_2D
   - _BASE_MAP_MODE_2D
@@ -24,7 +24,7 @@ Material:
   m_LightmapFlags: 4
   m_EnableInstancingVariants: 0
   m_DoubleSidedGI: 0
-  m_CustomRenderQueue: -1
+  m_CustomRenderQueue: 3000
   stringTagMap:
     RenderType: Transparent
   disabledShaderPasses:
@@ -44,14 +44,20 @@ Material:
     m_Ints: []
     m_Floats:
     - _BaseMapBrightness: 1027.19
+    - _BlendDst: 10
+    - _BlendSrc: 5
     - _ColorCorrectionMode: 0
     - _Cull: 2
+    - _Cutoff: 0.089
     - _EmissionAreaType: 1
     - _EmissionColorType: 1
-    - _EmissionIntensity: 80
+    - _EmissionIntensity: 6.6
     - _EmissionIntensityCoord: 0
+    - _QueueOffset: 0
+    - _RenderType: 2
     - _SoftParticlesEnabled: 1
     - _SoftParticlesIntensity: 10
+    - _VertexAlphaMode: 0
     - _VertexDeformationIntensity: 0
     - _ZWrite: 0
     - _ZWriteOverride: 0

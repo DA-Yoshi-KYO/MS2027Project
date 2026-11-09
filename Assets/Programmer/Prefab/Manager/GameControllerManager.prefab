@@ -115,8 +115,9 @@ MonoBehaviour:
   _localPlayerViewTransform: {fileID: 0}
   _miniMapView: {fileID: 0}
   _mapRadius: 50
-  _mapWorldSize: 240
+  _mapWorldSize: 760
   _rotateWithPlayer: 1
+  _updateInterval: 0.05
 --- !u!114 &9201942720854417754
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -144,7 +145,3 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::CS_PoliceDirectionController
   _presenter: {fileID: 0}
-  _enableDebugMode: 0
-  _debugPlayerTransform: {fileID: 0}
-  _debugPoliceDistance: 15
-  _debugRotateSpeed: 30

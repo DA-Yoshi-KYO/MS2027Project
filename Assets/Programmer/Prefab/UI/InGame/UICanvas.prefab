@@ -401,6 +401,7 @@ MonoBehaviour:
   _rotateWithPlayer: 1
   _mapCenterX: 0
   _mapCenterZ: 0
+  _crimeAnimationThreshold: 80
 --- !u!114 &647710595524759295
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -423,6 +424,12 @@ MonoBehaviour:
   _itemIconPrefab: {fileID: 2296028825770602815, guid: 544ece93ee525f1488512e26ec2b467f, type: 3}
   _randomEventIconPrefab: {fileID: 5362597437098057568, guid: a7211ec0a94ee6d46b0d6230a7df0467, type: 3}
   _miniMapDisplayRadius: 200
+  _edgeClippedScale: 0.7
+  _edgeClippedAlpha: 0.6
+  _crimeWarningMinimumScale: 0.75
+  _crimeWarningMaximumScale: 1.15
+  _crimeWarningScaleDuration: 0.6
+  _offsetAnimationById: 1
   _debugPixelsPerMeter: 0
   _debugMetersPerPixel: 0
   _debugVisibleRange: 0
@@ -2148,6 +2155,8 @@ MonoBehaviour:
   _canvas: {fileID: 224629134698006408}
   _targetCamera: {fileID: 0}
   _worldOffset: {x: 0, y: 2.2, z: 0}
+  _scanWaveSpeed: 20
+  _markerRevealDelay: 0
 --- !u!1 &2340339615856779658
 GameObject:
   m_ObjectHideFlags: 0

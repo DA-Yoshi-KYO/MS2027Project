@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using Unity.Netcode;
 using UnityEngine;
 
@@ -29,6 +30,10 @@ using UnityEngine;
  *      動けなくなった(死亡・スタン)・悪人が倒れた時は中止する
  *   3. 攻撃: 着いてから_strikeDelay秒後に、その悪人1体だけへ奇襲を当てる(範囲の当たり判定は使わないので空振りしない)
  *   4. _strikeDuration秒で奇襲が終わり、動けるようになる。この後に攻撃ボタンを押すと、通常攻撃の1段目から始まる
+ * ・連続奇襲: 奇襲を始めた攻撃ボタンを押し続けている間は、奇襲が終わるたびに、次に奇襲できる悪人へ続けて奇襲する
+ *   奇襲できる悪人がいない間は待ち、ボタンを離す・必殺技の合図(LT)を押す・動けなくなると終わる(押し直すまで続けない)
+ *   一度狙った悪人(倒した・中止した悪人)は_chainSkipTime秒のあいだ狙わない
+ *   (通信では、倒れたことが手元に届くまで少しかかるため、倒したばかりの悪人へもう一度飛び込まないように)
  * ・奇襲になった時は、その悪人の残りHP以上のダメージを与えて一撃で倒す(仕様「戦闘をすぐに終わらせる」)
  * ・奇襲を食らった悪人(巻き込んだ悪人も)は、プレイヤーの方を一瞬で向き、背中側へ大きく吹き飛ぶ(CS_VillainKnockback.BlowAway。Issue #379)
  *   吹き飛ぶ距離・時間は悪人のプレハブ(CS_VillainKnockbackのBlow Away)で変える
@@ -91,6 +96,7 @@ public class CS_PlayerAmbush : NetworkBehaviour
     [SerializeField][Min(0f)] private float _strikeTolerance = 2f;        // 当てる時、着いたとみなす距離からさらにこれだけ離れていても許す(m)
     [SerializeField] private LayerMask _dashPassThroughLayers = 1 << 31;  // 飛び込み中にぶつからないレイヤー(悪人・プレイヤーのいるレイヤー)
     [SerializeField][Min(0f)] private float _pressGraceTime = 0.3f;       // 押した瞬間に奇襲できなくても、この秒数以内にロックオン表示していた悪人なら奇襲する
+    [SerializeField][Min(0f)] private float _chainSkipTime = 1f;          // 連続奇襲で、一度狙った悪人をもう狙わない時間(秒。倒れたことが届くまでの間)
 
     [Header("巻き込み")]
     [SerializeField][Min(0f)] private float _splashRadius = 0.7f;         // 奇襲で倒した悪人から、この半径以内の悪人も一撃で倒す(m。0で巻き込まない。密着している悪人だけ)
@@ -118,12 +124,15 @@ public class CS_PlayerAmbush : NetworkBehaviour
     private bool _isPassingThrough;            // 飛び込み中で、悪人・プレイヤーとぶつからないようにしているか
     private Phase _phase = Phase.None;
     private CS_VillainHealth _target;        // 奇襲している悪人
+    private Collider _targetCollider;        // その悪人の当たり判定(足元の高さを調べる。飛び込み中に毎フレーム探さないよう控える)
     private float _elapsed;                  // 今の段階(飛び込み・攻撃)が始まってからの時間
     private bool _hasStruck;                 // 奇襲を当てる処理を行ったか
     private CS_VillainHealth _reservedTarget;   // 奇襲すると決めた悪人(サーバー、またはオフラインのみ)
     private float _reservedUntil;               // 予約の期限(Time.time。サーバー、またはオフラインのみ)
     private CS_VillainHealth _lastFoundTarget;  // 最後にFindAmbushTargetで見つかった悪人(本人の手元。押した瞬間の猶予に使う)
     private float _lastFoundTime;               // それが見つかった時刻(Time.time)
+    private bool _isChainHeld;                  // 奇襲を始めたボタンを押し続けているか(押し続けている間は、続けて奇襲する)
+    private readonly Dictionary<CS_VillainHealth, float> _skipUntil = new Dictionary<CS_VillainHealth, float>();   // 一度狙った悪人と、また狙えるようになる時刻
 
     public float range => _range;                   // 奇襲できる距離(m)
     public bool isAmbushing => _phase != Phase.None;   // 奇襲中か(CS_PlayerAttackが、通常攻撃・必殺技を止めるのに使う)
@@ -146,7 +155,11 @@ public class CS_PlayerAmbush : NetworkBehaviour
 
     private void Update()
     {
-        if (_phase == Phase.None) return;
+        if (_phase == Phase.None)
+        {
+            UpdateChain();
+            return;
+        }
 
         // 動けなくなった(死亡・スタン)・悪人が倒れた・消えた時はやめる
         if (!_player.canAct || !IsTargetAlive())
@@ -173,6 +186,7 @@ public class CS_PlayerAmbush : NetworkBehaviour
         if (villain == null) return false;
 
         _target = villain;
+        _targetCollider = villain.GetComponentInChildren<Collider>();
         _phase = Phase.Dash;
         _elapsed = 0f;
         _hasStruck = false;
@@ -183,14 +197,34 @@ public class CS_PlayerAmbush : NetworkBehaviour
         RequestStart(villain);
         if (!isAmbushing) return false;
 
+        _isChainHeld = true;
         onAmbushStarted?.Invoke(villain);
         return true;
+    }
+
+    // 奇襲を始めた攻撃ボタンを押し続けている間は、次に奇襲できる悪人へ続けて奇襲する(いなければ、見つかるまで待つ)
+    private void UpdateChain()
+    {
+        if (!_isChainHeld) return;
+
+        // ボタンを離した・必殺技の合図(LT)を押した・動けなくなった時は、連続奇襲を終わる
+        if (!_player.attackAction.IsPressed() || _player.isSpecialModifierHeld || !_player.canAct)
+        {
+            _isChainHeld = false;
+            return;
+        }
+
+        // SAでハイドポイントへ飛んでいる間は待つ(CS_PlayerAttackと同じ)
+        if (_player.isHiding) return;
+
+        TryStartAmbush();
     }
 
     // 直前(_pressGraceTime秒以内)にロックオン表示していた悪人。倒れておらず、遠すぎず、間に壁が無ければ返す
     private CS_VillainHealth GetRecentTarget()
     {
         if (_lastFoundTarget == null || Time.time - _lastFoundTime > _pressGraceTime) return null;
+        if (IsSkipped(_lastFoundTarget)) return null;
         if (_lastFoundTarget.isDefeated || _lastFoundTarget.currentHp <= 0f) return null;
         if (HorizontalDistance(_lastFoundTarget.transform.position) > _range) return null;
         if (!IsClearLine(transform.position, _lastFoundTarget.transform)) return null;
@@ -245,7 +279,8 @@ public class CS_PlayerAmbush : NetworkBehaviour
         float horizontalMove = Mathf.Max(0f, HorizontalDistance(villain.transform.position) - _strikeDistance);
         Vector3 move = HorizontalDirection(villain.transform.position) * horizontalMove;
 
-        float heightGap = GetFeetHeight(villain.transform, villain.GetComponentInChildren<Collider>()) - GetFeetHeight(transform, _collider);
+        Collider villainCollider = villain == _target ? _targetCollider : villain.GetComponentInChildren<Collider>();
+        float heightGap = GetFeetHeight(villain.transform, villainCollider) - GetFeetHeight(transform, _collider);
         bool isLevel = Mathf.Abs(heightGap) <= _verticalTolerance || (heightGap < 0f && _phase == Phase.Dash && _elapsed >= _landCheckDelay && _player.isGrounded);
         if (!isLevel) move.y = heightGap;
         return move;
@@ -277,8 +312,12 @@ public class CS_PlayerAmbush : NetworkBehaviour
         // 当てる前にやめた時は、止めていた悪人を動かす
         if (_phase != Phase.None && !_hasStruck) RequestRelease();
 
+        // 狙った悪人(倒した・中止した)は、しばらく連続奇襲で狙わない
+        if (_target != null) _skipUntil[_target] = Time.time + _chainSkipTime;
+
         _phase = Phase.None;
         _target = null;
+        _targetCollider = null;
         _elapsed = 0f;
         _hasStruck = false;
         _player.ClearAimFacing();
@@ -535,6 +574,7 @@ public class CS_PlayerAmbush : NetworkBehaviour
 
             // isDefeatedはサーバーのみなので、クライアントでも分かるHPでも見る
             if (villain.isDefeated || villain.currentHp <= 0f) continue;
+            if (IsSkipped(villain)) continue;
             if (!MeetsAmbushCondition(villain, position)) continue;
 
             float sqr = (villain.transform.position - position).sqrMagnitude;
@@ -550,6 +590,16 @@ public class CS_PlayerAmbush : NetworkBehaviour
             _lastFoundTime = Time.time;
         }
         return nearest;
+    }
+
+    // 少し前に狙った悪人か(期限が過ぎていたら忘れる)
+    private bool IsSkipped(CS_VillainHealth villain)
+    {
+        if (!_skipUntil.TryGetValue(villain, out float until)) return false;
+        if (Time.time < until) return true;
+
+        _skipUntil.Remove(villain);
+        return false;
     }
 
     // 奇襲が決まったことを知らせる(一撃で倒すダメージを与えた後に呼ぶ)

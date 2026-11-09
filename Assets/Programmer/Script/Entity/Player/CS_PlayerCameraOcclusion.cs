@@ -46,6 +46,7 @@ public class CS_PlayerCameraOcclusion : MonoBehaviour
         public Renderer[] renderers;
         public float current = 1f;    // 今の_DitherFade
         public float target = 1f;     // 目標の_DitherFade(このフレーム遮っていなければ1)
+        public float applied = 1f;    // Rendererへ最後に渡した_DitherFade(変わらない間は渡し直さない)
     }
 
     private static readonly int DitherFadeId = Shader.PropertyToID("_DitherFade");
@@ -191,7 +192,7 @@ public class CS_PlayerCameraOcclusion : MonoBehaviour
                 continue;
             }
 
-            ApplyFade(fadeTarget);
+            if (fadeTarget.current != fadeTarget.applied) ApplyFade(fadeTarget);
         }
 
         foreach (Transform key in _removeList)
@@ -203,6 +204,7 @@ public class CS_PlayerCameraOcclusion : MonoBehaviour
     // _DitherFadeをRendererごとに渡す
     private void ApplyFade(FadeTarget fadeTarget)
     {
+        fadeTarget.applied = fadeTarget.current;
         foreach (Renderer renderer in fadeTarget.renderers)
         {
             if (renderer == null) continue;

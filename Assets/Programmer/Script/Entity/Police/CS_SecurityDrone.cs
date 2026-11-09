@@ -4,8 +4,10 @@
  * 制作者：宇留野陸斗
  * ------------------------------------------------
  * 2026-10-21 | 初回作成
+ * 2026-11-09 | 警戒状態の判定用に、今気にしているプレイヤーを公開した(TryGetAlertSubject)
  * ================================================ */
 
+using System.Collections.Generic;
 using Unity.Netcode;
 using UnityEngine;
 
@@ -25,6 +27,9 @@ using UnityEngine;
 [RequireComponent(typeof(CS_PoliceVision))]
 public class CS_SecurityDrone : NetworkBehaviour, IDamageable, IStunnable
 {
+    // 出現している巡回ドローン(警戒状態の判定に使う)
+    private static readonly List<CS_SecurityDrone> _activeDrones = new List<CS_SecurityDrone>();
+
     // 状態(書き込みはサーバーのみ。見た目を全員で合わせるために同期する)
     private readonly NetworkVariable<CSE_SecurityDroneState> _state = new NetworkVariable<CSE_SecurityDroneState>();
 
@@ -133,6 +138,9 @@ public class CS_SecurityDrone : NetworkBehaviour, IDamageable, IStunnable
     // 今の状態(全クライアントで分かる。ネットワークに出現していない時は、判断に使っている状態)
     public CSE_SecurityDroneState state => IsSpawned ? _state.Value : _currentState;
 
+    // 出現している巡回ドローン
+    public static IReadOnlyList<CS_SecurityDrone> activeDrones => _activeDrones;
+
     // 制圧モードのクラスが使う: ドローンのデータ・追跡速度
     public CSO_SecurityDroneData data => _data;
     public float chaseSpeed => _chaseSpeed;
@@ -174,6 +182,47 @@ public class CS_SecurityDrone : NetworkBehaviour, IDamageable, IStunnable
         _vision.Setting(data.viewAngle, data.viewDistance, data.viewHeight);
         _thinkTimer = Random.Range(0.0f, _thinkInterval);
         _isInitialized = true;
+    }
+
+    private void OnEnable()
+    {
+        if (!_activeDrones.Contains(this)) _activeDrones.Add(this);
+    }
+
+    private void OnDisable()
+    {
+        _activeDrones.Remove(this);
+    }
+
+    /// <summary>
+    /// 警戒状態の判定に使う、ドローンが今気にしているプレイヤーを取得するメソッド(サーバー、またはオフラインだけ正しい)
+    /// 見ている間・攻撃している間は「見つけている(発見中)」、見失ったあと追っている間は「見つけていない(捜索中)」
+    /// </summary>
+    /// <param name="player">気にしているプレイヤー</param>
+    /// <param name="isFound">見つけている(発見中)ならtrue、見失ったあとの追跡(捜索中)ならfalse</param>
+    /// <returns>気にしているプレイヤーがいればtrue(巡回中・スタン中・攻撃後の隙などはfalse)</returns>
+    public bool TryGetAlertSubject(out CS_PlayerHealth player, out bool isFound)
+    {
+        player = null;
+        isFound = false;
+        if (!_isInitialized || _target == null) return false;
+
+        switch (_currentState)
+        {
+            case CSE_SecurityDroneState.Detected:
+            case CSE_SecurityDroneState.TaserCharge:
+            case CSE_SecurityDroneState.TaserAim:
+            case CSE_SecurityDroneState.KillApproach:
+            case CSE_SecurityDroneState.KillCharge:
+                isFound = true;
+                break;
+            case CSE_SecurityDroneState.Chase:
+                break;
+            default:
+                return false;
+        }
+
+        return _target.TryGetComponent(out player);
     }
 
     private void Update()

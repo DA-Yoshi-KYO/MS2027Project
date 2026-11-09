@@ -10,6 +10,7 @@
  * 2026-11-01 | 標的が直接目指す距離以内にいる間は、毎フレーム目的地を更新するように変更
  * 2026-11-01 | 巡回時の視界に入ったプレイヤーも、警戒UIの黄色い目の対象にするように変更
  * 2026-11-06 | 見つけた瞬間にスコアへ知らせる(減点する)のをやめ、追跡している間、毎フレームCS_PoliceAlertManagerへ知らせるようにした(時間で減点する)
+ * 2026-11-09 | 追跡している・探している・怪しんでいるプレイヤーを、警戒状態の判定用に公開した
  * ================================================ */
 
 using System.Collections.Generic;
@@ -54,6 +55,9 @@ public class CS_PoliceBrain : MonoBehaviour, IStunnable
     // 駆け付ける現場の目印(同じ事件へ向かう警察は同じ目印を持ち、現場の周りの別々の位置へ割り当てられる)と、現場の位置
     private object _rushKey = null;
     private Vector3 _rushCenter = Vector3.zero;
+
+    // 探している・怪しんでいる・駆け付けているプレイヤー(警戒UI・警戒状態の判定に使う。分からなければnull。探索中は、直前の相手を残す)
+    private CS_PlayerHealth _signalPlayer = null;
 
     // 駆け付けの元になった信号を出したプレイヤー(警戒UIが「自分への信号か」を判定するのに使う。分からなければnull)
     private CS_PlayerHealth _rushSource = null;
@@ -179,6 +183,15 @@ public class CS_PoliceBrain : MonoBehaviour, IStunnable
 
     // 現在の行動状態
     public CSE_PoliceMoveState state => _state;
+
+    // 今、実際に見つけて追跡しているプレイヤー(追跡していない・標的がプレイヤーでなければnull。警戒状態の「発見中」の判定に使う)
+    public CS_PlayerHealth chasedPlayer => _state == CSE_PoliceMoveState.Chase ? _chasedPlayer : null;
+
+    // 今、探している・怪しんで近づいている・駆け付けているプレイヤー(いなければnull。警戒状態の「捜索中」の判定に使う)
+    public CS_PlayerHealth searchedPlayer => IsSearching(_state) ? (_signalPlayer != null ? _signalPlayer : GetCalledPlayer()) : null;
+
+    // 警戒状態の間だけ出る増援の警察か(警戒状態を支えない。増援が追う→警戒状態が続く→増援が追う、の繰り返しを防ぐため)
+    public bool isReinforcement => _group is CS_PoliceInformantGroup informantGroup && informantGroup.followsAlert;
 
     // 追跡・駆け付け・探索・攻撃のどれもしていない(巡回・待機している)か
     public bool isIdle => (_state == CSE_PoliceMoveState.Patrol || _state == CSE_PoliceMoveState.Wait)
@@ -318,21 +331,42 @@ public class CS_PoliceBrain : MonoBehaviour, IStunnable
             case CSE_PoliceMoveState.Chase:
                 foundNumber = GetPlayerNumber(_currentTarget);
                 _signalPlayerNumber = foundNumber;
+                _signalPlayer = _chasedPlayer;
                 break;
             case CSE_PoliceMoveState.Rush:
                 _signalPlayerNumber = GetPlayerNumber(_rushSource);
+                _signalPlayer = _rushSource;
                 break;
             case CSE_PoliceMoveState.Suspect:
                 _signalPlayerNumber = GetPlayerNumber(_suspect);
+                _signalPlayer = _suspect != null ? _suspect.GetComponentInParent<CS_PlayerHealth>() : null;
                 break;
             case CSE_PoliceMoveState.Search:
                 break;
             default:
                 _signalPlayerNumber = CS_PoliceDetectionSource.noPlayer;
+                _signalPlayer = null;
                 break;
         }
 
         _detection.SetState(foundNumber, _signalPlayerNumber);
+    }
+
+    /// <summary>
+    /// 内通フォンで呼ばれて、標的の現在地へ向かっている(駆け付け中の)時の、標的のプレイヤーを取得するメソッド(そうでなければnull)
+    /// </summary>
+    private CS_PlayerHealth GetCalledPlayer()
+    {
+        return _state == CSE_PoliceMoveState.Rush && _group is CS_PoliceInformantGroup informantGroup && !informantGroup.followsAlert
+            ? informantGroup.targetPlayer : null;
+    }
+
+    /// <summary>
+    /// 探している・怪しんで近づいている・駆け付けている状態か(追跡は含まない)を判定するメソッド
+    /// </summary>
+    private static bool IsSearching(CSE_PoliceMoveState state)
+    {
+        return state == CSE_PoliceMoveState.Search || state == CSE_PoliceMoveState.Suspect || state == CSE_PoliceMoveState.Rush;
     }
 
     /// <summary>

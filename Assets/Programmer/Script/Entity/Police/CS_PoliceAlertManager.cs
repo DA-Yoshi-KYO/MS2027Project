@@ -8,6 +8,7 @@
  * 2026-11-01 | 警戒状態になった時に、プレイヤーの近くへ増援を出すようにした(手配度は復活させない)
  * 2026-11-06 | 増援を、見つけた警察と挟む形の位置に、遠くから出すようにした
  * 2026-11-06 | 警察に追跡・ドローンに目撃・ライトに照射されている時間と、レーザーに当たった時に、プレイヤーを減点するようにした(見つかった瞬間の減点はやめた)
+ * 2026-11-09 | 警戒状態を、タイマーではなく、警察・巡回ドローンの実際の状態から決めてCS_PlayerAlertへ渡すようにした
  * ================================================ */
 
 using System.Collections.Generic;
@@ -15,20 +16,26 @@ using UnityEngine;
 
 /// <summary>
 /// 警戒状態のプレイヤーのところへ、付近の警察を向かわせるクラス(シーンに1つ置く)
-/// ・警戒状態の本体(なし / 発見中 / 捜索中、解除までの時間)は、プレイヤー側のCS_PlayerAlertが持つ。このクラスは状態を持たない
+/// ・警戒状態の本体(なし / 発見中 / 捜索中)は、プレイヤー側のCS_PlayerAlertが持つ。このクラスが、警察・巡回ドローンの実際の状態から決めて、毎フレーム渡す
+///   発見中: そのプレイヤーを実際に見つけて追いかけている警察(または、見ている・攻撃している巡回ドローン)がいる
+///   捜索中: 追いかける警察はいないが、探している・怪しんでいる・駆け付けている警察(または、見失ったあと追っている巡回ドローン)がいる
+///   なし  : どちらもいない(タイマーは使わない。警察が探索を終えて巡回へ戻ると、消える)
+///   増援の警察は、警戒状態を支えない(増援が警戒状態の間追い続けるため、数えると警戒状態が終わらなくなる。増援が実際に見つけて追跡している時だけ数える)
+///   防犯レーザー・ライトに触れた時(ReportTouch)は、追いかける警察の状態が無いので、決められた秒数だけ「発見中」にする
 /// ・警察陣営(警察・防犯装置)がプレイヤーを見つけたら、Reportで知らせる(見えている間は呼び続ける)
-///   ReportはCS_PlayerAlert.NotifyDetected()を呼んで警戒状態にし、見つかった場所を覚える
-/// ・プレイヤーが警戒状態(CS_PlayerAlertが「なし」以外)の間は、見つかった場所の付近(設定の範囲内)にいる警察が、その場所へ向かう
+///   Reportは、見つかった場所を覚えて、付近の警察を向かわせる準備と、増援を出す準備をする
+/// ・プレイヤーが警戒状態の間(警戒状態になった直後を含む)は、見つかった場所の付近(設定の範囲内)にいる警察が、その場所へ向かう
 ///   見つかっている間は追跡し、見失ったら周囲を探す(この動きはCS_PoliceBrainが行う)
 ///   見つかった場所が変わったら、付近の警察へ新しい場所を知らせる
 /// ・プレイヤーが警戒状態になった時(警戒状態でなかったプレイヤーが見つかった時)に、そのプレイヤーの近くへ増援の警察を出す
+///   同じプレイヤーには、決められた間隔(reinforceCooldown)をあけないと出さない(短く解除される分、出しすぎないようにする)
 ///   増援は、プレイヤーから見て、見つけた警察(防犯装置)の反対側に出る(挟む形)。警戒状態の間、そのプレイヤーの現在地を追い、
 ///   警戒状態が解除されたら、追う標的も指示も無くなった時に帰還する
 /// ・警察に追跡されている間・巡回ドローンに見られている間・ストリートライトに照らされている間は、決められた秒数ごとに、決められた点数を
 ///   プレイヤーのスコアから引く(ReportExposureで知らせてもらう。途切れたら、数えた時間を捨てる)
 ///   複数に同時に見られていても、減点は1人分。防犯レーザーに当たった時は、決められた点数を1回引く(ReportLaserHit)
 ///   点数は、スコアの結果(CS_PlayerResultDataHolder)の「警察に見つかった」へ加える
-/// ・警戒状態が解除されたら(CS_PlayerAlertが「なし」に戻ったら)、そのプレイヤーへの指示をやめる
+/// ・警戒状態が解除されたら(CS_PlayerAlertが「なし」に戻って、少し待っても見つからなければ)、そのプレイヤーへの指示をやめる
 /// 警察への指示はサーバー(またはオフライン)だけで行う
 /// </summary>
 public class CS_PoliceAlertManager : MonoBehaviour
@@ -49,6 +56,10 @@ public class CS_PoliceAlertManager : MonoBehaviour
     // 増援の出現位置が見つからない時に、反対側の向きから左右へ試す向きを広げる角度の上限(度)
     private const float _reinforceWidenAngle = 60.0f;
 
+    // 警戒状態が「なし」になってから、この時間(秒)は、警察への指示(派遣)を続ける
+    // (見つかった直後は、警察の状態が変わるまでに少し間があるため、すぐに指示をやめないようにする)
+    private const float _episodeGrace = 1.0f;
+
     // 最後に見られていると知らされてから、この時間(秒)以内なら、今も見られているとみなす
     private const float _exposureGrace = 0.2f;
 
@@ -68,13 +79,26 @@ public class CS_PoliceAlertManager : MonoBehaviour
         // 見つかった場所へ向かうよう、すでに指示した警察(同じ場所には、1人に1回だけ指示する)
         private readonly HashSet<CS_PoliceBrain> _dispatched = new HashSet<CS_PoliceBrain>();
 
+        // 最後に、警戒状態だった(または見つかった)時刻
+        private float _lastActiveTime = 0.0f;
+
         public CS_PlayerAlert alert => _alert;
         public CS_PoliceGatherPoint point => _point;
         public HashSet<CS_PoliceBrain> dispatched => _dispatched;
+        public float lastActiveTime => _lastActiveTime;
 
         public DispatchState(CS_PlayerAlert alert)
         {
             _alert = alert;
+            _lastActiveTime = Time.time;
+        }
+
+        /// <summary>
+        /// 今、警戒状態だった(または見つかった)ことを覚えるメソッド
+        /// </summary>
+        public void MarkActive()
+        {
+            _lastActiveTime = Time.time;
         }
 
         /// <summary>
@@ -96,6 +120,17 @@ public class CS_PoliceAlertManager : MonoBehaviour
     // 次に警察へ指示を出し直すまでの残り時間
     private float _dispatchTimer = 0.0f;
 
+    // 警戒状態の判定のために、毎フレーム集めるプレイヤー(使い回す)
+    private readonly HashSet<CS_PlayerHealth> _foundNow = new HashSet<CS_PlayerHealth>();
+    private readonly HashSet<CS_PlayerHealth> _searchNow = new HashSet<CS_PlayerHealth>();
+
+    // 防犯レーザー・ライトに触れたプレイヤーごとの、「発見中」にしておく終わりの時刻(秒)
+    private readonly Dictionary<CS_PlayerHealth, float> _touchedUntil = new Dictionary<CS_PlayerHealth, float>();
+    private readonly List<CS_PlayerHealth> _touchBuffer = new List<CS_PlayerHealth>();
+
+    // プレイヤーごとの、最後に増援を出した時刻(秒)
+    private readonly Dictionary<CS_PlayerHealth, float> _lastReinforceTimes = new Dictionary<CS_PlayerHealth, float>();
+
     // 見られているプレイヤーごとの、最後に見られていると知らされた時刻(秒)
     private readonly Dictionary<CS_PlayerHealth, float> _lastExposedTimes = new Dictionary<CS_PlayerHealth, float>();
 
@@ -107,12 +142,12 @@ public class CS_PoliceAlertManager : MonoBehaviour
 
     [Header("＝＝＝ 警戒状態 ＝＝＝")]
     [SerializeField]
-    [Tooltip("警戒状態の設定(付近の範囲)。警戒状態が続く時間は、プレイヤー側のCS_PlayerAlertで設定する")]
+    [Tooltip("警戒状態の設定(付近の範囲・防犯装置に触れた時・増援・減点)。警戒状態は、警察・巡回ドローンの実際の状態から決まる")]
     private CSO_PoliceAlertData _alertData = null;
 
     /// <summary>
     /// プレイヤーを見つけたことを知らせるメソッド(サーバー、またはオフラインで呼ぶこと。見えている間は呼び続ける)
-    /// プレイヤーを警戒状態(CS_PlayerAlert)にし、付近の警察を見つかった場所へ向かわせる
+    /// 見つかった場所を覚えて、付近の警察を向かわせる準備と、増援を出す準備をする(警戒状態は、警察・ドローンの状態から、毎フレーム決まる)
     /// </summary>
     /// <param name="player">見つけたプレイヤー</param>
     /// <param name="position">プレイヤーが見つかった場所</param>
@@ -127,10 +162,28 @@ public class CS_PoliceAlertManager : MonoBehaviour
             return;
         }
 
-        alert.NotifyDetected();
+        // 管理クラスが無いシーンでは、警察を向かわせない
+        if (player.isDead || !TryGetInstance(out CS_PoliceAlertManager manager)) return;
 
-        // 管理クラスが無いシーンでも、警戒状態にはなる(警察を向かわせないだけ)
-        if (TryGetInstance(out CS_PoliceAlertManager manager)) manager.OnFound(alert, player, position, finderPosition);
+        manager.OnFound(alert, player, position, finderPosition);
+    }
+
+    /// <summary>
+    /// プレイヤーが防犯レーザー・ストリートライトに触れたことを知らせるメソッド(サーバー、またはオフラインで呼ぶこと)
+    /// Reportと同じ準備に加えて、決められた秒数(touchAlertDuration)だけ、警戒状態を「発見中」にしておく
+    /// (これらは瞬間の出来事で、追いかける警察の状態が無いため)
+    /// </summary>
+    /// <param name="player">触れたプレイヤー</param>
+    /// <param name="position">プレイヤーの場所</param>
+    /// <param name="finderPosition">防犯装置の位置</param>
+    public static void ReportTouch(CS_PlayerHealth player, Vector3 position, Vector3? finderPosition = null)
+    {
+        Report(player, position, finderPosition);
+
+        if (player == null || _instance == null || _instance._alertData == null || CS_PoliceSquad.IsNetworkClientOnly()) return;
+
+        float duration = _instance._alertData.touchAlertDuration;
+        if (duration > 0.0f) _instance._touchedUntil[player] = Time.time + duration;
     }
 
     /// <summary>
@@ -184,12 +237,15 @@ public class CS_PoliceAlertManager : MonoBehaviour
         _states.Clear();
         _lastExposedTimes.Clear();
         _exposedTimes.Clear();
+        _touchedUntil.Clear();
+        _lastReinforceTimes.Clear();
     }
 
     private void Update()
     {
         if (_instance != this) return;
 
+        UpdateAlertStates();
         UpdateExposurePenalty(Time.deltaTime);
         if (_states.Count == 0) return;
 
@@ -232,20 +288,20 @@ public class CS_PoliceAlertManager : MonoBehaviour
     }
 
     /// <summary>
-    /// プレイヤーが見つかった時の処理(警戒状態なら、見つかった場所を更新して、警察へ知らせる準備をする)
+    /// プレイヤーが見つかった時の処理(見つかった場所を更新して、警察へ知らせる準備をする。警戒状態になった直後なら、増援も出す)
     /// </summary>
     private void OnFound(CS_PlayerAlert alert, CS_PlayerHealth player, Vector3 position, Vector3? finderPosition)
     {
-        // 死亡中などで警戒状態にならなかった時は、警察を向かわせない
-        if (_alertData == null || !alert.isAlerted) return;
+        if (_alertData == null) return;
 
         if (!_states.TryGetValue(alert, out DispatchState state))
         {
-            // 警戒状態になった時に、一度だけ増援を出す(解除されるまで、見つかるたびには出さない)
+            // 警戒状態になった時に、増援を出す(解除されるまで、見つかるたびには出さない。短い間隔では出さない)
             state = new DispatchState(alert);
             _states.Add(alert, state);
-            SpawnReinforcements(alert, player, finderPosition);
+            if (CanSpawnReinforcements(player)) SpawnReinforcements(alert, player, finderPosition);
         }
+        state.MarkActive();
 
         // 見つかった場所が大きく動いた時だけ、新しい場所として警察へ知らせ直す
         Vector3 offset = state.point != null ? position - state.point.position : Vector3.zero;
@@ -256,7 +312,7 @@ public class CS_PoliceAlertManager : MonoBehaviour
     }
 
     /// <summary>
-    /// 警戒状態が解除された(またはプレイヤーがいなくなった)プレイヤーへの指示をやめるメソッド
+    /// 警戒状態が解除されて、少し(_episodeGrace秒)たった(またはプレイヤーがいなくなった)プレイヤーへの指示をやめるメソッド
     /// 向かっている警察への指示は取り消さない(探し終えたら、自然に巡回へ戻る)
     /// </summary>
     private void EndFinishedStates()
@@ -264,7 +320,7 @@ public class CS_PoliceAlertManager : MonoBehaviour
         _endBuffer.Clear();
         foreach (DispatchState state in _states.Values)
         {
-            if (state.alert == null || !state.alert.isAlerted) _endBuffer.Add(state.alert);
+            if (state.alert == null || (!state.alert.isAlerted && Time.time - state.lastActiveTime > _episodeGrace)) _endBuffer.Add(state.alert);
         }
 
         foreach (CS_PlayerAlert alert in _endBuffer) _states.Remove(alert);
@@ -290,6 +346,86 @@ public class CS_PoliceAlertManager : MonoBehaviour
             brain.RequestRush(state.point);
             state.dispatched.Add(brain);
         }
+    }
+
+    /// <summary>
+    /// 警察・巡回ドローンの実際の状態から、プレイヤーごとの警戒状態を決めて、CS_PlayerAlertへ渡すメソッド(毎フレーム。サーバー、またはオフラインだけ)
+    /// </summary>
+    private void UpdateAlertStates()
+    {
+        if (CS_PoliceSquad.IsNetworkClientOnly()) return;
+
+        CollectAlertPlayers();
+        RemoveExpiredTouches();
+
+        foreach (CS_Player player in CS_Player.activePlayers)
+        {
+            if (player == null || !player.TryGetComponent(out CS_PlayerHealth health) || !player.TryGetComponent(out CS_PlayerAlert alert)) continue;
+
+            CSE_PlayerAlertState state = DecideAlertState(health);
+            alert.SetPoliceState(state);
+            if (state != CSE_PlayerAlertState.None && _states.TryGetValue(alert, out DispatchState dispatch)) dispatch.MarkActive();
+        }
+    }
+
+    /// <summary>
+    /// プレイヤーの警戒状態を決めるメソッド(死亡中は「なし」。追跡されていれば「発見中」、探されていれば「捜索中」)
+    /// </summary>
+    private CSE_PlayerAlertState DecideAlertState(CS_PlayerHealth player)
+    {
+        if (player.isDead) return CSE_PlayerAlertState.None;
+        if (_foundNow.Contains(player)) return CSE_PlayerAlertState.Detected;
+        if (_searchNow.Contains(player)) return CSE_PlayerAlertState.Searching;
+        return CSE_PlayerAlertState.None;
+    }
+
+    /// <summary>
+    /// 今、プレイヤーを追跡している・探している警察と巡回ドローン(と、防犯装置に触れたプレイヤー)を集めるメソッド
+    /// </summary>
+    private void CollectAlertPlayers()
+    {
+        _foundNow.Clear();
+        _searchNow.Clear();
+
+        foreach (CS_PoliceBrain brain in CS_PoliceBrain.activeBrains)
+        {
+            if (brain == null || !brain.isActing) continue;
+
+            // 追跡は、増援も数える(実際に見つけている時だけ)。探している・駆け付けているのは、増援を数えない(警戒状態を支えないため)
+            CS_PlayerHealth chased = brain.chasedPlayer;
+            if (chased != null) _foundNow.Add(chased);
+            if (brain.isReinforcement) continue;
+
+            CS_PlayerHealth searched = brain.searchedPlayer;
+            if (searched != null) _searchNow.Add(searched);
+        }
+
+        foreach (CS_SecurityDrone drone in CS_SecurityDrone.activeDrones)
+        {
+            if (drone == null || !drone.TryGetAlertSubject(out CS_PlayerHealth subject, out bool isFound)) continue;
+
+            if (isFound) _foundNow.Add(subject);
+            else _searchNow.Add(subject);
+        }
+
+        foreach (KeyValuePair<CS_PlayerHealth, float> touched in _touchedUntil)
+        {
+            if (touched.Key != null) _foundNow.Add(touched.Key);
+        }
+    }
+
+    /// <summary>
+    /// 防犯装置に触れて「発見中」にしておく時間が終わったプレイヤーを、外すメソッド
+    /// </summary>
+    private void RemoveExpiredTouches()
+    {
+        _touchBuffer.Clear();
+        foreach (KeyValuePair<CS_PlayerHealth, float> touched in _touchedUntil)
+        {
+            if (touched.Key == null || Time.time >= touched.Value) _touchBuffer.Add(touched.Key);
+        }
+
+        foreach (CS_PlayerHealth player in _touchBuffer) _touchedUntil.Remove(player);
     }
 
     /// <summary>
@@ -346,6 +482,14 @@ public class CS_PoliceAlertManager : MonoBehaviour
     }
 
     /// <summary>
+    /// 増援を出してよいか(前に出してから、決められた間隔がたっているか)を判定するメソッド
+    /// </summary>
+    private bool CanSpawnReinforcements(CS_PlayerHealth player)
+    {
+        return !_lastReinforceTimes.TryGetValue(player, out float last) || Time.time - last >= _alertData.reinforceCooldown;
+    }
+
+    /// <summary>
     /// 警戒状態になったプレイヤーから決められた距離の外縁に、増援の警察を出すメソッド
     /// プレイヤーから見て、見つけた警察の反対側(挟む形)に出す。複数いる時は、反対側の向きを中心に、決められた角度の間隔で左右に並べる
     /// 増援は、警戒状態の間、そのプレイヤーの現在地を追う
@@ -357,6 +501,7 @@ public class CS_PoliceAlertManager : MonoBehaviour
     {
         if (!_alertData.hasReinforcement) return;
 
+        _lastReinforceTimes[player] = Time.time;
         Vector3 playerPosition = player.transform.position;
         Vector3 oppositeDirection = GetOppositeDirection(playerPosition, finderPosition);
         Dictionary<CSE_PoliceMoveState, float> speedTable =

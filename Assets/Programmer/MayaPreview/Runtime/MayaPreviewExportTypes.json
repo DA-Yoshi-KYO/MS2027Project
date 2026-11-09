@@ -1,0 +1,16 @@
+{
+    "_readme": "Maya Preview の書き出しの種類と名前のルール。exe を作り直さなくても、ここを書き換えれば次の書き出しから反映される。",
+    "_readme_naming": "名前のルール。{type} = 種類の id（Character など）、{name} = オブジェクト名をアッパーキャメルにしたもの。コーディング規則: Material は MT_xxx、Prefab などはアッパーキャメル。",
+    "_readme_types": "id: フォルダー名（Assets/Designer/<Mesh|Material|Texture|Prefab|Json>/<id>）。label: 画面に出る名前。prefab: Prefab を作るか。materials: マテリアルとテクスチャを作るか。fbxFolder: FBX の置き場所を変えるとき（Assets/Designer からの相対パス。空なら Mesh/<id>）。",
+    "naming": {
+        "material": "MT_{type}_{name}",
+        "fbx": "{name}",
+        "prefab": "{name}"
+    },
+    "types": [
+        { "id": "Character",  "label": "キャラクター", "prefab": true,  "materials": true,  "fbxFolder": "" },
+        { "id": "Background", "label": "背景",         "prefab": true,  "materials": true,  "fbxFolder": "" },
+        { "id": "Effect",     "label": "エフェクト",   "prefab": true,  "materials": true,  "fbxFolder": "" },
+        { "id": "Motion",     "label": "モーション",   "prefab": false, "materials": false, "fbxFolder": "Motion" }
+    ]
+}

@@ -89,6 +89,12 @@ public class CS_MayaPreviewRuntimeServer : MonoBehaviour
 
         // SESSION : マテリアル設定の保存先（Mayaプロジェクト/unityPreview/materials）
         public string materialFolder;
+
+        // SESSION : Mayaで開いている .mb のパス（空 = 未保存）。前回の書き出しの復元に使う
+        public string scene;
+
+        // SESSION : true = 保存しただけ（名前を付けて保存）。開き直しではない
+        public bool saved;
     }
 
 
@@ -499,6 +505,10 @@ public class CS_MayaPreviewRuntimeServer : MonoBehaviour
                 case "SESSION":
                     _library?.SetFolder(
                         received.header.materialFolder
+                    );
+                    CS_MayaPreviewExport.SetScene(
+                        received.header.scene,
+                        received.header.saved
                     );
                     break;
 

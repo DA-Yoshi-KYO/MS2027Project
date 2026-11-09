@@ -5,20 +5,22 @@ using UnityEngine;
  File   : CS_MayaPreviewInspector.Scaler
  Summary: MayaScaler (toolbar check box left of Outline).
           Maya sends its values in centimetres and the mesh is built 1 Maya unit = 1 Unity unit.
-          Off (default): real size. Maya_Model_Root is scaled 0.01 (cm -> m, like an FBX import),
+          Off          : real size. Maya_Model_Root is scaled 0.01 (cm -> m, like an FBX import),
                          so a 170 cm character in Maya is 1.7 m here.
-          On           : 100x the real size (Maya_Model_Root scale 1: 1 cm in Maya = 1 m here).
+          On (default) : 100x the real size (Maya_Model_Root scale 1: 1 cm in Maya = 1 m here).
           Only the view: Export still writes the Maya values unchanged.
           The choice is remembered between runs (PlayerPrefs).
  History: 2026/11/05 New
           2026/11/06 Off was 1 cm = 1 m (100x too big) and On another 100x on top: Off is now
                      the real size and On is 100x
+          2026/11/09 On by default
 =====================================+
 */
 public partial class CS_MayaPreviewInspector
 {
     // New key: the old one stored "On" as the default, which is not the real size any more.
-    private const string MayaScalerPrefsKey = "MayaPreview.MayaScaler.v2";
+    // v3: on by default (applied once to everyone).
+    private const string MayaScalerPrefsKey = "MayaPreview.MayaScaler.v3";
     private const float MayaScalerFactor = 100f;
     private const float MayaCentimetresToMetres = 0.01f;
 
@@ -27,7 +29,7 @@ public partial class CS_MayaPreviewInspector
 
     private void LoadMayaScaler()
     {
-        _mayaScaler = PlayerPrefs.GetInt(MayaScalerPrefsKey, 0) != 0;
+        _mayaScaler = PlayerPrefs.GetInt(MayaScalerPrefsKey, 1) != 0;   // default: on
         ApplyMayaScaler();
     }
 

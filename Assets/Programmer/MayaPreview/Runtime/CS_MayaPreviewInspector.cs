@@ -38,11 +38,12 @@ public partial class CS_MayaPreviewInspector : MonoBehaviour
     private CS_MayaPreviewGuides _guides;
     private Camera _view;
 
-    private bool _hierarchyOpen = true;
-    private bool _viewOpen;
+    // Default panels (first run): Performance, View and Graphics open, the others closed.
+    private bool _hierarchyOpen;
+    private bool _viewOpen = true;
     private bool _exportOpen;
-    private bool _materialOpen = true;
-    private bool _inspectorOpen = true;
+    private bool _materialOpen;
+    private bool _inspectorOpen;
     private bool _uiHidden;
     private bool _iconsVisible = true;
     private bool _typing;
@@ -84,7 +85,7 @@ public partial class CS_MayaPreviewInspector : MonoBehaviour
     public bool BlocksInput(Vector2 screenPosition, bool icons = true)
     {
         if (_uiHidden) return false;
-        if (_typing || _drag != null || _previewDragging || _splitUpper >= 0 || _scrubKey != null) return true;
+        if (_typing || _drag != null || _previewDragging || _splitUpper >= 0 || _scrubKey != null || ExportDialogOpen) return true;
         Vector2 point = new Vector2(screenPosition.x, Screen.height - screenPosition.y) / _scale;
         if (OverPanel(point)) return true;
         if (icons) foreach (Rect rect in _iconRects) if (rect.Contains(point)) return true;
@@ -135,6 +136,7 @@ public partial class CS_MayaPreviewInspector : MonoBehaviour
         _selection.Prune();
         TickPerformance();
         TickLadder();
+        TickExportRestore();
 
         var mouse = Mouse.current;
         bool held = mouse != null && (mouse.leftButton.isPressed || mouse.rightButton.isPressed || mouse.middleButton.isPressed);
@@ -143,7 +145,7 @@ public partial class CS_MayaPreviewInspector : MonoBehaviour
         if (_previewDragging && mouse != null && !mouse.leftButton.isPressed) _previewDragging = false;
 
         var keyboard = Keyboard.current;
-        if (keyboard == null || _typing) return;
+        if (keyboard == null || _typing || ExportDialogOpen) return;
         if (keyboard.tabKey.wasPressedThisFrame) _uiHidden = !_uiHidden;
     }
 
@@ -153,7 +155,7 @@ public partial class CS_MayaPreviewInspector : MonoBehaviour
     private void HandleShortcuts()
     {
         Event e = Event.current;
-        if (e.type != EventType.KeyDown || _typing) return;
+        if (e.type != EventType.KeyDown || _typing || ExportDialogOpen) return;
         bool control = e.control || e.command;
         if (control && e.keyCode == KeyCode.Z) { if (e.shift) Redo(); else Undo(); e.Use(); }
         else if (control && e.keyCode == KeyCode.Y) { Redo(); e.Use(); }
@@ -210,6 +212,16 @@ public partial class CS_MayaPreviewInspector : MonoBehaviour
         _tooltip = null;
         if (_dropFocus) { GUI.FocusControl(null); _dropFocus = false; }
 
+        // The export dialog is modal: it takes the mouse / keys first, the panels get nothing.
+        bool modal = ExportDialogOpen;
+        Event current = Event.current;
+        bool input = current.isMouse || current.isKey || current.type == EventType.ScrollWheel;
+        if (modal && input)
+        {
+            DrawExportDialog();
+            if (current.type != EventType.Used && current.type != EventType.Layout) current.Use();
+        }
+
         Layout();
         HandleSplitters();
         HandleDrag();
@@ -227,6 +239,7 @@ public partial class CS_MayaPreviewInspector : MonoBehaviour
         DrawFlash();
         DrawTooltip();
         DrawScrubOverlay();
+        if (modal && !input) DrawExportDialog();
 
         _typing = GUI.GetNameOfFocusedControl().StartsWith("F.");
         if (Event.current.type == EventType.MouseDown && !OverPanel(Event.current.mousePosition))
@@ -324,7 +337,7 @@ public partial class CS_MayaPreviewInspector : MonoBehaviour
         GUILayout.BeginHorizontal();
         foreach (int width in CS_MayaPreviewWindow.WidthPresets)
             if (GUILayout.Button(width.ToString(), Screen.width == width ? _buttonOn : _button, GUILayout.Height(RowHeight + 2)))
-                _window.SetClientWidth(width);
+                _window.ChooseWidth(width);
         GUILayout.EndHorizontal();
         GUILayout.Space(6);
         GUILayout.Label("Display", _dim);

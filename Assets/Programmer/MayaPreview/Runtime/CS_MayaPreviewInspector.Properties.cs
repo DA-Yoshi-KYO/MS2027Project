@@ -72,10 +72,11 @@ public partial class CS_MayaPreviewInspector
             if (box.Contains(Event.current.mousePosition)) _tooltip = "Active";
             GUILayout.Space(4);
         }
-        string title = _selection.GroupLabel ?? (selected.Count == 1 ? DisplayName(target) : DisplayName(target) + "  +" + (selected.Count - 1));
+        string title = _selection.GroupPath != null ? CS_MayaPreviewExport.NameOf(_selection.GroupPath)
+            : selected.Count == 1 ? DisplayName(target) : DisplayName(target) + "  +" + (selected.Count - 1);
         Rect titleRect = GUILayoutUtility.GetRect(10, 22, GUILayout.ExpandWidth(true));
-        GUI.Label(titleRect, Fit(title, _bold, titleRect.width - 90), _bold);
         GUI.Label(titleRect, CS_MayaPreviewIcons.Label(kind), _smallRight);
+        DrawRenameTitle(titleRect, title, selected.Count == 1 || _selection.GroupPath != null ? target : null);
         GUILayout.Space(6);
         GUILayout.EndHorizontal();
 
@@ -103,7 +104,68 @@ public partial class CS_MayaPreviewInspector
     private static string DisplayName(GameObject o)
     {
         if (!CS_MayaPreviewExport.IsLive(o)) return o.name;
-        return CS_MayaPreviewExport.LastSegment(CS_MayaPreviewExport.TransformPath(CS_MayaPreviewExport.ShapePath(o)));
+        return CS_MayaPreviewExport.NameOf(CS_MayaPreviewExport.TransformPath(CS_MayaPreviewExport.ShapePath(o)));
+    }
+
+
+    // =========================================================
+    // Rename (click the name in the Inspector header)
+    // =========================================================
+
+    private const string RenameControl = "F.rename";   // "F." = typing (shortcuts off)
+    private string _renameKey;      // what is being renamed (Maya path, or "go:<id>")
+    private string _renameText;
+    private bool _renameFocus;
+
+    // Maya objects / groups keep their Maya path: the new name is stored beside it
+    // (used by the Hierarchy and the export). Scene objects are renamed for real.
+    private string RenameKey(GameObject target)
+    {
+        if (_selection.GroupPath != null) return _selection.GroupPath;
+        if (target == null) return null;
+        return CS_MayaPreviewExport.IsLive(target)
+            ? CS_MayaPreviewExport.TransformPath(CS_MayaPreviewExport.ShapePath(target))
+            : "go:" + target.GetInstanceID();
+    }
+
+    private void DrawRenameTitle(Rect rect, string title, GameObject target)
+    {
+        string key = target != null || _selection.GroupPath != null ? RenameKey(target) : null;
+        Rect field = new Rect(rect.x, rect.y + 1, rect.width - 90, rect.height - 2);
+        if (_renameKey != null && _renameKey == key)
+        {
+            Event e = Event.current;
+            if (e.type == EventType.KeyDown && (e.keyCode == KeyCode.Return || e.keyCode == KeyCode.KeypadEnter)) { CommitRename(target); e.Use(); return; }
+            if (e.type == EventType.KeyDown && e.keyCode == KeyCode.Escape) { _renameKey = null; GUI.FocusControl(null); e.Use(); return; }
+            GUI.SetNextControlName(RenameControl);
+            _renameText = GUI.TextField(field, _renameText ?? "", GUI.skin.textField);
+            if (_renameFocus) { GUI.FocusControl(RenameControl); _renameFocus = false; }
+            else if (e.type == EventType.Repaint && GUI.GetNameOfFocusedControl() != RenameControl) CommitRename(target);   // clicked elsewhere
+            return;
+        }
+        if (_renameKey != null && _renameKey != key) _renameKey = null;   // selection changed
+        GUI.Label(rect, Fit(title, _bold, rect.width - 90), _bold);
+        if (key == null) return;
+        if (field.Contains(Event.current.mousePosition)) _tooltip = "クリックで名前を変更";
+        if (Event.current.type == EventType.MouseDown && Event.current.button == 0 && field.Contains(Event.current.mousePosition))
+        {
+            _renameKey = key;
+            _renameText = title;
+            _renameFocus = true;
+            Event.current.Use();
+        }
+    }
+
+    private void CommitRename(GameObject target)
+    {
+        string key = _renameKey;
+        string text = (_renameText ?? "").Trim();
+        _renameKey = null;
+        GUI.FocusControl(null);
+        if (key == null || text.Length == 0) return;
+        if (key.StartsWith("go:")) { if (target != null) target.name = text; }
+        else CS_MayaPreviewExport.Rename(key, text);
+        _nextScan = 0f;   // the Hierarchy shows the new name
     }
 
     private List<Transform> TransformTargets()

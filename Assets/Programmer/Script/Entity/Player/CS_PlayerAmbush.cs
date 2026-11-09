@@ -124,6 +124,7 @@ public class CS_PlayerAmbush : NetworkBehaviour
     private bool _isPassingThrough;            // 飛び込み中で、悪人・プレイヤーとぶつからないようにしているか
     private Phase _phase = Phase.None;
     private CS_VillainHealth _target;        // 奇襲している悪人
+    private Collider _targetCollider;        // その悪人の当たり判定(足元の高さを調べる。飛び込み中に毎フレーム探さないよう控える)
     private float _elapsed;                  // 今の段階(飛び込み・攻撃)が始まってからの時間
     private bool _hasStruck;                 // 奇襲を当てる処理を行ったか
     private CS_VillainHealth _reservedTarget;   // 奇襲すると決めた悪人(サーバー、またはオフラインのみ)
@@ -185,6 +186,7 @@ public class CS_PlayerAmbush : NetworkBehaviour
         if (villain == null) return false;
 
         _target = villain;
+        _targetCollider = villain.GetComponentInChildren<Collider>();
         _phase = Phase.Dash;
         _elapsed = 0f;
         _hasStruck = false;
@@ -277,7 +279,8 @@ public class CS_PlayerAmbush : NetworkBehaviour
         float horizontalMove = Mathf.Max(0f, HorizontalDistance(villain.transform.position) - _strikeDistance);
         Vector3 move = HorizontalDirection(villain.transform.position) * horizontalMove;
 
-        float heightGap = GetFeetHeight(villain.transform, villain.GetComponentInChildren<Collider>()) - GetFeetHeight(transform, _collider);
+        Collider villainCollider = villain == _target ? _targetCollider : villain.GetComponentInChildren<Collider>();
+        float heightGap = GetFeetHeight(villain.transform, villainCollider) - GetFeetHeight(transform, _collider);
         bool isLevel = Mathf.Abs(heightGap) <= _verticalTolerance || (heightGap < 0f && _phase == Phase.Dash && _elapsed >= _landCheckDelay && _player.isGrounded);
         if (!isLevel) move.y = heightGap;
         return move;
@@ -314,6 +317,7 @@ public class CS_PlayerAmbush : NetworkBehaviour
 
         _phase = Phase.None;
         _target = null;
+        _targetCollider = null;
         _elapsed = 0f;
         _hasStruck = false;
         _player.ClearAimFacing();

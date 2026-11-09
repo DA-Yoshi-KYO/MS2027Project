@@ -3,8 +3,8 @@ using System.Collections.Generic;
 using UnityEngine;
 
 /*
- * 付けたParticleSystemが再生された時、Shapeの範囲に少しでも入っているオブジェクトの位置で
- * 子のParticleSystemを出して再生するクラス(爆発に巻き込まれた物から煙・火花を出す など)
+ * 付けたParticleSystemが再生された時、Shapeの範囲に少しでも入っているオブジェクトに
+ * 子のParticleSystemを1つずつ付けて再生するクラス(爆発に巻き込まれた物から煙・火花を出す など)
  *
  * 制作者：　吉本竜
  */
@@ -13,14 +13,27 @@ using UnityEngine;
 /*
  * メモ
  * ・ParticleSystemと同じGameObjectに付ける
- * ・子のParticleSystem(Child Effects。空なら直下の子のParticleSystemを全部使う)はお手本として使う
- *   起動時に非アクティブにして、親と一緒に元の位置で再生されないようにする
- *   範囲に入ったオブジェクト1つごとに、お手本を複製してそのオブジェクトの位置でアクティブにして再生する
- *   複製は再生が終わったら(粒が全部消えたら)自動で消える(ループするお手本は消えないので注意)
+ * ・直下の子のParticleSystemを、そのままオブジェクトプールとして使う(設定は不要。Hierarchyの上から順に使う)
+ *   起動時に全部非アクティブにしておく
+ *   範囲に入ったオブジェクト1つに、空いている子を上から1つ割り当てる
+ *     例: 範囲にA,B,C → Aにbom_hit_01、Bにbom_hit_02、Cにbom_hit_03
+ *   割り当てる順番は、Shapeの中心に近いオブジェクトから
+ *   空いている子が足りない時は、余ったオブジェクトには出さない
+ *   再生が終わったら(粒が全部消えたら)、非アクティブにしてこのオブジェクトの子(元の位置・向き・大きさ)に戻す
+ *   ループする子は終わらないので戻らない(Looping はオフにしておく)
+ * ・Attach To Target
+ *   オン : 対象の子にして一緒に動かす(対象が動いてもエフェクトが付いていく)
+ *   オフ : 対象の位置に置くだけ(このオブジェクトの子のまま)
+ *   どちらも、終わったらこのオブジェクトの子に戻る
+ *   付けている途中で対象が消されると、子も一緒に消えるのでプールから外れる
  * ・再生の検出
  *   止まっている状態から再生された時と、ループしないParticleSystemが最初から再生し直された時に1回ずつ動く
  *   ループするParticleSystemは、ループの繰り返しでは動かない(止めてから再生し直した時だけ動く)
  *   手動で動かしたい時は Trigger() を呼ぶ
+ * ・対象にするオブジェクト
+ *   CS_ParticleShapeHitTarget が付いているオブジェクトだけが対象(地面などは付けなければ反応しない)
+ *   範囲の判定にはそのオブジェクトか子のColliderを使う(子のColliderが入っても1つとして扱う)
+ *   Require Target Component をオフにすると、Colliderがある物を全部対象にする(前の動き)
  * ・範囲の判定
  *   ShapeのPosition / Rotation / Scale と、このオブジェクトのTransformを考慮する
  *   Sphere / Hemisphere / Cone / Box / Circle / Donut / Rectangle に対応
@@ -29,9 +42,12 @@ using UnityEngine;
  *   Arc(扇形)は考慮しない(円全体として判定する)
  *   判定にはColliderを使うので、Colliderが付いていないオブジェクトは対象にならない
  *   自分自身(このオブジェクトとその子)のColliderは対象外
+ * ・出す位置
+ *   対象の Spawn Point が指定されていればそこ、無ければ範囲に入ったColliderの中心(Use Bounds Center オフならPivot)
+ *   Attach To Target がオンなら、Spawn Point(無ければ対象)の子にする
  * ・Play Delay(再生開始のOffset)
  *   親が再生されてから子を再生するまでの秒数。Play Delay Random で毎回ランダムにずらせる
- *   範囲の判定は親が再生された瞬間に行う
+ *   範囲の判定と子の割り当ては親が再生された瞬間に行う
  * ・時間はTime.timeScaleの影響を受ける
  * ・ゲームを再生している時だけ動く(Scene ビューの Particles パネルのプレビューでは動かない)
  */
@@ -42,9 +58,6 @@ public class CS_ParticleShapeHitSpawner : MonoBehaviour
 {
     private const int _coneProbeCount = 6;   // Coneの軸上で判定に使う点の数
 
-    [Header("出すエフェクト")]
-    [SerializeField] private List<ParticleSystem> _childEffects = new List<ParticleSystem>(); // お手本(空なら直下の子のParticleSystemを全部使う)
-
     [Header("再生のタイミング")]
     [SerializeField][Min(0f)] private float _playDelay = 0f;        // 親の再生から子を再生するまでの秒数(Offset)
     [SerializeField][Min(0f)] private float _playDelayRandom = 0f;  // Play Delayに足すランダムな秒数(0〜この値)
@@ -52,43 +65,75 @@ public class CS_ParticleShapeHitSpawner : MonoBehaviour
     [Header("出す位置")]
     [SerializeField] private bool _useBoundsCenter = true;          // true: Colliderの中心 / false: オブジェクトのPivot
     [SerializeField] private Vector3 _positionOffset = Vector3.zero; // 出す位置からのずれ(ワールド座標。m)
-    [SerializeField] private bool _attachToTarget = false;          // trueなら対象の子にして一緒に動かす
+    [SerializeField] private bool _attachToTarget = true;           // trueなら対象の子にして一緒に動かす
 
     [Header("範囲の判定")]
+    [SerializeField] private bool _requireTargetComponent = true;   // trueならCS_ParticleShapeHitTargetが付いた物だけ対象
     [SerializeField] private LayerMask _targetLayers = ~0;          // 対象にするレイヤー
     [SerializeField] private QueryTriggerInteraction _triggerInteraction = QueryTriggerInteraction.Ignore; // TriggerのColliderを含めるか
     [SerializeField] private string _targetTag = "";                // 空でなければ、このタグのオブジェクトだけ対象
     [SerializeField][Min(0.01f)] private float _flatShapeThickness = 1f; // Circle / Rectangleの厚み(Shapeのローカル単位)
     [SerializeField][Min(0.01f)] private float _fallbackRadius = 1f;    // 対応していないShapeの判定半径(Shapeのローカル単位)
-    [SerializeField][Min(1)] private int _maxTargets = 32;          // 一度に出す対象の最大数
+    [SerializeField][Min(1)] private int _maxTargets = 32;          // 一度に調べる対象の最大数
+
+    // プールの子1つ分
+    private class PoolItem
+    {
+        public ParticleSystem Effect;
+        public Transform Transform;
+        public Vector3 LocalPosition;
+        public Quaternion LocalRotation;
+        public Vector3 LocalScale;
+        public bool InUse;
+    }
 
     private ParticleSystem _particleSystem;
-    private readonly List<ParticleSystem> _templates = new List<ParticleSystem>();
+    private readonly List<PoolItem> _pool = new List<PoolItem>();
     private readonly HashSet<Transform> _hitRoots = new HashSet<Transform>();
+    private readonly Dictionary<Transform, Collider> _targetColliders = new Dictionary<Transform, Collider>(); // 対象 → 範囲に入ったCollider
     private Collider[] _overlapBuffer = new Collider[64];
     private bool _wasPlaying;
+    private bool _needsCleanup;
     private float _prevTime;
 
     private void Awake()
     {
         _particleSystem = GetComponent<ParticleSystem>();
-        CollectTemplates();
+        CollectPool();
+    }
 
-        // お手本は親と一緒に元の位置で再生されないように止めておく
-        foreach (ParticleSystem template in _templates)
-        {
-            template.gameObject.SetActive(false);
-        }
+    private void OnEnable()
+    {
+        // 有効/無効の切り替え中は親子関係やアクティブを変えられないので、次のLateUpdateで子を戻す
+        _needsCleanup = true;
     }
 
     private void OnDisable()
     {
         StopAllCoroutines();
         _wasPlaying = false;
+        _needsCleanup = true;
+
+        // 対象に付けたまま再生中の子は止めておく(親子関係を戻すのは次に有効になった時)
+        foreach (PoolItem item in _pool)
+        {
+            if (item.Transform == null) continue;
+            item.Effect.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
+            item.InUse = false;
+        }
     }
 
     private void LateUpdate()
     {
+        if (_needsCleanup)
+        {
+            _needsCleanup = false;
+            foreach (PoolItem item in _pool)
+            {
+                if (!item.InUse) ReturnToPool(item);
+            }
+        }
+
         bool isPlaying = _particleSystem.isPlaying;
         float time = _particleSystem.time;
 
@@ -100,78 +145,124 @@ public class CS_ParticleShapeHitSpawner : MonoBehaviour
         _prevTime = time;
     }
 
-    // 今のShapeの範囲を調べて、入っているオブジェクトに子のエフェクトを出す
+    // 今のShapeの範囲を調べて、入っているオブジェクトに空いている子を上から1つずつ付けて再生する
     public void Trigger()
     {
-        if (_templates.Count == 0) return;
+        _pool.RemoveAll(item => item.Transform == null); // 対象と一緒に消えた子は外す
+        if (_pool.Count == 0) return;
 
         List<Transform> targets = FindTargetsInShape();
+        Vector3 center = GetShapeToWorld().MultiplyPoint3x4(Vector3.zero);
+        targets.Sort((a, b) =>
+            (GetSpawnPosition(a) - center).sqrMagnitude.CompareTo((GetSpawnPosition(b) - center).sqrMagnitude));
+
         foreach (Transform target in targets)
         {
+            PoolItem item = GetFreeItem();
+            if (item == null) break; // 子が足りない
+
+            item.InUse = true;
             float delay = _playDelay + Random.Range(0f, _playDelayRandom);
-            StartCoroutine(SpawnAfterDelay(target, GetSpawnPosition(target), delay));
+            StartCoroutine(PlayOnTarget(item, target, delay));
         }
     }
 
-    private void CollectTemplates()
+    private void CollectPool()
     {
-        _templates.Clear();
-        foreach (ParticleSystem effect in _childEffects)
+        _pool.Clear();
+        foreach (Transform child in transform) // 非アクティブの子も含めてHierarchyの上から順
         {
-            if (effect != null && effect != _particleSystem) _templates.Add(effect);
-        }
-        if (_templates.Count > 0) return;
+            if (!child.TryGetComponent(out ParticleSystem effect)) continue;
 
-        foreach (Transform child in transform)
-        {
-            if (child.TryGetComponent(out ParticleSystem effect)) _templates.Add(effect);
+            _pool.Add(new PoolItem
+            {
+                Effect = effect,
+                Transform = child,
+                LocalPosition = child.localPosition,
+                LocalRotation = child.localRotation,
+                LocalScale = child.localScale,
+            });
+            child.gameObject.SetActive(false); // 親と一緒に元の位置で再生されないように止めておく
         }
     }
 
-    private IEnumerator SpawnAfterDelay(Transform target, Vector3 position, float delay)
+    private PoolItem GetFreeItem()
+    {
+        foreach (PoolItem item in _pool)
+        {
+            if (!item.InUse && item.Transform != null) return item;
+        }
+        return null;
+    }
+
+    private IEnumerator PlayOnTarget(PoolItem item, Transform target, float delay)
     {
         if (delay > 0f) yield return new WaitForSeconds(delay);
 
-        // 待っている間に動いていたら今の位置に出す(対象が消えていたら判定した時の位置に出す)
-        if (target != null) position = GetSpawnPosition(target);
-
-        foreach (ParticleSystem template in _templates)
+        // 待っている間に対象が消えていたら出さずに戻す
+        if (target == null || item.Transform == null)
         {
-            if (template == null) continue;
-
-            Transform parent = _attachToTarget && target != null ? target : null;
-            GameObject clone = Instantiate(template.gameObject, position, template.transform.rotation, parent);
-            clone.name = template.name + "_" + (target != null ? target.name : "Target");
-            clone.transform.localScale = GetLocalScale(template.transform.lossyScale, parent);
-            clone.AddComponent<DestroyWhenFinished>();
-            clone.SetActive(true);
-
-            ParticleSystem effect = clone.GetComponent<ParticleSystem>();
-            effect.Clear(true);
-            effect.Play(true);
+            ReturnToPool(item);
+            yield break;
         }
+
+        // 元の向き・大きさ(見た目)のまま対象の位置に置く
+        Transform effectTransform = item.Transform;
+        effectTransform.SetParent(transform, false);
+        effectTransform.localPosition = item.LocalPosition;
+        effectTransform.localRotation = item.LocalRotation;
+        effectTransform.localScale = item.LocalScale;
+        effectTransform.position = GetSpawnPosition(target);
+        if (_attachToTarget) effectTransform.SetParent(GetAttachParent(target), true);
+
+        effectTransform.gameObject.SetActive(true);
+        item.Effect.Clear(true);
+        item.Effect.Play(true);
+
+        // 再生した最初のフレームは粒がまだ無いことがあるので、1フレーム待ってから終わりを待つ
+        yield return null;
+        while (item.Transform != null && item.Effect.IsAlive(true)) yield return null;
+
+        ReturnToPool(item);
     }
 
-    // お手本と同じ見た目の大きさになるように、親の大きさで割る
-    private static Vector3 GetLocalScale(Vector3 worldScale, Transform parent)
+    // 非アクティブにして、このオブジェクトの子の元の位置に戻す
+    private void ReturnToPool(PoolItem item)
     {
-        if (parent == null) return worldScale;
+        item.InUse = false;
+        if (item.Transform == null) return; // 対象と一緒に消えた
 
-        Vector3 parentScale = parent.lossyScale;
-        return new Vector3(
-            parentScale.x != 0f ? worldScale.x / parentScale.x : worldScale.x,
-            parentScale.y != 0f ? worldScale.y / parentScale.y : worldScale.y,
-            parentScale.z != 0f ? worldScale.z / parentScale.z : worldScale.z);
+        item.Effect.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
+        item.Transform.gameObject.SetActive(false);
+        item.Transform.SetParent(transform, false);
+        item.Transform.localPosition = item.LocalPosition;
+        item.Transform.localRotation = item.LocalRotation;
+        item.Transform.localScale = item.LocalScale;
     }
 
     private Vector3 GetSpawnPosition(Transform target)
     {
         Vector3 basePosition = target.position;
-        if (_useBoundsCenter && target.TryGetComponent(out Collider targetCollider))
+        if (target.TryGetComponent(out CS_ParticleShapeHitTarget marker) && marker.SpawnPoint != null)
         {
-            basePosition = targetCollider.bounds.center;
+            basePosition = marker.SpawnPoint.position;
+        }
+        else if (_useBoundsCenter)
+        {
+            // 範囲に入ったCollider(無ければ対象自身のCollider)の中心
+            if (!_targetColliders.TryGetValue(target, out Collider targetCollider) || targetCollider == null)
+            {
+                target.TryGetComponent(out targetCollider);
+            }
+            if (targetCollider != null) basePosition = targetCollider.bounds.center;
         }
         return basePosition + _positionOffset;
+    }
+
+    private static Transform GetAttachParent(Transform target)
+    {
+        if (target.TryGetComponent(out CS_ParticleShapeHitTarget marker) && marker.SpawnPoint != null) return marker.SpawnPoint;
+        return target;
     }
 
     // ========================================
@@ -182,6 +273,7 @@ public class CS_ParticleShapeHitSpawner : MonoBehaviour
     {
         List<Transform> targets = new List<Transform>();
         _hitRoots.Clear();
+        _targetColliders.Clear();
 
         Matrix4x4 shapeToWorld = GetShapeToWorld();
         Matrix4x4 worldToShape = shapeToWorld.inverse;
@@ -198,12 +290,24 @@ public class CS_ParticleShapeHitSpawner : MonoBehaviour
             Collider hit = _overlapBuffer[i];
             if (hit == null || hit.transform.IsChildOf(transform)) continue;
 
-            Transform root = hit.attachedRigidbody != null ? hit.attachedRigidbody.transform : hit.transform;
+            Transform root;
+            CS_ParticleShapeHitTarget marker = hit.GetComponentInParent<CS_ParticleShapeHitTarget>();
+            if (marker != null)
+            {
+                if (!marker.ReceiveEffect) continue;
+                root = marker.transform;
+            }
+            else
+            {
+                if (_requireTargetComponent) continue;
+                root = hit.attachedRigidbody != null ? hit.attachedRigidbody.transform : hit.transform;
+            }
             if (_hitRoots.Contains(root)) continue;
             if (!string.IsNullOrEmpty(_targetTag) && !root.CompareTag(_targetTag) && !hit.CompareTag(_targetTag)) continue;
             if (!IsColliderInShape(hit, shape, shapeToWorld, worldToShape, probes)) continue;
 
             _hitRoots.Add(root);
+            _targetColliders[root] = hit;
             targets.Add(root);
         }
         return targets;
@@ -335,32 +439,6 @@ public class CS_ParticleShapeHitSpawner : MonoBehaviour
                 return probes;
             default:
                 return new[] { Vector3.zero };
-        }
-    }
-
-    // 複製したエフェクトに付けて、粒が全部消えたら自分を消す
-    // (親が止まったり消えたりしても、出したエフェクトは最後まで再生させる)
-    private class DestroyWhenFinished : MonoBehaviour
-    {
-        private ParticleSystem _effect;
-        private bool _started;
-
-        private void Awake()
-        {
-            _effect = GetComponent<ParticleSystem>();
-        }
-
-        private void LateUpdate()
-        {
-            if (_effect == null) return;
-
-            // 再生した最初のフレームは粒がまだ無いことがあるので、1フレーム待つ
-            if (!_started)
-            {
-                _started = true;
-                return;
-            }
-            if (!_effect.IsAlive(true)) Destroy(gameObject);
         }
     }
 }

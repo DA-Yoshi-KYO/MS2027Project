@@ -78,6 +78,15 @@ public class CS_PlayerScan : MonoBehaviour
     private readonly List<RevealedVillainGroup> _revealedGroups = new List<RevealedVillainGroup>();
     private readonly List<RevealedVillainGroup> _groupPool = new List<RevealedVillainGroup>();
     private readonly List<int> _expiredGroupIds = new List<int>();
+    private readonly Dictionary<int, RevealedVillainGroup> _groupById = new Dictionary<int, RevealedVillainGroup>();   // 作り直し中の、グループ番号→グループ
+    private readonly List<CS_VillainHealth> _expiredVillains = new List<CS_VillainHealth>();   // 見えなくなった相手(毎フレーム作らないよう使い回す)
+    private readonly List<CS_PoliceBrain> _expiredPolice = new List<CS_PoliceBrain>();
+    private readonly List<CS_SecurityDrone> _expiredDrones = new List<CS_SecurityDrone>();
+
+    // 生きているかの判定(毎フレームデリゲートを作らないよう、1回だけ作る)
+    private static readonly Func<CS_VillainHealth, bool> s_isVillainAlive = IsAlive;
+    private static readonly Func<CS_PoliceBrain, bool> s_isPoliceAlive = IsAlive;
+    private static readonly Func<CS_SecurityDrone, bool> s_isDroneAlive = IsAlive;
 
     public float radius => _baseRadius + _bonusRadius;      // 今の範囲(m)
     public bool isScanning => _isScanning;                  // 波が出ている間か(この間は再使用できない)
@@ -271,9 +280,9 @@ public class CS_PlayerScan : MonoBehaviour
     private void UpdateReveals()
     {
         float now = Time.time;
-        RemoveExpired(_loneVillainRevealEndTimes, now, IsAlive);
-        RemoveExpired(_policeRevealEndTimes, now, IsAlive);
-        RemoveExpired(_droneRevealEndTimes, now, IsAlive);
+        RemoveExpired(_loneVillainRevealEndTimes, now, s_isVillainAlive, _expiredVillains);
+        RemoveExpired(_policeRevealEndTimes, now, s_isPoliceAlive, _expiredPolice);
+        RemoveExpired(_droneRevealEndTimes, now, s_isDroneAlive, _expiredDrones);
 
         _expiredGroupIds.Clear();
         foreach (KeyValuePair<int, float> pair in _groupRevealEndTimes)
@@ -286,20 +295,19 @@ public class CS_PlayerScan : MonoBehaviour
         }
     }
 
-    private static void RemoveExpired<T>(Dictionary<T, float> revealEndTimes, float now, Func<T, bool> isAlive)
+    // expiredは作業用(中身は使い捨て)
+    private static void RemoveExpired<T>(Dictionary<T, float> revealEndTimes, float now, Func<T, bool> isAlive, List<T> expired)
     {
         if (revealEndTimes.Count == 0) return;
 
-        List<T> expired = null;
+        expired.Clear();
         foreach (KeyValuePair<T, float> pair in revealEndTimes)
         {
             if (isAlive(pair.Key) && now < pair.Value) continue;
 
-            expired ??= new List<T>();
             expired.Add(pair.Key);
         }
 
-        if (expired == null) return;
         foreach (T key in expired)
         {
             revealEndTimes.Remove(key);
@@ -311,6 +319,7 @@ public class CS_PlayerScan : MonoBehaviour
     {
         _groupPool.AddRange(_revealedGroups);
         _revealedGroups.Clear();
+        _groupById.Clear();
 
         if (_groupRevealEndTimes.Count > 0)
         {
@@ -321,7 +330,11 @@ public class CS_PlayerScan : MonoBehaviour
                 int groupId = GetGroupId(villain);
                 if (groupId < 0 || !_groupRevealEndTimes.ContainsKey(groupId)) continue;
 
-                RevealedVillainGroup group = FindRevealedGroup(groupId) ?? AddRevealedGroup(groupId);
+                if (!_groupById.TryGetValue(groupId, out RevealedVillainGroup group))
+                {
+                    group = AddRevealedGroup(groupId);
+                    _groupById.Add(groupId, group);
+                }
                 group.AddMember(villain);
             }
 
@@ -329,7 +342,7 @@ public class CS_PlayerScan : MonoBehaviour
             _expiredGroupIds.Clear();
             foreach (int groupId in _groupRevealEndTimes.Keys)
             {
-                if (FindRevealedGroup(groupId) == null) _expiredGroupIds.Add(groupId);
+                if (!_groupById.ContainsKey(groupId)) _expiredGroupIds.Add(groupId);
             }
             foreach (int groupId in _expiredGroupIds)
             {
@@ -342,15 +355,6 @@ public class CS_PlayerScan : MonoBehaviour
         {
             AddRevealedGroup(-1).AddMember(villain);
         }
-    }
-
-    private RevealedVillainGroup FindRevealedGroup(int groupId)
-    {
-        foreach (RevealedVillainGroup group in _revealedGroups)
-        {
-            if (group.groupId == groupId) return group;
-        }
-        return null;
     }
 
     private RevealedVillainGroup AddRevealedGroup(int groupId)

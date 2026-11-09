@@ -4,8 +4,10 @@
  * 制作者：宇留野陸斗
  * ------------------------------------------------
  * 2026-10-21 | 初回作成
+ * 2026-11-09 | 警戒状態の判定用に、今気にしているプレイヤーを公開した(TryGetAlertSubject)
  * ================================================ */
 
+using System.Collections.Generic;
 using Unity.Netcode;
 using UnityEngine;
 
@@ -25,6 +27,9 @@ using UnityEngine;
 [RequireComponent(typeof(CS_PoliceVision))]
 public class CS_SecurityDrone : NetworkBehaviour, IDamageable, IStunnable
 {
+    // 出現している巡回ドローン(警戒状態の判定に使う)
+    private static readonly List<CS_SecurityDrone> _activeDrones = new List<CS_SecurityDrone>();
+
     // 状態(書き込みはサーバーのみ。見た目を全員で合わせるために同期する)
     private readonly NetworkVariable<CSE_SecurityDroneState> _state = new NetworkVariable<CSE_SecurityDroneState>();
 
@@ -133,6 +138,9 @@ public class CS_SecurityDrone : NetworkBehaviour, IDamageable, IStunnable
     // 今の状態(全クライアントで分かる。ネットワークに出現していない時は、判断に使っている状態)
     public CSE_SecurityDroneState state => IsSpawned ? _state.Value : _currentState;
 
+    // 出現している巡回ドローン
+    public static IReadOnlyList<CS_SecurityDrone> activeDrones => _activeDrones;
+
     // 制圧モードのクラスが使う: ドローンのデータ・追跡速度
     public CSO_SecurityDroneData data => _data;
     public float chaseSpeed => _chaseSpeed;
@@ -176,6 +184,47 @@ public class CS_SecurityDrone : NetworkBehaviour, IDamageable, IStunnable
         _isInitialized = true;
     }
 
+    private void OnEnable()
+    {
+        if (!_activeDrones.Contains(this)) _activeDrones.Add(this);
+    }
+
+    private void OnDisable()
+    {
+        _activeDrones.Remove(this);
+    }
+
+    /// <summary>
+    /// 警戒状態の判定に使う、ドローンが今気にしているプレイヤーを取得するメソッド(サーバー、またはオフラインだけ正しい)
+    /// 見ている間・攻撃している間は「見つけている(発見中)」、見失ったあと追っている間は「見つけていない(捜索中)」
+    /// </summary>
+    /// <param name="player">気にしているプレイヤー</param>
+    /// <param name="isFound">見つけている(発見中)ならtrue、見失ったあとの追跡(捜索中)ならfalse</param>
+    /// <returns>気にしているプレイヤーがいればtrue(巡回中・スタン中・攻撃後の隙などはfalse)</returns>
+    public bool TryGetAlertSubject(out CS_PlayerHealth player, out bool isFound)
+    {
+        player = null;
+        isFound = false;
+        if (!_isInitialized || _target == null) return false;
+
+        switch (_currentState)
+        {
+            case CSE_SecurityDroneState.Detected:
+            case CSE_SecurityDroneState.TaserCharge:
+            case CSE_SecurityDroneState.TaserAim:
+            case CSE_SecurityDroneState.KillApproach:
+            case CSE_SecurityDroneState.KillCharge:
+                isFound = true;
+                break;
+            case CSE_SecurityDroneState.Chase:
+                break;
+            default:
+                return false;
+        }
+
+        return _target.TryGetComponent(out player);
+    }
+
     private void Update()
     {
         if (!_isInitialized) return;
@@ -192,6 +241,9 @@ public class CS_SecurityDrone : NetworkBehaviour, IDamageable, IStunnable
             UpdateSuppression();
             return;
         }
+
+        // プレイヤーを見ている間は、毎フレーム、見られている時間として知らせる(スコアの減点)
+        if (_currentState == CSE_SecurityDroneState.Detected && _target != null) ReportExposure(_target);
 
         // 見つけたかの判断は、一定間隔で行う(視界判定の負荷を抑えるため)
         _thinkTimer -= Time.deltaTime;
@@ -239,6 +291,14 @@ public class CS_SecurityDrone : NetworkBehaviour, IDamageable, IStunnable
     }
 
     /// <summary>
+    /// 見ているプレイヤーを、見られている時間として警察側の管理へ知らせるメソッド(スコアの減点に使う)
+    /// </summary>
+    private static void ReportExposure(Transform player)
+    {
+        if (player.TryGetComponent(out CS_PlayerHealth health)) CS_PoliceAlertManager.ReportExposure(health);
+    }
+
+    /// <summary>
     /// 視界を調べ、プレイヤーを見つけた・見失った時の状態の移り変わりを決めるメソッド
     /// </summary>
     private void Think()
@@ -280,7 +340,7 @@ public class CS_SecurityDrone : NetworkBehaviour, IDamageable, IStunnable
         _chaseTimer = _data.chaseDuration;
         SetState(CSE_SecurityDroneState.Detected);
 
-        CS_PoliceAlertManager.Report(player.GetComponent<CS_PlayerHealth>(), player.position);
+        CS_PoliceAlertManager.Report(player.GetComponent<CS_PlayerHealth>(), player.position, transform.position);
 
         // 見ている時間がたまったら、制圧モードに入る(プレイヤーを攻撃する)
         _detectedTime += _thinkInterval;

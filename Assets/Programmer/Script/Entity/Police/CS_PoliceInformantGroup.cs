@@ -5,6 +5,7 @@
  * ------------------------------------------------
  * 2026-10-28 | 初回作成
  * 2026-11-01 | 警戒状態の間だけ追う使い方(増援)を追加
+ * 2026-11-09 | 増援のグループかを判定する項目(followsAlert)を追加
  * ================================================ */
 
 using UnityEngine;
@@ -39,6 +40,12 @@ public class CS_PoliceInformantGroup : IPoliceGroup
 
     // 帰還(消える演出)を始めたか
     private bool _isReturning = false;
+
+    // 警戒状態の間だけ追う(増援の)グループか
+    public bool followsAlert => _targetAlert != null;
+
+    // 追う標的のプレイヤー(警戒状態の判定に使う)
+    public CS_PlayerHealth targetPlayer => _targetPlayer;
 
     /// <summary>
     /// 標的と追跡する時間を指定して作るコンストラクタ

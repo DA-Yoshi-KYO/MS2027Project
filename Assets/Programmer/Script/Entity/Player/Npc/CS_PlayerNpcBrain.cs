@@ -69,6 +69,8 @@ public class CS_PlayerNpcBrain : NetworkBehaviour
     // 今の行動
     private GoalType _goalType;
     private Transform _goalTarget;          // 悪人・アイテム・邪魔する相手
+    private CS_VillainHealth _goalVillain;  // _goalTargetの悪人の体力(悪人の時だけ。毎フレーム探さないよう控える)
+    private CS_PlayerHealth _goalPlayer;    // _goalTargetのプレイヤーの体力(邪魔する相手の時だけ)
     private IInteractable _goalInteractable;
     private Vector3 _goalPosition;          // 逃げ先・うろつき先
     private float _actStartTime;            // 反応の遅れが明けて動き出す時刻
@@ -334,6 +336,11 @@ public class CS_PlayerNpcBrain : NetworkBehaviour
         }
 
         _goalType = type;
+        if (target != _goalTarget)
+        {
+            _goalVillain = target != null ? target.GetComponent<CS_VillainHealth>() : null;
+            _goalPlayer = target != null ? target.GetComponent<CS_PlayerHealth>() : null;
+        }
         _goalTarget = target;
         _goalInteractable = interactable;
         _goalPosition = position;
@@ -422,14 +429,9 @@ public class CS_PlayerNpcBrain : NetworkBehaviour
     {
         if (_goalTarget == null) return false;
 
-        if (_goalType == GoalType.Villain)
-        {
-            CS_VillainHealth villain = _goalTarget.GetComponent<CS_VillainHealth>();
-            return villain != null && !villain.isDefeated;
-        }
+        if (_goalType == GoalType.Villain) return _goalVillain != null && !_goalVillain.isDefeated;
 
-        CS_PlayerHealth other = _goalTarget.GetComponent<CS_PlayerHealth>();
-        return other != null && !other.isDead;
+        return _goalPlayer != null && !_goalPlayer.isDead;
     }
 
     // 攻撃ボタンを一定間隔で押す(弱い性格は、たまに向きがずれる)

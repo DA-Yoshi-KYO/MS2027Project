@@ -5,6 +5,7 @@
  * ------------------------------------------------
  * 2026-10-05 | 初回作成
  * 2026-11-01 | 出現位置を探す処理と、速度の表を作る処理を、内通フォンと増援で共通に使えるよう移した
+ * 2026-11-06 | 指定した向きの側に出現位置を探す処理を追加(増援を、見つけた警察と挟む形に出す)
  * ================================================ */
 
 using System.Collections.Generic;
@@ -83,23 +84,73 @@ public static class CS_PoliceSpawnUtility
         // 標的までの道のりは、標的の足元のNavMesh上の位置から調べる
         if (!NavMesh.SamplePosition(center, out NavMeshHit origin, _targetSampleDistance, NavMesh.AllAreas)) return false;
 
-        float minDistance = Mathf.Min(distanceA, distanceB);
-        float maxDistance = Mathf.Max(distanceA, distanceB);
         for (int i = 0; i < _spawnPickAttempts; i++)
         {
-            Vector3 direction = Quaternion.Euler(0.0f, Random.Range(0.0f, 360.0f), 0.0f) * Vector3.forward;
-            Vector3 candidate = center + direction * Random.Range(minDistance, maxDistance);
-            if (!NavMesh.SamplePosition(candidate, out NavMeshHit hit, _sampleDistance, NavMesh.AllAreas)) continue;
-
-            // 壁の向こうなど、歩いて標的の所まで行けない位置には出現させない(追い付けずに消えるだけになる)
-            if (!NavMesh.CalculatePath(hit.position, origin.position, NavMesh.AllAreas, _path)) continue;
-            if (_path.status != NavMeshPathStatus.PathComplete) continue;
-
-            position = hit.position;
-            return true;
+            float yaw = Random.Range(0.0f, 360.0f);
+            if (TryAcceptCandidate(center, origin.position, Quaternion.Euler(0.0f, yaw, 0.0f) * Vector3.forward, distanceA, distanceB, out position)) return true;
         }
 
         return false;
+    }
+
+    /// <summary>
+    /// プレイヤーから見て、指定した向きの側にある、歩いてプレイヤーの所まで行ける出現位置を探すメソッド
+    /// まず指定した向き(+ ずらす角度)を試し、見つからなければ、少しずつ試す向きの幅を広げる(最大でwidenAngleまで)
+    /// 指定した向きが決められない時や、広げても見つからない時は、向きをランダムにして探す
+    /// </summary>
+    /// <param name="center">プレイヤーの位置</param>
+    /// <param name="direction">出現させたい向き(水平方向。プレイヤーから見た向き)</param>
+    /// <param name="yawOffset">指定した向きから、ずらす角度(度)。複数の警察を、重ならないように並べるのに使う</param>
+    /// <param name="widenAngle">向きを広げる角度の上限(度。左右それぞれ)</param>
+    /// <param name="distanceA">プレイヤーからの距離の端(m)</param>
+    /// <param name="distanceB">プレイヤーからの距離のもう一方の端(m。大小どちらでもよい)</param>
+    /// <param name="position">見つけた出現位置</param>
+    /// <returns>見つかったらtrue</returns>
+    public static bool TryFindSpawnPositionToward(Vector3 center, Vector3 direction, float yawOffset, float widenAngle,
+        float distanceA, float distanceB, out Vector3 position)
+    {
+        position = center;
+        direction.y = 0.0f;
+        if (direction.sqrMagnitude < 0.0001f) return TryFindSpawnPosition(center, distanceA, distanceB, out position);
+
+        if (!NavMesh.SamplePosition(center, out NavMeshHit origin, _targetSampleDistance, NavMesh.AllAreas)) return false;
+
+        direction.Normalize();
+        for (int i = 0; i < _spawnPickAttempts; i++)
+        {
+            // 最初は指定した向きそのまま、試すたびに、ずらす幅を広げる
+            float widen = widenAngle * i / (_spawnPickAttempts - 1);
+            float yaw = yawOffset + Random.Range(-widen, widen);
+            if (TryAcceptCandidate(center, origin.position, Quaternion.Euler(0.0f, yaw, 0.0f) * direction, distanceA, distanceB, out position)) return true;
+        }
+
+        return TryFindSpawnPosition(center, distanceA, distanceB, out position);
+    }
+
+    /// <summary>
+    /// プレイヤーから指定した向き・距離にある位置が、出現位置に使えるかを判定するメソッド
+    /// 歩ける場所(NavMesh)で、歩いてプレイヤーの所まで行けることが条件
+    /// </summary>
+    /// <param name="center">プレイヤーの位置</param>
+    /// <param name="origin">プレイヤーの足元のNavMesh上の位置(道のりの調べ始め)</param>
+    /// <param name="direction">プレイヤーから見た向き(長さ1)</param>
+    /// <param name="distanceA">プレイヤーからの距離の端(m)</param>
+    /// <param name="distanceB">プレイヤーからの距離のもう一方の端(m)</param>
+    /// <param name="position">使える出現位置</param>
+    /// <returns>使えるならtrue</returns>
+    private static bool TryAcceptCandidate(Vector3 center, Vector3 origin, Vector3 direction, float distanceA, float distanceB, out Vector3 position)
+    {
+        position = center;
+
+        Vector3 candidate = center + direction * Random.Range(Mathf.Min(distanceA, distanceB), Mathf.Max(distanceA, distanceB));
+        if (!NavMesh.SamplePosition(candidate, out NavMeshHit hit, _sampleDistance, NavMesh.AllAreas)) return false;
+
+        // 壁の向こうなど、歩いて標的の所まで行けない位置には出現させない(追い付けずに消えるだけになる)
+        if (!NavMesh.CalculatePath(hit.position, origin, NavMesh.AllAreas, _path)) return false;
+        if (_path.status != NavMeshPathStatus.PathComplete) return false;
+
+        position = hit.position;
+        return true;
     }
 
     /// <summary>

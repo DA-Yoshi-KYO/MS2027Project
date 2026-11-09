@@ -19,7 +19,8 @@ using UnityEngine;
 /// ・悪人グループは、背景の三角に完遂度の分だけ赤い三角を下から溜め、悪人のマークを重ねる
 /// ・警察・巡回ドローンは、それぞれのアイコンを1枚出す
 /// </summary>
-public class CS_UIScanMarkerView : CS_BaseView<CS_UIScanMarkerPresenter>
+public class CS_UIScanMarkerView :
+    CS_BaseView<CS_UIScanMarkerPresenter>
 {
     [Header("目印")]
     [SerializeField] private RectTransform _markerTemplate;    // 複製元の目印(非表示にしておく)
@@ -33,7 +34,9 @@ public class CS_UIScanMarkerView : CS_BaseView<CS_UIScanMarkerPresenter>
     [SerializeField] private Sprite _policeIcon;   // Icon_Police
     [SerializeField] private Sprite _droneIcon;    // Icon_Drone
 
-    private readonly List<CS_UIScanMarkerItemView> _markers = new List<CS_UIScanMarkerItemView>();
+    private readonly List<CS_UIScanMarkerItemView>
+        _markers =
+            new List<CS_UIScanMarkerItemView>();
 
     private void Awake()
     {
@@ -45,34 +48,70 @@ public class CS_UIScanMarkerView : CS_BaseView<CS_UIScanMarkerPresenter>
     /// index番目の目印を、Canvas上の座標に出す(足りなければ作る)
     /// 0番から順に呼び、最後に HideFrom で残りを隠す
     /// </summary>
-    public void ShowMarker(int index, Vector2 anchoredPosition, CS_UIScanMarkerData data)
+    public void ShowMarker(
+        int index,
+        Vector2 anchoredPosition,
+        CS_UIScanMarkerData data)
     {
-        CS_UIScanMarkerItemView marker = GetMarker(index);
+        CS_UIScanMarkerItemView marker =
+            GetMarker(index);
+
         if (marker == null)
             return;
 
-        ((RectTransform)marker.transform).anchoredPosition = anchoredPosition;
+        // =====================================================
+        // 追加：表示前のActive状態を記録する
+        // =====================================================
+
+        bool wasActive =
+            marker.gameObject.activeSelf;
+
+        // =====================================================
+        // 変更：直接anchoredPositionを変更せず、
+        // ItemViewへ基準位置を渡す
+        // =====================================================
+
+        marker.SetBasePosition(
+            anchoredPosition
+        );
 
         switch (data.type)
         {
             case CSE_UIScanTargetType.Police:
-                marker.ApplyIcon(_policeIcon, data.distance);
+                marker.ApplyIcon(
+                    _policeIcon,
+                    data.distance
+                );
                 break;
+
             case CSE_UIScanTargetType.Drone:
-                marker.ApplyIcon(_droneIcon, data.distance);
+                marker.ApplyIcon(
+                    _droneIcon,
+                    data.distance
+                );
                 break;
+
             default:
                 marker.ApplyVillain(
                     _villainBackgroundEmpty,
                     _villainBackgroundFull,
                     _villainMark,
                     data.distance,
-                    data.crimeProgress);
+                    data.crimeProgress
+                );
                 break;
         }
 
-        if (!marker.gameObject.activeSelf)
+        if (!wasActive)
+        {
             marker.gameObject.SetActive(true);
+
+            // ================================================
+            // 追加：初めて表示された時だけ波アニメーション
+            // ================================================
+
+            marker.PlayWaveAnimation();
+        }
     }
 
     /// <summary>
@@ -87,19 +126,31 @@ public class CS_UIScanMarkerView : CS_BaseView<CS_UIScanMarkerPresenter>
         }
     }
 
-    private CS_UIScanMarkerItemView GetMarker(int index)
+    private CS_UIScanMarkerItemView GetMarker(
+        int index)
     {
         if (_markerTemplate == null)
             return null;
 
         while (_markers.Count <= index)
         {
-            RectTransform marker = Instantiate(_markerTemplate, _markerTemplate.parent);
+            RectTransform marker =
+                Instantiate(
+                    _markerTemplate,
+                    _markerTemplate.parent
+                );
+
             marker.gameObject.SetActive(false);
 
             // テンプレートに付いていなければ付ける(仮の見た目はItemViewが作る)
-            if (!marker.TryGetComponent(out CS_UIScanMarkerItemView item))
-                item = marker.gameObject.AddComponent<CS_UIScanMarkerItemView>();
+            if (!marker.TryGetComponent(
+                out CS_UIScanMarkerItemView item))
+            {
+                item =
+                    marker.gameObject.AddComponent<
+                        CS_UIScanMarkerItemView
+                    >();
+            }
 
             _markers.Add(item);
         }

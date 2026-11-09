@@ -69,6 +69,9 @@
         },
         {
             "m_Id": "d7d7f2a4dcd0429d894c564a61f45526"
+        },
+        {
+            "m_Id": "dc30ce4ef0a74697b38d07a0f0175f5c"
         }
     ],
     "m_Nodes": [
@@ -3168,6 +3171,24 @@
 
 {
     "m_SGVersion": 0,
+    "m_Type": "UnityEditor.ShaderGraph.CategoryData",
+    "m_ObjectId": "66c731f0c23f4b1f964bdf99433331d5",
+    "m_Name": "基本",
+    "m_ChildObjectList": [
+        {
+            "m_Id": "7d5448ec777b4933b33fbb8daff193cf"
+        },
+        {
+            "m_Id": "5c83c9cd4a46469cae990e92c57205c3"
+        },
+        {
+            "m_Id": "6453d43a546d43808de87c782731628d"
+        }
+    ]
+}
+
+{
+    "m_SGVersion": 0,
     "m_Type": "UnityEditor.ShaderGraph.StepNode",
     "m_ObjectId": "678b253301a54b6d8b08d024d53c7ca7",
     "m_Group": {
@@ -4223,6 +4244,24 @@
 
 {
     "m_SGVersion": 0,
+    "m_Type": "UnityEditor.ShaderGraph.CategoryData",
+    "m_ObjectId": "a6418be7ef38401db1c3260e7ae11361",
+    "m_Name": "ハイライト",
+    "m_ChildObjectList": [
+        {
+            "m_Id": "b66c373f259547fd9c0bea1944ce659a"
+        },
+        {
+            "m_Id": "82add67966bd490ca13f5173f2034121"
+        },
+        {
+            "m_Id": "8ac07ef17a154ba3894b700340c45fdc"
+        }
+    ]
+}
+
+{
+    "m_SGVersion": 0,
     "m_Type": "UnityEditor.ShaderGraph.DynamicVectorMaterialSlot",
     "m_ObjectId": "a67dff5c24d6489098bfe7f8d662dc9a",
     "m_Id": 0,
@@ -4321,6 +4360,24 @@
     "m_DefaultValue": 0.0,
     "m_Labels": [],
     "m_LiteralMode": false
+}
+
+{
+    "m_SGVersion": 0,
+    "m_Type": "UnityEditor.ShaderGraph.CategoryData",
+    "m_ObjectId": "b4218de47a904c07b65e9f09f8b7aac6",
+    "m_Name": "リムライト (縁の光)",
+    "m_ChildObjectList": [
+        {
+            "m_Id": "cf36b8bc7345434c858f5c7708e7fec0"
+        },
+        {
+            "m_Id": "f56fb0496c794d62a5a6245db6d48080"
+        },
+        {
+            "m_Id": "4135f80a4dee4caa99d1f186912bb3b2"
+        }
+    ]
 }
 
 {
@@ -5019,6 +5076,18 @@
 
 {
     "m_SGVersion": 0,
+    "m_Type": "UnityEditor.ShaderGraph.CategoryData",
+    "m_ObjectId": "d7d7f2a4dcd0429d894c564a61f45526",
+    "m_Name": "スクリプトが自動で設定 (触らない)",
+    "m_ChildObjectList": [
+        {
+            "m_Id": "ca8d045c35294412ae26bd3086433db4"
+        }
+    ]
+}
+
+{
+    "m_SGVersion": 0,
     "m_Type": "UnityEditor.ShaderGraph.DynamicVectorMaterialSlot",
     "m_ObjectId": "d900fb5770a84a2c832d11607a53a58b",
     "m_Id": 3,
@@ -5081,6 +5150,63 @@
         "w": 0.0
     },
     "m_LiteralMode": false
+}
+
+{
+    "m_SGVersion": 0,
+    "m_Type": "UnityEditor.ShaderGraph.CategoryData",
+    "m_ObjectId": "dc30ce4ef0a74697b38d07a0f0175f5c",
+    "m_Name": "",
+    "m_ChildObjectList": [
+        {
+            "m_Id": "7d5448ec777b4933b33fbb8daff193cf"
+        },
+        {
+            "m_Id": "5c83c9cd4a46469cae990e92c57205c3"
+        },
+        {
+            "m_Id": "6453d43a546d43808de87c782731628d"
+        },
+        {
+            "m_Id": "f10458733df94c38a9b354d48bdf4b0f"
+        },
+        {
+            "m_Id": "4a0b42944d794f07b95786bc62746ec8"
+        },
+        {
+            "m_Id": "b90b2b9316794048a24db000b3016a74"
+        },
+        {
+            "m_Id": "6010096666de4a09bafa0f0b2c542e01"
+        },
+        {
+            "m_Id": "6854ca3b41d94eea837540404dccf32c"
+        },
+        {
+            "m_Id": "35ff5c8b51024299be52a66bd2b8f0d2"
+        },
+        {
+            "m_Id": "cf36b8bc7345434c858f5c7708e7fec0"
+        },
+        {
+            "m_Id": "f56fb0496c794d62a5a6245db6d48080"
+        },
+        {
+            "m_Id": "4135f80a4dee4caa99d1f186912bb3b2"
+        },
+        {
+            "m_Id": "b66c373f259547fd9c0bea1944ce659a"
+        },
+        {
+            "m_Id": "82add67966bd490ca13f5173f2034121"
+        },
+        {
+            "m_Id": "8ac07ef17a154ba3894b700340c45fdc"
+        },
+        {
+            "m_Id": "ca8d045c35294412ae26bd3086433db4"
+        }
+    ]
 }
 
 {
@@ -5277,6 +5403,33 @@
     "m_DefaultValue": 0.0,
     "m_Labels": [],
     "m_LiteralMode": false
+}
+
+{
+    "m_SGVersion": 0,
+    "m_Type": "UnityEditor.ShaderGraph.CategoryData",
+    "m_ObjectId": "e64173d05360494fab9d7c22f2d356a4",
+    "m_Name": "影",
+    "m_ChildObjectList": [
+        {
+            "m_Id": "f10458733df94c38a9b354d48bdf4b0f"
+        },
+        {
+            "m_Id": "4a0b42944d794f07b95786bc62746ec8"
+        },
+        {
+            "m_Id": "b90b2b9316794048a24db000b3016a74"
+        },
+        {
+            "m_Id": "6010096666de4a09bafa0f0b2c542e01"
+        },
+        {
+            "m_Id": "6854ca3b41d94eea837540404dccf32c"
+        },
+        {
+            "m_Id": "35ff5c8b51024299be52a66bd2b8f0d2"
+        }
+    ]
 }
 
 {
@@ -5618,98 +5771,5 @@
     "m_CustomColors": {
         "m_SerializableColors": []
     }
-}
-
-{
-    "m_SGVersion": 0,
-    "m_Type": "UnityEditor.ShaderGraph.CategoryData",
-    "m_ObjectId": "66c731f0c23f4b1f964bdf99433331d5",
-    "m_Name": "基本",
-    "m_ChildObjectList": [
-        {
-            "m_Id": "7d5448ec777b4933b33fbb8daff193cf"
-        },
-        {
-            "m_Id": "5c83c9cd4a46469cae990e92c57205c3"
-        },
-        {
-            "m_Id": "6453d43a546d43808de87c782731628d"
-        }
-    ]
-}
-
-{
-    "m_SGVersion": 0,
-    "m_Type": "UnityEditor.ShaderGraph.CategoryData",
-    "m_ObjectId": "e64173d05360494fab9d7c22f2d356a4",
-    "m_Name": "影",
-    "m_ChildObjectList": [
-        {
-            "m_Id": "f10458733df94c38a9b354d48bdf4b0f"
-        },
-        {
-            "m_Id": "4a0b42944d794f07b95786bc62746ec8"
-        },
-        {
-            "m_Id": "b90b2b9316794048a24db000b3016a74"
-        },
-        {
-            "m_Id": "6010096666de4a09bafa0f0b2c542e01"
-        },
-        {
-            "m_Id": "6854ca3b41d94eea837540404dccf32c"
-        },
-        {
-            "m_Id": "35ff5c8b51024299be52a66bd2b8f0d2"
-        }
-    ]
-}
-
-{
-    "m_SGVersion": 0,
-    "m_Type": "UnityEditor.ShaderGraph.CategoryData",
-    "m_ObjectId": "b4218de47a904c07b65e9f09f8b7aac6",
-    "m_Name": "リムライト (縁の光)",
-    "m_ChildObjectList": [
-        {
-            "m_Id": "cf36b8bc7345434c858f5c7708e7fec0"
-        },
-        {
-            "m_Id": "f56fb0496c794d62a5a6245db6d48080"
-        },
-        {
-            "m_Id": "4135f80a4dee4caa99d1f186912bb3b2"
-        }
-    ]
-}
-
-{
-    "m_SGVersion": 0,
-    "m_Type": "UnityEditor.ShaderGraph.CategoryData",
-    "m_ObjectId": "a6418be7ef38401db1c3260e7ae11361",
-    "m_Name": "ハイライト",
-    "m_ChildObjectList": [
-        {
-            "m_Id": "b66c373f259547fd9c0bea1944ce659a"
-        },
-        {
-            "m_Id": "82add67966bd490ca13f5173f2034121"
-        },
-        {
-            "m_Id": "8ac07ef17a154ba3894b700340c45fdc"
-        }
-    ]
-}
-
-{
-    "m_SGVersion": 0,
-    "m_Type": "UnityEditor.ShaderGraph.CategoryData",
-    "m_ObjectId": "d7d7f2a4dcd0429d894c564a61f45526",
-    "m_Name": "スクリプトが自動で設定 (触らない)",
-    "m_ChildObjectList": [
-        {
-            "m_Id": "ca8d045c35294412ae26bd3086433db4"
-        }
-    ]
 }
 

@@ -401,6 +401,7 @@ MonoBehaviour:
   _rotateWithPlayer: 1
   _mapCenterX: 0
   _mapCenterZ: 0
+  _crimeAnimationThreshold: 80
 --- !u!114 &647710595524759295
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -423,6 +424,12 @@ MonoBehaviour:
   _itemIconPrefab: {fileID: 2296028825770602815, guid: 544ece93ee525f1488512e26ec2b467f, type: 3}
   _randomEventIconPrefab: {fileID: 5362597437098057568, guid: a7211ec0a94ee6d46b0d6230a7df0467, type: 3}
   _miniMapDisplayRadius: 200
+  _edgeClippedScale: 0.7
+  _edgeClippedAlpha: 0.6
+  _crimeWarningMinimumScale: 0.75
+  _crimeWarningMaximumScale: 1.15
+  _crimeWarningScaleDuration: 0.6
+  _offsetAnimationById: 1
   _debugPixelsPerMeter: 0
   _debugMetersPerPixel: 0
   _debugVisibleRange: 0
@@ -2148,6 +2155,8 @@ MonoBehaviour:
   _canvas: {fileID: 224629134698006408}
   _targetCamera: {fileID: 0}
   _worldOffset: {x: 0, y: 2.2, z: 0}
+  _scanWaveSpeed: 20
+  _markerRevealDelay: 0
 --- !u!1 &2340339615856779658
 GameObject:
   m_ObjectHideFlags: 0
@@ -2874,7 +2883,7 @@ RectTransform:
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
   m_AnchoredPosition: {x: 0, y: 0}
-  m_SizeDelta: {x: 400, y: 400}
+  m_SizeDelta: {x: 450, y: 450}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!222 &2440133421162092251
 CanvasRenderer:
@@ -2904,7 +2913,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_Sprite: {fileID: 10913, guid: 0000000000000000f000000000000000, type: 0}
+  m_Sprite: {fileID: 1515908175581636556, guid: f872fd63ec5ef0f4799e3a901a8e628f, type: 3}
   m_Type: 0
   m_PreserveAspect: 0
   m_FillCenter: 1

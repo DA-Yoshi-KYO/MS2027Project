@@ -250,7 +250,7 @@ public class CS_SecurityLight : MonoBehaviour
 
         if (CS_PoliceSquad.IsNetworkClientOnly()) return;
 
-        CS_PoliceAlertManager.Report(player, player.transform.position, transform.position);
+        CS_PoliceAlertManager.ReportTouch(player, player.transform.position, transform.position);
     }
 
     /// <summary>

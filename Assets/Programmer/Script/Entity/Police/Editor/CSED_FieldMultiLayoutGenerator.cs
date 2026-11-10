@@ -51,6 +51,8 @@ public static class CSED_FieldMultiLayoutGenerator
     // ---- 数 ----
     private const int _sitesPerArea = 5;
     private const float _villainLineClearance = 2.0f;     // SAObjectの柱を、悪人の往復ルートの線から離す距離(m)
+    private const float _fixSearchRadius = 8.0f;          // 埋まったSAObjectを、ずらして探す範囲(m)
+    private const float _fixRoadsideMax = 1.8f;           // ずらした先が、歩ける場所の縁から離れてよい距離の上限(m。これより遠いと、道のど真ん中)
     private const float _patrolEndMargin = 1.5f;          // 悪人の往復ルートの両端を、壁・柱・縁から離す距離(m)
     private const int _groundSitesPerArea = 3;           // エリアごとの悪人の出現点のうち、地上の狭い道に置く数(残りは、低い屋上)
     private const float _maxVillainStreetWidth = 10.0f;   // 地上の悪人の出現点を置ける、道の幅の上限(m。これより広い道は、大通りとみなして置かない)
@@ -235,6 +237,142 @@ public static class CSED_FieldMultiLayoutGenerator
             PrefabUtility.UnloadPrefabContents(contents);
         }
         Debug.Log("CSED_FieldMultiLayoutGenerator: 悪人・ドローン・レーザー・ライトを削除しました");
+    }
+
+    /// <summary>
+    /// 建物などに埋まっているSAObjectを、埋まらない近くの場所へずらす(ハイドポイントも一緒に)か、
+    /// ずらせない(ずらした先が道の真ん中・他のSAObjectに近すぎる・埋まったまま)なら、ハイドポイントごと削除するメソッド
+    /// 埋まりは、コライダーとの重なりと、建物の中に入っているか(裏面への光線)で判定する。結果は Temp/SaObjectFixReport.txt
+    /// </summary>
+    [MenuItem("Tools/Police/埋まっているSAObjectをずらす・削除する")]
+    private static void FixBuriedSaObjects()
+    {
+        _multi = FindMulti();
+        Transform saGroup = _multi != null ? _multi.Find(_saObjectGroup) : null;
+        Transform hideGroup = _multi != null ? _multi.Find(_hideGroup) : null;
+        string path = _multi != null ? AssetDatabase.GetAssetPath(PrefabUtility.GetCorrespondingObjectFromOriginalSource(_multi.gameObject)) : "";
+        if (saGroup == null || hideGroup == null || !path.EndsWith("/Field_Multi.prefab"))
+        {
+            Debug.LogError("CSED_FieldMultiLayoutGenerator: Field_Multi のSAObjectsまたはHidePointsが見つかりません(MainSceneを開いてください)");
+            return;
+        }
+
+        _villainLines = new List<(Vector3 a, Vector3 b)>();
+        List<(string name, Vector3 from, Vector3 to)> moves = new List<(string, Vector3, Vector3)>();
+        List<(string name, Vector3 from)> deletes = new List<(string, Vector3)>();
+        List<Transform> all = new List<Transform>();
+        foreach (Transform child in saGroup) all.Add(child);
+        List<Vector3> bases = new List<Vector3>();
+        foreach (Transform sa in all) bases.Add(sa.position);
+
+        for (int i = 0; i < all.Count; i++)
+        {
+            Transform sa = all[i];
+            if (CSED_FieldPlacementCheck.FindBuriedCollider(sa) == null) continue;
+
+            Transform pole = sa.Find("Cube (1)");
+            float poleHeight = pole != null ? pole.lossyScale.y : _roadPoleHeight;
+            Vector3 origin = sa.position;
+            sa.gameObject.SetActive(false);
+            Physics.SyncTransforms();
+            bool found = TryFindFreeSpot(origin, poleHeight, bases, i, out Vector3 spot);
+            sa.gameObject.SetActive(true);
+            if (found)
+            {
+                moves.Add((sa.name, origin, spot));
+                bases[i] = spot;
+            }
+            else
+            {
+                deletes.Add((sa.name, origin));
+                bases[i] = new Vector3(0.0f, -10000.0f, 0.0f);
+            }
+        }
+        Physics.SyncTransforms();
+
+        ApplySaFix(path, hideGroup, moves, deletes);
+
+        StringBuilder report = new StringBuilder();
+        report.AppendLine($"埋まっていたSAObject {moves.Count + deletes.Count}本: ずらした {moves.Count}本 / 削除した {deletes.Count}本");
+        foreach ((string name, Vector3 from, Vector3 to) move in moves) report.AppendLine($"  ずらした {move.name}: {move.from} → {move.to}(動いた距離 {Vector3.Distance(move.from, move.to):F1}m)");
+        foreach ((string name, Vector3 from) delete in deletes) report.AppendLine($"  削除した {delete.name}: {delete.from}");
+        File.WriteAllText(Path.Combine(Path.GetDirectoryName(Application.dataPath), "Temp", "SaObjectFixReport.txt"), report.ToString(), new UTF8Encoding(false));
+        Debug.Log("CSED_FieldMultiLayoutGenerator: 埋まっているSAObjectを修正しました");
+    }
+
+    /// <summary>
+    /// 埋まっているSAObjectの足元(origin)の近くで、柱・頭が埋まらず、道の端にあり、他のSAObjectから離れた場所を、近い順に探すメソッド
+    /// </summary>
+    private static bool TryFindFreeSpot(Vector3 origin, float poleHeight, List<Vector3> bases, int selfIndex, out Vector3 spot)
+    {
+        spot = origin;
+        for (float radius = 1.0f; radius <= _fixSearchRadius; radius += 1.0f)
+        {
+            for (float angle = 0.0f; angle < 360.0f; angle += 30.0f)
+            {
+                Vector3 target = origin + Quaternion.Euler(0.0f, angle, 0.0f) * Vector3.forward * radius;
+                if (!NavMesh.SamplePosition(target, out NavMeshHit hit, 0.6f, NavMesh.AllAreas) || Mathf.Abs(hit.position.y - origin.y) > 1.5f) continue;
+                if (NavMesh.FindClosestEdge(hit.position, out NavMeshHit edge, NavMesh.AllAreas) && edge.distance > _fixRoadsideMax) continue;
+                if (IsTooCloseToOtherSa(hit.position, bases, selfIndex) || !IsPoleFree(hit.position, poleHeight)) continue;
+
+                spot = hit.position;
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static bool IsTooCloseToOtherSa(Vector3 position, List<Vector3> bases, int selfIndex)
+    {
+        for (int i = 0; i < bases.Count; i++)
+        {
+            if (i != selfIndex && Vector3.Distance(bases[i], position) < _saMinSpacing) return true;
+        }
+        return false;
+    }
+
+    /// <summary>
+    /// ずらす・削除する結果を、プレハブ(Field_Multi.prefab)へ反映するメソッド(SAObjectと、同じ足元にあるハイドポイントを、同じ分だけ動かす・消す)
+    /// </summary>
+    private static void ApplySaFix(string path, Transform sceneHideGroup, List<(string name, Vector3 from, Vector3 to)> moves, List<(string name, Vector3 from)> deletes)
+    {
+        GameObject contents = PrefabUtility.LoadPrefabContents(path);
+        try
+        {
+            Transform saGroup = contents.transform.Find(_saObjectGroup);
+            Transform hideGroup = contents.transform.Find(_hideGroup);
+            foreach ((string name, Vector3 from, Vector3 to) move in moves)
+            {
+                Vector3 delta = _multi.InverseTransformVector(move.to - move.from);
+                Transform sa = saGroup.Find(move.name);
+                Transform hide = FindHidePointAt(hideGroup, move.from);
+                if (sa != null) sa.localPosition += delta;
+                if (hide != null) hide.localPosition += delta;
+            }
+            foreach ((string name, Vector3 from) delete in deletes)
+            {
+                Transform sa = saGroup.Find(delete.name);
+                Transform hide = FindHidePointAt(hideGroup, delete.from);
+                if (hide != null) Object.DestroyImmediate(hide.gameObject);
+                if (sa != null) Object.DestroyImmediate(sa.gameObject);
+            }
+            PrefabUtility.SaveAsPrefabAsset(contents, path);
+        }
+        finally
+        {
+            PrefabUtility.UnloadPrefabContents(contents);
+        }
+    }
+
+    private static Transform FindHidePointAt(Transform hideGroup, Vector3 worldBase)
+    {
+        Vector3 local = _multi.InverseTransformPoint(worldBase);
+        foreach (Transform hide in hideGroup)
+        {
+            Vector3 difference = hide.localPosition - local;
+            if (new Vector2(difference.x, difference.z).magnitude < 0.05f && Mathf.Abs(difference.y) < 0.05f) return hide;
+        }
+        return null;
     }
 
     /// <summary>
@@ -682,6 +820,8 @@ public static class CSED_FieldMultiLayoutGenerator
 
     private static bool IsOnVillainLine(Vector3 position)
     {
+        if (_villainLines == null) return false;
+
         foreach ((Vector3 a, Vector3 b) line in _villainLines)
         {
             Vector3 d = line.b - line.a;
@@ -1478,7 +1618,7 @@ public static class CSED_FieldMultiLayoutGenerator
     /// </summary>
     private static bool IsPoleFree(Vector3 basePosition, float poleHeight)
     {
-        if (IsOnVillainLine(basePosition)) return false;
+        if (IsOnVillainLine(basePosition) || CSED_FieldPlacementCheck.IsPoleInsideSolid(basePosition, poleHeight, null)) return false;
 
         float half = _saHeadSize * 0.5f + _poleMargin;
         Vector3 poleCenter = basePosition + Vector3.up * (_poleBottomLift + (poleHeight - _poleBottomLift) * 0.5f);

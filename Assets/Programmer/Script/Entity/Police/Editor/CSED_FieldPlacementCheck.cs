@@ -310,8 +310,65 @@ public static class CSED_FieldPlacementCheck
         AppendProblems(report, buried);
     }
 
-    private static string FindBuriedCollider(Transform saObject)
+    private static readonly Vector3[] _insideProbeDirections =
     {
+        Vector3.up, Vector3.down, Vector3.left, Vector3.right, Vector3.forward, Vector3.back,
+        new Vector3(1.0f, 1.0f, 1.0f).normalized, new Vector3(-1.0f, 1.0f, 1.0f).normalized,
+        new Vector3(1.0f, 1.0f, -1.0f).normalized, new Vector3(-1.0f, 1.0f, -1.0f).normalized,
+    };
+
+    /// <summary>
+    /// 位置が、建物の中(コライダーの面で囲まれた中身)にあるかを判定するメソッド
+    /// コライダーとの重なり判定は、建物の面(表面)にしか反応せず、柱・頭が建物の中に完全に入っていると見逃すため、これで補う
+    /// 10方向へ光線を撃って、一番近い当たりが裏面(内側から見た面)のものが、7方向以上なら、建物の中とみなす
+    /// </summary>
+    /// <param name="self">数えない自分自身のコライダー(SAObjectなど。無ければnull)</param>
+    public static bool IsInsideSolid(Vector3 position, Transform self)
+    {
+        bool oldBackfaces = Physics.queriesHitBackfaces;
+        Physics.queriesHitBackfaces = true;
+        int backCount = 0;
+        foreach (Vector3 direction in _insideProbeDirections)
+        {
+            RaycastHit[] hits = Physics.RaycastAll(position, direction, 60.0f, ~0, QueryTriggerInteraction.Ignore);
+            System.Array.Sort(hits, (a, b) => a.distance.CompareTo(b.distance));
+            foreach (RaycastHit hit in hits)
+            {
+                if (self != null && hit.collider.transform.IsChildOf(self)) continue;
+                if (hit.distance > 0.0f && Vector3.Dot(hit.normal, direction) > 0.0f) backCount++;
+                break;
+            }
+        }
+        Physics.queriesHitBackfaces = oldBackfaces;
+        return backCount >= 7;
+    }
+
+    /// <summary>
+    /// 足元がbasePositionで、柱の高さがpoleHeightのSAObjectが、建物の中に入っているかを判定するメソッド(柱の途中と、頭の中心・角で調べる)
+    /// </summary>
+    public static bool IsPoleInsideSolid(Vector3 basePosition, float poleHeight, Transform self)
+    {
+        const float headSize = 2.0f;
+        Vector3 head = basePosition + Vector3.up * (poleHeight + headSize * 0.5f);
+        float corner = headSize * 0.4f;
+        Vector3[] points =
+        {
+            basePosition + Vector3.up * 1.1f, basePosition + Vector3.up * (poleHeight * 0.5f), basePosition + Vector3.up * (poleHeight - 0.5f),
+            head, head + new Vector3(corner, corner, corner), head + new Vector3(-corner, corner, -corner),
+            head + new Vector3(corner, -corner, -corner), head + new Vector3(-corner, -corner, corner),
+        };
+        foreach (Vector3 point in points)
+        {
+            if (IsInsideSolid(point, self)) return true;
+        }
+        return false;
+    }
+
+    public static string FindBuriedCollider(Transform saObject)
+    {
+        Transform pole = saObject.Find("Cube (1)");
+        if (pole != null && IsPoleInsideSolid(saObject.position, pole.lossyScale.y, saObject)) return "建物の中に入っている";
+
         const float groundContact = 0.4f;   // 柱の下側は、地面や縁石に触れていても埋まっているとはみなさない長さ(m)
         foreach (Transform cube in saObject)
         {

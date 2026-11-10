@@ -46,6 +46,7 @@ GameObject:
   - component: {fileID: 6038915642972428042}
   - component: {fileID: 5203948171630284711}
   - component: {fileID: 6619284730158836402}
+  - component: {fileID: 7421905630218845591}
   - component: {fileID: 3846102957716629043}
   - component: {fileID: 7731590264018837125}
   - component: {fileID: 4718293045561290871}
@@ -807,6 +808,21 @@ MonoBehaviour:
   _waveWidth: 0.3
   _waveSegments: 96
   _waveHeight: 0.2
+--- !u!114 &7421905630218845591
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1825699444668748530}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2dc7ce27e95744dd97c11d1509647a42, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CS_PlayerScanHighlight
+  _villainMaterial: {fileID: 2100000, guid: bc2419814c1943bf8d34756b0377d410, type: 2}
+  _policeMaterial: {fileID: 2100000, guid: ac8eb32640ac47d1a96839dfe39bc370, type: 2}
+  _droneMaterial: {fileID: 2100000, guid: 520d5d4aa2d549a38058aaf363f50beb, type: 2}
 --- !u!114 &3846102957716629043
 MonoBehaviour:
   m_ObjectHideFlags: 0

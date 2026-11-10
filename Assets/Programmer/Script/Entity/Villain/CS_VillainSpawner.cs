@@ -46,6 +46,7 @@ using UnityEngine.AI;
  *   イベントのグループは通常のグループ数に数えず、犯罪も進めない(時間経過の段階の反映は通常と同じ)
  * ・グループ単位の犯罪の進行は、生成したCS_VillainGroupのTickを毎フレーム呼んで進める
  *   進行度はスポーン位置の犯罪完遂ゲージ(CS_VillainCrimeGauge)にも毎フレーム渡す(付いていなければ何もしない)
+ * ・スポーン位置にグループがいる間は、路地裏の入り口に煙を出す(CS_VillainAreaSmoke。付いていなければ何もしない)
  * ・スポーン位置に巡回パターン(CS_VillainPatrolRoute)があれば、湧く人数はパターンの人数(先頭 + 付いてくる人)まで
  *   先頭を全員先に、次に付いてくる人を、パターンの順(CSO_VillainPatrolPattern.GetSlot)に生成し、ルートごとの組(CS_VillainPatrolCrew)に入れる
  *   先頭はポイント1にルートの最初の向きで、付いてくる人はポイント1からルートを逆にたどった隊列の位置に、そこの進む向きで生成する
@@ -212,6 +213,7 @@ public class CS_VillainSpawner : MonoBehaviour
             group.spawnPoint.isOccupied = false;
             group.spawnPoint.StartCooldown(_respawnCooldown);
             SetGauge(group.spawnPoint, 0f, false);   // ゲージを隠して0に戻す
+            SetSmoke(group.spawnPoint, false);
             _groups.RemoveAt(i);
         }
 
@@ -264,6 +266,12 @@ public class CS_VillainSpawner : MonoBehaviour
         if (point.TryGetComponent(out CS_VillainCrimeGauge gauge)) gauge.SetProgress(progress, isVisible);
     }
 
+    // スポーン位置に路地裏の入り口の煙(CS_VillainAreaSmoke)が付いていれば、出す・止める
+    private static void SetSmoke(CS_VillainSpawnPoint point, bool isActive)
+    {
+        if (point.TryGetComponent(out CS_VillainAreaSmoke smoke)) smoke.SetActive(isActive);
+    }
+
     // 同時に存在させるグループ数を下回っていたら、空きがある限り生成する(足りなければリスポーン待ちの位置も使う)
     private void FillRequiredGroups()
     {
@@ -301,6 +309,7 @@ public class CS_VillainSpawner : MonoBehaviour
 
         _hasWarnedNoPoint = false;
         _groups.Add(SpawnGroup(point));
+        SetSmoke(point, true);
         return true;
     }
 

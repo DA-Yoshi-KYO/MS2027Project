@@ -4,7 +4,7 @@ using UnityEngine;
 using UnityEngine.VFX;
 
 /*
- * 悪人エリアの入口に出す紫の煙(プレハブ)を作り、悪人の出現点に組み込むエディタ拡張
+ * 悪人エリアの紫の瘴気(出現点から路地裏の入口まで地面を流れる。プレハブ)を作り、悪人の出現点に組み込むエディタ拡張
  * Tools/Villain/悪人エリアの煙を作る から実行する(何度実行しても同じ結果になる)
  *
  * 制作者：　Claude
@@ -19,6 +19,7 @@ using UnityEngine.VFX;
  *      煙を出す・止めるのはCS_VillainAreaSmokeが行うので、起動時には何も出さない(Initial Eventを空にする)
  *   2. VillainSpawnPoint.prefabに組み込む。古いフォグ(VillainAreaFog)を消し、煙とCS_VillainAreaSmokeを付ける
  * ・瘴気の動きと見た目はVEG_VillainAreaSmoke.vfxに入っている。このスクリプトでは変えない
+ * ・出現点の子のVillainAreaSmokeの表示・非表示(今は非表示)は、このスクリプトでは変えない(VillainSpawnPoint.prefabで切り替える)
  */
 // ========================================
 

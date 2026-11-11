@@ -38,6 +38,9 @@ using UnityEngine;
  *   出すのは人が操作している自分のプレイヤー(CS_Player.isLocalPlayer)だけ。他のプレイヤー・NPCが倒した分は出さない
  *   (NPCはホストが持っているため、そのままだとホストの画面に出てしまう)
  *   0点の時は出さない(レイドボスは通常の撃破スコアが0点で、貢献度の点数はCS_VillainRaidBossが別に足すため)
+ * ・ソロではスコアを廃止した(Issue #485)。悪人を倒した時(暗躍ボーナスの倍率込み)・警察に見つかった時の点数は、
+ *   CS_PlayerResultDataHolderが0にする(回数は数える)。撃退スコアのポップアップは、ここでも0点にして出さない
+ *   暗躍ボーナスの連続撃破数は今まで通り数える(スキャン範囲・ステータスの強化に使うため)。マルチの動きは変えない
  * ・スコアはサーバーだけが計算する(攻撃判定・悪人の処理がサーバーで行われるため)
  * ・オフライン(NetworkManagerが動いていない)のテストシーンでも単体で動く
  */
@@ -123,7 +126,7 @@ public class CS_PlayerScoring : NetworkBehaviour
         if (target is CS_VillainHealth villain)
         {
             _bonus.AddDefeat();
-            int point = Mathf.RoundToInt(GetDefeatScore(villain) * _bonus.scoreMultiplier);
+            int point = CS_PlayerResultDataHolder.GetModeScore(Mathf.RoundToInt(GetDefeatScore(villain) * _bonus.scoreMultiplier));
             _holder.AddDefeatVillain(point);
             onVillainDefeated?.Invoke(villain);
             NotifyScorePopup(point, villain.transform.position + Vector3.up * _scorePopupHeight);

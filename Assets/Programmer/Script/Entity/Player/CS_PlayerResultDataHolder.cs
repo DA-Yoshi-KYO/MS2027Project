@@ -22,6 +22,9 @@ using UnityEngine;
  *   (表示先はCS_Player.playerNumber。CS_PlayerHpUIと同じ考え方)
  * ・ゲーム終了時は、CollectResults()で全プレイヤー分のCS_ResultDataを集めてCS_ResultDataStoreへ保存する想定
  *   (Scoreは全クライアントに同期済みなので、各クライアントが手元のプレイヤー全員分を集めれば足りる)
+ * ・ソロではスコアを廃止した(目的は「全エリアの犯罪を止めろ」。Issue #485)。悪人を倒した時(レイドのボスの配分を含む)・警察に見つかった時の
+ *   点数は0にして、回数だけを数える(リザルトで使うため)。呼び出し側(CS_PlayerScoring・警察・レイドのボス)はソロを気にしなくてよい
+ *   犯罪を完遂された時・他プレイヤーを倒した時は今まで通り(Issueの対象外)
  * ・オフライン(NetworkManagerが動いていない)のテストシーンでも単体で動く(playerNumberは既定値の0になる)
  */
 // ========================================
@@ -108,19 +111,19 @@ public class CS_PlayerResultDataHolder : NetworkBehaviour
     // 悪人を倒した時。pointは暗躍ボーナス込みの点数
     public void AddDefeatVillain(int point)
     {
-        Add(defeatVillainScore: point, defeatVillainCount: 1);
+        Add(defeatVillainScore: GetModeScore(point), defeatVillainCount: 1);
     }
 
     // 悪人撃破の点数だけを足す(倒した数は増やさない)。レイドのボスの貢献度による配分などで使う
     public void AddDefeatVillainScore(int point)
     {
-        Add(defeatVillainScore: point);
+        Add(defeatVillainScore: GetModeScore(point));
     }
 
     // 警察に見つかった時。pointはマイナスの点数
     public void AddFoundByPolice(int point)
     {
-        Add(foundByPoliceScore: point, foundByPoliceCount: 1);
+        Add(foundByPoliceScore: GetModeScore(point), foundByPoliceCount: 1);
     }
 
     // 悪人に犯罪を完遂された時。pointはマイナスの点数
@@ -133,6 +136,12 @@ public class CS_PlayerResultDataHolder : NetworkBehaviour
     public void AddDefeatPlayer(int point)
     {
         Add(defeatPlayerScore: point, defeatPlayerCount: 1);
+    }
+
+    // 悪人撃破・警察に見つかった時の、遊び方に合わせた点数(ソロではスコアを廃止したので0。回数は数える。Issue #485)
+    public static int GetModeScore(int point)
+    {
+        return CS_GameModeStore.isSolo ? 0 : point;
     }
 
     // 今のScoreに足した新しいScoreを作って入れ直す(structなので、入れ直さないと同期されない)

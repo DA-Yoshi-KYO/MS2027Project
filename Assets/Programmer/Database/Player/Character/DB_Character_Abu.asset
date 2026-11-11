@@ -1,0 +1,24 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1418a2e6910cc5f409671950bfd67b59, type: 3}
+  m_Name: DB_Character_Abu
+  m_EditorClassIdentifier: Assembly-CSharp::CSO_PlayableCharacter
+  _displayName: "\u30A2\u30D6"
+  _icon: {fileID: 0}
+  _themeColor: {r: 1, g: 0.55, b: 0.15, a: 1}
+  _stats: {fileID: 0}
+  _specialName: "\u706B\u7099\u308A"
+  _specialAttack: {fileID: 0}
+  _specialEffect: 2
+  _effectDuration: 60
+  _boostRate: 1.5
+  _memo: "\u4ED5\u69D8\u66F8\u300C\u30D7\u30EC\u30A4\u30E4\u30FC\u300D\u306E\u5FC5\u6BBA\u6280\u306E\u52B9\u679C\u4E00\u89A7(\u4E88\u5B9A)\u304B\u3089\u4F5C\u6210\u3002\u6570\u5024\u306F\u4EEE"

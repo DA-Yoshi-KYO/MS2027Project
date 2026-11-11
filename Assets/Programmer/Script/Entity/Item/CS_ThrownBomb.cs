@@ -4,6 +4,7 @@
  * 制作者：KR
  * ------------------------------------------------
  * 2026-09-28 | 初回作成
+ * 2026-10-30 | 狙った相手へ向かって曲がるホーミングを追加
  * ================================================ */
 
 using Unity.Netcode;
@@ -11,7 +12,7 @@ using UnityEngine;
 
 /*
  * 投げられた爆弾の実体
- * 着弾(最初に何かに当たる)してから_fuseTime秒後に爆発し、自身を破棄(Despawn)する
+ * 投げてから_fuseTime秒後に爆発し、自身を破棄(Despawn)する(着弾していなくても爆発する)
  *
  * 制作者：　KR
  */
@@ -26,7 +27,11 @@ using UnityEngine;
  * ・着弾の判定・爆発はサーバーのみが行う。位置はNetworkTransformで同期する
  *   サーバー以外では物理で動かさない(Rigidbodyをkinematicにする)
  *   ※ NetworkRigidbodyはオフライン時にもkinematicにしてしまい投げられなくなるため使わない
- * ・どこにも当たらず落ち続けた場合に備えて、_maxFlightTime秒経ったら着弾扱いにする
+ * ・ホーミング: Launch()で狙う相手を渡されると、爆発するまで、重力と回転を切って、相手の体の高さ(_homingAimHeight)へ
+ *   向かって、_homingSpeedの速さで飛び続ける(進む向きは_homingTurnSpeed度/秒で相手へ曲げる。誘導ミサイルのような動き)
+ *   転がって見えると追尾に見えないので、爆弾は回転させず、進む向きへ向ける
+ *   相手がいなくなったら、重力と回転を元に戻して、そのまま落ちる
+ * ・爆発は、着弾を待たずに、投げた瞬間から_fuseTime秒後に起きる(どこにも当たらず落ち続けても爆発する)
  * ・NetworkPrefabsList(DefaultNetworkPrefabs)にこのプレハブを登録しておくこと
  */
 // ========================================
@@ -35,13 +40,16 @@ using UnityEngine;
 [RequireComponent(typeof(NetworkObject))]
 public class CS_ThrownBomb : NetworkBehaviour
 {
-    [SerializeField][Tooltip("着弾してから爆発するまでの時間(秒)")][Min(0f)] private float _fuseTime = 2f;
-    [SerializeField][Tooltip("着弾しないまま経過したら着弾扱いにする時間(秒)")][Min(0f)] private float _maxFlightTime = 5f;
+    [SerializeField][Tooltip("投げてから爆発するまでの時間(秒)。空中でも、この時間が来たら爆発する")][Min(0f)] private float _fuseTime = 2f;
     [SerializeField][Tooltip("爆発の効果")] private CSO_ItemEffectExplode _explodeEffect;
+    [SerializeField][Tooltip("ホーミングで狙う高さ(相手の足元からの高さ。相手の体の真ん中あたり)")][Min(0f)] private float _homingAimHeight = 1f;
 
     private Rigidbody _rigidbody;
-    private bool _hasLanded;        // 着弾したか
-    private float _elapsed;         // 着弾前は投げてからの時間、着弾後は着弾してからの時間
+    private float _elapsed;         // 投げてからの時間
+    private Transform _homingTarget;    // ホーミングで狙っている相手(いなければnull)
+    private float _homingTurnSpeed;     // ホーミングで曲がる速さ(度/秒)
+    private float _homingSpeed;         // ホーミング中の速さ(m/秒)
+    private bool _isHoming;             // ホーミングで飛んでいるか(重力と回転を切っているか)
 
     // このマシンが爆弾を動かす権威を持つか(オフライン、またはサーバー)
     private bool hasAuthority => !IsSpawned || IsServer;
@@ -64,43 +72,68 @@ public class CS_ThrownBomb : NetworkBehaviour
     }
 
     // 初速を与えて投げる(サーバー、またはオフラインで実行される)
-    public void Launch(Vector3 velocity, GameObject thrower)
+    // homingTargetを渡すと、爆発するまで、その相手へ向かって飛び続ける(nullなら、山なりに飛ぶ)
+    public void Launch(Vector3 velocity, GameObject thrower, Transform homingTarget = null, float homingTurnSpeed = 0f, float homingSpeed = 0f)
     {
         IgnoreCollisionWith(thrower);
         _rigidbody.linearVelocity = velocity;
+        _homingTarget = homingTarget;
+        _homingTurnSpeed = homingTurnSpeed;
+        _homingSpeed = homingSpeed;
+
+        // ホーミングする時は、重力と回転を切って、誘導ミサイルのように飛ばす
+        if (homingTarget != null && homingTurnSpeed > 0f && homingSpeed > 0f) SetHoming(true);
+    }
+
+    private void FixedUpdate()
+    {
+        if (!hasAuthority || !_isHoming) return;
+
+        // 狙っている相手がいなくなったら、ホーミングをやめて、そのまま落ちる
+        if (_homingTarget == null)
+        {
+            SetHoming(false);
+            return;
+        }
+
+        SteerToTarget();
+    }
+
+    // ホーミング中は、重力と回転を切る(やめる時は元に戻す)
+    private void SetHoming(bool isHoming)
+    {
+        _isHoming = isHoming;
+        _rigidbody.useGravity = !isHoming;
+        _rigidbody.freezeRotation = isHoming;
+        if (isHoming) _rigidbody.angularVelocity = Vector3.zero;
+    }
+
+    // 進む向きを、狙っている相手の体の高さへ向けて曲げ、一定の速さで飛ばし、進む向きへ向ける
+    private void SteerToTarget()
+    {
+        Vector3 toTarget = _homingTarget.position + Vector3.up * _homingAimHeight - transform.position;
+        if (toTarget.sqrMagnitude < 0.0001f) return;
+
+        Vector3 velocity = _rigidbody.linearVelocity;
+        float maxRadians = _homingTurnSpeed * Mathf.Deg2Rad * Time.fixedDeltaTime;
+        Vector3 direction = velocity.sqrMagnitude > 0.0001f
+            ? Vector3.RotateTowards(velocity.normalized, toTarget.normalized, maxRadians, 0f)
+            : toTarget.normalized;
+
+        _rigidbody.linearVelocity = direction * _homingSpeed;
+        _rigidbody.MoveRotation(Quaternion.LookRotation(direction));
     }
 
     private void Update()
     {
         if (!hasAuthority) return;
 
+        // 投げた瞬間から数え、空中でも着弾後でも、時間が来たら爆発する
         _elapsed += Time.deltaTime;
-
-        if (!_hasLanded)
-        {
-            if (_elapsed >= _maxFlightTime) Land();
-            return;
-        }
-
         if (_elapsed >= _fuseTime)
         {
             Explode();
         }
-    }
-
-    private void OnCollisionEnter(Collision collision)
-    {
-        if (!hasAuthority) return;
-        if (_hasLanded) return;
-
-        Land();
-    }
-
-    // 着弾した。ここから爆発までのカウントを始める
-    private void Land()
-    {
-        _hasLanded = true;
-        _elapsed = 0f;
     }
 
     // 範囲ダメージを与えて、自身を取り除く

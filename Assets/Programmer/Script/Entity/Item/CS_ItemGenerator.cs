@@ -1,13 +1,13 @@
 ﻿/* ================================================
- * 
+ *
  * ================================================
  * 制作者：吉田京志郎
  * ------------------------------------------------
  * 2026-09-22 | 初回作成
  * 2026-10-17 | 拾われたアイテムの再生成を追加
+ * 2026-10-30 | ポイントごとに一定時間で入れ替える・拾われてから一定時間後に再生成するように変更
  * ================================================ */
 
-using System.Collections.Generic;
 using Unity.Netcode;
 using UnityEngine;
 
@@ -23,18 +23,19 @@ using UnityEngine;
  * ・生成するアイテムのプレハブはNetworkPrefabsList(DefaultNetworkPrefabs)に登録しておくこと
  * ・初期生成はStartで行う(NetworkSceneManagerでのシーン読み込み中のAwakeでSpawnすると、
  *   シーン配置オブジェクトとして二重に処理されエラーになるため)
- * ・再生成: フィールド上のアイテムが初期生成数より少ない間、再生成間隔ごとに1つずつ空いているポイントへ生成する
- *   再生成間隔が0なら再生成しない。生成するアイテムは初期生成の候補から選ぶ
- *   拾われたアイテムはDespawn(破棄)されるので、ポイントのitemがnullになった時点で空きとして扱う
+ * ・アイテムは、シーンにあるすべてのポイント(タグ ItemGeneratePoint)に1つずつ生成する
+ * ・ポイントごとに、一定時間(_changeInterval秒)で次のことが起きる(時間はポイントごとに数える)
+ *   ・アイテムがそのまま残っていれば、消して、新しいアイテムに入れ替える
+ *   ・アイテムが拾われていれば、拾われた時から数え直し、一定時間後に、新しいアイテムを生成する
+ *   新しいアイテムは候補からランダムに選ぶ(前と同じ種類になってもよい)
+ *   拾われたアイテムはDespawn(破棄)されるので、ポイントのitemがnullになった時点で拾われたとみなす
  */
 // ========================================
 public class CS_ItemGenerator : MonoBehaviour
 {
-    [SerializeField][Tooltip("初期生成するアイテムの数")][Min(0)] private int _initGenerateNum = 0;      // 初期生成するアイテムの数
-    [SerializeField][Tooltip("初期生成するアイテムの候補")] private CS_ItemBase[] _initGenerateItemKinds;    // 初期生成するアイテムの候補
-    [SerializeField][Tooltip("再生成の間隔(秒)。0なら再生成しない")][Min(0f)] private float _respawnInterval = 30f;   // 再生成の間隔(秒)
+    [SerializeField][Tooltip("生成するアイテムの候補(ポイントごとに、この中からランダムに選ぶ。同じ種類が続いてもよい)")] private CS_ItemBase[] _initGenerateItemKinds;    // 生成するアイテムの候補
+    [SerializeField][Tooltip("アイテムが入れ替わる・拾われた後に再生成されるまでの時間(秒)。ポイントごとに数える")][Min(1f)] private float _changeInterval = 60f;   // 入れ替え・再生成までの時間(秒)
     private CS_ItemGeneratePoint[] _itemGeneratePoints; // アイテム生成用のポイント
-    private float _respawnTimer;                        // 再生成までの経過時間
 
     // このマシンが生成の権威を持つか(オフライン、またはサーバー/ホスト)
     private static bool HasAuthority =>
@@ -47,7 +48,7 @@ public class CS_ItemGenerator : MonoBehaviour
 
         // シーンに存在するアイテム召還用のポイントを取得する
         var generatePointObjects = GameObject.FindGameObjectsWithTag("ItemGeneratePoint");
-        if (generatePointObjects.Length <= 0) 
+        if (generatePointObjects.Length <= 0)
             return;   // シーンにポイントが存在しない場合処理を飛ばす
 
         _itemGeneratePoints = new CS_ItemGeneratePoint[generatePointObjects.Length];
@@ -56,80 +57,69 @@ public class CS_ItemGenerator : MonoBehaviour
             _itemGeneratePoints[i] = generatePointObjects[i].GetComponent<CS_ItemGeneratePoint>();
         }
 
-        // アイテムを初期から生成する
-        if (_initGenerateItemKinds.Length <= 0) 
+        // すべてのポイントにアイテムを生成する
+        if (!HasItemKinds())
             return; // 生成するアイテムの候補がない場合処理を飛ばす
 
-        // 初期生成するアイテムの数がシーンに存在するアイテム召還用ポイントの数を上回っている時、
-        // シーンに存在する分だけ生成する。
-        int generateNum = Mathf.Min(_initGenerateNum, _itemGeneratePoints.Length);
-        if (_initGenerateNum > _itemGeneratePoints.Length)
-            Debug.LogWarning("初期生成する数がシーンに存在するアイテム召還用ポイントの数を上回っています。\n シーンに存在する分だけ生成します。");
-
-        for (int i = 0; i < generateNum; ++i)
+        foreach (var point in _itemGeneratePoints)
         {
-            GenerateToRandomPoint(_initGenerateItemKinds[Random.Range(0, _initGenerateItemKinds.Length)]);
+            if (point != null) GenerateAt(point);
         }
     }
 
     void Update()
     {
         if (!HasAuthority) return;
-        if (_respawnInterval <= 0f) return;
-        if (_itemGeneratePoints == null || _initGenerateItemKinds == null || _initGenerateItemKinds.Length <= 0) return;
+        if (_itemGeneratePoints == null || !HasItemKinds()) return;
 
-        // フィールド上のアイテムが初期生成数に足りている間はタイマーを進めない
-        if (CountGeneratedItems() >= Mathf.Min(_initGenerateNum, _itemGeneratePoints.Length))
+        foreach (var point in _itemGeneratePoints)
         {
-            _respawnTimer = 0f;
+            if (point != null) UpdatePoint(point);
+        }
+    }
+
+    // 生成するアイテムの候補があるか
+    private bool HasItemKinds()
+    {
+        return _initGenerateItemKinds != null && _initGenerateItemKinds.Length > 0;
+    }
+
+    // ポイント1つ分の時間を進め、時間が来たらアイテムを入れ替える(拾われていれば新しく生成する)
+    private void UpdatePoint(CS_ItemGeneratePoint point)
+    {
+        bool hasItem = point.item != null;
+
+        // 拾われた(アイテムがなくなった)瞬間から、数え直す
+        if (point.hadItem && !hasItem) point.timer = 0f;
+        point.hadItem = hasItem;
+
+        point.timer += Time.deltaTime;
+        if (point.timer < _changeInterval) return;
+
+        // 時間が来た。残っているアイテムは消して、新しいアイテムを生成する
+        if (hasItem) RemoveItem(point.item);
+        GenerateAt(point);
+    }
+
+    // ポイントに、候補からランダムに選んだアイテムを生成し、数える時間をリセットする
+    private void GenerateAt(CS_ItemGeneratePoint point)
+    {
+        CS_ItemBase kind = _initGenerateItemKinds[Random.Range(0, _initGenerateItemKinds.Length)];
+        point.item = Generate(kind, point.transform);
+        point.hadItem = true;
+        point.timer = 0f;
+    }
+
+    // フィールドに残っているアイテムを取り除く(オンラインならネットワーク越しにDespawn、オフラインならDestroy)
+    private static void RemoveItem(CS_ItemBase item)
+    {
+        if (item.IsSpawned)
+        {
+            item.NetworkObject.Despawn();
             return;
         }
 
-        _respawnTimer += Time.deltaTime;
-        if (_respawnTimer < _respawnInterval) return;
-
-        _respawnTimer = 0f;
-        GenerateToRandomPoint(_initGenerateItemKinds[Random.Range(0, _initGenerateItemKinds.Length)]);
-    }
-
-    // フィールド上に残っている(拾われていない)アイテムの数を数える
-    private int CountGeneratedItems()
-    {
-        int count = 0;
-        foreach (var point in _itemGeneratePoints)
-        {
-            if (point.item != null) ++count;
-        }
-        return count;
-    }
-
-    /// <summary>
-    /// シーンに存在する生成位置候補からランダムに選ばれた位置にアイテムを生成する
-    /// </summary>
-    /// <param name="item">生成するアイテム</param>
-    /// <returns>生成に成功したかどうか</returns>
-    public bool GenerateToRandomPoint(CS_ItemBase item)
-    {
-        if (_itemGeneratePoints == null || _itemGeneratePoints.Length <= 0)
-        {
-            Debug.LogError("ポイントが存在しません");
-            return false;
-        }
-
-        // 既に生成されているアイテム生成位置をリストから除外する
-        List<CS_ItemGeneratePoint> pointList = new List<CS_ItemGeneratePoint>(_itemGeneratePoints);
-        pointList.RemoveAll(point => point.item != null);
-        if (pointList.Count <= 0)
-        {
-            Debug.LogError("ポイントが全て生成済みです");
-            return false;
-        }
-
-        // 除外した後の生成位置候補からランダムに決定し、アイテムを生成する
-        var point = pointList[Random.Range(0, pointList.Count)];
-        point.item = Generate(item, point.transform);
-
-        return true;    //　生成に成功
+        Destroy(item.gameObject);
     }
 
     /// <summary>

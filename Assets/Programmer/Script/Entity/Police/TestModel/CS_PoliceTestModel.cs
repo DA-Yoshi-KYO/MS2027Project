@@ -4,22 +4,21 @@
  * 制作者：宇留野陸斗
  * ------------------------------------------------
  * 2026-10-23 | 初回作成
+ * 2026-11-02 | 警戒状態に関係なく、頭の上のパトランプを常に光らせるようにした
  * ================================================ */
 
 using System;
-using Unity.Netcode;
 using UnityEngine;
 
 /// <summary>
-/// 【仮モデル。今後削除する】警察の仮モデルの色付けと、警戒状態の時に頭の上のパトランプを光らせるクラス
+/// 【仮モデル。今後削除する】警察の仮モデルの色付けと、頭の上のパトランプを光らせるクラス
 /// ・仮モデル(警察のプレハブの子オブジェクト「TestModel」)の各部分に、色を付ける
-/// ・警戒状態(追跡・駆け付け・探索中)の間は、頭の上のパトランプが、赤と青で交互に点灯する。警戒状態でなければ消灯
-/// ・警戒状態かの判断はサーバー(またはオフライン)だけが分かる(CS_PoliceBrainがサーバーでしか動かないため)
-///   サーバーがNetworkVariableで全員へ同期し、各クライアントが自分の画面でパトランプを点灯させる
+/// ・頭の上のパトランプは、警察の状態に関係なく、常に赤と青で交互に点灯する
+///   時間で決まる点灯なので、同期しなくても、各画面で同じように光る
 /// ・元のカプセルの見た目は消す(当たり判定のコライダーは、そのまま使う)
 /// 削除する時は、このフォルダ(TestModel)と、警察のプレハブのTestModelの子オブジェクト・このコンポーネントを消す
 /// </summary>
-public class CS_PoliceTestModel : NetworkBehaviour
+public class CS_PoliceTestModel : MonoBehaviour
 {
     /// <summary>
     /// 仮モデルの1つの部分と、その色
@@ -38,10 +37,6 @@ public class CS_PoliceTestModel : NetworkBehaviour
     private static readonly int _baseColorId = Shader.PropertyToID("_BaseColor");
     private static readonly int _unlitColorId = Shader.PropertyToID("_UnlitColor");
 
-    // 警戒状態か(書き込みはサーバーのみ。パトランプを全員の画面で点灯させるために同期する)
-    private readonly NetworkVariable<bool> _isAlert = new NetworkVariable<bool>();
-
-    private CS_PoliceBrain _brain = null;
     private MaterialPropertyBlock _propertyBlock = null;
 
     [Header("＝＝＝ 仮モデル ＝＝＝")]
@@ -78,21 +73,14 @@ public class CS_PoliceTestModel : NetworkBehaviour
 
     private void Awake()
     {
-        _brain = GetComponent<CS_PoliceBrain>();
         _propertyBlock = new MaterialPropertyBlock();
 
         if (_hiddenRenderer != null) _hiddenRenderer.enabled = false;
-        SetLamps(false, false);
     }
 
     private void Update()
     {
-        // 警戒状態かを、サーバー(またはオフライン)が調べる。クライアントは同期された値を使う
-        bool isAlert = IsAlertNow();
-        if (IsSpawned && IsServer) _isAlert.Value = isAlert;
-        if (IsSpawned) isAlert = _isAlert.Value;
-
-        UpdateLamps(isAlert);
+        UpdateLamps();
     }
 
     // デバッグ表示(CS_PoliceChargeDebugVisual)が見た目の色を消す・変えるので、それが終わっている部分だけ、色を付け直す
@@ -107,27 +95,10 @@ public class CS_PoliceTestModel : NetworkBehaviour
     }
 
     /// <summary>
-    /// 今、警戒状態かを調べるメソッド(追跡・駆け付け・探索中を、警戒状態とする。サーバー、またはオフラインでだけ正しい)
+    /// パトランプを点灯させるメソッド(赤と青が交互に点灯する)
     /// </summary>
-    private bool IsAlertNow()
+    private void UpdateLamps()
     {
-        if (_brain == null || CS_PoliceSquad.IsNetworkClientOnly()) return false;
-
-        CSE_PoliceMoveState state = _brain.state;
-        return state == CSE_PoliceMoveState.Chase || state == CSE_PoliceMoveState.Rush || state == CSE_PoliceMoveState.Search;
-    }
-
-    /// <summary>
-    /// パトランプを点灯させるメソッド(警戒状態の間は、赤と青が交互に点灯する。警戒状態でなければ消灯)
-    /// </summary>
-    private void UpdateLamps(bool isAlert)
-    {
-        if (!isAlert)
-        {
-            SetLamps(false, false);
-            return;
-        }
-
         bool isRedPhase = Mathf.FloorToInt(Time.time / _blinkInterval) % 2 == 0;
         SetLamps(isRedPhase, !isRedPhase);
     }

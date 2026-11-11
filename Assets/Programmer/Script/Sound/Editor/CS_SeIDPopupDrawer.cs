@@ -128,7 +128,7 @@ public class CS_SeIDPopupDrawer : PropertyDrawer
     }
 
     private static string GetCategory(
-        CSE_SeId seId)
+      CSE_SeId seId)
     {
         int value = (int)seId;
 
@@ -137,7 +137,7 @@ public class CS_SeIDPopupDrawer : PropertyDrawer
             0 => "None",
 
             >= 100 and < 200
-                => "UI",
+                => "System",
 
             >= 200 and < 300
                 => "Player",
@@ -146,10 +146,19 @@ public class CS_SeIDPopupDrawer : PropertyDrawer
                 => "Police",
 
             >= 400 and < 500
-                => "Villain",
+                => "Security",
 
             >= 500 and < 600
+                => "Villain",
+
+            >= 600 and < 700
+                => "Raid Boss",
+
+            >= 700 and < 800
                 => "Item",
+
+            >= 800 and < 900
+                => "Event & Notification",
 
             _ => "Other",
         };

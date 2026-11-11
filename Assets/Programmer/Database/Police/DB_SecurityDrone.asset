@@ -13,13 +13,14 @@ MonoBehaviour:
   m_Name: DB_SecurityDrone
   m_EditorClassIdentifier: Assembly-CSharp::CSO_SecurityDroneData
   _patrolSpeedMultiplier: 0.3
-  _chaseSpeedMultiplier: 0.8
+  _chaseSpeedMultiplier: 0.5
   _viewAngle: 120
-  _viewDistance: 10
+  _viewDistance: 5
   _viewHeight: 6
   _chaseDuration: 6
   _modeTransitionTime: 5
   _taserChargeTime: 2
+  _attackDelayTime: 3
   _taserStunTime: 10
   _killChargeTime: 5
   _recoveryTime: 5

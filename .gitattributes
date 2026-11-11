@@ -120,3 +120,7 @@ Assets/Designer/**/*.FBX    lockable
 Artist/**/*.FBX    lockable
 Assets/Designer/**/*.abc    lockable
 Artist/**/*.abc    lockable
+
+# LFS budget exceeded: small mask textures are stored as normal git files
+Assets/Programmer/min/YosimotoRyo/mutou/Skin_OutlineMask.png !filter !diff !merge binary
+Assets/Programmer/min/YosimotoRyo/mutou/Eye_HideMask.png !filter !diff !merge binary

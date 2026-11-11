@@ -3492,6 +3492,7 @@ Transform:
   - {fileID: 3001257122787502147}
   - {fileID: 2525962572508086893}
   - {fileID: 2908757429614242198}
+  - {fileID: 4680369393463458077}
   - {fileID: 3660243923847605194}
   - {fileID: 7909387687389083499}
   - {fileID: 217817652664455383}
@@ -6132,7 +6133,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1619673295367063154, guid: 9f7d9a4cb1aaeba47bbf9df04089b09e, type: 3}
       propertyPath: m_Name
-      value: VillainSpawnPoint_25
+      value: VillainSpawnPoint_26
       objectReference: {fileID: 0}
     - target: {fileID: 2090143545577697338, guid: 9f7d9a4cb1aaeba47bbf9df04089b09e, type: 3}
       propertyPath: m_LocalPosition.x
@@ -6354,7 +6355,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1619673295367063154, guid: 9f7d9a4cb1aaeba47bbf9df04089b09e, type: 3}
       propertyPath: m_Name
-      value: VillainSpawnPoint_23
+      value: VillainSpawnPoint_24
       objectReference: {fileID: 0}
     - target: {fileID: 2090143545577697338, guid: 9f7d9a4cb1aaeba47bbf9df04089b09e, type: 3}
       propertyPath: m_LocalPosition.x
@@ -6600,7 +6601,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1619673295367063154, guid: 9f7d9a4cb1aaeba47bbf9df04089b09e, type: 3}
       propertyPath: m_Name
-      value: VillainSpawnPoint_20
+      value: VillainSpawnPoint_21
       objectReference: {fileID: 0}
     - target: {fileID: 2090143545577697338, guid: 9f7d9a4cb1aaeba47bbf9df04089b09e, type: 3}
       propertyPath: m_LocalPosition.x
@@ -6928,7 +6929,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1619673295367063154, guid: 9f7d9a4cb1aaeba47bbf9df04089b09e, type: 3}
       propertyPath: m_Name
-      value: VillainSpawnPoint_18
+      value: VillainSpawnPoint_19
       objectReference: {fileID: 0}
     - target: {fileID: 2090143545577697338, guid: 9f7d9a4cb1aaeba47bbf9df04089b09e, type: 3}
       propertyPath: m_LocalPosition.x
@@ -7212,7 +7213,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1619673295367063154, guid: 9f7d9a4cb1aaeba47bbf9df04089b09e, type: 3}
       propertyPath: m_Name
-      value: VillainSpawnPoint_16
+      value: VillainSpawnPoint_17
       objectReference: {fileID: 0}
     - target: {fileID: 2090143545577697338, guid: 9f7d9a4cb1aaeba47bbf9df04089b09e, type: 3}
       propertyPath: m_LocalPosition.x
@@ -7480,7 +7481,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 2090143545577697338, guid: 9f7d9a4cb1aaeba47bbf9df04089b09e, type: 3}
       propertyPath: m_LocalPosition.x
-      value: 0
+      value: 10
       objectReference: {fileID: 0}
     - target: {fileID: 2090143545577697338, guid: 9f7d9a4cb1aaeba47bbf9df04089b09e, type: 3}
       propertyPath: m_LocalPosition.y
@@ -7488,7 +7489,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 2090143545577697338, guid: 9f7d9a4cb1aaeba47bbf9df04089b09e, type: 3}
       propertyPath: m_LocalPosition.z
-      value: 0
+      value: 10
       objectReference: {fileID: 0}
     - target: {fileID: 2090143545577697338, guid: 9f7d9a4cb1aaeba47bbf9df04089b09e, type: 3}
       propertyPath: m_LocalRotation.w
@@ -7527,10 +7528,76 @@ PrefabInstance:
     m_AddedGameObjects: []
     m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: 9f7d9a4cb1aaeba47bbf9df04089b09e, type: 3}
+--- !u!1001 &7483816525992559403
+PrefabInstance:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Modification:
+    serializedVersion: 3
+    m_TransformParent: {fileID: 6429794400726098927}
+    m_Modifications:
+    - target: {fileID: 1619673295367063154, guid: 9f7d9a4cb1aaeba47bbf9df04089b09e, type: 3}
+      propertyPath: m_Name
+      value: VillainSpawnPoint_16
+      objectReference: {fileID: 0}
+    - target: {fileID: 2090143545577697338, guid: 9f7d9a4cb1aaeba47bbf9df04089b09e, type: 3}
+      propertyPath: m_LocalPosition.x
+      value: -10
+      objectReference: {fileID: 0}
+    - target: {fileID: 2090143545577697338, guid: 9f7d9a4cb1aaeba47bbf9df04089b09e, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: 0.65
+      objectReference: {fileID: 0}
+    - target: {fileID: 2090143545577697338, guid: 9f7d9a4cb1aaeba47bbf9df04089b09e, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: -10
+      objectReference: {fileID: 0}
+    - target: {fileID: 2090143545577697338, guid: 9f7d9a4cb1aaeba47bbf9df04089b09e, type: 3}
+      propertyPath: m_LocalRotation.w
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 2090143545577697338, guid: 9f7d9a4cb1aaeba47bbf9df04089b09e, type: 3}
+      propertyPath: m_LocalRotation.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2090143545577697338, guid: 9f7d9a4cb1aaeba47bbf9df04089b09e, type: 3}
+      propertyPath: m_LocalRotation.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2090143545577697338, guid: 9f7d9a4cb1aaeba47bbf9df04089b09e, type: 3}
+      propertyPath: m_LocalRotation.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2090143545577697338, guid: 9f7d9a4cb1aaeba47bbf9df04089b09e, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2090143545577697338, guid: 9f7d9a4cb1aaeba47bbf9df04089b09e, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2090143545577697338, guid: 9f7d9a4cb1aaeba47bbf9df04089b09e, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5815016976587491117, guid: 9f7d9a4cb1aaeba47bbf9df04089b09e, type: 3}
+      propertyPath: GlobalObjectIdHash
+      value: 2663015497
+      objectReference: {fileID: 0}
+    m_RemovedComponents: []
+    m_RemovedGameObjects: []
+    m_AddedGameObjects: []
+    m_AddedComponents: []
+  m_SourcePrefab: {fileID: 100100000, guid: 9f7d9a4cb1aaeba47bbf9df04089b09e, type: 3}
 --- !u!4 &2908757429614242198 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: 2090143545577697338, guid: 9f7d9a4cb1aaeba47bbf9df04089b09e, type: 3}
   m_PrefabInstance: {fileID: 3845041655830059436}
+  m_PrefabAsset: {fileID: 0}
+--- !u!4 &4680369393463458077 stripped
+Transform:
+  m_CorrespondingSourceObject: {fileID: 2090143545577697338, guid: 9f7d9a4cb1aaeba47bbf9df04089b09e, type: 3}
+  m_PrefabInstance: {fileID: 7483816525992559403}
   m_PrefabAsset: {fileID: 0}
 --- !u!1001 &3914931463097866250
 PrefabInstance:
@@ -7900,7 +7967,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1619673295367063154, guid: 9f7d9a4cb1aaeba47bbf9df04089b09e, type: 3}
       propertyPath: m_Name
-      value: VillainSpawnPoint_24
+      value: VillainSpawnPoint_25
       objectReference: {fileID: 0}
     - target: {fileID: 2090143545577697338, guid: 9f7d9a4cb1aaeba47bbf9df04089b09e, type: 3}
       propertyPath: m_LocalPosition.x
@@ -8840,7 +8907,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1619673295367063154, guid: 9f7d9a4cb1aaeba47bbf9df04089b09e, type: 3}
       propertyPath: m_Name
-      value: VillainSpawnPoint_19
+      value: VillainSpawnPoint_20
       objectReference: {fileID: 0}
     - target: {fileID: 2090143545577697338, guid: 9f7d9a4cb1aaeba47bbf9df04089b09e, type: 3}
       propertyPath: m_LocalPosition.x
@@ -9124,7 +9191,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1619673295367063154, guid: 9f7d9a4cb1aaeba47bbf9df04089b09e, type: 3}
       propertyPath: m_Name
-      value: VillainSpawnPoint_26
+      value: VillainSpawnPoint_27
       objectReference: {fileID: 0}
     - target: {fileID: 2090143545577697338, guid: 9f7d9a4cb1aaeba47bbf9df04089b09e, type: 3}
       propertyPath: m_LocalPosition.x
@@ -9268,7 +9335,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1619673295367063154, guid: 9f7d9a4cb1aaeba47bbf9df04089b09e, type: 3}
       propertyPath: m_Name
-      value: VillainSpawnPoint_28
+      value: VillainSpawnPoint_29
       objectReference: {fileID: 0}
     - target: {fileID: 2090143545577697338, guid: 9f7d9a4cb1aaeba47bbf9df04089b09e, type: 3}
       propertyPath: m_LocalPosition.x
@@ -9498,7 +9565,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1619673295367063154, guid: 9f7d9a4cb1aaeba47bbf9df04089b09e, type: 3}
       propertyPath: m_Name
-      value: VillainSpawnPoint_27
+      value: VillainSpawnPoint_28
       objectReference: {fileID: 0}
     - target: {fileID: 2090143545577697338, guid: 9f7d9a4cb1aaeba47bbf9df04089b09e, type: 3}
       propertyPath: m_LocalPosition.x
@@ -9642,7 +9709,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1619673295367063154, guid: 9f7d9a4cb1aaeba47bbf9df04089b09e, type: 3}
       propertyPath: m_Name
-      value: VillainSpawnPoint_17
+      value: VillainSpawnPoint_18
       objectReference: {fileID: 0}
     - target: {fileID: 2090143545577697338, guid: 9f7d9a4cb1aaeba47bbf9df04089b09e, type: 3}
       propertyPath: m_LocalPosition.x
@@ -9708,7 +9775,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1619673295367063154, guid: 9f7d9a4cb1aaeba47bbf9df04089b09e, type: 3}
       propertyPath: m_Name
-      value: VillainSpawnPoint_29
+      value: VillainSpawnPoint_30
       objectReference: {fileID: 0}
     - target: {fileID: 2090143545577697338, guid: 9f7d9a4cb1aaeba47bbf9df04089b09e, type: 3}
       propertyPath: m_LocalPosition.x
@@ -9774,15 +9841,15 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 2734311351039539489, guid: 230613191d892c5409e6ba20dbd5dd3e, type: 3}
       propertyPath: m_LocalPosition.x
-      value: 100
+      value: 4.5
       objectReference: {fileID: 0}
     - target: {fileID: 2734311351039539489, guid: 230613191d892c5409e6ba20dbd5dd3e, type: 3}
       propertyPath: m_LocalPosition.y
-      value: 6
+      value: 10
       objectReference: {fileID: 0}
     - target: {fileID: 2734311351039539489, guid: 230613191d892c5409e6ba20dbd5dd3e, type: 3}
       propertyPath: m_LocalPosition.z
-      value: -100
+      value: -4.5
       objectReference: {fileID: 0}
     - target: {fileID: 2734311351039539489, guid: 230613191d892c5409e6ba20dbd5dd3e, type: 3}
       propertyPath: m_LocalRotation.w
@@ -10308,7 +10375,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1619673295367063154, guid: 9f7d9a4cb1aaeba47bbf9df04089b09e, type: 3}
       propertyPath: m_Name
-      value: VillainSpawnPoint_21
+      value: VillainSpawnPoint_22
       objectReference: {fileID: 0}
     - target: {fileID: 2090143545577697338, guid: 9f7d9a4cb1aaeba47bbf9df04089b09e, type: 3}
       propertyPath: m_LocalPosition.x
@@ -10374,7 +10441,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1619673295367063154, guid: 9f7d9a4cb1aaeba47bbf9df04089b09e, type: 3}
       propertyPath: m_Name
-      value: VillainSpawnPoint_22
+      value: VillainSpawnPoint_23
       objectReference: {fileID: 0}
     - target: {fileID: 2090143545577697338, guid: 9f7d9a4cb1aaeba47bbf9df04089b09e, type: 3}
       propertyPath: m_LocalPosition.x

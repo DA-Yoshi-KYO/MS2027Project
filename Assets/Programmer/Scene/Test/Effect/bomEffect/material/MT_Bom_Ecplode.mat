@@ -1,0 +1,70 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!21 &2100000
+Material:
+  serializedVersion: 8
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_Name: MT_Bom_Ecplode
+  m_Shader: {fileID: 4800000, guid: 1bc5c6a70411243779ce486a98012125, type: 3}
+  m_Parent: {fileID: 2100000, guid: 84def36ba507c474496935325a3a2ef5, type: 2}
+  m_ModifiedSerializedProperties: 24
+  m_ValidKeywords:
+  - _ALPHA_TRANSITION_MAP_MODE_2D
+  - _BASE_MAP_MODE_2D
+  - _EMISSION_AREA_MAP
+  - _EMISSION_COLOR_BASECOLOR
+  - _EMISSION_MAP_MODE_2D
+  - _PARALLAX_MAP_MODE_2D
+  - _TINT_COLOR_ENABLED
+  m_InvalidKeywords: []
+  m_LightmapFlags: 4
+  m_EnableInstancingVariants: 0
+  m_DoubleSidedGI: 0
+  m_CustomRenderQueue: 2000
+  stringTagMap:
+    RenderType: Opaque
+  disabledShaderPasses:
+  - SHADOWCASTER
+  m_LockedProperties: 
+  m_SavedProperties:
+    serializedVersion: 3
+    m_TexEnvs:
+    - _BaseMap:
+        m_Texture: {fileID: 2800000, guid: 26e1b004635d51b42855e787d9bd98d2, type: 3}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _EmissionMap:
+        m_Texture: {fileID: 2800000, guid: 185805058fccf724b9dff63b9e2b7090, type: 3}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _GradientMap:
+        m_Texture: {fileID: 2800000, guid: cf58d3f7ea0b0da4eac856df418da2d8, type: 3}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    m_Ints: []
+    m_Floats:
+    - _BaseMapBrightness: 1027.19
+    - _BaseMapRotation: 0
+    - _BlendDst: 0
+    - _BlendSrc: 1
+    - _ColorCorrectionMode: 0
+    - _Cull: 2
+    - _EmissionAreaType: 2
+    - _EmissionColorType: 1
+    - _EmissionIntensity: 300
+    - _EmissionIntensityCoord: 0
+    - _EmissionMapRotation: 0
+    - _RenderType: 0
+    - _SoftParticlesEnabled: 0
+    - _SoftParticlesIntensity: 10
+    - _TransparentBlendMode: 0
+    - _VertexDeformationIntensity: 0
+    - _ZWrite: 0
+    - _ZWriteOverride: 0
+    m_Colors:
+    - _BaseMapRotationOffsets: {r: 0.1, g: 0.1, b: 0, a: 0}
+  m_BuildTextureStacks: []
+  m_AllowLocking: 1

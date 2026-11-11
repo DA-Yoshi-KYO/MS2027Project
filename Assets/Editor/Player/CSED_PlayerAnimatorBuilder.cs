@@ -32,6 +32,19 @@ using UnityEngine;
  *   それ以外(ダッシュ・被弾・死亡など)は状態を作らない(その間は移動のアニメーションのまま)
  * ・攻撃・必殺技・ダッシュ・パリー・奇襲は、ゲーム側の時間(CSO_AttackDataのDurationなど)に収まるよう再生速度を決める
  *   モーションの前後に余計な動きがある場合は、表のstart / end(0〜1)で使う範囲を切り出す
+ * ・当たる瞬間を合わせる(表のimpact。モーションの中で当たる瞬間の位置、0〜1。負の値なら合わせない)
+ *   通常攻撃・必殺技: 当たる瞬間が、ゲーム側の判定が出る時間(Hit Delay)ちょうどに来るよう、再生速度と使う範囲を計算し直す
+ *     速度 = 「判定までに当たる瞬間まで再生できる」と「残りの時間で終わりまで再生できる」のうち遅い方
+ *     はみ出す側(当たる前の構え、または当たった後の戻り)は切り詰める
+ *   奇襲: 飛び込みの距離で当たるまでの時間が毎回変わるため、Animatorの速さはゲーム中に決める(AmbushSpeed)
+ *     飛び込みを始めた瞬間に構えから再生し、当たる瞬間に打撃が来るよう、CS_PlayerVisualが速さを計算する
+ *     そのために、クリップの頭から当たる瞬間までの秒数をCS_PlayerVisualのAmbush Impact Timeへ書き込む
+ *   当たる瞬間の位置は、FBXのアニメーションで動きが一番速いフレーム(振り抜く瞬間)を目安にした
+ * ・ジャンプ: 踏み切りは沈み込みの一番下から、空中は最高点からにして、ボタンを押した瞬間に体が浮き始める見た目にする
+ *   踏み切り(最高点まで)と空中(最高点から着地まで)は、ジャンプ力と重力から計算した上昇の時間に合わせて再生する
+ *   着地は、着地した時に移動していれば(Speed)すぐ移動のアニメーションへ戻る(走りながら着地して止まらないように)
+ * ・通常攻撃の各段に使うモーションは、段ごとのデータ(Hit Delay・Duration)が一番近いモーションを選び、
+ *   CS_PlayerVisualのAttack Motion For Stepへ書き込む(5段コンボの4・5段目も、タイミングの合うモーションを使う)
  * ・ルートモーションは使わない(移動はRigidbodyが行う)。高さ・向きはモーションの中に焼き込むので、ジャンプの高さは見た目に出る
  * ・以前のMannequin用の仮の見た目の組み込みツール(CSED_PlayerTempVisualBuilder)は、Munnkiへの差し替えで不要になったため、このツールに置き換えた
  */
@@ -47,6 +60,13 @@ public static class CSED_PlayerAnimatorBuilder
         public bool loop;
         public float start;         // 使う範囲の始まり(0〜1)
         public float end = 1f;      // 使う範囲の終わり(0〜1)
+        public float impact = -1f;  // 当たる瞬間の位置(0〜1。負の値なら合わせない)
+
+        // ゲーム側のタイミング(ResolveTimingsで入れる)と、それに合わせて計算した結果(ImportMotionsで入れる)
+        public float hitDelay;              // 判定が出るまでの時間(秒)
+        public float duration;              // 動作の時間(秒)
+        public float playFramesPerSecond;   // 当たる瞬間を合わせた再生の速さ(元のフレーム/秒。0なら合わせていない)
+        public float impactFrames;          // 切り出したクリップの頭から当たる瞬間までのフレーム数
     }
 
     private const string _munnkiRoot = "Assets/Programmer/PlaceholderAsset/Player/Munnki";
@@ -55,6 +75,7 @@ public static class CSED_PlayerAnimatorBuilder
     private const string _controllerPath = _munnkiRoot + "/Animation/PlayerMunnkiAnimator.controller";
     private const string _fallbackClipPath = _munnkiRoot + "/Animation/Munnki_TPose.anim";
     private const string _prefabPath = "Assets/Programmer/Prefab/Entity/Player/Player.prefab";
+    private const string _statsPath = "Assets/Programmer/Database/Player/DB_PlayerStats.asset";
     private const string _modelName = "Model";
     private const float _transitionTime = 0.1f;
 
@@ -64,29 +85,36 @@ public static class CSED_PlayerAnimatorBuilder
     private static readonly Motion _walk = new Motion { file = "Standard Walk", clipName = "Walk", loop = true };   // 通常の移動
     private static readonly Motion _run = new Motion { file = "Running", clipName = "Run", loop = true };          // 走り(ダッシュ中・ダッシュボタンを押し続けている間)
 
-    // ジャンプは1つのFBXを、踏み切り・空中・着地の3つに切り出して使う
-    private static readonly Motion _jumpStart = new Motion { file = "Jump", clipName = "JumpStart", start = 0f, end = 0.4f };
-    private static readonly Motion _jumpAir = new Motion { file = "Jump", clipName = "JumpAir", start = 0.4f, end = 0.6f, loop = true };
-    private static readonly Motion _jumpLand = new Motion { file = "Jump", clipName = "JumpLand", start = 0.6f, end = 1f };
+    // ジャンプは1つのFBXを、踏み切り・空中・着地の3つに切り出して使う(Jumping: 全57フレーム)
+    //   沈み込みの一番下 11 / 最高点 22 / 着地 33 / 立ち直り 51(腰の高さの動きから読み取った)
+    //   踏み切りは沈み込みの一番下から始める(ボタンを押した瞬間に体が浮くため、しゃがむ構えは使わない)
+    //   空中はループさせず、最後の姿勢(着地の直前)のまま着地を待つ
+    private static readonly Motion _jumpStart = new Motion { file = "Jumping", clipName = "JumpStart", start = 11f / 57f, end = 22f / 57f };
+    private static readonly Motion _jumpAir = new Motion { file = "Jumping", clipName = "JumpAir", start = 22f / 57f, end = 31f / 57f };
+    private static readonly Motion _jumpLand = new Motion { file = "Jumping", clipName = "JumpLand", start = 33f / 57f, end = 51f / 57f };
 
     private static readonly Motion _dash = null;    // ダッシュ(まだ無い)
 
     // 通常攻撃の各段(5段コンボの4・5段目は先頭から使い回す。CS_PlayerVisualのAttack Motion Countもこの数に合わせる)
+    // impactは当たる瞬間(Attack1: 27/69フレーム、Attack2: 37/89、Attack3: 53/98)
     private static readonly Motion[] _attacks =
     {
-        new Motion { file = "Attack1", clipName = "Attack1" },
-        new Motion { file = "Attack2", clipName = "Attack2" },
-        new Motion { file = "Attack3", clipName = "Attack3" },
+        new Motion { file = "Attack1", clipName = "Attack1", impact = 27f / 69f },
+        new Motion { file = "Attack2", clipName = "Attack2", impact = 37f / 89f },
+        new Motion { file = "Attack3", clipName = "Attack3", impact = 53f / 98f },
     };
 
-    private static readonly Motion _special = new Motion { file = "SpecialAttack", clipName = "Special" };
+    private static readonly Motion _special = new Motion { file = "SpecialAttack", clipName = "Special", impact = 33f / 95f };
     private static readonly Motion _parry = new Motion { file = "parry", clipName = "Parry" };
-    private static readonly Motion _ambush = new Motion { file = "Surprise Uppercut", clipName = "Ambush" };
+    // 奇襲: 沈み込んで(〜25フレーム)から伸び上がってアッパー(32フレーム)、戻り(〜68フレーム)。その後の立ち止まりは使わない
+    private static readonly Motion _ambush = new Motion { file = "Surprise Uppercut", clipName = "Ambush", end = 68f / 105f, impact = 32f / 105f };
     private static readonly Motion _hit = null;     // 被弾(まだ無い)
     private static readonly Motion _death = new Motion { file = "defense", clipName = "Death" };    // 死亡(最後の姿勢のまま、復活するまで止まる)
 
     private const float _parryDuration = 0.6f;      // パリー(反撃)のモーションの長さ(秒。CS_PlayerParryの無敵時間と同じくらい)
-    private const float _ambushDuration = 0.6f;     // 奇襲のモーションの長さ(秒。飛び込み+攻撃)
+    private const float _landInterruptSpeed = 0.3f; // 着地した時、Speedがこれより大きければ(移動していれば)すぐ移動のアニメーションへ戻る
+
+    private static float _ambushImpactTime;         // 奇襲のクリップの頭から当たる瞬間までの秒数(CS_PlayerVisualへ書き込む)
 
     // ----
 
@@ -101,6 +129,7 @@ public static class CSED_PlayerAnimatorBuilder
         }
 
         List<Motion> motions = CollectMotions();
+        ResolveTimings();
         ImportMotions(motions, ((ModelImporter)AssetImporter.GetAtPath(_modelPath)).humanDescription);
 
         AnimatorController controller = CreateController();
@@ -116,6 +145,29 @@ public static class CSED_PlayerAnimatorBuilder
         motions.AddRange(_attacks);
         motions.RemoveAll(motion => motion == null);
         return motions;
+    }
+
+    // 通常攻撃・必殺技に、ゲーム側の判定のタイミング(Hit Delay・Duration)を入れる
+    private static void ResolveTimings()
+    {
+        GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(_prefabPath);
+        CS_PlayerAttack attack = prefab != null ? prefab.GetComponent<CS_PlayerAttack>() : null;
+        CS_PlayerSpecialAttack special = prefab != null ? prefab.GetComponent<CS_PlayerSpecialAttack>() : null;
+        IReadOnlyList<CSO_AttackData> steps = attack != null ? attack.attackSteps : null;
+
+        for (int i = 0; i < _attacks.Length; i++)
+        {
+            SetTiming(_attacks[i], steps != null && i < steps.Count ? steps[i] : null);
+        }
+        SetTiming(_special, special != null ? special.specialAttackData : null);
+    }
+
+    private static void SetTiming(Motion motion, CSO_AttackData data)
+    {
+        if (motion == null) return;
+
+        motion.hitDelay = data != null ? data.hitDelay : 0f;
+        motion.duration = data != null ? data.duration : 0f;
     }
 
     // ---- FBXの読み込み設定 ----
@@ -163,12 +215,16 @@ public static class CSED_PlayerAnimatorBuilder
             List<ModelImporterClipAnimation> clips = new List<ModelImporterClipAnimation>();
             foreach (Motion motion in pair.Value)
             {
+                float firstFrame = Mathf.Lerp(take.firstFrame, take.lastFrame, motion.start);
+                float lastFrame = Mathf.Lerp(take.firstFrame, take.lastFrame, motion.end);
+                FitToHitTiming(motion, take, ref firstFrame, ref lastFrame);
+
                 clips.Add(new ModelImporterClipAnimation
                 {
                     name = motion.clipName,
                     takeName = take.takeName,
-                    firstFrame = Mathf.Lerp(take.firstFrame, take.lastFrame, motion.start),
-                    lastFrame = Mathf.Lerp(take.firstFrame, take.lastFrame, motion.end),
+                    firstFrame = firstFrame,
+                    lastFrame = lastFrame,
                     loopTime = motion.loop,
                     lockRootRotation = true,        // 向きはモーションの中に焼き込む(体の向きはゲーム側が決める)
                     keepOriginalOrientation = true,
@@ -180,6 +236,32 @@ public static class CSED_PlayerAnimatorBuilder
             importer.clipAnimations = clips.ToArray();
             importer.SaveAndReimport();
         }
+    }
+
+    // 当たる瞬間(impact)が、判定が出る時間(hitDelay)ちょうどに来るよう、使う範囲と再生の速さを決める
+    // 速さは「判定までに当たる瞬間まで再生できる」と「残りの時間で終わりまで再生できる」のうち遅い方にし、はみ出す側を切り詰める
+    private static void FitToHitTiming(Motion motion, ModelImporterClipAnimation take, ref float firstFrame, ref float lastFrame)
+    {
+        motion.playFramesPerSecond = 0f;
+        motion.impactFrames = 0f;
+        if (motion.impact < 0f) return;
+
+        float impactFrame = Mathf.Lerp(take.firstFrame, take.lastFrame, motion.impact);
+        if (motion.hitDelay > 0f && motion.duration > motion.hitDelay)
+        {
+            float framesPerSecond = Mathf.Min(
+                (impactFrame - firstFrame) / motion.hitDelay,
+                (lastFrame - impactFrame) / (motion.duration - motion.hitDelay));
+
+            if (framesPerSecond > 0f)
+            {
+                firstFrame = impactFrame - motion.hitDelay * framesPerSecond;
+                lastFrame = impactFrame + (motion.duration - motion.hitDelay) * framesPerSecond;
+                motion.playFramesPerSecond = framesPerSecond;
+            }
+        }
+
+        motion.impactFrames = Mathf.Max(0f, impactFrame - firstFrame);
     }
 
     // ボーンの割り当てと基準の姿勢をMunnkiのモデルから写す。FBXに無いボーン(髪など)は除き、Munnkiに無いボーン(ルートなど)はFBXのものを残す
@@ -269,7 +351,7 @@ public static class CSED_PlayerAnimatorBuilder
 
         AddAction(machine, locomotion, _special, CS_PlayerAnimatorParams.special, special != null && special.specialAttackData != null ? special.specialAttackData.duration : 0f, null);
         AddAction(machine, locomotion, _parry, CS_PlayerAnimatorParams.parry, _parryDuration, null);
-        AddAction(machine, locomotion, _ambush, CS_PlayerAnimatorParams.ambush, _ambushDuration, null);
+        AddAmbush(machine, locomotion);
         AddAction(machine, locomotion, _hit, CS_PlayerAnimatorParams.hit, 0f, null);
         AddDeath(machine, locomotion);
 
@@ -325,6 +407,14 @@ public static class CSED_PlayerAnimatorBuilder
             defaultFloat = 1f,
         };
         controller.AddParameter(attackSpeed);
+
+        AnimatorControllerParameter ambushSpeed = new AnimatorControllerParameter
+        {
+            name = CS_PlayerAnimatorParams.ambushSpeed,
+            type = AnimatorControllerParameterType.Float,
+            defaultFloat = 1f,
+        };
+        controller.AddParameter(ambushSpeed);
     }
 
     // 移動。体から見た移動の向き・速さ(MoveX / MoveZ。通常の移動の速さで1)で、待機と歩きを混ぜる
@@ -377,12 +467,15 @@ public static class CSED_PlayerAnimatorBuilder
     }
 
     // ジャンプ開始 → 空中 → 着地。ジャンプ以外の落下でも空中になる
+    // 踏み切り(最高点まで)と空中(最高点から着地の直前まで)は、上昇にかかる時間(ジャンプ力 ÷ 重力)で再生する
     private static void AddJump(AnimatorStateMachine machine, AnimatorState locomotion, AnimatorState sprint)
     {
         AnimationClip airClip = LoadClip(_jumpAir);
         if (airClip == null) return;
 
+        float riseTime = GetJumpRiseTime();
         AnimatorState air = AddClipState(machine, "Air", airClip);
+        if (riseTime > 0f) air.speed = airClip.length / riseTime;
 
         foreach (AnimatorState ground in new[] { locomotion, sprint })
         {
@@ -397,6 +490,7 @@ public static class CSED_PlayerAnimatorBuilder
         if (startClip != null)
         {
             AnimatorState start = AddClipState(machine, "JumpStart", startClip);
+            if (riseTime > 0f) start.speed = startClip.length / riseTime;
             AddEnterTransition(machine, start, CS_PlayerAnimatorParams.jump, null);
             SetupTransition(start.AddTransition(air), true, 0.9f);
         }
@@ -407,12 +501,27 @@ public static class CSED_PlayerAnimatorBuilder
         {
             AnimatorState land = AddClipState(machine, "JumpLand", landClip);
             SetupTransition(land.AddTransition(locomotion), true, 0.8f);
+
+            // 移動しながら着地した時は、着地の動きを待たずに移動へ戻る
+            AnimatorStateTransition keepMoving = land.AddTransition(locomotion);
+            SetupTransition(keepMoving, false, 0f);
+            keepMoving.AddCondition(AnimatorConditionMode.Greater, _landInterruptSpeed, CS_PlayerAnimatorParams.speed);
             landTarget = land;
         }
 
         AnimatorStateTransition landing = air.AddTransition(landTarget);
         SetupTransition(landing, false, 0f);
         landing.AddCondition(AnimatorConditionMode.If, 0f, CS_PlayerAnimatorParams.grounded);
+    }
+
+    // ジャンプして最高点に着くまでの時間(秒)。ジャンプ力(初速)÷ 重力。分からなければ0
+    private static float GetJumpRiseTime()
+    {
+        CSO_PlayerStats stats = AssetDatabase.LoadAssetAtPath<CSO_PlayerStats>(_statsPath);
+        float gravity = Mathf.Abs(Physics.gravity.y);
+        if (stats == null || stats.jumpPower <= 0f || gravity <= 0f) return 0f;
+
+        return stats.jumpPower / gravity;
     }
 
     // トリガーで入り、再生し終わったら移動へ戻る動作。アニメーションが無ければ状態を作らない
@@ -423,11 +532,33 @@ public static class CSED_PlayerAnimatorBuilder
         if (clip == null) return null;
 
         AnimatorState state = AddClipState(machine, motion.clipName, clip);
-        if (clip.length > 0f && duration > 0f) state.speed = clip.length / duration;
+        if (motion.playFramesPerSecond > 0f && clip.frameRate > 0f)
+        {
+            state.speed = motion.playFramesPerSecond / clip.frameRate;   // 当たる瞬間を判定に合わせた速さ(FitToHitTiming)
+        }
+        else if (clip.length > 0f && duration > 0f)
+        {
+            state.speed = clip.length / duration;
+        }
 
         AddEnterTransition(machine, state, trigger, comboStep);
         SetupTransition(state.AddTransition(locomotion), true, 0.95f);
         return state;
+    }
+
+    // 奇襲。当たるまでの時間が飛び込む距離で変わるため、速さはゲーム中にAmbushSpeedで決める(CS_PlayerVisual)
+    private static void AddAmbush(AnimatorStateMachine machine, AnimatorState locomotion)
+    {
+        _ambushImpactTime = 0f;
+
+        AnimatorState state = AddAction(machine, locomotion, _ambush, CS_PlayerAnimatorParams.ambush, 0f, null);
+        if (state == null) return;
+
+        AnimationClip clip = (AnimationClip)state.motion;
+        state.speed = 1f;
+        state.speedParameter = CS_PlayerAnimatorParams.ambushSpeed;
+        state.speedParameterActive = true;
+        _ambushImpactTime = clip.frameRate > 0f ? _ambush.impactFrames / clip.frameRate : 0f;
     }
 
     private static void AddDeath(AnimatorStateMachine machine, AnimatorState locomotion)
@@ -502,6 +633,15 @@ public static class CSED_PlayerAnimatorBuilder
                 SerializedObject serialized = new SerializedObject(visual);
                 serialized.FindProperty("_animator").objectReferenceValue = animator;
                 serialized.FindProperty("_attackMotionCount").intValue = _attacks.Length;
+                if (_ambushImpactTime > 0f) serialized.FindProperty("_ambushImpactTime").floatValue = _ambushImpactTime;
+
+                int[] motionForStep = GetAttackMotionForStep(root.GetComponent<CS_PlayerAttack>());
+                SerializedProperty motionForStepProperty = serialized.FindProperty("_attackMotionForStep");
+                motionForStepProperty.arraySize = motionForStep.Length;
+                for (int i = 0; i < motionForStep.Length; i++)
+                {
+                    motionForStepProperty.GetArrayElementAtIndex(i).intValue = motionForStep[i];
+                }
                 serialized.ApplyModifiedPropertiesWithoutUndo();
             }
 
@@ -511,5 +651,37 @@ public static class CSED_PlayerAnimatorBuilder
         {
             PrefabUtility.UnloadPrefabContents(root);
         }
+    }
+
+    // 通常攻撃の各段に使うモーションの番号。モーションの数までの段はそのまま、それより後の段は、
+    // Hit Delay・Durationが一番近い段のモーションを使う(その段のタイミングに合わせて作ったモーションなので、当たる瞬間も合う)
+    private static int[] GetAttackMotionForStep(CS_PlayerAttack attack)
+    {
+        IReadOnlyList<CSO_AttackData> steps = attack != null ? attack.attackSteps : null;
+        if (steps == null) return new int[0];
+
+        int motionCount = Mathf.Min(_attacks.Length, steps.Count);
+        int[] result = new int[steps.Count];
+        for (int i = 0; i < steps.Count; i++)
+        {
+            if (i < motionCount || steps[i] == null)
+            {
+                result[i] = motionCount > 0 ? i % motionCount : 0;
+                continue;
+            }
+
+            float best = float.MaxValue;
+            for (int j = 0; j < motionCount; j++)
+            {
+                if (steps[j] == null) continue;
+
+                float difference = Mathf.Abs(steps[i].hitDelay - steps[j].hitDelay) + Mathf.Abs(steps[i].duration - steps[j].duration);
+                if (difference >= best) continue;
+
+                best = difference;
+                result[i] = j;
+            }
+        }
+        return result;
     }
 }

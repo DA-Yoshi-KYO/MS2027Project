@@ -14,7 +14,7 @@ using UnityEngine;
 /// 選んだ警察のグループ(CS_PoliceSquad)の巡回ポイントを、灰色の道の上に自動で作るエディタ専用ツール
 /// 1. 巡回ルートを作る範囲を、XとZの座標で決める(Yは、無視するかどうかを選べる)
 /// 2. 範囲の中の灰色の道(Road)の上を一周するルートを作る(路地裏(BackAlley)は、余白をあけて避ける)
-/// 3. ルートの曲がり角ごとに巡回ポイントのオブジェクトを作り、グループの子にして、PatrolPointsに設定する
+/// 3. ルートの曲がり角ごとに巡回ポイントのオブジェクトを作り、グループの子にする(巡回ポイントは、開始時にグループの子オブジェクトから作られる)
 /// ツールの画面を開いている間は、入力した範囲をSceneビューに表示する(範囲を調整しながら確認できる)
 /// Field_Multi.prefab・Field_Solo1.prefabをPrefab Modeで開いてグループを選んで使えば、プレハブにそのまま保存される
 /// (シーン内のプレハブのインスタンスに使った場合は、Overridesから、プレハブへApplyする)
@@ -387,7 +387,7 @@ public class CSED_PoliceRouteWizard : ScriptableWizard
     }
 
     /// <summary>
-    /// ルートの各ノードに巡回ポイントを作り、グループの子にして、PatrolPointsに設定するメソッド
+    /// ルートの各ノードに巡回ポイントを作り、グループの子にするメソッド
     /// 前に作った巡回ポイント(RoadPatrolPoint_)は、先に消す
     /// </summary>
     private static void CreatePatrolPoints(CS_PoliceSquad squad, CSED_PoliceRoadGraph graph, List<int> route)
@@ -395,24 +395,14 @@ public class CSED_PoliceRouteWizard : ScriptableWizard
         Undo.IncrementCurrentGroup();
         RemoveOldPoints(squad.transform);
 
-        List<Transform> points = new List<Transform>();
         for (int i = 0; i < route.Count; i++)
         {
             GameObject point = new GameObject(_pointNamePrefix + i.ToString("000"));
             Undo.RegisterCreatedObjectUndo(point, "巡回ポイントを作る");
             point.transform.SetParent(squad.transform, false);
             point.transform.position = graph.GetNode(route[i]);
-            points.Add(point.transform);
         }
 
-        SerializedObject serialized = new SerializedObject(squad);
-        SerializedProperty property = serialized.FindProperty("_patrolPoints");
-        property.arraySize = points.Count;
-        for (int i = 0; i < points.Count; i++)
-        {
-            property.GetArrayElementAtIndex(i).objectReferenceValue = points[i];
-        }
-        serialized.ApplyModifiedProperties();
         EditorUtility.SetDirty(squad);
     }
 

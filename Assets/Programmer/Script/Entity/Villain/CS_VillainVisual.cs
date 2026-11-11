@@ -18,6 +18,8 @@ using UnityEngine;
  *   ・溜め・攻撃 : 同期済みの攻撃の段階(CS_VillainCombat.attackPhase)から判定する
  *                  経過時間は同期していないので、各クライアントが段階が変わったのを見た時刻から数える
  *   ・くらい     : 同期済みのノックバック回数(CS_VillainKnockback.knockbackCount)が増えたら再生する
+ *   ・死亡       : 同期済みの倒れた状態(CS_VillainHealth.isDead)の間、死亡モーションを再生する
+ *                  消える(Destroy)タイミングはCS_VillainHealthのdespawnDelayで決まる
  *
  * ■ 攻撃モーション(パンチ)の合わせ方
  *   溜めと攻撃は同じパンチのモーションを使い、再生位置(AttackTime)をこのクラスが決める(StateのMotion Time)
@@ -68,6 +70,7 @@ public class CS_VillainVisual : MonoBehaviour
 
     private CS_VillainCombat _combat;
     private CS_VillainKnockback _knockback;
+    private CS_VillainHealth _health;
     private readonly HashSet<int> _availableParams = new HashSet<int>();
     private Vector3 _lastPosition;
     private int _lastKnockbackCount;
@@ -80,6 +83,7 @@ public class CS_VillainVisual : MonoBehaviour
     {
         _combat = GetComponent<CS_VillainCombat>();
         _knockback = GetComponent<CS_VillainKnockback>();
+        _health = GetComponent<CS_VillainHealth>();
 
         if (_animator == null) _animator = GetComponentInChildren<Animator>();
         if (_animator != null)
@@ -107,6 +111,7 @@ public class CS_VillainVisual : MonoBehaviour
         UpdateLocomotion(Time.deltaTime);
         UpdateAttack();
         UpdateHit();
+        SetBool(CS_VillainAnimatorParams.deadHash, _health != null && _health.isDead);
     }
 
     // 座標の変化から、体から見た移動方向と速さを求める(クライアントでも同じ計算で済む)

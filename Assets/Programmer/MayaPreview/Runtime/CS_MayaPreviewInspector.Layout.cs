@@ -25,7 +25,8 @@ public partial class CS_MayaPreviewInspector
     private static readonly PanelId[] LeftColumn = { PanelId.Hierarchy, PanelId.Performance, PanelId.View, PanelId.Export };
     private static readonly PanelId[] RightColumn = { PanelId.Inspector, PanelId.Material, PanelId.Graphics };
 
-    private const string PanelPrefsKey = "MayaPreview.Panels";
+    // v2: new default panels (Performance / View / Graphics open); old saved layouts start over once.
+    private const string PanelPrefsKey = "MayaPreview.Panels.v2";
     private const float MinBody = 40f;
     private const float SplitterHeight = 8f;
 
@@ -75,7 +76,7 @@ public partial class CS_MayaPreviewInspector
     {
         _panelsLoaded = true;
         string saved = PlayerPrefs.GetString(PanelPrefsKey, "");
-        if (string.IsNullOrEmpty(saved)) return;
+        if (string.IsNullOrEmpty(saved)) { SetPerformanceOpen(true); return; }   // first run
         string[] parts = saved.Split(',');
         for (int i = 0; i < parts.Length && i < (int)PanelId.Count; i++)
         {

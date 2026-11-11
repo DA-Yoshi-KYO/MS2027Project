@@ -27,6 +27,8 @@ public class CS_MayaPreviewWindow : MonoBehaviour
     public static readonly int[] WidthPresets = { 960, 1280, 1600, 1920 };
 
     private const string PrefsKey = "MayaPreview.Aspect";
+    private const string WidthPrefsKey = "MayaPreview.WindowWidth";   // the width chosen in View
+    private const int DefaultWidth = 960;
 
     public int AspectIndex { get; private set; }
     public float Aspect => AspectValues[AspectIndex];
@@ -46,6 +48,9 @@ public class CS_MayaPreviewWindow : MonoBehaviour
         AspectIndex = Mathf.Clamp(PlayerPrefs.GetInt(PrefsKey, 0), 0, AspectValues.Length - 1);
         s_aspect = Aspect;
         InstallHook();
+        // Every start: windowed, the width chosen last in View (960 until one is chosen).
+        // Unity would otherwise reopen at its own remembered size (full screen 1920).
+        if (!Application.isEditor) SetClientWidth(PlayerPrefs.GetInt(WidthPrefsKey, DefaultWidth));
     }
 
     private void OnDestroy() => RemoveHook();
@@ -87,6 +92,14 @@ public class CS_MayaPreviewWindow : MonoBehaviour
     public void ResetRatio()
     {
         SetClientWidth(Screen.width);
+    }
+
+    // View > Window width: remembered for the next start.
+    public void ChooseWidth(int width)
+    {
+        PlayerPrefs.SetInt(WidthPrefsKey, width);
+        PlayerPrefs.Save();
+        SetClientWidth(width);
     }
 
     public void SetClientWidth(int width)

@@ -9,15 +9,20 @@ using UnityEngine.Rendering.HighDefinition;
 +=====================================
  File   : CSE_MayaPreviewExportImporter
  Summary: Finishes a Maya preview export inside the project by itself (no menu).
-          MS2027.exe writes <Folder>/Mesh/<name>.fbx, <Folder>/Texture/* and
-          <Folder>/MayaPreview/Exports/<name>.mpx.json into Assets (default Assets/Designer).
+          MS2027.exe writes into Assets/Designer, one folder per type (Character ...):
+          Mesh/<type>/<name>.fbx, Texture/<type>/*, Json/<type>/<name>.mpx.json.
           When the editor imports the .mpx.json:
-          - Texture/* get their import settings (normal map / linear data),
-          - <Folder>/Material/MT_*.mat are made or updated (shader + every value + textures),
-          - the FBX gets those materials (material remap in its import settings).
+          - Texture/<type>/* get their import settings (normal map / linear data),
+          - Material/<type>/MT_*.mat are made or updated (shader + every value + textures),
+          - the FBX gets those materials (material remap in its import settings),
+          - Prefab/<type>/<name>.prefab is made once (a variant of the FBX: later exports
+            update it through the FBX, changes made to the prefab are kept).
+          Types without materials / prefab (Motion) only get the FBX.
+          Old exports (<Folder>/MayaPreview/Exports, no type) still work.
           Right click a .mpx.json > Maya Preview > Rebuild From Export runs it again.
  History: 2026/10/11 New
           2026/10/11 FBX + Designer folders, automatic (no Import menu, no prefab)
+          2026/11/09 Folders per export type, prefab
 =====================================+
 */
 public class CSE_MayaPreviewExportImporter : AssetPostprocessor
@@ -72,10 +77,16 @@ public class CSE_MayaPreviewExportImporter : AssetPostprocessor
     // Build
     // =========================================================
 
-    // <Folder>/MayaPreview/Exports/<name>.mpx.json -> <Folder>
-    private static string RootOf(string manifestPath)
+    // Assets/Designer/Json/<type>/<name>.mpx.json -> Assets/Designer
+    // <Folder>/MayaPreview/Exports/<name>.mpx.json -> <Folder> (old exports)
+    private static string RootOf(string manifestPath, CS_MayaPreviewExportManifest manifest)
     {
         string folder = Path.GetDirectoryName(manifestPath).Replace('\\', '/');
+        if (manifest.version >= 3)
+        {
+            int json = folder.LastIndexOf("/" + CS_MayaPreviewExport.JsonFolder + "/", StringComparison.OrdinalIgnoreCase);
+            if (json > 0) return folder.Substring(0, json);
+        }
         string suffix = "/" + CS_MayaPreviewExport.ManifestFolder;
         if (folder.EndsWith(suffix, StringComparison.OrdinalIgnoreCase)) return folder.Substring(0, folder.Length - suffix.Length);
         return Path.GetDirectoryName(folder).Replace('\\', '/');
@@ -92,13 +103,15 @@ public class CSE_MayaPreviewExportImporter : AssetPostprocessor
         }
         if (manifest == null || string.IsNullOrEmpty(manifest.fbx)) return;   // old export format (no FBX)
 
-        string root = RootOf(manifestPath);
+        string root = RootOf(manifestPath, manifest);
         string fbxPath = root + "/" + manifest.fbx;
-        string materialFolder = root + "/" + CS_MayaPreviewExport.MaterialFolder;
-        EnsureFolder(materialFolder);
+        bool typed = manifest.version >= 3;
+        bool buildMaterials = !typed || manifest.buildMaterials;
+        string materialFolder = root + "/" + (typed && !string.IsNullOrEmpty(manifest.materialFolder) ? manifest.materialFolder : CS_MayaPreviewExport.MaterialFolder);
+        if (buildMaterials) EnsureFolder(materialFolder);
 
         // Textures: import settings first (normal maps / linear data).
-        if (manifest.materials != null)
+        if (buildMaterials && manifest.materials != null)
         {
             foreach (CS_MayaPreviewExportMaterial material in manifest.materials)
             {
@@ -109,15 +122,41 @@ public class CSE_MayaPreviewExportImporter : AssetPostprocessor
         }
 
         var materials = new List<Material>();
-        if (manifest.materials != null)
+        if (buildMaterials && manifest.materials != null)
             foreach (CS_MayaPreviewExportMaterial data in manifest.materials)
                 materials.Add(data != null ? BuildMaterial(root, materialFolder, data) : null);
         AssetDatabase.SaveAssets();
 
-        RemapModel(fbxPath, manifest.materials, materials);
+        RemapModel(fbxPath, manifest.materials, materials, buildMaterials);
         var model = AssetDatabase.LoadAssetAtPath<GameObject>(fbxPath);
-        Debug.Log("Maya Preview Import : " + fbxPath + "  (" + materials.Count + " materials in " + materialFolder + ")", model);
-        if (model != null) EditorGUIUtility.PingObject(model);
+        UnityEngine.Object ping = model;
+        bool prefab = typed && !string.IsNullOrEmpty(manifest.prefab);
+        if (model != null && prefab) ping = MakePrefab(model, root + "/" + manifest.prefab) ?? ping;
+        Debug.Log("Maya Preview Import : " + fbxPath +
+                  (buildMaterials ? "  (" + materials.Count + " materials in " + materialFolder + ")" : "") +
+                  (prefab ? "  prefab " + root + "/" + manifest.prefab : ""), ping);
+        if (ping != null) EditorGUIUtility.PingObject(ping);
+    }
+
+    // Made once as a variant of the FBX model: re-exports update it through the FBX,
+    // and what was added to the prefab in Unity is kept.
+    private static UnityEngine.Object MakePrefab(GameObject model, string prefabPath)
+    {
+        var existing = AssetDatabase.LoadAssetAtPath<GameObject>(prefabPath);
+        if (existing != null) return existing;
+        EnsureFolder(Path.GetDirectoryName(prefabPath).Replace('\\', '/'));
+        var instance = (GameObject)PrefabUtility.InstantiatePrefab(model);
+        try
+        {
+            instance.name = Path.GetFileNameWithoutExtension(prefabPath);
+            return PrefabUtility.SaveAsPrefabAsset(instance, prefabPath);
+        }
+        catch (Exception exception)
+        {
+            Debug.LogWarning("Maya Preview Import : could not make the prefab " + prefabPath + "\n" + exception.Message);
+            return null;
+        }
+        finally { UnityEngine.Object.DestroyImmediate(instance); }
     }
 
     private static void EnsureFolder(string path)
@@ -129,7 +168,7 @@ public class CSE_MayaPreviewExportImporter : AssetPostprocessor
     }
 
     // The FBX uses the MT_ materials (same names as its own materials).
-    private static void RemapModel(string fbxPath, CS_MayaPreviewExportMaterial[] data, List<Material> materials)
+    private static void RemapModel(string fbxPath, CS_MayaPreviewExportMaterial[] data, List<Material> materials, bool staticModel)
     {
         var importer = AssetImporter.GetAtPath(fbxPath) as ModelImporter;
         if (importer == null)
@@ -140,8 +179,9 @@ public class CSE_MayaPreviewExportImporter : AssetPostprocessor
         bool changed = false;
         if (importer.importCameras) { importer.importCameras = false; changed = true; }
         if (importer.importLights) { importer.importLights = false; changed = true; }
-        if (importer.importAnimation) { importer.importAnimation = false; changed = true; }
-        if (importer.animationType != ModelImporterAnimationType.None) { importer.animationType = ModelImporterAnimationType.None; changed = true; }
+        // Motion (no materials): the animation settings are left to the user.
+        if (staticModel && importer.importAnimation) { importer.importAnimation = false; changed = true; }
+        if (staticModel && importer.animationType != ModelImporterAnimationType.None) { importer.animationType = ModelImporterAnimationType.None; changed = true; }
         if (!importer.preserveHierarchy) { importer.preserveHierarchy = true; changed = true; }
         if (importer.materialImportMode == ModelImporterMaterialImportMode.None)
         {

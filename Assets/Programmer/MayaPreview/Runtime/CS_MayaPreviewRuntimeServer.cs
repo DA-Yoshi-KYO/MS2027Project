@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.IO;
 using System.Net;
 using System.Net.Sockets;
@@ -29,7 +30,7 @@ public class CS_MayaPreviewRuntimeServer : MonoBehaviour
     // Maya → Unity
     private const int PORT = 50001;
 
-    // Mayaはcm、Unityはm
+    // Mayaはcm、Unityはm。Mayaの実寸のまま表示する（Maya 170cm → Unity 1.7m、FBX取り込みと同じ）
     private const float MAYA_TO_UNITY_SCALE = 1.0f;
 
     private const string MAYA_MODEL_ROOT_NAME =
@@ -70,6 +71,60 @@ public class CS_MayaPreviewRuntimeServer : MonoBehaviour
 
 
     // =========================================================
+    // MESH_DATA_V2（UV・法線・マテリアル名付き）
+    //
+    // positions : x,y,z の並び（Maya座標）
+    // normals   : x,y,z の並び（positionsと同じ数 or 空）
+    // uvs       : u,v の並び（頂点数×2 or 空）
+    // submeshes : マテリアルごとの三角形リスト
+    // =========================================================
+
+    [Serializable]
+    private class CSST_MessageHeader
+    {
+        public string type;
+
+        // MESH_REMOVE で消すObject名
+        public string name;
+
+        // SESSION : マテリアル設定の保存先（Mayaプロジェクト/unityPreview/materials）
+        public string materialFolder;
+
+        // SESSION : Mayaで開いている .mb のパス（空 = 未保存）。前回の書き出しの復元に使う
+        public string scene;
+
+        // SESSION : true = 保存しただけ（名前を付けて保存）。開き直しではない
+        public bool saved;
+    }
+
+
+    [Serializable]
+    private class CSST_SubMeshData
+    {
+        public string material;
+
+        public int[] triangles;
+    }
+
+
+    [Serializable]
+    private class CSST_MeshDataV2
+    {
+        public string type;
+
+        public string name;
+
+        public float[] positions;
+
+        public float[] normals;
+
+        public float[] uvs;
+
+        public CSST_SubMeshData[] submeshes;
+    }
+
+
+    // =========================================================
     // Socket
     // =========================================================
 
@@ -85,8 +140,30 @@ public class CS_MayaPreviewRuntimeServer : MonoBehaviour
     // MainThread処理Queue
     // =========================================================
 
-    private readonly ConcurrentQueue<string> _messageQueue =
-        new ConcurrentQueue<string>();
+    private readonly ConcurrentQueue<CSST_ReceivedMessage> _messageQueue =
+        new ConcurrentQueue<CSST_ReceivedMessage>();
+
+
+    // =========================================================
+    // 受信スレッドで変換済みのデータ
+    //
+    // JSON解析・座標変換・頂点分割は重いので
+    // MainThreadではなく受信スレッドで済ませておく
+    // (MainThreadが止まらない = 画面がカクつかない)
+    // =========================================================
+
+    private class CSST_ReceivedMessage
+    {
+        public string text;          // JSON以外の接続確認用Message
+        public string meshName;      // Mesh更新の場合のみ
+        public Vector3[] vertices;
+        public int[] triangles;
+
+        // MESH_DATA_V2 / SESSION / MATERIAL_DEF / MESH_REMOVE の場合のみ
+        // (Unityの処理が要るのでMainThreadで解析・反映する)
+        public CSST_MessageHeader header;
+        public string json;
+    }
 
 
     // =========================================================
@@ -101,6 +178,39 @@ public class CS_MayaPreviewRuntimeServer : MonoBehaviour
     // HDRP Frame送信
     private CS_MayaPreviewFrameSender _frameSender;
 
+    // Mayaツール側の画像表示は廃止したため既定はOFF
+    // （毎回のGPU読み戻しと送信失敗ログを出さない）
+    [SerializeField]
+    private bool _sendFramesToMaya = false;
+
+
+    // =========================================================
+    // Material割り当て
+    // =========================================================
+
+    // Maya → Unity Material名の一覧（Resourcesから読み込み）
+    private CS_MayaPreviewMaterialCatalog _materialCatalog;
+
+    // 一覧に無い名前を目立たせる用
+    private Material _missingMaterial;
+
+    // Mayaのマテリアル名ごとのMaterial（自動HDRP/Lit、Inspectorで変更・保存）
+    private CS_MayaPreviewMaterialLibrary _library;
+
+    // シーン内で動いているServer（重複したPreview_Systemは無効化する）
+    // 2つ目がLibraryを作るとInspectorがそちらを見てしまい、Shader設定が出なくなるため
+    private static CS_MayaPreviewRuntimeServer s_active;
+    private bool _duplicate;
+
+    // 同じ警告を何度も出さない
+    private readonly HashSet<string> _warnedMaterialNames =
+        new HashSet<string>();
+
+    // Object名 → 前回割り当てたMaterial名の並び
+    // （変わっていなければ割り当て直さず、Inspectorでの調整を残す）
+    private readonly Dictionary<string, string> _appliedMaterialKeys =
+        new Dictionary<string, string>();
+
 
     // =========================================================
     // Awake
@@ -108,8 +218,29 @@ public class CS_MayaPreviewRuntimeServer : MonoBehaviour
 
     private void Awake()
     {
+        if (s_active != null && s_active != this)
+        {
+            _duplicate = true;
+            enabled = false;
+            var duplicateSender = GetComponent<CS_MayaPreviewFrameSender>();
+            if (duplicateSender != null) duplicateSender.enabled = false;
+            Debug.LogWarning(
+                "Maya Preview Runtime : CS_MayaPreviewRuntimeServer が重複しています（" + name +
+                "）。こちらは無効化しました。シーンに1つだけ置いてください。"
+            );
+            return;
+        }
+
+        s_active = this;
+
         // Standaloneでもバックグラウンド動作
         Application.runInBackground = true;
+
+        // 操作していない間は描画回数を落として PC を軽くする (見た目は変わらない)
+        if (GetComponent<CS_MayaPreviewIdleThrottle>() == null)
+        {
+            gameObject.AddComponent<CS_MayaPreviewIdleThrottle>();
+        }
 
 
         // =====================================================
@@ -204,6 +335,55 @@ public class CS_MayaPreviewRuntimeServer : MonoBehaviour
         }
 
 
+        // =====================================================
+        // Material一覧
+        // =====================================================
+
+        _materialCatalog =
+            CS_MayaPreviewMaterialCatalog.Load();
+
+
+        if (_materialCatalog == null)
+        {
+            Debug.LogWarning(
+                "Maya Preview Runtime : Material一覧が見つかりません。" +
+                "Editorで Tools/Maya Preview/Material Catalog/Rebuild を実行してからビルドしてください。"
+            );
+        }
+
+
+        _library =
+            new CS_MayaPreviewMaterialLibrary(
+                _materialCatalog
+            );
+
+        // シェーダー変更などでMaterialが作り直されたら割り当て直す
+        _library.MaterialReplaced +=
+            RefreshMaterial;
+
+
+        if (shader != null)
+        {
+            _missingMaterial =
+                new Material(
+                    shader
+                );
+
+
+            _missingMaterial.name =
+                "MAT_MayaPreview_Missing";
+
+
+            if (_missingMaterial.HasProperty("_BaseColor"))
+            {
+                _missingMaterial.SetColor(
+                    "_BaseColor",
+                    new Color(1.0f, 0.0f, 1.0f, 1.0f)
+                );
+            }
+        }
+
+
         Debug.Log(
             "Maya Preview Runtime : 初期化"
         );
@@ -216,6 +396,11 @@ public class CS_MayaPreviewRuntimeServer : MonoBehaviour
 
     private void OnEnable()
     {
+        if (_duplicate)
+        {
+            return;
+        }
+
         StartServer();
     }
 
@@ -229,17 +414,134 @@ public class CS_MayaPreviewRuntimeServer : MonoBehaviour
         // Socket Thread側から受信したMessageを
         // Unity MainThreadで処理する
 
+        // 同じObjectの更新が1フレーム内に複数届いた場合は
+        // 最後の1回だけ反映する (結果は同じで無駄な更新をしない)
+        _pendingMeshes.Clear();
+        _pendingOrder.Clear();
+
         while (
             _messageQueue.TryDequeue(
-                out string message
+                out CSST_ReceivedMessage received
             )
         )
         {
-            ProcessMessage(
-                message
+            CS_MayaPreviewIdleThrottle.WakeFromMaya();
+
+            if (received.header != null)
+            {
+                // 届いた順番を守るため、先にまとめ待ちのMeshを反映してから処理する
+                FlushPendingMeshes();
+
+                ProcessHeaderMessage(
+                    received
+                );
+
+                continue;
+            }
+
+            if (received.meshName == null)
+            {
+                Debug.Log(
+                    "Maya Preview Runtime : " +
+                    "Message受信 : " +
+                    received.text
+                );
+
+                continue;
+            }
+
+            if (!_pendingMeshes.ContainsKey(received.meshName))
+            {
+                _pendingOrder.Add(received.meshName);
+            }
+
+            _pendingMeshes[received.meshName] = received;
+        }
+
+        FlushPendingMeshes();
+
+
+        // Inspectorで変えたマテリアル設定をまとめて保存
+        _library?.Tick(
+            Time.unscaledTime
+        );
+    }
+
+    private void FlushPendingMeshes()
+    {
+        foreach (string meshName in _pendingOrder)
+        {
+            CSST_ReceivedMessage pending = _pendingMeshes[meshName];
+
+            CreateOrUpdateMesh(
+                pending.meshName,
+                pending.vertices,
+                pending.triangles
+            );
+        }
+
+        _pendingMeshes.Clear();
+        _pendingOrder.Clear();
+    }
+
+
+    // MESH_DATA_V2 / SESSION / MATERIAL_DEF / MESH_REMOVE をMainThreadで処理する
+    private void ProcessHeaderMessage(
+        CSST_ReceivedMessage received
+    )
+    {
+        try
+        {
+            switch (received.header.type)
+            {
+                case "MESH_DATA_V2":
+                    ProcessMeshDataV2(
+                        JsonUtility.FromJson<CSST_MeshDataV2>(
+                            received.json
+                        )
+                    );
+                    break;
+
+                case "SESSION":
+                    _library?.SetFolder(
+                        received.header.materialFolder
+                    );
+                    CS_MayaPreviewExport.SetScene(
+                        received.header.scene,
+                        received.header.saved
+                    );
+                    break;
+
+                case "MATERIAL_DEF":
+                    ProcessMaterialDef(
+                        JsonUtility.FromJson<CS_MayaPreviewMaterialLibrary.MaterialDef>(
+                            received.json
+                        )
+                    );
+                    break;
+
+                case "MESH_REMOVE":
+                    RemoveLiveObject(
+                        received.header.name
+                    );
+                    break;
+            }
+        }
+        catch (Exception exception)
+        {
+            Debug.LogError(
+                "Maya Preview Runtime : " +
+                "JSON解析失敗\n" +
+                exception
             );
         }
     }
+
+    private readonly System.Collections.Generic.Dictionary<string, CSST_ReceivedMessage> _pendingMeshes =
+        new System.Collections.Generic.Dictionary<string, CSST_ReceivedMessage>();
+
+    private readonly System.Collections.Generic.List<string> _pendingOrder =
+        new System.Collections.Generic.List<string>();
 
 
     // =========================================================
@@ -344,9 +646,17 @@ public class CS_MayaPreviewRuntimeServer : MonoBehaviour
                         )
                     )
                     {
-                        _messageQueue.Enqueue(
-                            message
-                        );
+                        CSST_ReceivedMessage received =
+                            PrepareMessage(
+                                message
+                            );
+
+                        if (received != null)
+                        {
+                            _messageQueue.Enqueue(
+                                received
+                            );
+                        }
                     }
                 }
             }
@@ -388,63 +698,125 @@ public class CS_MayaPreviewRuntimeServer : MonoBehaviour
 
 
     // =========================================================
-    // Message処理
+    // Message変換 (受信スレッドで実行)
+    //
+    // JsonUtility.FromJson はUnity公式で
+    // バックグラウンドスレッドから呼んでよいことになっている
     // =========================================================
 
-    private void ProcessMessage(
+    private static CSST_ReceivedMessage PrepareMessage(
         string message
     )
     {
-        if (
-            string.IsNullOrEmpty(
-                message
-            )
-        )
+        if (string.IsNullOrEmpty(message))
         {
-            return;
+            return null;
         }
-
 
         // JSON以外の接続確認用Message
-        if (
-            !message.StartsWith(
-                "{"
-            )
-        )
+        if (!message.StartsWith("{"))
         {
-            Debug.Log(
-                "Maya Preview Runtime : " +
-                "Message受信 : " +
-                message
-            );
-
-            return;
+            return new CSST_ReceivedMessage { text = message };
         }
-
 
         try
         {
+            CSST_MessageHeader header =
+                JsonUtility.FromJson<CSST_MessageHeader>(
+                    message
+                );
+
+
+            // MESH_DATA_V2 / SESSION / MATERIAL_DEF / MESH_REMOVE は
+            // Unityの処理が要るので、ここでは種類と本文だけ渡してMainThreadで処理する
+            if (
+                header != null &&
+                (
+                    header.type == "MESH_DATA_V2" ||
+                    header.type == "SESSION" ||
+                    header.type == "MATERIAL_DEF" ||
+                    header.type == "MESH_REMOVE"
+                )
+            )
+            {
+                return new CSST_ReceivedMessage
+                {
+                    header = header,
+                    json = message,
+                };
+            }
+
+
             CSST_MeshData meshData =
                 JsonUtility.FromJson<CSST_MeshData>(
                     message
                 );
 
-
-            if (meshData == null)
-            {
-                return;
-            }
-
-
             if (
-                meshData.type ==
-                "MESH_DATA"
+                meshData == null ||
+                meshData.type != "MESH_DATA"
             )
             {
-                ProcessMeshData(
-                    meshData
-                );
+                return null;
             }
+
+            if (
+                meshData.vertices == null ||
+                meshData.triangles == null
+            )
+            {
+                Debug.LogError(
+                    "Maya Preview Runtime : " +
+                    "Mesh Dataが不正です。"
+                );
+
+                return null;
+            }
+
+            // =================================================
+            // Maya X Y Z → Unity X Y -Z
+            // Z反転したのでWindingも反転
+            //
+            // さらに面ごとに頂点を分割する
+            // (送信データに法線が無いので、分割しないと
+            //  RecalculateNormalsでハードエッジが丸まる)
+            //
+            // 以前はMainThreadでやっていた処理を
+            // そのままここへ移しただけなので結果は同じ
+            // =================================================
+
+            CSST_VertexData[] src = meshData.vertices;
+            int[] tri = meshData.triangles;
+
+            int count = tri.Length - (tri.Length % 3);
+
+            Vector3[] faceVertices = new Vector3[count];
+            int[] faceTriangles = new int[count];
+
+            for (int i = 0; i < count; i += 3)
+            {
+                int i0 = tri[i];
+                int i1 = tri[i + 2];
+                int i2 = tri[i + 1];
+
+                faceVertices[i] =
+                    new Vector3(src[i0].x, src[i0].y, -src[i0].z) * MAYA_TO_UNITY_SCALE;
+                faceVertices[i + 1] =
+                    new Vector3(src[i1].x, src[i1].y, -src[i1].z) * MAYA_TO_UNITY_SCALE;
+                faceVertices[i + 2] =
+                    new Vector3(src[i2].x, src[i2].y, -src[i2].z) * MAYA_TO_UNITY_SCALE;
+
+                faceTriangles[i] = i;
+                faceTriangles[i + 1] = i + 1;
+                faceTriangles[i + 2] = i + 2;
+            }
+
+            return new CSST_ReceivedMessage
+            {
+                meshName = meshData.name ?? "",
+                vertices = faceVertices,
+                triangles = faceTriangles,
+            };
         }
         catch (Exception exception)
         {
@@ -453,110 +825,9 @@ public class CS_MayaPreviewRuntimeServer : MonoBehaviour
                 "JSON解析失敗\n" +
                 exception
             );
+
+            return null;
         }
-    }
-
-
-    // =========================================================
-    // Mesh Data処理
-    // =========================================================
-
-    private void ProcessMeshData(
-        CSST_MeshData meshData
-    )
-    {
-        if (
-            meshData.vertices == null ||
-            meshData.triangles == null
-        )
-        {
-            Debug.LogError(
-                "Maya Preview Runtime : " +
-                "Mesh Dataが不正です。"
-            );
-
-            return;
-        }
-
-
-        // =====================================================
-        // Vertex変換
-        //
-        // Maya
-        // X Y Z
-        //
-        // Unity
-        // X Y -Z
-        //
-        // Maya cm → Unity m
-        // =====================================================
-
-        Vector3[] unityVertices =
-            new Vector3[
-                meshData.vertices.Length
-            ];
-
-
-        for (
-            int i = 0;
-            i < meshData.vertices.Length;
-            i++
-        )
-        {
-            CSST_VertexData vertex =
-                meshData.vertices[i];
-
-
-            unityVertices[i] =
-                new Vector3(
-                    vertex.x,
-                    vertex.y,
-                    -vertex.z
-                )
-                * MAYA_TO_UNITY_SCALE;
-        }
-
-
-        // =====================================================
-        // Triangle
-        //
-        // Z反転したためWindingも反転
-        // =====================================================
-
-        int[] unityTriangles =
-            new int[
-                meshData.triangles.Length
-            ];
-
-
-        for (
-            int i = 0;
-            i + 2 < meshData.triangles.Length;
-            i += 3
-        )
-        {
-            unityTriangles[i] =
-                meshData.triangles[i];
-
-
-            unityTriangles[i + 1] =
-                meshData.triangles[i + 2];
-
-
-            unityTriangles[i + 2] =
-                meshData.triangles[i + 1];
-        }
-
-
-        // =====================================================
-        // Mesh生成・更新
-        // =====================================================
-
-        CreateOrUpdateMesh(
-            meshData.name,
-            unityVertices,
-            unityTriangles
-        );
     }
 
 
@@ -686,17 +957,7 @@ public class CS_MayaPreviewRuntimeServer : MonoBehaviour
         // Mesh更新
         // =====================================================
 
-        // The legacy payload has no face-vertex normals. Split triangle corners
-        // so RecalculateNormals does not smooth across hard edges.
-        Vector3[] faceVertices = new Vector3[unityTriangles.Length];
-        int[] faceTriangles = new int[unityTriangles.Length];
-        for (int i = 0; i < unityTriangles.Length; i++)
-        {
-            faceVertices[i] = unityVertices[unityTriangles[i]];
-            faceTriangles[i] = i;
-        }
-        unityVertices = faceVertices;
-        unityTriangles = faceTriangles;
+        // 面ごとの頂点分割は受信スレッド (PrepareMessage) で済ませてある
 
         mesh.Clear();
 
@@ -755,10 +1016,597 @@ public class CS_MayaPreviewRuntimeServer : MonoBehaviour
         // Mayaへ1枚だけ返す
         // =====================================================
 
-        if (_frameSender != null)
+        if (_sendFramesToMaya && _frameSender != null)
         {
             _frameSender.RequestFrameAfterRender();
         }
+    }
+
+
+    // =========================================================
+    // MESH_DATA_V2処理
+    // =========================================================
+
+    private void ProcessMeshDataV2(
+        CSST_MeshDataV2 meshData
+    )
+    {
+        if (
+            meshData == null ||
+            meshData.positions == null ||
+            meshData.positions.Length % 3 != 0 ||
+            meshData.submeshes == null
+        )
+        {
+            Debug.LogError(
+                "Maya Preview Runtime : MESH_DATA_V2が不正です。"
+            );
+
+            return;
+        }
+
+
+        int vertexCount =
+            meshData.positions.Length / 3;
+
+
+        bool hasNormals =
+            meshData.normals != null &&
+            meshData.normals.Length == meshData.positions.Length;
+
+
+        bool hasUvs =
+            meshData.uvs != null &&
+            meshData.uvs.Length == vertexCount * 2;
+
+
+        // =====================================================
+        // 頂点変換（Maya X Y Z → Unity X Y -Z）
+        // =====================================================
+
+        var vertices = new Vector3[vertexCount];
+        var normals = hasNormals ? new Vector3[vertexCount] : null;
+        var uvs = hasUvs ? new Vector2[vertexCount] : null;
+
+
+        for (int i = 0; i < vertexCount; i++)
+        {
+            int p = i * 3;
+
+            vertices[i] =
+                new Vector3(
+                    meshData.positions[p],
+                    meshData.positions[p + 1],
+                    -meshData.positions[p + 2]
+                )
+                * MAYA_TO_UNITY_SCALE;
+
+
+            if (hasNormals)
+            {
+                normals[i] =
+                    new Vector3(
+                        meshData.normals[p],
+                        meshData.normals[p + 1],
+                        -meshData.normals[p + 2]
+                    );
+            }
+
+
+            if (hasUvs)
+            {
+                uvs[i] =
+                    new Vector2(
+                        meshData.uvs[i * 2],
+                        meshData.uvs[i * 2 + 1]
+                    );
+            }
+        }
+
+
+        // =====================================================
+        // Submesh（Z反転したためWindingも反転）
+        // =====================================================
+
+        var subMeshTriangles = new List<int[]>();
+        var materialNames = new List<string>();
+
+
+        foreach (CSST_SubMeshData subMesh in meshData.submeshes)
+        {
+            if (
+                subMesh == null ||
+                subMesh.triangles == null ||
+                subMesh.triangles.Length < 3
+            )
+            {
+                continue;
+            }
+
+
+            int count =
+                subMesh.triangles.Length - subMesh.triangles.Length % 3;
+
+            var triangles = new int[count];
+
+
+            for (int i = 0; i < count; i += 3)
+            {
+                int a = subMesh.triangles[i];
+                int b = subMesh.triangles[i + 1];
+                int c = subMesh.triangles[i + 2];
+
+
+                if (
+                    (uint)a >= (uint)vertexCount ||
+                    (uint)b >= (uint)vertexCount ||
+                    (uint)c >= (uint)vertexCount
+                )
+                {
+                    Debug.LogError(
+                        "Maya Preview Runtime : 頂点番号が範囲外です。 " +
+                        meshData.name
+                    );
+
+                    return;
+                }
+
+
+                triangles[i] = a;
+                triangles[i + 1] = c;
+                triangles[i + 2] = b;
+            }
+
+
+            subMeshTriangles.Add(triangles);
+            materialNames.Add(subMesh.material ?? string.Empty);
+        }
+
+
+        if (subMeshTriangles.Count == 0)
+        {
+            Debug.LogWarning(
+                "Maya Preview Runtime : 三角形がありません。 " +
+                meshData.name
+            );
+
+            return;
+        }
+
+
+        // =====================================================
+        // Mesh更新
+        // =====================================================
+
+        GameObject targetObject =
+            GetOrCreateLiveObject(
+                meshData.name
+            );
+
+
+        if (targetObject == null)
+        {
+            return;
+        }
+
+
+        MeshFilter meshFilter =
+            targetObject.GetComponent<MeshFilter>();
+
+
+        Mesh mesh =
+            meshFilter.sharedMesh;
+
+
+        if (mesh == null)
+        {
+            mesh = new Mesh();
+            mesh.name = targetObject.name + "_Mesh";
+            mesh.MarkDynamic();
+            meshFilter.sharedMesh = mesh;
+        }
+
+
+        mesh.Clear();
+
+        mesh.indexFormat =
+            vertexCount > 65535
+                ? IndexFormat.UInt32
+                : IndexFormat.UInt16;
+
+        mesh.SetVertices(vertices);
+
+
+        if (hasNormals)
+        {
+            mesh.SetNormals(normals);
+        }
+
+
+        if (hasUvs)
+        {
+            mesh.SetUVs(0, uvs);
+        }
+
+
+        mesh.subMeshCount =
+            subMeshTriangles.Count;
+
+
+        for (int i = 0; i < subMeshTriangles.Count; i++)
+        {
+            mesh.SetTriangles(
+                subMeshTriangles[i],
+                i,
+                false
+            );
+        }
+
+
+        if (!hasNormals)
+        {
+            mesh.RecalculateNormals();
+        }
+
+
+        // トゥーンShaderはTangentを使うため、UVがある時は計算する
+        if (hasUvs)
+        {
+            mesh.RecalculateTangents();
+        }
+
+
+        mesh.RecalculateBounds();
+        CS_MayaPreviewSelection.NotifyMeshChanged(mesh);
+
+
+        // =====================================================
+        // Material割り当て
+        // =====================================================
+
+        ApplyMaterials(
+            targetObject,
+            materialNames
+        );
+
+
+        Debug.Log(
+            "Maya Preview Runtime : Mesh更新 (V2)\n" +
+            "Object : " + meshData.name +
+            "\nVertex : " + vertexCount +
+            "\nMaterial : " + string.Join(", ", materialNames)
+        );
+
+
+        if (_sendFramesToMaya && _frameSender != null)
+        {
+            _frameSender.RequestFrameAfterRender();
+        }
+    }
+
+
+    // =========================================================
+    // MATERIAL_DEF（Mayaで作ったマテリアル）
+    // =========================================================
+
+    private void ProcessMaterialDef(
+        CS_MayaPreviewMaterialLibrary.MaterialDef def
+    )
+    {
+        if (
+            def == null ||
+            _library == null ||
+            string.IsNullOrEmpty(def.name)
+        )
+        {
+            return;
+        }
+
+
+        // Mayaの色・ベースマップ・ノーマルだけ反映（シェーダーと値はPreviewHost側の設定を保つ）
+        _library.SetMayaData(
+            def
+        );
+    }
+
+
+    // 指定名のMaterialを使っているLive Objectに割り当て直す
+    private void RefreshMaterial(
+        string materialName
+    )
+    {
+        if (_mayaModelRoot == null)
+        {
+            return;
+        }
+
+
+        foreach (var pair in new List<KeyValuePair<string, string>>(_appliedMaterialKeys))
+        {
+            string[] names = pair.Value.Split('|');
+
+            if (
+                Array.FindIndex(
+                    names,
+                    n => string.Equals(
+                        CS_MayaPreviewMaterialCatalog.NormalizeName(n),
+                        materialName,
+                        StringComparison.OrdinalIgnoreCase
+                    )
+                ) < 0
+            )
+            {
+                continue;
+            }
+
+
+            Transform target =
+                _mayaModelRoot.transform.Find(
+                    pair.Key
+                );
+
+            MeshRenderer meshRenderer =
+                target != null ? target.GetComponent<MeshRenderer>() : null;
+
+            if (meshRenderer == null)
+            {
+                continue;
+            }
+
+
+            var materials = new Material[names.Length];
+
+            for (int i = 0; i < names.Length; i++)
+            {
+                materials[i] =
+                    ResolveMaterial(
+                        names[i]
+                    );
+            }
+
+
+            meshRenderer.sharedMaterials =
+                materials;
+        }
+
+
+        if (_sendFramesToMaya && _frameSender != null)
+        {
+            _frameSender.RequestFrameAfterRender();
+        }
+    }
+
+
+    // =========================================================
+    // Live Object削除（Mayaで削除・名前変更されたメッシュ）
+    // =========================================================
+
+    private void RemoveLiveObject(
+        string mayaObjectName
+    )
+    {
+        if (
+            _mayaModelRoot == null ||
+            string.IsNullOrEmpty(mayaObjectName)
+        )
+        {
+            return;
+        }
+
+
+        string unityObjectName =
+            LIVE_OBJECT_PREFIX +
+            mayaObjectName;
+
+
+        Transform target =
+            _mayaModelRoot.transform.Find(
+                unityObjectName
+            );
+
+
+        if (target == null)
+        {
+            return;
+        }
+
+
+        MeshFilter meshFilter =
+            target.GetComponent<MeshFilter>();
+
+
+        if (
+            meshFilter != null &&
+            meshFilter.sharedMesh != null
+        )
+        {
+            Destroy(
+                meshFilter.sharedMesh
+            );
+        }
+
+
+        _appliedMaterialKeys.Remove(
+            unityObjectName
+        );
+
+
+        Destroy(
+            target.gameObject
+        );
+
+
+        Debug.Log(
+            "Maya Preview Runtime : Mesh削除 " +
+            mayaObjectName
+        );
+    }
+
+
+    // =========================================================
+    // Live Object取得 / 生成
+    // =========================================================
+
+    private GameObject GetOrCreateLiveObject(
+        string mayaObjectName
+    )
+    {
+        if (_mayaModelRoot == null)
+        {
+            return null;
+        }
+
+
+        string unityObjectName =
+            LIVE_OBJECT_PREFIX +
+            mayaObjectName;
+
+
+        Transform existingTransform =
+            _mayaModelRoot.transform.Find(
+                unityObjectName
+            );
+
+
+        if (existingTransform != null)
+        {
+            GameObject existing = existingTransform.gameObject;
+
+            if (existing.GetComponent<MeshFilter>() == null)
+            {
+                existing.AddComponent<MeshFilter>();
+            }
+
+            if (existing.GetComponent<MeshRenderer>() == null)
+            {
+                existing.AddComponent<MeshRenderer>();
+            }
+
+            return existing;
+        }
+
+
+        GameObject targetObject =
+            new GameObject(
+                unityObjectName
+            );
+
+
+        targetObject.transform.SetParent(
+            _mayaModelRoot.transform,
+            false
+        );
+
+
+        targetObject.AddComponent<MeshFilter>();
+        targetObject.AddComponent<MeshRenderer>();
+
+        return targetObject;
+    }
+
+
+    // =========================================================
+    // Material割り当て
+    //
+    // 名前が空      → 灰色のPreview Material
+    // 一覧に無い    → マゼンタ（Missing）
+    // 一覧にある    → Unityで作ったMaterialをそのまま使う
+    // =========================================================
+
+    private void ApplyMaterials(
+        GameObject targetObject,
+        List<string> materialNames
+    )
+    {
+        MeshRenderer meshRenderer =
+            targetObject.GetComponent<MeshRenderer>();
+
+
+        if (meshRenderer == null)
+        {
+            return;
+        }
+
+
+        string key =
+            string.Join("|", materialNames);
+
+
+        // 同じ割り当てなら触らない（Inspectorで調整中の値を消さない）
+        if (
+            _appliedMaterialKeys.TryGetValue(targetObject.name, out string appliedKey) &&
+            appliedKey == key &&
+            meshRenderer.sharedMaterials.Length == materialNames.Count
+        )
+        {
+            return;
+        }
+
+
+        var materials = new Material[materialNames.Count];
+
+
+        for (int i = 0; i < materialNames.Count; i++)
+        {
+            materials[i] =
+                ResolveMaterial(
+                    materialNames[i]
+                );
+        }
+
+
+        meshRenderer.sharedMaterials =
+            materials;
+
+
+        _appliedMaterialKeys[targetObject.name] =
+            key;
+    }
+
+
+    private Material ResolveMaterial(
+        string materialName
+    )
+    {
+        string normalized =
+            CS_MayaPreviewMaterialCatalog.NormalizeName(
+                materialName
+            );
+
+
+        if (normalized.Length == 0)
+        {
+            return _previewMaterial;
+        }
+
+
+        // Mayaのマテリアル名ごとに自動生成（初回はHDRP/Lit）
+        Material material =
+            _library != null
+                ? _library.GetOrCreate(normalized)
+                : _materialCatalog != null
+                    ? _materialCatalog.Find(normalized)
+                    : null;
+
+
+        if (material != null)
+        {
+            return material;
+        }
+
+
+        if (_warnedMaterialNames.Add(normalized))
+        {
+            Debug.LogWarning(
+                "Maya Preview Runtime : Material \"" + normalized +
+                "\" がUnityの一覧にありません。マゼンタで表示します。"
+            );
+        }
+
+
+        return _missingMaterial != null
+            ? _missingMaterial
+            : _previewMaterial;
     }
 
 
@@ -830,6 +1678,11 @@ public class CS_MayaPreviewRuntimeServer : MonoBehaviour
 
     private void OnDestroy()
     {
+        if (s_active == this)
+        {
+            s_active = null;
+        }
+
         StopServer();
 
 
@@ -842,6 +1695,21 @@ public class CS_MayaPreviewRuntimeServer : MonoBehaviour
 
             _previewMaterial = null;
         }
+
+
+        if (_missingMaterial != null)
+        {
+            Destroy(
+                _missingMaterial
+            );
+
+
+            _missingMaterial = null;
+        }
+
+
+        _library?.Dispose();
+        _library = null;
     }
 
 
@@ -851,6 +1719,7 @@ public class CS_MayaPreviewRuntimeServer : MonoBehaviour
 
     private void OnApplicationQuit()
     {
+        _library?.SaveDirty();
         StopServer();
     }
 }

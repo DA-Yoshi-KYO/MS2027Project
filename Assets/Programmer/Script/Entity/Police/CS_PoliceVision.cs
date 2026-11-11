@@ -271,6 +271,9 @@ public class CS_PoliceVision : MonoBehaviour
         // ハイドポイントに張り付いているプレイヤーは見えない(ハイドを抜けるか、近づくと見える)
         if (CS_PlayerHide.IsConcealedFrom(targetRoot, transform.position)) return false;
 
+        // 光学迷彩で透明になっているプレイヤーは見えない(近くにいても気付かない)
+        if (CS_OpticalCamo.IsConcealed(targetRoot)) return false;
+
         // ランダムイベントの範囲の中にいる標的は見えない(警察に探知されないイベントの開催中のみ。近くにいても気付かない)
         if (CS_RandomEventManager.IsPoliceDetectionBlocked(targetPosition)) return false;
 

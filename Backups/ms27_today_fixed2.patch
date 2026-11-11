@@ -1,0 +1,4613 @@
+From 52dacb7d648c8464e03d8634f8803d8f24b88f77 Mon Sep 17 00:00:00 2001
+From: YosimotoRyou <mrrhr888@gmail.com>
+Date: Wed, 28 Oct 2026 11:51:19 +0900
+Subject: [PATCH] =?UTF-8?q?fix:=20=E3=82=A2=E3=82=A6=E3=83=88=E3=83=A9?=
+ =?UTF-8?q?=E3=82=A4=E3=83=B3a=E3=82=92=E5=AF=BE=E5=BF=9C?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+LFS容量超過でpushできないため、追加したマスク画像2枚をLFSではなく通常のgitファイルとして保存
+
+Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01H47sdwK7ChcnSr6waGw355
+---
+ .gitattributes                                |   4 +
+ .../Runtime/CS_MayaPreviewIdleThrottle.cs     | 152 +++
+ .../CS_MayaPreviewIdleThrottle.cs.meta        |   2 +
+ .../Runtime/CS_MayaPreviewRuntimeServer.cs    | 296 +++---
+ .../Runtime/CS_MayaPreviewSelection.cs        |  15 +
+ ...T_Outline_N00_000_00_FaceMouth_00_FACE.mat |   2 +-
+ .../Toon/Shader/Editor/MutouCompareSetup.cs   |   7 +
+ .../Toon/Shader/Editor/ToonCharacterSetup.cs  |   2 +
+ .../Graph/SHG_NTECharacter_Body.shadergraph   | 188 ++--
+ .../Shader/Graph/SHG_NTE_Cloth.shadergraph    | 240 +++--
+ .../Toon/Shader/Graph/SHG_NTE_Eye.shadergraph | 878 +++++++++++++++++-
+ .../Shader/Graph/SHG_NTE_Hair.shadergraph     | 240 +++--
+ .../Shader/Graph/SHG_NTE_Leather.shadergraph  | 240 +++--
+ .../Shader/Graph/SHG_NTE_Metal.shadergraph    | 240 +++--
+ .../Shader/Graph/SHG_NTE_Skin.shadergraph     | 240 +++--
+ .../Toon/Shader/Graph/SHG_Outline.shadergraph | 583 +++++++++++-
+ Assets/Programmer/Scene/Test/Toon/Toon.unity  |   2 +-
+ .../min/YosimotoRyo/mutou/Eye_HideMask.png    | Bin 0 -> 9657 bytes
+ .../YosimotoRyo/mutou/Eye_HideMask.png.meta   | 117 +++
+ .../Materials/Unlit/MT_Mutou_Outline_Skin.mat |   4 +
+ .../Materials/Unlit/MT_Mutou_Toon_Eye.mat     |  23 +-
+ .../YosimotoRyo/mutou/Skin_OutlineMask.png    | Bin 0 -> 13201 bytes
+ .../mutou/Skin_OutlineMask.png.meta           | 117 +++
+ .../MayaPreviewHost_Windows.asset             |   2 +-
+ 24 files changed, 2877 insertions(+), 717 deletions(-)
+ create mode 100644 Assets/Programmer/MayaPreview/Runtime/CS_MayaPreviewIdleThrottle.cs
+ create mode 100644 Assets/Programmer/MayaPreview/Runtime/CS_MayaPreviewIdleThrottle.cs.meta
+ create mode 100644 Assets/Programmer/min/YosimotoRyo/mutou/Eye_HideMask.png
+ create mode 100644 Assets/Programmer/min/YosimotoRyo/mutou/Eye_HideMask.png.meta
+ create mode 100644 Assets/Programmer/min/YosimotoRyo/mutou/Skin_OutlineMask.png
+ create mode 100644 Assets/Programmer/min/YosimotoRyo/mutou/Skin_OutlineMask.png.meta
+
+diff --git a/.gitattributes b/.gitattributes
+index ec30fda..eaadfa8 100644
+--- a/.gitattributes
++++ b/.gitattributes
+@@ -197,3 +197,7 @@ Assets/Designer/**/*.FBX    lockable
+ Artist/**/*.FBX    lockable
+ Assets/Designer/**/*.abc    lockable
+ Artist/**/*.abc    lockable
++
++# LFS budget exceeded: small mask textures are stored as normal git files
++Assets/Programmer/min/YosimotoRyo/mutou/Skin_OutlineMask.png !filter !diff !merge binary
++Assets/Programmer/min/YosimotoRyo/mutou/Eye_HideMask.png !filter !diff !merge binary
+diff --git a/Assets/Programmer/MayaPreview/Runtime/CS_MayaPreviewIdleThrottle.cs b/Assets/Programmer/MayaPreview/Runtime/CS_MayaPreviewIdleThrottle.cs
+new file mode 100644
+index 0000000..6a82e7a
+--- /dev/null
++++ b/Assets/Programmer/MayaPreview/Runtime/CS_MayaPreviewIdleThrottle.cs
+@@ -0,0 +1,152 @@
++using UnityEngine;
++using UnityEngine.InputSystem;
++
++/*
+++=====================================
++ ファイル名 : CS_MayaPreviewIdleThrottle
++ 概要       : Maya Preview の exe を軽くする。
++              画質 (HDRP の設定・解像度・エフェクト) には一切触らず、
++              「1秒に何回描画するか」だけを状況に合わせて変える。
++
++              操作中        : 最大 約60fps (144Hz モニターでも 144 回は描かない)
++              操作してない  : 15fps   (Maya からの更新はこの間隔以内に拾う)
++              Maya 作業中   : 10fps   (exe のウィンドウが裏にある時)
++
++              マウス / キー操作、ウィンドウサイズ変更、Maya からの
++              Mesh 更新があると即座に「操作中」に戻る。
++ 履歴       : 2026/10/28 新規作成
++=====================================+
++*/
++public class CS_MayaPreviewIdleThrottle : MonoBehaviour
++{
++    // 何秒操作が無ければ省電力にするか
++    private const float IDLE_DELAY = 1.5f;
++
++    // 操作中の上限 fps
++    private const float ACTIVE_FPS = 60f;
++
++    // 操作していない時 (exe が手前)
++    private const int IDLE_FPS = 15;
++
++    // exe が裏にある時 (Maya で作業中)
++    private const int BACKGROUND_FPS = 10;
++
++    private enum Mode { None, Active, Idle, Background }
++
++    private static float _lastActiveTime;
++
++    private Mode _mode = Mode.None;
++    private int _lastWidth;
++    private int _lastHeight;
++
++    // Maya から Mesh が届いた時などに呼ぶ
++    public static void Wake()
++    {
++        _lastActiveTime = Time.unscaledTime;
++    }
++
++    private void Awake()
++    {
++        _lastWidth = Screen.width;
++        _lastHeight = Screen.height;
++
++        // ビルドでは通常ログのスタックトレースを書かない
++        // (Mesh 更新のたびにログファイルへ長いトレースを書くのは無駄)
++        // エラーのトレースはそのまま残す
++        if (!Application.isEditor)
++        {
++            Application.SetStackTraceLogType(LogType.Log, StackTraceLogType.None);
++            Application.SetStackTraceLogType(LogType.Warning, StackTraceLogType.None);
++        }
++
++        Wake();
++    }
++
++    private void Update()
++    {
++        if (HasActivity())
++        {
++            Wake();
++        }
++
++        Mode mode;
++
++        if (Time.unscaledTime - _lastActiveTime <= IDLE_DELAY)
++        {
++            mode = Mode.Active;
++        }
++        else
++        {
++            mode = Application.isFocused ? Mode.Idle : Mode.Background;
++        }
++
++        if (mode != _mode)
++        {
++            _mode = mode;
++            Apply();
++        }
++    }
++
++    private bool HasActivity()
++    {
++        if (Screen.width != _lastWidth || Screen.height != _lastHeight)
++        {
++            _lastWidth = Screen.width;
++            _lastHeight = Screen.height;
++            return true;
++        }
++
++        if (!Application.isFocused)
++        {
++            return false;
++        }
++
++        var mouse = Mouse.current;
++        if (mouse != null)
++        {
++            if (mouse.delta.ReadValue().sqrMagnitude > 0f) return true;
++            if (mouse.scroll.ReadValue().sqrMagnitude > 0f) return true;
++            if (mouse.leftButton.isPressed || mouse.rightButton.isPressed || mouse.middleButton.isPressed) return true;
++        }
++
++        var keyboard = Keyboard.current;
++        if (keyboard != null && keyboard.anyKey.isPressed)
++        {
++            return true;
++        }
++
++        return false;
++    }
++
++    private void Apply()
++    {
++        switch (_mode)
++        {
++            case Mode.Active:
++                // VSync は残したまま (画面のちらつき・裂けを出さない)、
++                // 高リフレッシュレートのモニターでは 2〜4 フレームに 1 回の描画にして約 60fps に抑える
++                double hz = Screen.currentResolution.refreshRateRatio.value;
++                int interval = hz > 0.0 ? Mathf.Clamp(Mathf.RoundToInt((float)(hz / ACTIVE_FPS)), 1, 4) : 1;
++                QualitySettings.vSyncCount = interval;
++                Application.targetFrameRate = -1;
++                break;
++
++            case Mode.Idle:
++                QualitySettings.vSyncCount = 0;
++                Application.targetFrameRate = IDLE_FPS;
++                break;
++
++            case Mode.Background:
++                QualitySettings.vSyncCount = 0;
++                Application.targetFrameRate = BACKGROUND_FPS;
++                break;
++        }
++    }
++
++    private void OnDisable()
++    {
++        _mode = Mode.None;
++        QualitySettings.vSyncCount = 1;
++        Application.targetFrameRate = -1;
++    }
++}
+diff --git a/Assets/Programmer/MayaPreview/Runtime/CS_MayaPreviewIdleThrottle.cs.meta b/Assets/Programmer/MayaPreview/Runtime/CS_MayaPreviewIdleThrottle.cs.meta
+new file mode 100644
+index 0000000..768e28d
+--- /dev/null
++++ b/Assets/Programmer/MayaPreview/Runtime/CS_MayaPreviewIdleThrottle.cs.meta
+@@ -0,0 +1,2 @@
++fileFormatVersion: 2
++guid: 32e09aa069f979945962c4772a09f3eb
+\ No newline at end of file
+diff --git a/Assets/Programmer/MayaPreview/Runtime/CS_MayaPreviewRuntimeServer.cs b/Assets/Programmer/MayaPreview/Runtime/CS_MayaPreviewRuntimeServer.cs
+index 0f1ebc6..789a476 100644
+--- a/Assets/Programmer/MayaPreview/Runtime/CS_MayaPreviewRuntimeServer.cs
++++ b/Assets/Programmer/MayaPreview/Runtime/CS_MayaPreviewRuntimeServer.cs
+@@ -85,8 +85,25 @@ private class CSST_MeshData
+     // MainThread����Queue
+     // =========================================================
+ 
+-    private readonly ConcurrentQueue<string> _messageQueue =
+-        new ConcurrentQueue<string>();
++    private readonly ConcurrentQueue<CSST_ReceivedMessage> _messageQueue =
++        new ConcurrentQueue<CSST_ReceivedMessage>();
++
++
++    // =========================================================
++    // ��M�X���b�h�ŕϊ��ς݂̃f�[�^
++    //
++    // JSON��́E���W�ϊ��E���_�����͏d���̂�
++    // MainThread�ł͂Ȃ���M�X���b�h�ōς܂��Ă���
++    // (MainThread���~�܂�Ȃ� = ��ʂ��J�N���Ȃ�)
++    // =========================================================
++
++    private class CSST_ReceivedMessage
++    {
++        public string text;          // JSON�ȊO�̐ڑ��m�F�pMessage
++        public string meshName;      // Mesh�X�V�̏ꍇ�̂�
++        public Vector3[] vertices;
++        public int[] triangles;
++    }
+ 
+ 
+     // =========================================================
+@@ -111,6 +128,12 @@ private void Awake()
+         // Standalone�ł��o�b�N�O���E���h����
+         Application.runInBackground = true;
+ 
++        // ���삵�Ă��Ȃ��Ԃ͕`��񐔂𗎂Ƃ��� PC ���y������ (�����ڂ͕ς��Ȃ�)
++        if (GetComponent<CS_MayaPreviewIdleThrottle>() == null)
++        {
++            gameObject.AddComponent<CS_MayaPreviewIdleThrottle>();
++        }
++
+ 
+         // =====================================================
+         // Maya Model Root�擾
+@@ -229,18 +252,56 @@ private void Update()
+         // Socket Thread�������M����Message��
+         // Unity MainThread�ŏ�������
+ 
++        // ����Object�̍X�V��1�t���[�����ɕ����͂����ꍇ��
++        // �Ō��1�񂾂����f���� (���ʂ͓����Ŗ��ʂȍX�V�����Ȃ�)
++        _pendingMeshes.Clear();
++        _pendingOrder.Clear();
++
+         while (
+             _messageQueue.TryDequeue(
+-                out string message
++                out CSST_ReceivedMessage received
+             )
+         )
+         {
+-            ProcessMessage(
+-                message
++            CS_MayaPreviewIdleThrottle.Wake();
++
++            if (received.meshName == null)
++            {
++                Debug.Log(
++                    "Maya Preview Runtime : " +
++                    "Message��M : " +
++                    received.text
++                );
++
++                continue;
++            }
++
++            if (!_pendingMeshes.ContainsKey(received.meshName))
++            {
++                _pendingOrder.Add(received.meshName);
++            }
++
++            _pendingMeshes[received.meshName] = received;
++        }
++
++        foreach (string meshName in _pendingOrder)
++        {
++            CSST_ReceivedMessage pending = _pendingMeshes[meshName];
++
++            CreateOrUpdateMesh(
++                pending.meshName,
++                pending.vertices,
++                pending.triangles
+             );
+         }
+     }
+ 
++    private readonly System.Collections.Generic.Dictionary<string, CSST_ReceivedMessage> _pendingMeshes =
++        new System.Collections.Generic.Dictionary<string, CSST_ReceivedMessage>();
++
++    private readonly System.Collections.Generic.List<string> _pendingOrder =
++        new System.Collections.Generic.List<string>();
++
+ 
+     // =========================================================
+     // Socket Server�J�n
+@@ -344,9 +405,17 @@ private void ServerLoop()
+                         )
+                     )
+                     {
+-                        _messageQueue.Enqueue(
+-                            message
+-                        );
++                        CSST_ReceivedMessage received =
++                            PrepareMessage(
++                                message
++                            );
++
++                        if (received != null)
++                        {
++                            _messageQueue.Enqueue(
++                                received
++                            );
++                        }
+                     }
+                 }
+             }
+@@ -388,40 +457,27 @@ private void ServerLoop()
+ 
+ 
+     // =========================================================
+-    // Message����
++    // Message�ϊ� (��M�X���b�h�Ŏ��s)
++    //
++    // JsonUtility.FromJson ��Unity������
++    // �o�b�N�O���E���h�X���b�h����Ă�ł悢���ƂɂȂ��Ă���
+     // =========================================================
+ 
+-    private void ProcessMessage(
++    private static CSST_ReceivedMessage PrepareMessage(
+         string message
+     )
+     {
+-        if (
+-            string.IsNullOrEmpty(
+-                message
+-            )
+-        )
++        if (string.IsNullOrEmpty(message))
+         {
+-            return;
++            return null;
+         }
+ 
+-
+         // JSON�ȊO�̐ڑ��m�F�pMessage
+-        if (
+-            !message.StartsWith(
+-                "{"
+-            )
+-        )
++        if (!message.StartsWith("{"))
+         {
+-            Debug.Log(
+-                "Maya Preview Runtime : " +
+-                "Message��M : " +
+-                message
+-            );
+-
+-            return;
++            return new CSST_ReceivedMessage { text = message };
+         }
+ 
+-
+         try
+         {
+             CSST_MeshData meshData =
+@@ -429,134 +485,82 @@ string message
+                     message
+                 );
+ 
+-
+-            if (meshData == null)
++            if (
++                meshData == null ||
++                meshData.type != "MESH_DATA"
++            )
+             {
+-                return;
++                return null;
+             }
+ 
+-
+             if (
+-                meshData.type ==
+-                "MESH_DATA"
++                meshData.vertices == null ||
++                meshData.triangles == null
+             )
+             {
+-                ProcessMeshData(
+-                    meshData
++                Debug.LogError(
++                    "Maya Preview Runtime : " +
++                    "Mesh Data���s���ł��B"
+                 );
+-            }
+-        }
+-        catch (Exception exception)
+-        {
+-            Debug.LogError(
+-                "Maya Preview Runtime : " +
+-                "JSON��͎��s\n" +
+-                exception
+-            );
+-        }
+-    }
+-
+-
+-    // =========================================================
+-    // Mesh Data����
+-    // =========================================================
+-
+-    private void ProcessMeshData(
+-        CSST_MeshData meshData
+-    )
+-    {
+-        if (
+-            meshData.vertices == null ||
+-            meshData.triangles == null
+-        )
+-        {
+-            Debug.LogError(
+-                "Maya Preview Runtime : " +
+-                "Mesh Data���s���ł��B"
+-            );
+-
+-            return;
+-        }
+ 
++                return null;
++            }
+ 
+-        // =====================================================
+-        // Vertex�ϊ�
+-        //
+-        // Maya
+-        // X Y Z
+-        //
+-        // Unity
+-        // X Y -Z
+-        //
+-        // Maya cm �� Unity m
+-        // =====================================================
++            // =================================================
++            // Maya X Y Z �� Unity X Y -Z
++            // Z���]�����̂�Winding�����]
++            //
++            // ����ɖʂ��Ƃɒ��_�𕪊�����
++            // (���M�f�[�^�ɖ@���������̂ŁA�������Ȃ���
++            //  RecalculateNormals�Ńn�[�h�G�b�W���ۂ܂�)
++            //
++            // �ȑO��MainThread�ł���Ă���������
++            // ���̂܂܂����ֈڂ��������Ȃ̂Ō��ʂ͓���
++            // =================================================
+ 
+-        Vector3[] unityVertices =
+-            new Vector3[
+-                meshData.vertices.Length
+-            ];
++            CSST_VertexData[] src = meshData.vertices;
++            int[] tri = meshData.triangles;
+ 
++            int count = tri.Length - (tri.Length % 3);
+ 
+-        for (
+-            int i = 0;
+-            i < meshData.vertices.Length;
+-            i++
+-        )
+-        {
+-            CSST_VertexData vertex =
+-                meshData.vertices[i];
++            Vector3[] faceVertices = new Vector3[count];
++            int[] faceTriangles = new int[count];
+ 
++            for (int i = 0; i < count; i += 3)
++            {
++                int i0 = tri[i];
++                int i1 = tri[i + 2];
++                int i2 = tri[i + 1];
++
++                faceVertices[i] =
++                    new Vector3(src[i0].x, src[i0].y, -src[i0].z) * MAYA_TO_UNITY_SCALE;
++                faceVertices[i + 1] =
++                    new Vector3(src[i1].x, src[i1].y, -src[i1].z) * MAYA_TO_UNITY_SCALE;
++                faceVertices[i + 2] =
++                    new Vector3(src[i2].x, src[i2].y, -src[i2].z) * MAYA_TO_UNITY_SCALE;
++
++                faceTriangles[i] = i;
++                faceTriangles[i + 1] = i + 1;
++                faceTriangles[i + 2] = i + 2;
++            }
+ 
+-            unityVertices[i] =
+-                new Vector3(
+-                    vertex.x,
+-                    vertex.y,
+-                    -vertex.z
+-                )
+-                * MAYA_TO_UNITY_SCALE;
++            return new CSST_ReceivedMessage
++            {
++                meshName = meshData.name ?? "",
++                vertices = faceVertices,
++                triangles = faceTriangles,
++            };
+         }
+-
+-
+-        // =====================================================
+-        // Triangle
+-        //
+-        // Z���]��������Winding�����]
+-        // =====================================================
+-
+-        int[] unityTriangles =
+-            new int[
+-                meshData.triangles.Length
+-            ];
+-
+-
+-        for (
+-            int i = 0;
+-            i + 2 < meshData.triangles.Length;
+-            i += 3
+-        )
++        catch (Exception exception)
+         {
+-            unityTriangles[i] =
+-                meshData.triangles[i];
+-
+-
+-            unityTriangles[i + 1] =
+-                meshData.triangles[i + 2];
+-
++            Debug.LogError(
++                "Maya Preview Runtime : " +
++                "JSON��͎��s\n" +
++                exception
++            );
+ 
+-            unityTriangles[i + 2] =
+-                meshData.triangles[i + 1];
++            return null;
+         }
+-
+-
+-        // =====================================================
+-        // Mesh�����E�X�V
+-        // =====================================================
+-
+-        CreateOrUpdateMesh(
+-            meshData.name,
+-            unityVertices,
+-            unityTriangles
+-        );
+     }
+ 
+ 
+@@ -686,17 +690,7 @@ int[] unityTriangles
+         // Mesh�X�V
+         // =====================================================
+ 
+-        // The legacy payload has no face-vertex normals. Split triangle corners
+-        // so RecalculateNormals does not smooth across hard edges.
+-        Vector3[] faceVertices = new Vector3[unityTriangles.Length];
+-        int[] faceTriangles = new int[unityTriangles.Length];
+-        for (int i = 0; i < unityTriangles.Length; i++)
+-        {
+-            faceVertices[i] = unityVertices[unityTriangles[i]];
+-            faceTriangles[i] = i;
+-        }
+-        unityVertices = faceVertices;
+-        unityTriangles = faceTriangles;
++        // �ʂ��Ƃ̒��_�����͎�M�X���b�h (PrepareMessage) �ōς܂��Ă���
+ 
+         mesh.Clear();
+ 
+diff --git a/Assets/Programmer/MayaPreview/Runtime/CS_MayaPreviewSelection.cs b/Assets/Programmer/MayaPreview/Runtime/CS_MayaPreviewSelection.cs
+index 9d039ce..e0607a8 100644
+--- a/Assets/Programmer/MayaPreview/Runtime/CS_MayaPreviewSelection.cs
++++ b/Assets/Programmer/MayaPreview/Runtime/CS_MayaPreviewSelection.cs
+@@ -14,6 +14,10 @@ public class CS_MayaPreviewSelection : MonoBehaviour
+     private Vector3[] _edgePoints;
+     private Vector3[] _ribbonVertices;
+     private Camera _camera;
++    // Ribbon rebuild cache: the edge ribbons only change when the camera, the object or the window changes.
++    private bool _ribbonDirty = true;
++    private Matrix4x4 _lastCameraMatrix, _lastTargetMatrix, _lastProjection;
++    private Rect _lastPixelRect;
+     public GameObject SelectedObject { get; private set; }
+ 
+     public void SelectObject(GameObject target)
+@@ -129,6 +133,7 @@ private void Refresh(Mesh mesh)
+             renderer.receiveShadows = false;
+         }
+         _outline.GetComponent<MeshFilter>().sharedMesh = _edges;
++        _ribbonDirty = true;
+         LateUpdate();
+     }
+ 
+@@ -137,6 +142,16 @@ private void LateUpdate()
+         if (_selected == null || _edges == null || _outline == null) return;
+         // Camera-facing ribbons keep the selection edges three pixels wide at any zoom.
+         Transform target = _selected.transform;
++        // Same camera, same object, same window -> same ribbons. Skip the per-frame rebuild (identical result).
++        Matrix4x4 cameraMatrix = _camera.transform.localToWorldMatrix;
++        Matrix4x4 targetMatrix = target.localToWorldMatrix;
++        Matrix4x4 projection = _camera.projectionMatrix;
++        Rect pixelRect = _camera.pixelRect;
++        if (!_ribbonDirty && cameraMatrix == _lastCameraMatrix && targetMatrix == _lastTargetMatrix
++            && projection == _lastProjection && pixelRect == _lastPixelRect) return;
++        _ribbonDirty = false;
++        _lastCameraMatrix = cameraMatrix; _lastTargetMatrix = targetMatrix;
++        _lastProjection = projection; _lastPixelRect = pixelRect;
+         float near = _camera.nearClipPlane + 0.001f;
+         for (int i = 0; i < _edgePoints.Length; i += 2)
+         {
+diff --git a/Assets/Programmer/Scene/Test/Toon/Materiar/AutoOutline/MT_Outline_N00_000_00_FaceMouth_00_FACE.mat b/Assets/Programmer/Scene/Test/Toon/Materiar/AutoOutline/MT_Outline_N00_000_00_FaceMouth_00_FACE.mat
+index b1b4dcc..b83d301 100644
+--- a/Assets/Programmer/Scene/Test/Toon/Materiar/AutoOutline/MT_Outline_N00_000_00_FaceMouth_00_FACE.mat
++++ b/Assets/Programmer/Scene/Test/Toon/Materiar/AutoOutline/MT_Outline_N00_000_00_FaceMouth_00_FACE.mat
+@@ -205,7 +205,7 @@ Material:
+     - _OpaqueCullMode: 2
+     - _OutlineTexBlend: 0.8
+     - _OutlineTexDarken: 0.55
+-    - _OutlineWidth: 0.0007
++    - _OutlineWidth: 0
+     - _PPDLodThreshold: 5
+     - _PPDMaxSamples: 15
+     - _PPDMinSamples: 5
+diff --git a/Assets/Programmer/Scene/Test/Toon/Shader/Editor/MutouCompareSetup.cs b/Assets/Programmer/Scene/Test/Toon/Shader/Editor/MutouCompareSetup.cs
+index 4a8a6c9..4a875ea 100644
+--- a/Assets/Programmer/Scene/Test/Toon/Shader/Editor/MutouCompareSetup.cs
++++ b/Assets/Programmer/Scene/Test/Toon/Shader/Editor/MutouCompareSetup.cs
+@@ -128,6 +128,10 @@ static Material GetToonMaterial(Part p)
+             // マスク未設定(白)だと瞳全体が白飛びするため、マスク依存の効果は切る。
+             m.SetFloat("_EyeHighlightStrength", 0f);
+             m.SetFloat("_EyeIrisGradient", 0f);
++            // ハイライト板 (メッシュに作り込まれた白い円) は消して、HDRP の反射で目のツヤを出す
++            if (m.HasProperty("_EyeHideMask")) m.SetTexture("_EyeHideMask", AssetDatabase.LoadAssetAtPath<Texture2D>(ModelDir + "/Eye_HideMask.png"));
++            if (m.HasProperty("_EyeReflection")) m.SetFloat("_EyeReflection", 0.2f);
++            if (m.HasProperty("_EyeSmoothness")) m.SetFloat("_EyeSmoothness", 0.95f);
+         }
+         EditorUtility.SetDirty(m);
+         return m;
+@@ -151,6 +155,9 @@ static Material GetOutlineMaterial(Part p, float modelScale)
+         m.SetTexture("_BaseMap", BaseTex(p));
+         if (template.HasProperty("_OutlineWidth"))
+             m.SetFloat("_OutlineWidth", template.GetFloat("_OutlineWidth") / modelScale * OutlineWidthScale);
++        // 口元 (歯・舌・唇) の線を消すマスク。黒い所は線が出ない
++        if (p == Part.Skin && m.HasProperty("_OutlineWidthMask"))
++            m.SetTexture("_OutlineWidthMask", AssetDatabase.LoadAssetAtPath<Texture2D>(ModelDir + "/Skin_OutlineMask.png"));
+         EditorUtility.SetDirty(m);
+         return m;
+     }
+diff --git a/Assets/Programmer/Scene/Test/Toon/Shader/Editor/ToonCharacterSetup.cs b/Assets/Programmer/Scene/Test/Toon/Shader/Editor/ToonCharacterSetup.cs
+index 2820413..c37aa46 100644
+--- a/Assets/Programmer/Scene/Test/Toon/Shader/Editor/ToonCharacterSetup.cs
++++ b/Assets/Programmer/Scene/Test/Toon/Shader/Editor/ToonCharacterSetup.cs
+@@ -60,6 +60,8 @@ static void Run()
+                     m.CopyPropertiesFromMaterial(template);
+                 }
+                 m.SetTexture("_BaseMap", tex);
++                // 口の中 (FaceMouth) は線を出さない。口元の線が唇から飛び出すのを防ぐ
++                if (baseMat.name.Contains("FaceMouth") && m.HasProperty("_OutlineWidth")) m.SetFloat("_OutlineWidth", 0f);
+                 EditorUtility.SetDirty(m);
+                 mats[i] = m;
+             }
+diff --git a/Assets/Programmer/Scene/Test/Toon/Shader/Graph/SHG_NTECharacter_Body.shadergraph b/Assets/Programmer/Scene/Test/Toon/Shader/Graph/SHG_NTECharacter_Body.shadergraph
+index ea6155a..561c917 100644
+--- a/Assets/Programmer/Scene/Test/Toon/Shader/Graph/SHG_NTECharacter_Body.shadergraph
++++ b/Assets/Programmer/Scene/Test/Toon/Shader/Graph/SHG_NTECharacter_Body.shadergraph
+@@ -10,10 +10,10 @@
+             "m_Id": "5c83c9cd4a46469cae990e92c57205c3"
+         },
+         {
+-            "m_Id": "f10458733df94c38a9b354d48bdf4b0f"
++            "m_Id": "6453d43a546d43808de87c782731628d"
+         },
+         {
+-            "m_Id": "ca8d045c35294412ae26bd3086433db4"
++            "m_Id": "f10458733df94c38a9b354d48bdf4b0f"
+         },
+         {
+             "m_Id": "4a0b42944d794f07b95786bc62746ec8"
+@@ -22,25 +22,22 @@
+             "m_Id": "b90b2b9316794048a24db000b3016a74"
+         },
+         {
+-            "m_Id": "6854ca3b41d94eea837540404dccf32c"
+-        },
+-        {
+-            "m_Id": "cf36b8bc7345434c858f5c7708e7fec0"
++            "m_Id": "6010096666de4a09bafa0f0b2c542e01"
+         },
+         {
+-            "m_Id": "f56fb0496c794d62a5a6245db6d48080"
++            "m_Id": "6854ca3b41d94eea837540404dccf32c"
+         },
+         {
+-            "m_Id": "4135f80a4dee4caa99d1f186912bb3b2"
++            "m_Id": "35ff5c8b51024299be52a66bd2b8f0d2"
+         },
+         {
+-            "m_Id": "6010096666de4a09bafa0f0b2c542e01"
++            "m_Id": "cf36b8bc7345434c858f5c7708e7fec0"
+         },
+         {
+-            "m_Id": "6453d43a546d43808de87c782731628d"
++            "m_Id": "f56fb0496c794d62a5a6245db6d48080"
+         },
+         {
+-            "m_Id": "35ff5c8b51024299be52a66bd2b8f0d2"
++            "m_Id": "4135f80a4dee4caa99d1f186912bb3b2"
+         },
+         {
+             "m_Id": "b66c373f259547fd9c0bea1944ce659a"
+@@ -50,13 +47,28 @@
+         },
+         {
+             "m_Id": "8ac07ef17a154ba3894b700340c45fdc"
++        },
++        {
++            "m_Id": "ca8d045c35294412ae26bd3086433db4"
+         }
+     ],
+     "m_Keywords": [],
+     "m_Dropdowns": [],
+     "m_CategoryData": [
+         {
+-            "m_Id": "f020a90e18864b92a03ad47c264dd0a4"
++            "m_Id": "66c731f0c23f4b1f964bdf99433331d5"
++        },
++        {
++            "m_Id": "e64173d05360494fab9d7c22f2d356a4"
++        },
++        {
++            "m_Id": "b4218de47a904c07b65e9f09f8b7aac6"
++        },
++        {
++            "m_Id": "a6418be7ef38401db1c3260e7ae11361"
++        },
++        {
++            "m_Id": "d7d7f2a4dcd0429d894c564a61f45526"
+         }
+     ],
+     "m_Nodes": [
+@@ -4784,7 +4796,7 @@
+     "m_Precision": 0,
+     "overrideHLSLDeclaration": false,
+     "hlslDeclarationOverride": 0,
+-    "m_Hidden": false,
++    "m_Hidden": true,
+     "m_PerRendererData": false,
+     "m_customAttributes": [],
+     "m_Value": {
+@@ -5389,63 +5401,6 @@
+     }
+ }
+ 
+-{
+-    "m_SGVersion": 0,
+-    "m_Type": "UnityEditor.ShaderGraph.CategoryData",
+-    "m_ObjectId": "f020a90e18864b92a03ad47c264dd0a4",
+-    "m_Name": "",
+-    "m_ChildObjectList": [
+-        {
+-            "m_Id": "7d5448ec777b4933b33fbb8daff193cf"
+-        },
+-        {
+-            "m_Id": "5c83c9cd4a46469cae990e92c57205c3"
+-        },
+-        {
+-            "m_Id": "f10458733df94c38a9b354d48bdf4b0f"
+-        },
+-        {
+-            "m_Id": "ca8d045c35294412ae26bd3086433db4"
+-        },
+-        {
+-            "m_Id": "4a0b42944d794f07b95786bc62746ec8"
+-        },
+-        {
+-            "m_Id": "b90b2b9316794048a24db000b3016a74"
+-        },
+-        {
+-            "m_Id": "6854ca3b41d94eea837540404dccf32c"
+-        },
+-        {
+-            "m_Id": "cf36b8bc7345434c858f5c7708e7fec0"
+-        },
+-        {
+-            "m_Id": "f56fb0496c794d62a5a6245db6d48080"
+-        },
+-        {
+-            "m_Id": "4135f80a4dee4caa99d1f186912bb3b2"
+-        },
+-        {
+-            "m_Id": "6010096666de4a09bafa0f0b2c542e01"
+-        },
+-        {
+-            "m_Id": "6453d43a546d43808de87c782731628d"
+-        },
+-        {
+-            "m_Id": "35ff5c8b51024299be52a66bd2b8f0d2"
+-        },
+-        {
+-            "m_Id": "b66c373f259547fd9c0bea1944ce659a"
+-        },
+-        {
+-            "m_Id": "82add67966bd490ca13f5173f2034121"
+-        },
+-        {
+-            "m_Id": "8ac07ef17a154ba3894b700340c45fdc"
+-        }
+-    ]
+-}
+-
+ {
+     "m_SGVersion": 3,
+     "m_Type": "UnityEditor.ShaderGraph.Internal.ColorShaderProperty",
+@@ -5665,3 +5620,96 @@
+     }
+ }
+ 
++{
++    "m_SGVersion": 0,
++    "m_Type": "UnityEditor.ShaderGraph.CategoryData",
++    "m_ObjectId": "66c731f0c23f4b1f964bdf99433331d5",
++    "m_Name": "基本",
++    "m_ChildObjectList": [
++        {
++            "m_Id": "7d5448ec777b4933b33fbb8daff193cf"
++        },
++        {
++            "m_Id": "5c83c9cd4a46469cae990e92c57205c3"
++        },
++        {
++            "m_Id": "6453d43a546d43808de87c782731628d"
++        }
++    ]
++}
++
++{
++    "m_SGVersion": 0,
++    "m_Type": "UnityEditor.ShaderGraph.CategoryData",
++    "m_ObjectId": "e64173d05360494fab9d7c22f2d356a4",
++    "m_Name": "影",
++    "m_ChildObjectList": [
++        {
++            "m_Id": "f10458733df94c38a9b354d48bdf4b0f"
++        },
++        {
++            "m_Id": "4a0b42944d794f07b95786bc62746ec8"
++        },
++        {
++            "m_Id": "b90b2b9316794048a24db000b3016a74"
++        },
++        {
++            "m_Id": "6010096666de4a09bafa0f0b2c542e01"
++        },
++        {
++            "m_Id": "6854ca3b41d94eea837540404dccf32c"
++        },
++        {
++            "m_Id": "35ff5c8b51024299be52a66bd2b8f0d2"
++        }
++    ]
++}
++
++{
++    "m_SGVersion": 0,
++    "m_Type": "UnityEditor.ShaderGraph.CategoryData",
++    "m_ObjectId": "b4218de47a904c07b65e9f09f8b7aac6",
++    "m_Name": "リムライト (縁の光)",
++    "m_ChildObjectList": [
++        {
++            "m_Id": "cf36b8bc7345434c858f5c7708e7fec0"
++        },
++        {
++            "m_Id": "f56fb0496c794d62a5a6245db6d48080"
++        },
++        {
++            "m_Id": "4135f80a4dee4caa99d1f186912bb3b2"
++        }
++    ]
++}
++
++{
++    "m_SGVersion": 0,
++    "m_Type": "UnityEditor.ShaderGraph.CategoryData",
++    "m_ObjectId": "a6418be7ef38401db1c3260e7ae11361",
++    "m_Name": "ハイライト",
++    "m_ChildObjectList": [
++        {
++            "m_Id": "b66c373f259547fd9c0bea1944ce659a"
++        },
++        {
++            "m_Id": "82add67966bd490ca13f5173f2034121"
++        },
++        {
++            "m_Id": "8ac07ef17a154ba3894b700340c45fdc"
++        }
++    ]
++}
++
++{
++    "m_SGVersion": 0,
++    "m_Type": "UnityEditor.ShaderGraph.CategoryData",
++    "m_ObjectId": "d7d7f2a4dcd0429d894c564a61f45526",
++    "m_Name": "スクリプトが自動で設定 (触らない)",
++    "m_ChildObjectList": [
++        {
++            "m_Id": "ca8d045c35294412ae26bd3086433db4"
++        }
++    ]
++}
++
+diff --git a/Assets/Programmer/Scene/Test/Toon/Shader/Graph/SHG_NTE_Cloth.shadergraph b/Assets/Programmer/Scene/Test/Toon/Shader/Graph/SHG_NTE_Cloth.shadergraph
+index 581319d..46cae4e 100644
+--- a/Assets/Programmer/Scene/Test/Toon/Shader/Graph/SHG_NTE_Cloth.shadergraph
++++ b/Assets/Programmer/Scene/Test/Toon/Shader/Graph/SHG_NTE_Cloth.shadergraph
+@@ -10,10 +10,10 @@
+             "m_Id": "5c83c9cd4a46469cae990e92c57205c3"
+         },
+         {
+-            "m_Id": "f10458733df94c38a9b354d48bdf4b0f"
++            "m_Id": "6453d43a546d43808de87c782731628d"
+         },
+         {
+-            "m_Id": "ca8d045c35294412ae26bd3086433db4"
++            "m_Id": "f10458733df94c38a9b354d48bdf4b0f"
+         },
+         {
+             "m_Id": "4a0b42944d794f07b95786bc62746ec8"
+@@ -22,25 +22,25 @@
+             "m_Id": "b90b2b9316794048a24db000b3016a74"
+         },
+         {
+-            "m_Id": "6854ca3b41d94eea837540404dccf32c"
++            "m_Id": "6010096666de4a09bafa0f0b2c542e01"
+         },
+         {
+-            "m_Id": "cf36b8bc7345434c858f5c7708e7fec0"
++            "m_Id": "6854ca3b41d94eea837540404dccf32c"
+         },
+         {
+-            "m_Id": "f56fb0496c794d62a5a6245db6d48080"
++            "m_Id": "35ff5c8b51024299be52a66bd2b8f0d2"
+         },
+         {
+-            "m_Id": "4135f80a4dee4caa99d1f186912bb3b2"
++            "m_Id": "d63b184eddf54c3e8df77cb5ced5f439"
+         },
+         {
+-            "m_Id": "6010096666de4a09bafa0f0b2c542e01"
++            "m_Id": "cf36b8bc7345434c858f5c7708e7fec0"
+         },
+         {
+-            "m_Id": "6453d43a546d43808de87c782731628d"
++            "m_Id": "f56fb0496c794d62a5a6245db6d48080"
+         },
+         {
+-            "m_Id": "35ff5c8b51024299be52a66bd2b8f0d2"
++            "m_Id": "4135f80a4dee4caa99d1f186912bb3b2"
+         },
+         {
+             "m_Id": "b66c373f259547fd9c0bea1944ce659a"
+@@ -70,14 +70,29 @@
+             "m_Id": "fcb2ae306bf74cbd91a1b770749861ce"
+         },
+         {
+-            "m_Id": "d63b184eddf54c3e8df77cb5ced5f439"
++            "m_Id": "ca8d045c35294412ae26bd3086433db4"
+         }
+     ],
+     "m_Keywords": [],
+     "m_Dropdowns": [],
+     "m_CategoryData": [
+         {
+-            "m_Id": "f020a90e18864b92a03ad47c264dd0a4"
++            "m_Id": "4f363cd97d89411cad76329e8046a928"
++        },
++        {
++            "m_Id": "986c46bcc1e34c0196a8facd39d87bb1"
++        },
++        {
++            "m_Id": "9ff9683c029745acbd7818dd8a90a9f2"
++        },
++        {
++            "m_Id": "a516ef7a4fb4434da48d69a388694948"
++        },
++        {
++            "m_Id": "ec3e1bec2fd54d9994d9f11c92d59c6e"
++        },
++        {
++            "m_Id": "91415720a8aa4ea78ace1cafd77b47fa"
+         }
+     ],
+     "m_Nodes": [
+@@ -5599,7 +5614,7 @@
+     "m_Precision": 0,
+     "overrideHLSLDeclaration": false,
+     "hlslDeclarationOverride": 0,
+-    "m_Hidden": false,
++    "m_Hidden": true,
+     "m_PerRendererData": false,
+     "m_customAttributes": [],
+     "m_Value": {
+@@ -6387,84 +6402,6 @@
+     }
+ }
+ 
+-{
+-    "m_SGVersion": 0,
+-    "m_Type": "UnityEditor.ShaderGraph.CategoryData",
+-    "m_ObjectId": "f020a90e18864b92a03ad47c264dd0a4",
+-    "m_Name": "",
+-    "m_ChildObjectList": [
+-        {
+-            "m_Id": "7d5448ec777b4933b33fbb8daff193cf"
+-        },
+-        {
+-            "m_Id": "5c83c9cd4a46469cae990e92c57205c3"
+-        },
+-        {
+-            "m_Id": "f10458733df94c38a9b354d48bdf4b0f"
+-        },
+-        {
+-            "m_Id": "ca8d045c35294412ae26bd3086433db4"
+-        },
+-        {
+-            "m_Id": "4a0b42944d794f07b95786bc62746ec8"
+-        },
+-        {
+-            "m_Id": "b90b2b9316794048a24db000b3016a74"
+-        },
+-        {
+-            "m_Id": "6854ca3b41d94eea837540404dccf32c"
+-        },
+-        {
+-            "m_Id": "cf36b8bc7345434c858f5c7708e7fec0"
+-        },
+-        {
+-            "m_Id": "f56fb0496c794d62a5a6245db6d48080"
+-        },
+-        {
+-            "m_Id": "4135f80a4dee4caa99d1f186912bb3b2"
+-        },
+-        {
+-            "m_Id": "6010096666de4a09bafa0f0b2c542e01"
+-        },
+-        {
+-            "m_Id": "6453d43a546d43808de87c782731628d"
+-        },
+-        {
+-            "m_Id": "35ff5c8b51024299be52a66bd2b8f0d2"
+-        },
+-        {
+-            "m_Id": "b66c373f259547fd9c0bea1944ce659a"
+-        },
+-        {
+-            "m_Id": "82add67966bd490ca13f5173f2034121"
+-        },
+-        {
+-            "m_Id": "8ac07ef17a154ba3894b700340c45fdc"
+-        },
+-        {
+-            "m_Id": "2de8616249af462c9ab3c2611b1e5466"
+-        },
+-        {
+-            "m_Id": "f1aa3cac1a3a47ceb499d84464275809"
+-        },
+-        {
+-            "m_Id": "dc3d78a7dfff4015b5a329efb27850f6"
+-        },
+-        {
+-            "m_Id": "2c42c44558024f15a2607283c4776b04"
+-        },
+-        {
+-            "m_Id": "349a25da8d774320956eda2ea47cb7b5"
+-        },
+-        {
+-            "m_Id": "fcb2ae306bf74cbd91a1b770749861ce"
+-        },
+-        {
+-            "m_Id": "d63b184eddf54c3e8df77cb5ced5f439"
+-        }
+-    ]
+-}
+-
+ {
+     "m_SGVersion": 3,
+     "m_Type": "UnityEditor.ShaderGraph.Internal.ColorShaderProperty",
+@@ -7093,3 +7030,126 @@
+     "m_LiteralMode": false
+ }
+ 
++{
++    "m_SGVersion": 0,
++    "m_Type": "UnityEditor.ShaderGraph.CategoryData",
++    "m_ObjectId": "4f363cd97d89411cad76329e8046a928",
++    "m_Name": "基本",
++    "m_ChildObjectList": [
++        {
++            "m_Id": "7d5448ec777b4933b33fbb8daff193cf"
++        },
++        {
++            "m_Id": "5c83c9cd4a46469cae990e92c57205c3"
++        },
++        {
++            "m_Id": "6453d43a546d43808de87c782731628d"
++        }
++    ]
++}
++
++{
++    "m_SGVersion": 0,
++    "m_Type": "UnityEditor.ShaderGraph.CategoryData",
++    "m_ObjectId": "986c46bcc1e34c0196a8facd39d87bb1",
++    "m_Name": "影",
++    "m_ChildObjectList": [
++        {
++            "m_Id": "f10458733df94c38a9b354d48bdf4b0f"
++        },
++        {
++            "m_Id": "4a0b42944d794f07b95786bc62746ec8"
++        },
++        {
++            "m_Id": "b90b2b9316794048a24db000b3016a74"
++        },
++        {
++            "m_Id": "6010096666de4a09bafa0f0b2c542e01"
++        },
++        {
++            "m_Id": "6854ca3b41d94eea837540404dccf32c"
++        },
++        {
++            "m_Id": "35ff5c8b51024299be52a66bd2b8f0d2"
++        },
++        {
++            "m_Id": "d63b184eddf54c3e8df77cb5ced5f439"
++        }
++    ]
++}
++
++{
++    "m_SGVersion": 0,
++    "m_Type": "UnityEditor.ShaderGraph.CategoryData",
++    "m_ObjectId": "9ff9683c029745acbd7818dd8a90a9f2",
++    "m_Name": "リムライト (縁の光)",
++    "m_ChildObjectList": [
++        {
++            "m_Id": "cf36b8bc7345434c858f5c7708e7fec0"
++        },
++        {
++            "m_Id": "f56fb0496c794d62a5a6245db6d48080"
++        },
++        {
++            "m_Id": "4135f80a4dee4caa99d1f186912bb3b2"
++        }
++    ]
++}
++
++{
++    "m_SGVersion": 0,
++    "m_Type": "UnityEditor.ShaderGraph.CategoryData",
++    "m_ObjectId": "a516ef7a4fb4434da48d69a388694948",
++    "m_Name": "ハイライト",
++    "m_ChildObjectList": [
++        {
++            "m_Id": "b66c373f259547fd9c0bea1944ce659a"
++        },
++        {
++            "m_Id": "82add67966bd490ca13f5173f2034121"
++        },
++        {
++            "m_Id": "8ac07ef17a154ba3894b700340c45fdc"
++        }
++    ]
++}
++
++{
++    "m_SGVersion": 0,
++    "m_Type": "UnityEditor.ShaderGraph.CategoryData",
++    "m_ObjectId": "ec3e1bec2fd54d9994d9f11c92d59c6e",
++    "m_Name": "細かい調整 (普段は触らなくてOK)",
++    "m_ChildObjectList": [
++        {
++            "m_Id": "2de8616249af462c9ab3c2611b1e5466"
++        },
++        {
++            "m_Id": "f1aa3cac1a3a47ceb499d84464275809"
++        },
++        {
++            "m_Id": "dc3d78a7dfff4015b5a329efb27850f6"
++        },
++        {
++            "m_Id": "2c42c44558024f15a2607283c4776b04"
++        },
++        {
++            "m_Id": "349a25da8d774320956eda2ea47cb7b5"
++        },
++        {
++            "m_Id": "fcb2ae306bf74cbd91a1b770749861ce"
++        }
++    ]
++}
++
++{
++    "m_SGVersion": 0,
++    "m_Type": "UnityEditor.ShaderGraph.CategoryData",
++    "m_ObjectId": "91415720a8aa4ea78ace1cafd77b47fa",
++    "m_Name": "スクリプトが自動で設定 (触らない)",
++    "m_ChildObjectList": [
++        {
++            "m_Id": "ca8d045c35294412ae26bd3086433db4"
++        }
++    ]
++}
++
+diff --git a/Assets/Programmer/Scene/Test/Toon/Shader/Graph/SHG_NTE_Eye.shadergraph b/Assets/Programmer/Scene/Test/Toon/Shader/Graph/SHG_NTE_Eye.shadergraph
+index f40ed1b..3d056fe 100644
+--- a/Assets/Programmer/Scene/Test/Toon/Shader/Graph/SHG_NTE_Eye.shadergraph
++++ b/Assets/Programmer/Scene/Test/Toon/Shader/Graph/SHG_NTE_Eye.shadergraph
+@@ -9,6 +9,15 @@
+         {
+             "m_Id": "b94e601c6aa04080b9971ecbb45a7336"
+         },
++        {
++            "m_Id": "f24a93af8c624fa3ae5141baa3208867"
++        },
++        {
++            "m_Id": "e39976b5b8494401b42b990ff60ef0a8"
++        },
++        {
++            "m_Id": "8d2a5526826f48a0894eb78f0cda5bb3"
++        },
+         {
+             "m_Id": "0bf9a28528544c43baa61be1e6f70daf"
+         },
+@@ -107,6 +116,24 @@
+         },
+         {
+             "m_Id": "4ee8feb6fae64b2ea55b53fe46dcb1ac"
++        },
++        {
++            "m_Id": "4359b471592847f595ec57bec478ed80"
++        },
++        {
++            "m_Id": "6ec854df809942e09f736bfb73495c53"
++        },
++        {
++            "m_Id": "cc761c57ca19410187952d5f98b210b3"
++        },
++        {
++            "m_Id": "49e5945b0bba4bb185e31f08e455ba2c"
++        },
++        {
++            "m_Id": "871fdb6a85334091b309d8135d242e0b"
++        },
++        {
++            "m_Id": "c1c507d51d99446e965f1630e79a13e5"
+         }
+     ],
+     "m_GroupDatas": [],
+@@ -126,20 +153,6 @@
+                 "m_SlotId": 0
+             }
+         },
+-        {
+-            "m_OutputSlot": {
+-                "m_Node": {
+-                    "m_Id": "011d2a3f5c9d43fb99b5ab2ba98967bd"
+-                },
+-                "m_SlotId": 7
+-            },
+-            "m_InputSlot": {
+-                "m_Node": {
+-                    "m_Id": "fcab3a63b34d4265a82b8dc4d4bf8bef"
+-                },
+-                "m_SlotId": 0
+-            }
+-        },
+         {
+             "m_OutputSlot": {
+                 "m_Node": {
+@@ -321,6 +334,90 @@
+                 },
+                 "m_SlotId": 9
+             }
++        },
++        {
++            "m_OutputSlot": {
++                "m_Node": {
++                    "m_Id": "4359b471592847f595ec57bec478ed80"
++                },
++                "m_SlotId": 0
++            },
++            "m_InputSlot": {
++                "m_Node": {
++                    "m_Id": "b7b7c605e08d43528ecba223153f13ce"
++                },
++                "m_SlotId": 0
++            }
++        },
++        {
++            "m_OutputSlot": {
++                "m_Node": {
++                    "m_Id": "6ec854df809942e09f736bfb73495c53"
++                },
++                "m_SlotId": 0
++            },
++            "m_InputSlot": {
++                "m_Node": {
++                    "m_Id": "cc761c57ca19410187952d5f98b210b3"
++                },
++                "m_SlotId": 0
++            }
++        },
++        {
++            "m_OutputSlot": {
++                "m_Node": {
++                    "m_Id": "011d2a3f5c9d43fb99b5ab2ba98967bd"
++                },
++                "m_SlotId": 7
++            },
++            "m_InputSlot": {
++                "m_Node": {
++                    "m_Id": "c1c507d51d99446e965f1630e79a13e5"
++                },
++                "m_SlotId": 0
++            }
++        },
++        {
++            "m_OutputSlot": {
++                "m_Node": {
++                    "m_Id": "871fdb6a85334091b309d8135d242e0b"
++                },
++                "m_SlotId": 4
++            },
++            "m_InputSlot": {
++                "m_Node": {
++                    "m_Id": "c1c507d51d99446e965f1630e79a13e5"
++                },
++                "m_SlotId": 1
++            }
++        },
++        {
++            "m_OutputSlot": {
++                "m_Node": {
++                    "m_Id": "c1c507d51d99446e965f1630e79a13e5"
++                },
++                "m_SlotId": 2
++            },
++            "m_InputSlot": {
++                "m_Node": {
++                    "m_Id": "fcab3a63b34d4265a82b8dc4d4bf8bef"
++                },
++                "m_SlotId": 0
++            }
++        },
++        {
++            "m_OutputSlot": {
++                "m_Node": {
++                    "m_Id": "49e5945b0bba4bb185e31f08e455ba2c"
++                },
++                "m_SlotId": 0
++            },
++            "m_InputSlot": {
++                "m_Node": {
++                    "m_Id": "871fdb6a85334091b309d8135d242e0b"
++                },
++                "m_SlotId": 1
++            }
+         }
+     ],
+     "m_VertexContext": {
+@@ -358,6 +455,9 @@
+             {
+                 "m_Id": "d1855e9d5ae248e58c3e4007e2a116d4"
+             },
++            {
++                "m_Id": "cc761c57ca19410187952d5f98b210b3"
++            },
+             {
+                 "m_Id": "b7b7c605e08d43528ecba223153f13ce"
+             },
+@@ -564,11 +664,11 @@
+     "m_Type": "UnityEditor.Rendering.HighDefinition.ShaderGraph.HDLitData",
+     "m_ObjectId": "10b7d7f9a2704a099841cacad2f3a1fe",
+     "m_RayTracing": false,
+-    "m_MaterialType": 0,
+-    "m_MaterialTypeMask": 2,
++    "m_MaterialType": 4,
++    "m_MaterialTypeMask": 16,
+     "m_RefractionModel": 0,
+     "m_SSSTransmission": true,
+-    "m_EnergyConservingSpecular": true,
++    "m_EnergyConservingSpecular": false,
+     "m_ClearCoat": false
+ }
+ 
+@@ -612,7 +712,7 @@
+     "m_BlendPreserveSpecular": true,
+     "m_ReceiveDecals": true,
+     "m_ReceiveSSR": true,
+-    "m_ReceiveSSRTransparent": false,
++    "m_ReceiveSSRTransparent": true,
+     "m_SpecularAA": false,
+     "m_SpecularOcclusionMode": 1,
+     "m_OverrideBakedGI": false
+@@ -902,6 +1002,15 @@
+         {
+             "m_Id": "b94e601c6aa04080b9971ecbb45a7336"
+         },
++        {
++            "m_Id": "f24a93af8c624fa3ae5141baa3208867"
++        },
++        {
++            "m_Id": "e39976b5b8494401b42b990ff60ef0a8"
++        },
++        {
++            "m_Id": "8d2a5526826f48a0894eb78f0cda5bb3"
++        },
+         {
+             "m_Id": "0bf9a28528544c43baa61be1e6f70daf"
+         },
+@@ -2096,7 +2205,7 @@
+     "m_Precision": 0,
+     "overrideHLSLDeclaration": false,
+     "hlslDeclarationOverride": 0,
+-    "m_Hidden": false,
++    "m_Hidden": true,
+     "m_PerRendererData": false,
+     "m_customAttributes": [],
+     "m_Value": 2.0,
+@@ -2533,7 +2642,7 @@
+     "m_Precision": 0,
+     "overrideHLSLDeclaration": false,
+     "hlslDeclarationOverride": 0,
+-    "m_Hidden": false,
++    "m_Hidden": true,
+     "m_PerRendererData": false,
+     "m_customAttributes": [],
+     "m_Value": {
+@@ -2825,3 +2934,732 @@
+     "m_LiteralMode": false
+ }
+ 
++{
++    "m_SGVersion": 1,
++    "m_Type": "UnityEditor.ShaderGraph.Internal.Vector1ShaderProperty",
++    "m_ObjectId": "f24a93af8c624fa3ae5141baa3208867",
++    "m_Guid": {
++        "m_GuidSerialized": "f28e0796-b7a7-41ee-9d8d-a66a94322477"
++    },
++    "promotedFromAssetID": "",
++    "promotedFromCategoryName": "",
++    "promotedOrdering": -1,
++    "m_Name": "目のツヤ (高いほどライトや景色がくっきり映る)",
++    "m_DefaultRefNameVersion": 1,
++    "m_RefNameGeneratedByDisplayName": "EyeSmoothness",
++    "m_DefaultReferenceName": "_EyeSmoothness",
++    "m_OverrideReferenceName": "_EyeSmoothness",
++    "m_GeneratePropertyBlock": true,
++    "m_UseCustomSlotLabel": false,
++    "m_CustomSlotLabel": "",
++    "m_DismissedVersion": 0,
++    "m_Precision": 0,
++    "overrideHLSLDeclaration": false,
++    "hlslDeclarationOverride": 0,
++    "m_Hidden": false,
++    "m_PerRendererData": false,
++    "m_customAttributes": [],
++    "m_Value": 0.95,
++    "m_FloatType": 1,
++    "m_LiteralFloatMode": false,
++    "m_RangeValues": {
++        "x": 0.0,
++        "y": 1.0
++    },
++    "m_SliderType": 0,
++    "m_SliderPower": 3.0,
++    "m_EnumType": 0,
++    "m_CSharpEnumString": "",
++    "m_EnumNames": [
++        "Default"
++    ],
++    "m_EnumValues": [
++        0
++    ]
++}
++
++{
++    "m_SGVersion": 0,
++    "m_Type": "UnityEditor.ShaderGraph.PropertyNode",
++    "m_ObjectId": "4359b471592847f595ec57bec478ed80",
++    "m_Group": {
++        "m_Id": ""
++    },
++    "m_Name": "Property",
++    "m_DrawState": {
++        "m_Expanded": true,
++        "m_Position": {
++            "serializedVersion": "2",
++            "x": -400.0,
++            "y": 300.0,
++            "width": 220.0,
++            "height": 34.0
++        }
++    },
++    "m_Slots": [
++        {
++            "m_Id": "989e9e947e2b470e8a0c9564871a97c5"
++        }
++    ],
++    "synonyms": [],
++    "m_Precision": 0,
++    "m_PreviewExpanded": true,
++    "m_DismissedVersion": 0,
++    "m_PreviewMode": 0,
++    "m_CustomColors": {
++        "m_SerializableColors": []
++    },
++    "m_Property": {
++        "m_Id": "f24a93af8c624fa3ae5141baa3208867"
++    }
++}
++
++{
++    "m_SGVersion": 0,
++    "m_Type": "UnityEditor.ShaderGraph.Vector1MaterialSlot",
++    "m_ObjectId": "989e9e947e2b470e8a0c9564871a97c5",
++    "m_Id": 0,
++    "m_DisplayName": "目のツヤ (高いほどライトや景色がくっきり映る)",
++    "m_SlotType": 1,
++    "m_Hidden": false,
++    "m_ShaderOutputName": "Out",
++    "m_StageCapability": 3,
++    "m_Value": 0.0,
++    "m_DefaultValue": 0.0,
++    "m_Labels": []
++}
++
++{
++    "m_SGVersion": 0,
++    "m_Type": "UnityEditor.ShaderGraph.ColorRGBMaterialSlot",
++    "m_ObjectId": "344b54e2795a49caa9ceab27bd80d46d",
++    "m_Id": 0,
++    "m_DisplayName": "Specular Color",
++    "m_SlotType": 0,
++    "m_Hidden": false,
++    "m_ShaderOutputName": "Specular",
++    "m_StageCapability": 2,
++    "m_Value": {
++        "x": 0.04,
++        "y": 0.04,
++        "z": 0.04
++    },
++    "m_DefaultValue": {
++        "x": 0.5,
++        "y": 0.5,
++        "z": 0.5
++    },
++    "m_Labels": [],
++    "m_ColorMode": 0,
++    "m_DefaultColor": {
++        "r": 0.5,
++        "g": 0.5,
++        "b": 0.5,
++        "a": 1.0
++    }
++}
++
++{
++    "m_SGVersion": 0,
++    "m_Type": "UnityEditor.ShaderGraph.BlockNode",
++    "m_ObjectId": "cc761c57ca19410187952d5f98b210b3",
++    "m_Group": {
++        "m_Id": ""
++    },
++    "m_Name": "SurfaceDescription.Specular",
++    "m_DrawState": {
++        "m_Expanded": true,
++        "m_Position": {
++            "serializedVersion": "2",
++            "x": 0.0,
++            "y": 0.0,
++            "width": 0.0,
++            "height": 0.0
++        }
++    },
++    "m_Slots": [
++        {
++            "m_Id": "344b54e2795a49caa9ceab27bd80d46d"
++        }
++    ],
++    "synonyms": [],
++    "m_Precision": 0,
++    "m_PreviewExpanded": true,
++    "m_DismissedVersion": 0,
++    "m_PreviewMode": 0,
++    "m_CustomColors": {
++        "m_SerializableColors": []
++    },
++    "m_SerializedDescriptor": "SurfaceDescription.Specular"
++}
++
++{
++    "m_SGVersion": 1,
++    "m_Type": "UnityEditor.ShaderGraph.Internal.Vector1ShaderProperty",
++    "m_ObjectId": "8d2a5526826f48a0894eb78f0cda5bb3",
++    "m_Guid": {
++        "m_GuidSerialized": "9b8b6a88-3c8e-4006-bdee-c28f47267ae8"
++    },
++    "promotedFromAssetID": "",
++    "promotedFromCategoryName": "",
++    "promotedOrdering": -1,
++    "m_Name": "反射の強さ (0.04=普通の材質 / 上げるほど映り込みが強い)",
++    "m_DefaultRefNameVersion": 1,
++    "m_RefNameGeneratedByDisplayName": "EyeReflection",
++    "m_DefaultReferenceName": "_EyeReflection",
++    "m_OverrideReferenceName": "_EyeReflection",
++    "m_GeneratePropertyBlock": true,
++    "m_UseCustomSlotLabel": false,
++    "m_CustomSlotLabel": "",
++    "m_DismissedVersion": 0,
++    "m_Precision": 0,
++    "overrideHLSLDeclaration": false,
++    "hlslDeclarationOverride": 0,
++    "m_Hidden": false,
++    "m_PerRendererData": false,
++    "m_customAttributes": [],
++    "m_Value": 0.04,
++    "m_FloatType": 1,
++    "m_LiteralFloatMode": false,
++    "m_RangeValues": {
++        "x": 0.0,
++        "y": 1.0
++    },
++    "m_SliderType": 0,
++    "m_SliderPower": 3.0,
++    "m_EnumType": 0,
++    "m_CSharpEnumString": "",
++    "m_EnumNames": [
++        "Default"
++    ],
++    "m_EnumValues": [
++        0
++    ]
++}
++
++{
++    "m_SGVersion": 0,
++    "m_Type": "UnityEditor.ShaderGraph.Vector1MaterialSlot",
++    "m_ObjectId": "16777c61b5134b799ff4595044cc952c",
++    "m_Id": 0,
++    "m_DisplayName": "反射の強さ (0.04=普通の材質 / 上げるほど映り込みが強い)",
++    "m_SlotType": 1,
++    "m_Hidden": false,
++    "m_ShaderOutputName": "Out",
++    "m_StageCapability": 3,
++    "m_Value": 0.0,
++    "m_DefaultValue": 0.0,
++    "m_Labels": []
++}
++
++{
++    "m_SGVersion": 0,
++    "m_Type": "UnityEditor.ShaderGraph.PropertyNode",
++    "m_ObjectId": "6ec854df809942e09f736bfb73495c53",
++    "m_Group": {
++        "m_Id": ""
++    },
++    "m_Name": "Property",
++    "m_DrawState": {
++        "m_Expanded": true,
++        "m_Position": {
++            "serializedVersion": "2",
++            "x": -400.0,
++            "y": 240.0,
++            "width": 220.0,
++            "height": 34.0
++        }
++    },
++    "m_Slots": [
++        {
++            "m_Id": "16777c61b5134b799ff4595044cc952c"
++        }
++    ],
++    "synonyms": [],
++    "m_Precision": 0,
++    "m_PreviewExpanded": true,
++    "m_DismissedVersion": 0,
++    "m_PreviewMode": 0,
++    "m_CustomColors": {
++        "m_SerializableColors": []
++    },
++    "m_Property": {
++        "m_Id": "8d2a5526826f48a0894eb78f0cda5bb3"
++    }
++}
++
++{
++    "m_SGVersion": 0,
++    "m_Type": "UnityEditor.ShaderGraph.Internal.Texture2DShaderProperty",
++    "m_ObjectId": "e39976b5b8494401b42b990ff60ef0a8",
++    "m_Guid": {
++        "m_GuidSerialized": "11c1a339-3b41-4b7f-ab23-a0cc7fa3bdca"
++    },
++    "promotedFromAssetID": "",
++    "promotedFromCategoryName": "",
++    "promotedOrdering": -1,
++    "m_Name": "消す場所 (黒=見えなくなる / 作り物のハイライト板など)",
++    "m_DefaultRefNameVersion": 1,
++    "m_RefNameGeneratedByDisplayName": "EyeHideMask",
++    "m_DefaultReferenceName": "_EyeHideMask",
++    "m_OverrideReferenceName": "_EyeHideMask",
++    "m_GeneratePropertyBlock": true,
++    "m_UseCustomSlotLabel": false,
++    "m_CustomSlotLabel": "",
++    "m_DismissedVersion": 0,
++    "m_Precision": 0,
++    "overrideHLSLDeclaration": false,
++    "hlslDeclarationOverride": 0,
++    "m_Hidden": false,
++    "m_PerRendererData": false,
++    "m_customAttributes": [],
++    "m_Value": {
++        "m_SerializedTexture": "",
++        "m_Guid": ""
++    },
++    "isMainTexture": false,
++    "useTilingAndOffset": false,
++    "useTexelSize": true,
++    "isHDR": false,
++    "m_Modifiable": true,
++    "m_DefaultType": 0
++}
++
++{
++    "m_SGVersion": 0,
++    "m_Type": "UnityEditor.ShaderGraph.Texture2DMaterialSlot",
++    "m_ObjectId": "ff4d043f746449b2a5e4703ac1ee8872",
++    "m_Id": 0,
++    "m_DisplayName": "消す場所 (黒=見えなくなる / 作り物のハイライト板など)",
++    "m_SlotType": 1,
++    "m_Hidden": false,
++    "m_ShaderOutputName": "Out",
++    "m_StageCapability": 3,
++    "m_BareResource": false
++}
++
++{
++    "m_SGVersion": 0,
++    "m_Type": "UnityEditor.ShaderGraph.PropertyNode",
++    "m_ObjectId": "49e5945b0bba4bb185e31f08e455ba2c",
++    "m_Group": {
++        "m_Id": ""
++    },
++    "m_Name": "Property",
++    "m_DrawState": {
++        "m_Expanded": true,
++        "m_Position": {
++            "serializedVersion": "2",
++            "x": -900.0,
++            "y": 700.0,
++            "width": 220.0,
++            "height": 34.0
++        }
++    },
++    "m_Slots": [
++        {
++            "m_Id": "ff4d043f746449b2a5e4703ac1ee8872"
++        }
++    ],
++    "synonyms": [],
++    "m_Precision": 0,
++    "m_PreviewExpanded": true,
++    "m_DismissedVersion": 0,
++    "m_PreviewMode": 0,
++    "m_CustomColors": {
++        "m_SerializableColors": []
++    },
++    "m_Property": {
++        "m_Id": "e39976b5b8494401b42b990ff60ef0a8"
++    }
++}
++
++{
++    "m_SGVersion": 0,
++    "m_Type": "UnityEditor.ShaderGraph.Vector4MaterialSlot",
++    "m_ObjectId": "7f4bfdb78b924f9b9fc3622a01384697",
++    "m_Id": 0,
++    "m_DisplayName": "RGBA",
++    "m_SlotType": 1,
++    "m_Hidden": false,
++    "m_ShaderOutputName": "RGBA",
++    "m_StageCapability": 2,
++    "m_Value": {
++        "x": 0.0,
++        "y": 0.0,
++        "z": 0.0,
++        "w": 0.0
++    },
++    "m_DefaultValue": {
++        "x": 0.0,
++        "y": 0.0,
++        "z": 0.0,
++        "w": 0.0
++    },
++    "m_Labels": []
++}
++
++{
++    "m_SGVersion": 0,
++    "m_Type": "UnityEditor.ShaderGraph.Vector1MaterialSlot",
++    "m_ObjectId": "fae5778d9a694f1fb47de86547892e8f",
++    "m_Id": 4,
++    "m_DisplayName": "R",
++    "m_SlotType": 1,
++    "m_Hidden": false,
++    "m_ShaderOutputName": "R",
++    "m_StageCapability": 2,
++    "m_Value": 0.0,
++    "m_DefaultValue": 0.0,
++    "m_Labels": [],
++    "m_LiteralMode": false
++}
++
++{
++    "m_SGVersion": 0,
++    "m_Type": "UnityEditor.ShaderGraph.Vector1MaterialSlot",
++    "m_ObjectId": "d8a0af893de54dd98fdbf9fd7ac7c94b",
++    "m_Id": 5,
++    "m_DisplayName": "G",
++    "m_SlotType": 1,
++    "m_Hidden": false,
++    "m_ShaderOutputName": "G",
++    "m_StageCapability": 2,
++    "m_Value": 0.0,
++    "m_DefaultValue": 0.0,
++    "m_Labels": [],
++    "m_LiteralMode": false
++}
++
++{
++    "m_SGVersion": 0,
++    "m_Type": "UnityEditor.ShaderGraph.Vector1MaterialSlot",
++    "m_ObjectId": "84892af1c18649a4af121eb171c9a1fd",
++    "m_Id": 6,
++    "m_DisplayName": "B",
++    "m_SlotType": 1,
++    "m_Hidden": false,
++    "m_ShaderOutputName": "B",
++    "m_StageCapability": 2,
++    "m_Value": 0.0,
++    "m_DefaultValue": 0.0,
++    "m_Labels": [],
++    "m_LiteralMode": false
++}
++
++{
++    "m_SGVersion": 0,
++    "m_Type": "UnityEditor.ShaderGraph.Vector1MaterialSlot",
++    "m_ObjectId": "7b1754a4f94141e38a95cc787fa2fd32",
++    "m_Id": 7,
++    "m_DisplayName": "A",
++    "m_SlotType": 1,
++    "m_Hidden": false,
++    "m_ShaderOutputName": "A",
++    "m_StageCapability": 2,
++    "m_Value": 0.0,
++    "m_DefaultValue": 0.0,
++    "m_Labels": [],
++    "m_LiteralMode": false
++}
++
++{
++    "m_SGVersion": 0,
++    "m_Type": "UnityEditor.ShaderGraph.Texture2DInputMaterialSlot",
++    "m_ObjectId": "f7bb0c255f3b4afeb0527d8a6d4948b1",
++    "m_Id": 1,
++    "m_DisplayName": "Texture",
++    "m_SlotType": 0,
++    "m_Hidden": false,
++    "m_ShaderOutputName": "Texture",
++    "m_StageCapability": 3,
++    "m_BareResource": false,
++    "m_Texture": {
++        "m_SerializedTexture": "",
++        "m_Guid": ""
++    },
++    "m_DefaultType": 0
++}
++
++{
++    "m_SGVersion": 0,
++    "m_Type": "UnityEditor.ShaderGraph.UVMaterialSlot",
++    "m_ObjectId": "39bea29e70b645c88ceb23f1b26029b3",
++    "m_Id": 2,
++    "m_DisplayName": "UV",
++    "m_SlotType": 0,
++    "m_Hidden": false,
++    "m_ShaderOutputName": "UV",
++    "m_StageCapability": 3,
++    "m_Value": {
++        "x": 0.0,
++        "y": 0.0
++    },
++    "m_DefaultValue": {
++        "x": 0.0,
++        "y": 0.0
++    },
++    "m_Labels": [],
++    "m_Channel": 0
++}
++
++{
++    "m_SGVersion": 0,
++    "m_Type": "UnityEditor.ShaderGraph.SamplerStateMaterialSlot",
++    "m_ObjectId": "249a3de10e12446ba5b2eadda4783399",
++    "m_Id": 3,
++    "m_DisplayName": "Sampler",
++    "m_SlotType": 0,
++    "m_Hidden": false,
++    "m_ShaderOutputName": "Sampler",
++    "m_StageCapability": 3,
++    "m_BareResource": false
++}
++
++{
++    "m_SGVersion": 0,
++    "m_Type": "UnityEditor.ShaderGraph.SampleTexture2DNode",
++    "m_ObjectId": "871fdb6a85334091b309d8135d242e0b",
++    "m_Group": {
++        "m_Id": ""
++    },
++    "m_Name": "Sample Texture 2D",
++    "m_DrawState": {
++        "m_Expanded": true,
++        "m_Position": {
++            "serializedVersion": "2",
++            "x": -650.0,
++            "y": 650.0,
++            "width": 200.0,
++            "height": 150.0
++        }
++    },
++    "m_Slots": [
++        {
++            "m_Id": "7f4bfdb78b924f9b9fc3622a01384697"
++        },
++        {
++            "m_Id": "fae5778d9a694f1fb47de86547892e8f"
++        },
++        {
++            "m_Id": "d8a0af893de54dd98fdbf9fd7ac7c94b"
++        },
++        {
++            "m_Id": "84892af1c18649a4af121eb171c9a1fd"
++        },
++        {
++            "m_Id": "7b1754a4f94141e38a95cc787fa2fd32"
++        },
++        {
++            "m_Id": "f7bb0c255f3b4afeb0527d8a6d4948b1"
++        },
++        {
++            "m_Id": "39bea29e70b645c88ceb23f1b26029b3"
++        },
++        {
++            "m_Id": "249a3de10e12446ba5b2eadda4783399"
++        }
++    ],
++    "synonyms": [
++        "tex2d"
++    ],
++    "m_Precision": 0,
++    "m_PreviewExpanded": false,
++    "m_DismissedVersion": 0,
++    "m_PreviewMode": 0,
++    "m_CustomColors": {
++        "m_SerializableColors": []
++    },
++    "m_TextureType": 0,
++    "m_NormalMapSpace": 0,
++    "m_EnableGlobalMipBias": true,
++    "m_MipSamplingMode": 0
++}
++
++{
++    "m_SGVersion": 0,
++    "m_Type": "UnityEditor.ShaderGraph.DynamicValueMaterialSlot",
++    "m_ObjectId": "5e5c911b7b3e48958c1a4890f0766b04",
++    "m_Id": 0,
++    "m_DisplayName": "A",
++    "m_SlotType": 0,
++    "m_Hidden": false,
++    "m_ShaderOutputName": "A",
++    "m_StageCapability": 3,
++    "m_Value": {
++        "e00": 0.0,
++        "e01": 0.0,
++        "e02": 0.0,
++        "e03": 0.0,
++        "e10": 0.0,
++        "e11": 0.0,
++        "e12": 0.0,
++        "e13": 0.0,
++        "e20": 0.0,
++        "e21": 0.0,
++        "e22": 0.0,
++        "e23": 0.0,
++        "e30": 0.0,
++        "e31": 0.0,
++        "e32": 0.0,
++        "e33": 0.0
++    },
++    "m_DefaultValue": {
++        "e00": 1.0,
++        "e01": 0.0,
++        "e02": 0.0,
++        "e03": 0.0,
++        "e10": 0.0,
++        "e11": 1.0,
++        "e12": 0.0,
++        "e13": 0.0,
++        "e20": 0.0,
++        "e21": 0.0,
++        "e22": 1.0,
++        "e23": 0.0,
++        "e30": 0.0,
++        "e31": 0.0,
++        "e32": 0.0,
++        "e33": 1.0
++    }
++}
++
++{
++    "m_SGVersion": 0,
++    "m_Type": "UnityEditor.ShaderGraph.DynamicValueMaterialSlot",
++    "m_ObjectId": "5015afcea81a41b8bc642277a6844a6b",
++    "m_Id": 1,
++    "m_DisplayName": "B",
++    "m_SlotType": 0,
++    "m_Hidden": false,
++    "m_ShaderOutputName": "B",
++    "m_StageCapability": 3,
++    "m_Value": {
++        "e00": 0.0,
++        "e01": 0.0,
++        "e02": 0.0,
++        "e03": 0.0,
++        "e10": 0.0,
++        "e11": 0.0,
++        "e12": 0.0,
++        "e13": 0.0,
++        "e20": 0.0,
++        "e21": 0.0,
++        "e22": 0.0,
++        "e23": 0.0,
++        "e30": 0.0,
++        "e31": 0.0,
++        "e32": 0.0,
++        "e33": 0.0
++    },
++    "m_DefaultValue": {
++        "e00": 1.0,
++        "e01": 0.0,
++        "e02": 0.0,
++        "e03": 0.0,
++        "e10": 0.0,
++        "e11": 1.0,
++        "e12": 0.0,
++        "e13": 0.0,
++        "e20": 0.0,
++        "e21": 0.0,
++        "e22": 1.0,
++        "e23": 0.0,
++        "e30": 0.0,
++        "e31": 0.0,
++        "e32": 0.0,
++        "e33": 1.0
++    }
++}
++
++{
++    "m_SGVersion": 0,
++    "m_Type": "UnityEditor.ShaderGraph.DynamicValueMaterialSlot",
++    "m_ObjectId": "92e3266a51ea43539b9264e343a2be25",
++    "m_Id": 2,
++    "m_DisplayName": "Out",
++    "m_SlotType": 1,
++    "m_Hidden": false,
++    "m_ShaderOutputName": "Out",
++    "m_StageCapability": 3,
++    "m_Value": {
++        "e00": 0.0,
++        "e01": 0.0,
++        "e02": 0.0,
++        "e03": 0.0,
++        "e10": 0.0,
++        "e11": 0.0,
++        "e12": 0.0,
++        "e13": 0.0,
++        "e20": 0.0,
++        "e21": 0.0,
++        "e22": 0.0,
++        "e23": 0.0,
++        "e30": 0.0,
++        "e31": 0.0,
++        "e32": 0.0,
++        "e33": 0.0
++    },
++    "m_DefaultValue": {
++        "e00": 1.0,
++        "e01": 0.0,
++        "e02": 0.0,
++        "e03": 0.0,
++        "e10": 0.0,
++        "e11": 1.0,
++        "e12": 0.0,
++        "e13": 0.0,
++        "e20": 0.0,
++        "e21": 0.0,
++        "e22": 1.0,
++        "e23": 0.0,
++        "e30": 0.0,
++        "e31": 0.0,
++        "e32": 0.0,
++        "e33": 1.0
++    }
++}
++
++{
++    "m_SGVersion": 0,
++    "m_Type": "UnityEditor.ShaderGraph.MultiplyNode",
++    "m_ObjectId": "c1c507d51d99446e965f1630e79a13e5",
++    "m_Group": {
++        "m_Id": ""
++    },
++    "m_Name": "Multiply",
++    "m_DrawState": {
++        "m_Expanded": true,
++        "m_Position": {
++            "serializedVersion": "2",
++            "x": -300.0,
++            "y": 650.0,
++            "width": 130.0,
++            "height": 118.0
++        }
++    },
++    "m_Slots": [
++        {
++            "m_Id": "5e5c911b7b3e48958c1a4890f0766b04"
++        },
++        {
++            "m_Id": "5015afcea81a41b8bc642277a6844a6b"
++        },
++        {
++            "m_Id": "92e3266a51ea43539b9264e343a2be25"
++        }
++    ],
++    "synonyms": [
++        "multiplication",
++        "times",
++        "x"
++    ],
++    "m_Precision": 0,
++    "m_PreviewExpanded": false,
++    "m_DismissedVersion": 0,
++    "m_PreviewMode": 0,
++    "m_CustomColors": {
++        "m_SerializableColors": []
++    }
++}
++
+diff --git a/Assets/Programmer/Scene/Test/Toon/Shader/Graph/SHG_NTE_Hair.shadergraph b/Assets/Programmer/Scene/Test/Toon/Shader/Graph/SHG_NTE_Hair.shadergraph
+index 67999fa..fc4994c 100644
+--- a/Assets/Programmer/Scene/Test/Toon/Shader/Graph/SHG_NTE_Hair.shadergraph
++++ b/Assets/Programmer/Scene/Test/Toon/Shader/Graph/SHG_NTE_Hair.shadergraph
+@@ -10,10 +10,10 @@
+             "m_Id": "5c83c9cd4a46469cae990e92c57205c3"
+         },
+         {
+-            "m_Id": "f10458733df94c38a9b354d48bdf4b0f"
++            "m_Id": "6453d43a546d43808de87c782731628d"
+         },
+         {
+-            "m_Id": "ca8d045c35294412ae26bd3086433db4"
++            "m_Id": "f10458733df94c38a9b354d48bdf4b0f"
+         },
+         {
+             "m_Id": "4a0b42944d794f07b95786bc62746ec8"
+@@ -22,25 +22,25 @@
+             "m_Id": "b90b2b9316794048a24db000b3016a74"
+         },
+         {
+-            "m_Id": "6854ca3b41d94eea837540404dccf32c"
++            "m_Id": "6010096666de4a09bafa0f0b2c542e01"
+         },
+         {
+-            "m_Id": "cf36b8bc7345434c858f5c7708e7fec0"
++            "m_Id": "6854ca3b41d94eea837540404dccf32c"
+         },
+         {
+-            "m_Id": "f56fb0496c794d62a5a6245db6d48080"
++            "m_Id": "35ff5c8b51024299be52a66bd2b8f0d2"
+         },
+         {
+-            "m_Id": "4135f80a4dee4caa99d1f186912bb3b2"
++            "m_Id": "51ca739b609e44078b38936860fa3088"
+         },
+         {
+-            "m_Id": "6010096666de4a09bafa0f0b2c542e01"
++            "m_Id": "cf36b8bc7345434c858f5c7708e7fec0"
+         },
+         {
+-            "m_Id": "6453d43a546d43808de87c782731628d"
++            "m_Id": "f56fb0496c794d62a5a6245db6d48080"
+         },
+         {
+-            "m_Id": "35ff5c8b51024299be52a66bd2b8f0d2"
++            "m_Id": "4135f80a4dee4caa99d1f186912bb3b2"
+         },
+         {
+             "m_Id": "b66c373f259547fd9c0bea1944ce659a"
+@@ -70,14 +70,29 @@
+             "m_Id": "1c1bbca28b394c0188413005d1bc4b55"
+         },
+         {
+-            "m_Id": "51ca739b609e44078b38936860fa3088"
++            "m_Id": "ca8d045c35294412ae26bd3086433db4"
+         }
+     ],
+     "m_Keywords": [],
+     "m_Dropdowns": [],
+     "m_CategoryData": [
+         {
+-            "m_Id": "f020a90e18864b92a03ad47c264dd0a4"
++            "m_Id": "3afc6f6fa38e466383e869144e3531f6"
++        },
++        {
++            "m_Id": "35de298697ef4c7eb8809da07c5bd0ce"
++        },
++        {
++            "m_Id": "f505568b4d124701b7c7c141de454ec2"
++        },
++        {
++            "m_Id": "632c2d80817640c5bacb52a5f9a8030e"
++        },
++        {
++            "m_Id": "929c0e7aded14952bfa433547f73c506"
++        },
++        {
++            "m_Id": "56c34ad17afd4f879d3f7b6848f3beb5"
+         }
+     ],
+     "m_Nodes": [
+@@ -3240,7 +3255,7 @@
+     "m_Precision": 0,
+     "overrideHLSLDeclaration": false,
+     "hlslDeclarationOverride": 0,
+-    "m_Hidden": false,
++    "m_Hidden": true,
+     "m_PerRendererData": false,
+     "m_customAttributes": [],
+     "m_Value": {
+@@ -3599,84 +3614,6 @@
+     }
+ }
+ 
+-{
+-    "m_SGVersion": 0,
+-    "m_Type": "UnityEditor.ShaderGraph.CategoryData",
+-    "m_ObjectId": "f020a90e18864b92a03ad47c264dd0a4",
+-    "m_Name": "",
+-    "m_ChildObjectList": [
+-        {
+-            "m_Id": "7d5448ec777b4933b33fbb8daff193cf"
+-        },
+-        {
+-            "m_Id": "5c83c9cd4a46469cae990e92c57205c3"
+-        },
+-        {
+-            "m_Id": "f10458733df94c38a9b354d48bdf4b0f"
+-        },
+-        {
+-            "m_Id": "ca8d045c35294412ae26bd3086433db4"
+-        },
+-        {
+-            "m_Id": "4a0b42944d794f07b95786bc62746ec8"
+-        },
+-        {
+-            "m_Id": "b90b2b9316794048a24db000b3016a74"
+-        },
+-        {
+-            "m_Id": "6854ca3b41d94eea837540404dccf32c"
+-        },
+-        {
+-            "m_Id": "cf36b8bc7345434c858f5c7708e7fec0"
+-        },
+-        {
+-            "m_Id": "f56fb0496c794d62a5a6245db6d48080"
+-        },
+-        {
+-            "m_Id": "4135f80a4dee4caa99d1f186912bb3b2"
+-        },
+-        {
+-            "m_Id": "6010096666de4a09bafa0f0b2c542e01"
+-        },
+-        {
+-            "m_Id": "6453d43a546d43808de87c782731628d"
+-        },
+-        {
+-            "m_Id": "35ff5c8b51024299be52a66bd2b8f0d2"
+-        },
+-        {
+-            "m_Id": "b66c373f259547fd9c0bea1944ce659a"
+-        },
+-        {
+-            "m_Id": "82add67966bd490ca13f5173f2034121"
+-        },
+-        {
+-            "m_Id": "8ac07ef17a154ba3894b700340c45fdc"
+-        },
+-        {
+-            "m_Id": "e4d05c842cb147fdae7cc913f9b2d852"
+-        },
+-        {
+-            "m_Id": "20a426514fe1487086ea1868d05799d0"
+-        },
+-        {
+-            "m_Id": "9fdb0d3e90a340c2bdc645840c6cb4c0"
+-        },
+-        {
+-            "m_Id": "ea881f992e5c43a888493a17fb7e6e39"
+-        },
+-        {
+-            "m_Id": "a5048b3c25fb4fee9a1dfb3436454fb0"
+-        },
+-        {
+-            "m_Id": "1c1bbca28b394c0188413005d1bc4b55"
+-        },
+-        {
+-            "m_Id": "51ca739b609e44078b38936860fa3088"
+-        }
+-    ]
+-}
+-
+ {
+     "m_SGVersion": 3,
+     "m_Type": "UnityEditor.ShaderGraph.Internal.ColorShaderProperty",
+@@ -7114,3 +7051,126 @@
+     "m_LiteralMode": false
+ }
+ 
++{
++    "m_SGVersion": 0,
++    "m_Type": "UnityEditor.ShaderGraph.CategoryData",
++    "m_ObjectId": "3afc6f6fa38e466383e869144e3531f6",
++    "m_Name": "基本",
++    "m_ChildObjectList": [
++        {
++            "m_Id": "7d5448ec777b4933b33fbb8daff193cf"
++        },
++        {
++            "m_Id": "5c83c9cd4a46469cae990e92c57205c3"
++        },
++        {
++            "m_Id": "6453d43a546d43808de87c782731628d"
++        }
++    ]
++}
++
++{
++    "m_SGVersion": 0,
++    "m_Type": "UnityEditor.ShaderGraph.CategoryData",
++    "m_ObjectId": "35de298697ef4c7eb8809da07c5bd0ce",
++    "m_Name": "影",
++    "m_ChildObjectList": [
++        {
++            "m_Id": "f10458733df94c38a9b354d48bdf4b0f"
++        },
++        {
++            "m_Id": "4a0b42944d794f07b95786bc62746ec8"
++        },
++        {
++            "m_Id": "b90b2b9316794048a24db000b3016a74"
++        },
++        {
++            "m_Id": "6010096666de4a09bafa0f0b2c542e01"
++        },
++        {
++            "m_Id": "6854ca3b41d94eea837540404dccf32c"
++        },
++        {
++            "m_Id": "35ff5c8b51024299be52a66bd2b8f0d2"
++        },
++        {
++            "m_Id": "51ca739b609e44078b38936860fa3088"
++        }
++    ]
++}
++
++{
++    "m_SGVersion": 0,
++    "m_Type": "UnityEditor.ShaderGraph.CategoryData",
++    "m_ObjectId": "f505568b4d124701b7c7c141de454ec2",
++    "m_Name": "リムライト (縁の光)",
++    "m_ChildObjectList": [
++        {
++            "m_Id": "cf36b8bc7345434c858f5c7708e7fec0"
++        },
++        {
++            "m_Id": "f56fb0496c794d62a5a6245db6d48080"
++        },
++        {
++            "m_Id": "4135f80a4dee4caa99d1f186912bb3b2"
++        }
++    ]
++}
++
++{
++    "m_SGVersion": 0,
++    "m_Type": "UnityEditor.ShaderGraph.CategoryData",
++    "m_ObjectId": "632c2d80817640c5bacb52a5f9a8030e",
++    "m_Name": "ハイライト",
++    "m_ChildObjectList": [
++        {
++            "m_Id": "b66c373f259547fd9c0bea1944ce659a"
++        },
++        {
++            "m_Id": "82add67966bd490ca13f5173f2034121"
++        },
++        {
++            "m_Id": "8ac07ef17a154ba3894b700340c45fdc"
++        }
++    ]
++}
++
++{
++    "m_SGVersion": 0,
++    "m_Type": "UnityEditor.ShaderGraph.CategoryData",
++    "m_ObjectId": "929c0e7aded14952bfa433547f73c506",
++    "m_Name": "細かい調整 (普段は触らなくてOK)",
++    "m_ChildObjectList": [
++        {
++            "m_Id": "e4d05c842cb147fdae7cc913f9b2d852"
++        },
++        {
++            "m_Id": "20a426514fe1487086ea1868d05799d0"
++        },
++        {
++            "m_Id": "9fdb0d3e90a340c2bdc645840c6cb4c0"
++        },
++        {
++            "m_Id": "ea881f992e5c43a888493a17fb7e6e39"
++        },
++        {
++            "m_Id": "a5048b3c25fb4fee9a1dfb3436454fb0"
++        },
++        {
++            "m_Id": "1c1bbca28b394c0188413005d1bc4b55"
++        }
++    ]
++}
++
++{
++    "m_SGVersion": 0,
++    "m_Type": "UnityEditor.ShaderGraph.CategoryData",
++    "m_ObjectId": "56c34ad17afd4f879d3f7b6848f3beb5",
++    "m_Name": "スクリプトが自動で設定 (触らない)",
++    "m_ChildObjectList": [
++        {
++            "m_Id": "ca8d045c35294412ae26bd3086433db4"
++        }
++    ]
++}
++
+diff --git a/Assets/Programmer/Scene/Test/Toon/Shader/Graph/SHG_NTE_Leather.shadergraph b/Assets/Programmer/Scene/Test/Toon/Shader/Graph/SHG_NTE_Leather.shadergraph
+index 3a4e0c7..978c1ea 100644
+--- a/Assets/Programmer/Scene/Test/Toon/Shader/Graph/SHG_NTE_Leather.shadergraph
++++ b/Assets/Programmer/Scene/Test/Toon/Shader/Graph/SHG_NTE_Leather.shadergraph
+@@ -10,10 +10,10 @@
+             "m_Id": "5c83c9cd4a46469cae990e92c57205c3"
+         },
+         {
+-            "m_Id": "f10458733df94c38a9b354d48bdf4b0f"
++            "m_Id": "6453d43a546d43808de87c782731628d"
+         },
+         {
+-            "m_Id": "ca8d045c35294412ae26bd3086433db4"
++            "m_Id": "f10458733df94c38a9b354d48bdf4b0f"
+         },
+         {
+             "m_Id": "4a0b42944d794f07b95786bc62746ec8"
+@@ -22,25 +22,25 @@
+             "m_Id": "b90b2b9316794048a24db000b3016a74"
+         },
+         {
+-            "m_Id": "6854ca3b41d94eea837540404dccf32c"
++            "m_Id": "6010096666de4a09bafa0f0b2c542e01"
+         },
+         {
+-            "m_Id": "cf36b8bc7345434c858f5c7708e7fec0"
++            "m_Id": "6854ca3b41d94eea837540404dccf32c"
+         },
+         {
+-            "m_Id": "f56fb0496c794d62a5a6245db6d48080"
++            "m_Id": "35ff5c8b51024299be52a66bd2b8f0d2"
+         },
+         {
+-            "m_Id": "4135f80a4dee4caa99d1f186912bb3b2"
++            "m_Id": "17e352922b1241459545b592ac4b23e3"
+         },
+         {
+-            "m_Id": "6010096666de4a09bafa0f0b2c542e01"
++            "m_Id": "cf36b8bc7345434c858f5c7708e7fec0"
+         },
+         {
+-            "m_Id": "6453d43a546d43808de87c782731628d"
++            "m_Id": "f56fb0496c794d62a5a6245db6d48080"
+         },
+         {
+-            "m_Id": "35ff5c8b51024299be52a66bd2b8f0d2"
++            "m_Id": "4135f80a4dee4caa99d1f186912bb3b2"
+         },
+         {
+             "m_Id": "b66c373f259547fd9c0bea1944ce659a"
+@@ -70,14 +70,29 @@
+             "m_Id": "6447dd7d2f5c4e0aba9bcc9c2703db51"
+         },
+         {
+-            "m_Id": "17e352922b1241459545b592ac4b23e3"
++            "m_Id": "ca8d045c35294412ae26bd3086433db4"
+         }
+     ],
+     "m_Keywords": [],
+     "m_Dropdowns": [],
+     "m_CategoryData": [
+         {
+-            "m_Id": "f020a90e18864b92a03ad47c264dd0a4"
++            "m_Id": "87430124490c4d2a83f91b6112db8e0c"
++        },
++        {
++            "m_Id": "6a49c14d76e5474caa0885c527569558"
++        },
++        {
++            "m_Id": "6bbaf1d726784598b199f04f7a808b79"
++        },
++        {
++            "m_Id": "9919b07edb4b4294b4d82f31ebbaab09"
++        },
++        {
++            "m_Id": "4c9c8f04f1554c1fb55698c398ddf0c9"
++        },
++        {
++            "m_Id": "da495ab5d47841c0ade754301683ba54"
+         }
+     ],
+     "m_Nodes": [
+@@ -5674,7 +5689,7 @@
+     "m_Precision": 0,
+     "overrideHLSLDeclaration": false,
+     "hlslDeclarationOverride": 0,
+-    "m_Hidden": false,
++    "m_Hidden": true,
+     "m_PerRendererData": false,
+     "m_customAttributes": [],
+     "m_Value": {
+@@ -6474,84 +6489,6 @@
+     "m_DefaultValue": true
+ }
+ 
+-{
+-    "m_SGVersion": 0,
+-    "m_Type": "UnityEditor.ShaderGraph.CategoryData",
+-    "m_ObjectId": "f020a90e18864b92a03ad47c264dd0a4",
+-    "m_Name": "",
+-    "m_ChildObjectList": [
+-        {
+-            "m_Id": "7d5448ec777b4933b33fbb8daff193cf"
+-        },
+-        {
+-            "m_Id": "5c83c9cd4a46469cae990e92c57205c3"
+-        },
+-        {
+-            "m_Id": "f10458733df94c38a9b354d48bdf4b0f"
+-        },
+-        {
+-            "m_Id": "ca8d045c35294412ae26bd3086433db4"
+-        },
+-        {
+-            "m_Id": "4a0b42944d794f07b95786bc62746ec8"
+-        },
+-        {
+-            "m_Id": "b90b2b9316794048a24db000b3016a74"
+-        },
+-        {
+-            "m_Id": "6854ca3b41d94eea837540404dccf32c"
+-        },
+-        {
+-            "m_Id": "cf36b8bc7345434c858f5c7708e7fec0"
+-        },
+-        {
+-            "m_Id": "f56fb0496c794d62a5a6245db6d48080"
+-        },
+-        {
+-            "m_Id": "4135f80a4dee4caa99d1f186912bb3b2"
+-        },
+-        {
+-            "m_Id": "6010096666de4a09bafa0f0b2c542e01"
+-        },
+-        {
+-            "m_Id": "6453d43a546d43808de87c782731628d"
+-        },
+-        {
+-            "m_Id": "35ff5c8b51024299be52a66bd2b8f0d2"
+-        },
+-        {
+-            "m_Id": "b66c373f259547fd9c0bea1944ce659a"
+-        },
+-        {
+-            "m_Id": "82add67966bd490ca13f5173f2034121"
+-        },
+-        {
+-            "m_Id": "8ac07ef17a154ba3894b700340c45fdc"
+-        },
+-        {
+-            "m_Id": "88d556412fae45c4a0747285db686170"
+-        },
+-        {
+-            "m_Id": "0805d40006e34e5cb013f7e1f6d05fef"
+-        },
+-        {
+-            "m_Id": "72bfdb7f83be4fa881a388966865479e"
+-        },
+-        {
+-            "m_Id": "d11d483152a54f73a02e0fad5879aa57"
+-        },
+-        {
+-            "m_Id": "cee93e162e1a4b7e94af6108450860ed"
+-        },
+-        {
+-            "m_Id": "6447dd7d2f5c4e0aba9bcc9c2703db51"
+-        },
+-        {
+-            "m_Id": "17e352922b1241459545b592ac4b23e3"
+-        }
+-    ]
+-}
+-
+ {
+     "m_SGVersion": 3,
+     "m_Type": "UnityEditor.ShaderGraph.Internal.ColorShaderProperty",
+@@ -7093,3 +7030,126 @@
+     "m_LiteralMode": false
+ }
+ 
++{
++    "m_SGVersion": 0,
++    "m_Type": "UnityEditor.ShaderGraph.CategoryData",
++    "m_ObjectId": "87430124490c4d2a83f91b6112db8e0c",
++    "m_Name": "基本",
++    "m_ChildObjectList": [
++        {
++            "m_Id": "7d5448ec777b4933b33fbb8daff193cf"
++        },
++        {
++            "m_Id": "5c83c9cd4a46469cae990e92c57205c3"
++        },
++        {
++            "m_Id": "6453d43a546d43808de87c782731628d"
++        }
++    ]
++}
++
++{
++    "m_SGVersion": 0,
++    "m_Type": "UnityEditor.ShaderGraph.CategoryData",
++    "m_ObjectId": "6a49c14d76e5474caa0885c527569558",
++    "m_Name": "影",
++    "m_ChildObjectList": [
++        {
++            "m_Id": "f10458733df94c38a9b354d48bdf4b0f"
++        },
++        {
++            "m_Id": "4a0b42944d794f07b95786bc62746ec8"
++        },
++        {
++            "m_Id": "b90b2b9316794048a24db000b3016a74"
++        },
++        {
++            "m_Id": "6010096666de4a09bafa0f0b2c542e01"
++        },
++        {
++            "m_Id": "6854ca3b41d94eea837540404dccf32c"
++        },
++        {
++            "m_Id": "35ff5c8b51024299be52a66bd2b8f0d2"
++        },
++        {
++            "m_Id": "17e352922b1241459545b592ac4b23e3"
++        }
++    ]
++}
++
++{
++    "m_SGVersion": 0,
++    "m_Type": "UnityEditor.ShaderGraph.CategoryData",
++    "m_ObjectId": "6bbaf1d726784598b199f04f7a808b79",
++    "m_Name": "リムライト (縁の光)",
++    "m_ChildObjectList": [
++        {
++            "m_Id": "cf36b8bc7345434c858f5c7708e7fec0"
++        },
++        {
++            "m_Id": "f56fb0496c794d62a5a6245db6d48080"
++        },
++        {
++            "m_Id": "4135f80a4dee4caa99d1f186912bb3b2"
++        }
++    ]
++}
++
++{
++    "m_SGVersion": 0,
++    "m_Type": "UnityEditor.ShaderGraph.CategoryData",
++    "m_ObjectId": "9919b07edb4b4294b4d82f31ebbaab09",
++    "m_Name": "ハイライト",
++    "m_ChildObjectList": [
++        {
++            "m_Id": "b66c373f259547fd9c0bea1944ce659a"
++        },
++        {
++            "m_Id": "82add67966bd490ca13f5173f2034121"
++        },
++        {
++            "m_Id": "8ac07ef17a154ba3894b700340c45fdc"
++        }
++    ]
++}
++
++{
++    "m_SGVersion": 0,
++    "m_Type": "UnityEditor.ShaderGraph.CategoryData",
++    "m_ObjectId": "4c9c8f04f1554c1fb55698c398ddf0c9",
++    "m_Name": "細かい調整 (普段は触らなくてOK)",
++    "m_ChildObjectList": [
++        {
++            "m_Id": "88d556412fae45c4a0747285db686170"
++        },
++        {
++            "m_Id": "0805d40006e34e5cb013f7e1f6d05fef"
++        },
++        {
++            "m_Id": "72bfdb7f83be4fa881a388966865479e"
++        },
++        {
++            "m_Id": "d11d483152a54f73a02e0fad5879aa57"
++        },
++        {
++            "m_Id": "cee93e162e1a4b7e94af6108450860ed"
++        },
++        {
++            "m_Id": "6447dd7d2f5c4e0aba9bcc9c2703db51"
++        }
++    ]
++}
++
++{
++    "m_SGVersion": 0,
++    "m_Type": "UnityEditor.ShaderGraph.CategoryData",
++    "m_ObjectId": "da495ab5d47841c0ade754301683ba54",
++    "m_Name": "スクリプトが自動で設定 (触らない)",
++    "m_ChildObjectList": [
++        {
++            "m_Id": "ca8d045c35294412ae26bd3086433db4"
++        }
++    ]
++}
++
+diff --git a/Assets/Programmer/Scene/Test/Toon/Shader/Graph/SHG_NTE_Metal.shadergraph b/Assets/Programmer/Scene/Test/Toon/Shader/Graph/SHG_NTE_Metal.shadergraph
+index 83d6664..df19e8c 100644
+--- a/Assets/Programmer/Scene/Test/Toon/Shader/Graph/SHG_NTE_Metal.shadergraph
++++ b/Assets/Programmer/Scene/Test/Toon/Shader/Graph/SHG_NTE_Metal.shadergraph
+@@ -10,10 +10,10 @@
+             "m_Id": "5c83c9cd4a46469cae990e92c57205c3"
+         },
+         {
+-            "m_Id": "f10458733df94c38a9b354d48bdf4b0f"
++            "m_Id": "6453d43a546d43808de87c782731628d"
+         },
+         {
+-            "m_Id": "ca8d045c35294412ae26bd3086433db4"
++            "m_Id": "f10458733df94c38a9b354d48bdf4b0f"
+         },
+         {
+             "m_Id": "4a0b42944d794f07b95786bc62746ec8"
+@@ -22,25 +22,25 @@
+             "m_Id": "b90b2b9316794048a24db000b3016a74"
+         },
+         {
+-            "m_Id": "6854ca3b41d94eea837540404dccf32c"
++            "m_Id": "6010096666de4a09bafa0f0b2c542e01"
+         },
+         {
+-            "m_Id": "cf36b8bc7345434c858f5c7708e7fec0"
++            "m_Id": "6854ca3b41d94eea837540404dccf32c"
+         },
+         {
+-            "m_Id": "f56fb0496c794d62a5a6245db6d48080"
++            "m_Id": "35ff5c8b51024299be52a66bd2b8f0d2"
+         },
+         {
+-            "m_Id": "4135f80a4dee4caa99d1f186912bb3b2"
++            "m_Id": "7b904f1ba28f48b3ae0b88d1b18c8ea5"
+         },
+         {
+-            "m_Id": "6010096666de4a09bafa0f0b2c542e01"
++            "m_Id": "cf36b8bc7345434c858f5c7708e7fec0"
+         },
+         {
+-            "m_Id": "6453d43a546d43808de87c782731628d"
++            "m_Id": "f56fb0496c794d62a5a6245db6d48080"
+         },
+         {
+-            "m_Id": "35ff5c8b51024299be52a66bd2b8f0d2"
++            "m_Id": "4135f80a4dee4caa99d1f186912bb3b2"
+         },
+         {
+             "m_Id": "b66c373f259547fd9c0bea1944ce659a"
+@@ -70,14 +70,29 @@
+             "m_Id": "ab21b42d78194848b7e12d252097ed98"
+         },
+         {
+-            "m_Id": "7b904f1ba28f48b3ae0b88d1b18c8ea5"
++            "m_Id": "ca8d045c35294412ae26bd3086433db4"
+         }
+     ],
+     "m_Keywords": [],
+     "m_Dropdowns": [],
+     "m_CategoryData": [
+         {
+-            "m_Id": "f020a90e18864b92a03ad47c264dd0a4"
++            "m_Id": "65e685734d574d6e834c902d3331d05a"
++        },
++        {
++            "m_Id": "5e8a47b462274bf69f95239096d57cf9"
++        },
++        {
++            "m_Id": "2448427ffa9a4f52814ba989fe270b76"
++        },
++        {
++            "m_Id": "2230b99ddeac4cbaa321660081d76869"
++        },
++        {
++            "m_Id": "be8791e19d3f46739dfe15aa9bb1c7db"
++        },
++        {
++            "m_Id": "752855a53ace4bd38ae00d951812f82c"
+         }
+     ],
+     "m_Nodes": [
+@@ -3240,7 +3255,7 @@
+     "m_Precision": 0,
+     "overrideHLSLDeclaration": false,
+     "hlslDeclarationOverride": 0,
+-    "m_Hidden": false,
++    "m_Hidden": true,
+     "m_PerRendererData": false,
+     "m_customAttributes": [],
+     "m_Value": {
+@@ -3599,84 +3614,6 @@
+     }
+ }
+ 
+-{
+-    "m_SGVersion": 0,
+-    "m_Type": "UnityEditor.ShaderGraph.CategoryData",
+-    "m_ObjectId": "f020a90e18864b92a03ad47c264dd0a4",
+-    "m_Name": "",
+-    "m_ChildObjectList": [
+-        {
+-            "m_Id": "7d5448ec777b4933b33fbb8daff193cf"
+-        },
+-        {
+-            "m_Id": "5c83c9cd4a46469cae990e92c57205c3"
+-        },
+-        {
+-            "m_Id": "f10458733df94c38a9b354d48bdf4b0f"
+-        },
+-        {
+-            "m_Id": "ca8d045c35294412ae26bd3086433db4"
+-        },
+-        {
+-            "m_Id": "4a0b42944d794f07b95786bc62746ec8"
+-        },
+-        {
+-            "m_Id": "b90b2b9316794048a24db000b3016a74"
+-        },
+-        {
+-            "m_Id": "6854ca3b41d94eea837540404dccf32c"
+-        },
+-        {
+-            "m_Id": "cf36b8bc7345434c858f5c7708e7fec0"
+-        },
+-        {
+-            "m_Id": "f56fb0496c794d62a5a6245db6d48080"
+-        },
+-        {
+-            "m_Id": "4135f80a4dee4caa99d1f186912bb3b2"
+-        },
+-        {
+-            "m_Id": "6010096666de4a09bafa0f0b2c542e01"
+-        },
+-        {
+-            "m_Id": "6453d43a546d43808de87c782731628d"
+-        },
+-        {
+-            "m_Id": "35ff5c8b51024299be52a66bd2b8f0d2"
+-        },
+-        {
+-            "m_Id": "b66c373f259547fd9c0bea1944ce659a"
+-        },
+-        {
+-            "m_Id": "82add67966bd490ca13f5173f2034121"
+-        },
+-        {
+-            "m_Id": "8ac07ef17a154ba3894b700340c45fdc"
+-        },
+-        {
+-            "m_Id": "9ea05c93fada4cc18bb3c565e9cc4332"
+-        },
+-        {
+-            "m_Id": "d291e0a4861247a5b4899babbcfa2ce8"
+-        },
+-        {
+-            "m_Id": "39b90d78f7e6426188261b01c3a4933f"
+-        },
+-        {
+-            "m_Id": "5eab412a9697463181ee48d8e44e8050"
+-        },
+-        {
+-            "m_Id": "daeecf1936764cad8f0ab5741bf17a42"
+-        },
+-        {
+-            "m_Id": "ab21b42d78194848b7e12d252097ed98"
+-        },
+-        {
+-            "m_Id": "7b904f1ba28f48b3ae0b88d1b18c8ea5"
+-        }
+-    ]
+-}
+-
+ {
+     "m_SGVersion": 3,
+     "m_Type": "UnityEditor.ShaderGraph.Internal.ColorShaderProperty",
+@@ -7114,3 +7051,126 @@
+     "m_LiteralMode": false
+ }
+ 
++{
++    "m_SGVersion": 0,
++    "m_Type": "UnityEditor.ShaderGraph.CategoryData",
++    "m_ObjectId": "65e685734d574d6e834c902d3331d05a",
++    "m_Name": "基本",
++    "m_ChildObjectList": [
++        {
++            "m_Id": "7d5448ec777b4933b33fbb8daff193cf"
++        },
++        {
++            "m_Id": "5c83c9cd4a46469cae990e92c57205c3"
++        },
++        {
++            "m_Id": "6453d43a546d43808de87c782731628d"
++        }
++    ]
++}
++
++{
++    "m_SGVersion": 0,
++    "m_Type": "UnityEditor.ShaderGraph.CategoryData",
++    "m_ObjectId": "5e8a47b462274bf69f95239096d57cf9",
++    "m_Name": "影",
++    "m_ChildObjectList": [
++        {
++            "m_Id": "f10458733df94c38a9b354d48bdf4b0f"
++        },
++        {
++            "m_Id": "4a0b42944d794f07b95786bc62746ec8"
++        },
++        {
++            "m_Id": "b90b2b9316794048a24db000b3016a74"
++        },
++        {
++            "m_Id": "6010096666de4a09bafa0f0b2c542e01"
++        },
++        {
++            "m_Id": "6854ca3b41d94eea837540404dccf32c"
++        },
++        {
++            "m_Id": "35ff5c8b51024299be52a66bd2b8f0d2"
++        },
++        {
++            "m_Id": "7b904f1ba28f48b3ae0b88d1b18c8ea5"
++        }
++    ]
++}
++
++{
++    "m_SGVersion": 0,
++    "m_Type": "UnityEditor.ShaderGraph.CategoryData",
++    "m_ObjectId": "2448427ffa9a4f52814ba989fe270b76",
++    "m_Name": "リムライト (縁の光)",
++    "m_ChildObjectList": [
++        {
++            "m_Id": "cf36b8bc7345434c858f5c7708e7fec0"
++        },
++        {
++            "m_Id": "f56fb0496c794d62a5a6245db6d48080"
++        },
++        {
++            "m_Id": "4135f80a4dee4caa99d1f186912bb3b2"
++        }
++    ]
++}
++
++{
++    "m_SGVersion": 0,
++    "m_Type": "UnityEditor.ShaderGraph.CategoryData",
++    "m_ObjectId": "2230b99ddeac4cbaa321660081d76869",
++    "m_Name": "ハイライト",
++    "m_ChildObjectList": [
++        {
++            "m_Id": "b66c373f259547fd9c0bea1944ce659a"
++        },
++        {
++            "m_Id": "82add67966bd490ca13f5173f2034121"
++        },
++        {
++            "m_Id": "8ac07ef17a154ba3894b700340c45fdc"
++        }
++    ]
++}
++
++{
++    "m_SGVersion": 0,
++    "m_Type": "UnityEditor.ShaderGraph.CategoryData",
++    "m_ObjectId": "be8791e19d3f46739dfe15aa9bb1c7db",
++    "m_Name": "細かい調整 (普段は触らなくてOK)",
++    "m_ChildObjectList": [
++        {
++            "m_Id": "9ea05c93fada4cc18bb3c565e9cc4332"
++        },
++        {
++            "m_Id": "d291e0a4861247a5b4899babbcfa2ce8"
++        },
++        {
++            "m_Id": "39b90d78f7e6426188261b01c3a4933f"
++        },
++        {
++            "m_Id": "5eab412a9697463181ee48d8e44e8050"
++        },
++        {
++            "m_Id": "daeecf1936764cad8f0ab5741bf17a42"
++        },
++        {
++            "m_Id": "ab21b42d78194848b7e12d252097ed98"
++        }
++    ]
++}
++
++{
++    "m_SGVersion": 0,
++    "m_Type": "UnityEditor.ShaderGraph.CategoryData",
++    "m_ObjectId": "752855a53ace4bd38ae00d951812f82c",
++    "m_Name": "スクリプトが自動で設定 (触らない)",
++    "m_ChildObjectList": [
++        {
++            "m_Id": "ca8d045c35294412ae26bd3086433db4"
++        }
++    ]
++}
++
+diff --git a/Assets/Programmer/Scene/Test/Toon/Shader/Graph/SHG_NTE_Skin.shadergraph b/Assets/Programmer/Scene/Test/Toon/Shader/Graph/SHG_NTE_Skin.shadergraph
+index 2f590b2..4a3ce07 100644
+--- a/Assets/Programmer/Scene/Test/Toon/Shader/Graph/SHG_NTE_Skin.shadergraph
++++ b/Assets/Programmer/Scene/Test/Toon/Shader/Graph/SHG_NTE_Skin.shadergraph
+@@ -10,10 +10,10 @@
+             "m_Id": "5c83c9cd4a46469cae990e92c57205c3"
+         },
+         {
+-            "m_Id": "f10458733df94c38a9b354d48bdf4b0f"
++            "m_Id": "6453d43a546d43808de87c782731628d"
+         },
+         {
+-            "m_Id": "ca8d045c35294412ae26bd3086433db4"
++            "m_Id": "f10458733df94c38a9b354d48bdf4b0f"
+         },
+         {
+             "m_Id": "4a0b42944d794f07b95786bc62746ec8"
+@@ -22,25 +22,25 @@
+             "m_Id": "b90b2b9316794048a24db000b3016a74"
+         },
+         {
+-            "m_Id": "6854ca3b41d94eea837540404dccf32c"
++            "m_Id": "6010096666de4a09bafa0f0b2c542e01"
+         },
+         {
+-            "m_Id": "cf36b8bc7345434c858f5c7708e7fec0"
++            "m_Id": "6854ca3b41d94eea837540404dccf32c"
+         },
+         {
+-            "m_Id": "f56fb0496c794d62a5a6245db6d48080"
++            "m_Id": "35ff5c8b51024299be52a66bd2b8f0d2"
+         },
+         {
+-            "m_Id": "4135f80a4dee4caa99d1f186912bb3b2"
++            "m_Id": "ddc9e862b9f241ea922b498f0e82877b"
+         },
+         {
+-            "m_Id": "6010096666de4a09bafa0f0b2c542e01"
++            "m_Id": "cf36b8bc7345434c858f5c7708e7fec0"
+         },
+         {
+-            "m_Id": "6453d43a546d43808de87c782731628d"
++            "m_Id": "f56fb0496c794d62a5a6245db6d48080"
+         },
+         {
+-            "m_Id": "35ff5c8b51024299be52a66bd2b8f0d2"
++            "m_Id": "4135f80a4dee4caa99d1f186912bb3b2"
+         },
+         {
+             "m_Id": "b66c373f259547fd9c0bea1944ce659a"
+@@ -70,14 +70,29 @@
+             "m_Id": "cca4ac4ea63046e3ab433783c89cc899"
+         },
+         {
+-            "m_Id": "ddc9e862b9f241ea922b498f0e82877b"
++            "m_Id": "ca8d045c35294412ae26bd3086433db4"
+         }
+     ],
+     "m_Keywords": [],
+     "m_Dropdowns": [],
+     "m_CategoryData": [
+         {
+-            "m_Id": "f020a90e18864b92a03ad47c264dd0a4"
++            "m_Id": "fa2d97f15e6246eb8a4ec3858c801801"
++        },
++        {
++            "m_Id": "9a24abc2b69745e0b0c650049665c453"
++        },
++        {
++            "m_Id": "0a3a77c3c5fb430c84f2a47ffdd1f88a"
++        },
++        {
++            "m_Id": "3d9f4a3157504664b9e9a6691fc78478"
++        },
++        {
++            "m_Id": "cb14e94966c645a1a782494a6293f3b5"
++        },
++        {
++            "m_Id": "6e30bbe6058f463e8e80ebf92fd286d4"
+         }
+     ],
+     "m_Nodes": [
+@@ -5801,7 +5816,7 @@
+     "m_Precision": 0,
+     "overrideHLSLDeclaration": false,
+     "hlslDeclarationOverride": 0,
+-    "m_Hidden": false,
++    "m_Hidden": true,
+     "m_PerRendererData": false,
+     "m_customAttributes": [],
+     "m_Value": {
+@@ -6660,84 +6675,6 @@
+     }
+ }
+ 
+-{
+-    "m_SGVersion": 0,
+-    "m_Type": "UnityEditor.ShaderGraph.CategoryData",
+-    "m_ObjectId": "f020a90e18864b92a03ad47c264dd0a4",
+-    "m_Name": "",
+-    "m_ChildObjectList": [
+-        {
+-            "m_Id": "7d5448ec777b4933b33fbb8daff193cf"
+-        },
+-        {
+-            "m_Id": "5c83c9cd4a46469cae990e92c57205c3"
+-        },
+-        {
+-            "m_Id": "f10458733df94c38a9b354d48bdf4b0f"
+-        },
+-        {
+-            "m_Id": "ca8d045c35294412ae26bd3086433db4"
+-        },
+-        {
+-            "m_Id": "4a0b42944d794f07b95786bc62746ec8"
+-        },
+-        {
+-            "m_Id": "b90b2b9316794048a24db000b3016a74"
+-        },
+-        {
+-            "m_Id": "6854ca3b41d94eea837540404dccf32c"
+-        },
+-        {
+-            "m_Id": "cf36b8bc7345434c858f5c7708e7fec0"
+-        },
+-        {
+-            "m_Id": "f56fb0496c794d62a5a6245db6d48080"
+-        },
+-        {
+-            "m_Id": "4135f80a4dee4caa99d1f186912bb3b2"
+-        },
+-        {
+-            "m_Id": "6010096666de4a09bafa0f0b2c542e01"
+-        },
+-        {
+-            "m_Id": "6453d43a546d43808de87c782731628d"
+-        },
+-        {
+-            "m_Id": "35ff5c8b51024299be52a66bd2b8f0d2"
+-        },
+-        {
+-            "m_Id": "b66c373f259547fd9c0bea1944ce659a"
+-        },
+-        {
+-            "m_Id": "82add67966bd490ca13f5173f2034121"
+-        },
+-        {
+-            "m_Id": "8ac07ef17a154ba3894b700340c45fdc"
+-        },
+-        {
+-            "m_Id": "029e48a6b6874bdf8468cedd06d7e158"
+-        },
+-        {
+-            "m_Id": "b7b52d7ecb3742668465a5dee058095f"
+-        },
+-        {
+-            "m_Id": "32b89131cdea46c7b23228ba500f6c07"
+-        },
+-        {
+-            "m_Id": "469943659353434bba927ff202924692"
+-        },
+-        {
+-            "m_Id": "0ed5b109df9e4a51be039210e74afda7"
+-        },
+-        {
+-            "m_Id": "cca4ac4ea63046e3ab433783c89cc899"
+-        },
+-        {
+-            "m_Id": "ddc9e862b9f241ea922b498f0e82877b"
+-        }
+-    ]
+-}
+-
+ {
+     "m_SGVersion": 3,
+     "m_Type": "UnityEditor.ShaderGraph.Internal.ColorShaderProperty",
+@@ -7093,3 +7030,126 @@
+     "m_LiteralMode": false
+ }
+ 
++{
++    "m_SGVersion": 0,
++    "m_Type": "UnityEditor.ShaderGraph.CategoryData",
++    "m_ObjectId": "fa2d97f15e6246eb8a4ec3858c801801",
++    "m_Name": "基本",
++    "m_ChildObjectList": [
++        {
++            "m_Id": "7d5448ec777b4933b33fbb8daff193cf"
++        },
++        {
++            "m_Id": "5c83c9cd4a46469cae990e92c57205c3"
++        },
++        {
++            "m_Id": "6453d43a546d43808de87c782731628d"
++        }
++    ]
++}
++
++{
++    "m_SGVersion": 0,
++    "m_Type": "UnityEditor.ShaderGraph.CategoryData",
++    "m_ObjectId": "9a24abc2b69745e0b0c650049665c453",
++    "m_Name": "影",
++    "m_ChildObjectList": [
++        {
++            "m_Id": "f10458733df94c38a9b354d48bdf4b0f"
++        },
++        {
++            "m_Id": "4a0b42944d794f07b95786bc62746ec8"
++        },
++        {
++            "m_Id": "b90b2b9316794048a24db000b3016a74"
++        },
++        {
++            "m_Id": "6010096666de4a09bafa0f0b2c542e01"
++        },
++        {
++            "m_Id": "6854ca3b41d94eea837540404dccf32c"
++        },
++        {
++            "m_Id": "35ff5c8b51024299be52a66bd2b8f0d2"
++        },
++        {
++            "m_Id": "ddc9e862b9f241ea922b498f0e82877b"
++        }
++    ]
++}
++
++{
++    "m_SGVersion": 0,
++    "m_Type": "UnityEditor.ShaderGraph.CategoryData",
++    "m_ObjectId": "0a3a77c3c5fb430c84f2a47ffdd1f88a",
++    "m_Name": "リムライト (縁の光)",
++    "m_ChildObjectList": [
++        {
++            "m_Id": "cf36b8bc7345434c858f5c7708e7fec0"
++        },
++        {
++            "m_Id": "f56fb0496c794d62a5a6245db6d48080"
++        },
++        {
++            "m_Id": "4135f80a4dee4caa99d1f186912bb3b2"
++        }
++    ]
++}
++
++{
++    "m_SGVersion": 0,
++    "m_Type": "UnityEditor.ShaderGraph.CategoryData",
++    "m_ObjectId": "3d9f4a3157504664b9e9a6691fc78478",
++    "m_Name": "ハイライト",
++    "m_ChildObjectList": [
++        {
++            "m_Id": "b66c373f259547fd9c0bea1944ce659a"
++        },
++        {
++            "m_Id": "82add67966bd490ca13f5173f2034121"
++        },
++        {
++            "m_Id": "8ac07ef17a154ba3894b700340c45fdc"
++        }
++    ]
++}
++
++{
++    "m_SGVersion": 0,
++    "m_Type": "UnityEditor.ShaderGraph.CategoryData",
++    "m_ObjectId": "cb14e94966c645a1a782494a6293f3b5",
++    "m_Name": "細かい調整 (普段は触らなくてOK)",
++    "m_ChildObjectList": [
++        {
++            "m_Id": "029e48a6b6874bdf8468cedd06d7e158"
++        },
++        {
++            "m_Id": "b7b52d7ecb3742668465a5dee058095f"
++        },
++        {
++            "m_Id": "32b89131cdea46c7b23228ba500f6c07"
++        },
++        {
++            "m_Id": "469943659353434bba927ff202924692"
++        },
++        {
++            "m_Id": "0ed5b109df9e4a51be039210e74afda7"
++        },
++        {
++            "m_Id": "cca4ac4ea63046e3ab433783c89cc899"
++        }
++    ]
++}
++
++{
++    "m_SGVersion": 0,
++    "m_Type": "UnityEditor.ShaderGraph.CategoryData",
++    "m_ObjectId": "6e30bbe6058f463e8e80ebf92fd286d4",
++    "m_Name": "スクリプトが自動で設定 (触らない)",
++    "m_ChildObjectList": [
++        {
++            "m_Id": "ca8d045c35294412ae26bd3086433db4"
++        }
++    ]
++}
++
+diff --git a/Assets/Programmer/Scene/Test/Toon/Shader/Graph/SHG_Outline.shadergraph b/Assets/Programmer/Scene/Test/Toon/Shader/Graph/SHG_Outline.shadergraph
+index ed1120a..0666467 100644
+--- a/Assets/Programmer/Scene/Test/Toon/Shader/Graph/SHG_Outline.shadergraph
++++ b/Assets/Programmer/Scene/Test/Toon/Shader/Graph/SHG_Outline.shadergraph
+@@ -17,6 +17,9 @@
+         },
+         {
+             "m_Id": "12dd655954914976a1ae0d0b8325ca97"
++        },
++        {
++            "m_Id": "4dd0879de4fb4e50a2221e52a7f02561"
+         }
+     ],
+     "m_Keywords": [],
+@@ -89,6 +92,15 @@
+         },
+         {
+             "m_Id": "9f8b2efef2a6413db853638f43cfeb26"
++        },
++        {
++            "m_Id": "9f2a97b2192c452c9a4d318a91e3cccd"
++        },
++        {
++            "m_Id": "9719c12250504934bd5ec3a1a73e7d56"
++        },
++        {
++            "m_Id": "93903136351a4a0f819ae71c545753c5"
+         }
+     ],
+     "m_GroupDatas": [],
+@@ -108,20 +120,6 @@
+                 "m_SlotId": 0
+             }
+         },
+-        {
+-            "m_OutputSlot": {
+-                "m_Node": {
+-                    "m_Id": "276d4bc791b54209a5a23311e8f78493"
+-                },
+-                "m_SlotId": 0
+-            },
+-            "m_InputSlot": {
+-                "m_Node": {
+-                    "m_Id": "f83fe8a75650470ab0a1c0d2354fbadb"
+-                },
+-                "m_SlotId": 1
+-            }
+-        },
+         {
+             "m_OutputSlot": {
+                 "m_Node": {
+@@ -289,6 +287,76 @@
+                 },
+                 "m_SlotId": 0
+             }
++        },
++        {
++            "m_OutputSlot": {
++                "m_Node": {
++                    "m_Id": "276d4bc791b54209a5a23311e8f78493"
++                },
++                "m_SlotId": 0
++            },
++            "m_InputSlot": {
++                "m_Node": {
++                    "m_Id": "93903136351a4a0f819ae71c545753c5"
++                },
++                "m_SlotId": 0
++            }
++        },
++        {
++            "m_OutputSlot": {
++                "m_Node": {
++                    "m_Id": "9719c12250504934bd5ec3a1a73e7d56"
++                },
++                "m_SlotId": 5
++            },
++            "m_InputSlot": {
++                "m_Node": {
++                    "m_Id": "93903136351a4a0f819ae71c545753c5"
++                },
++                "m_SlotId": 1
++            }
++        },
++        {
++            "m_OutputSlot": {
++                "m_Node": {
++                    "m_Id": "93903136351a4a0f819ae71c545753c5"
++                },
++                "m_SlotId": 2
++            },
++            "m_InputSlot": {
++                "m_Node": {
++                    "m_Id": "f83fe8a75650470ab0a1c0d2354fbadb"
++                },
++                "m_SlotId": 1
++            }
++        },
++        {
++            "m_OutputSlot": {
++                "m_Node": {
++                    "m_Id": "9f2a97b2192c452c9a4d318a91e3cccd"
++                },
++                "m_SlotId": 0
++            },
++            "m_InputSlot": {
++                "m_Node": {
++                    "m_Id": "9719c12250504934bd5ec3a1a73e7d56"
++                },
++                "m_SlotId": 1
++            }
++        },
++        {
++            "m_OutputSlot": {
++                "m_Node": {
++                    "m_Id": "14a7ace27af041e58b1a8ae9c5fa58c0"
++                },
++                "m_SlotId": 7
++            },
++            "m_InputSlot": {
++                "m_Node": {
++                    "m_Id": "65c6efbf43c7421e9bbc198289ac5411"
++                },
++                "m_SlotId": 2
++            }
+         }
+     ],
+     "m_VertexContext": {
+@@ -616,6 +684,9 @@
+         },
+         {
+             "m_Id": "12dd655954914976a1ae0d0b8325ca97"
++        },
++        {
++            "m_Id": "4dd0879de4fb4e50a2221e52a7f02561"
+         }
+     ]
+ }
+@@ -2391,3 +2462,487 @@
+     "m_FunctionBody": "// Outline takes the colour of the surface it surrounds (darkened), so it blends into the fill instead of a hard black line.\nColor = lerp(OutlineColor.rgb, Tex.rgb * Darken, saturate(Blend));"
+ }
+ 
++{
++    "m_SGVersion": 0,
++    "m_Type": "UnityEditor.ShaderGraph.Internal.Texture2DShaderProperty",
++    "m_ObjectId": "4dd0879de4fb4e50a2221e52a7f02561",
++    "m_Guid": {
++        "m_GuidSerialized": "dc2ab3bd-f4ba-4312-8abb-9f5680a95196"
++    },
++    "promotedFromAssetID": "",
++    "promotedFromCategoryName": "",
++    "promotedOrdering": -1,
++    "m_Name": "線を消す場所 (黒=線なし / 口元など)",
++    "m_DefaultRefNameVersion": 1,
++    "m_RefNameGeneratedByDisplayName": "OutlineWidthMask",
++    "m_DefaultReferenceName": "_OutlineWidthMask",
++    "m_OverrideReferenceName": "_OutlineWidthMask",
++    "m_GeneratePropertyBlock": true,
++    "m_UseCustomSlotLabel": false,
++    "m_CustomSlotLabel": "",
++    "m_DismissedVersion": 0,
++    "m_Precision": 0,
++    "overrideHLSLDeclaration": false,
++    "hlslDeclarationOverride": 0,
++    "m_Hidden": false,
++    "m_PerRendererData": false,
++    "m_customAttributes": [],
++    "m_Value": {
++        "m_SerializedTexture": "",
++        "m_Guid": ""
++    },
++    "isMainTexture": false,
++    "useTilingAndOffset": false,
++    "useTexelSize": true,
++    "isHDR": false,
++    "m_Modifiable": true,
++    "m_DefaultType": 0
++}
++
++{
++    "m_SGVersion": 0,
++    "m_Type": "UnityEditor.ShaderGraph.Texture2DMaterialSlot",
++    "m_ObjectId": "9e675ebaa27849669bab856f66450ac9",
++    "m_Id": 0,
++    "m_DisplayName": "線を消す場所 (黒=線なし / 口元など)",
++    "m_SlotType": 1,
++    "m_Hidden": false,
++    "m_ShaderOutputName": "Out",
++    "m_StageCapability": 3,
++    "m_BareResource": false
++}
++
++{
++    "m_SGVersion": 0,
++    "m_Type": "UnityEditor.ShaderGraph.PropertyNode",
++    "m_ObjectId": "9f2a97b2192c452c9a4d318a91e3cccd",
++    "m_Group": {
++        "m_Id": ""
++    },
++    "m_Name": "Property",
++    "m_DrawState": {
++        "m_Expanded": true,
++        "m_Position": {
++            "serializedVersion": "2",
++            "x": -1849.0,
++            "y": 591.9998168945312,
++            "width": 200,
++            "height": 34
++        }
++    },
++    "m_Slots": [
++        {
++            "m_Id": "9e675ebaa27849669bab856f66450ac9"
++        }
++    ],
++    "synonyms": [],
++    "m_Precision": 0,
++    "m_PreviewExpanded": true,
++    "m_DismissedVersion": 0,
++    "m_PreviewMode": 0,
++    "m_CustomColors": {
++        "m_SerializableColors": []
++    },
++    "m_Property": {
++        "m_Id": "4dd0879de4fb4e50a2221e52a7f02561"
++    }
++}
++
++{
++    "m_SGVersion": 0,
++    "m_Type": "UnityEditor.ShaderGraph.Vector4MaterialSlot",
++    "m_ObjectId": "fa013ca8b58a47abaa8015f9001d6842",
++    "m_Id": 0,
++    "m_DisplayName": "RGBA",
++    "m_SlotType": 1,
++    "m_Hidden": false,
++    "m_ShaderOutputName": "RGBA",
++    "m_StageCapability": 3,
++    "m_Value": {
++        "x": 0.0,
++        "y": 0.0,
++        "z": 0.0,
++        "w": 0.0
++    },
++    "m_DefaultValue": {
++        "x": 0.0,
++        "y": 0.0,
++        "z": 0.0,
++        "w": 0.0
++    },
++    "m_Labels": []
++}
++
++{
++    "m_SGVersion": 0,
++    "m_Type": "UnityEditor.ShaderGraph.Vector1MaterialSlot",
++    "m_ObjectId": "1f17b70254164f1bb945e55cd4037939",
++    "m_Id": 5,
++    "m_DisplayName": "R",
++    "m_SlotType": 1,
++    "m_Hidden": false,
++    "m_ShaderOutputName": "R",
++    "m_StageCapability": 3,
++    "m_Value": 0.0,
++    "m_DefaultValue": 0.0,
++    "m_Labels": []
++}
++
++{
++    "m_SGVersion": 0,
++    "m_Type": "UnityEditor.ShaderGraph.Vector1MaterialSlot",
++    "m_ObjectId": "a0fa9cbe6c7645e09dd9c685405f0d9a",
++    "m_Id": 6,
++    "m_DisplayName": "G",
++    "m_SlotType": 1,
++    "m_Hidden": false,
++    "m_ShaderOutputName": "G",
++    "m_StageCapability": 3,
++    "m_Value": 0.0,
++    "m_DefaultValue": 0.0,
++    "m_Labels": []
++}
++
++{
++    "m_SGVersion": 0,
++    "m_Type": "UnityEditor.ShaderGraph.Vector1MaterialSlot",
++    "m_ObjectId": "923cfad30e614ac0a780f96789c17bde",
++    "m_Id": 7,
++    "m_DisplayName": "B",
++    "m_SlotType": 1,
++    "m_Hidden": false,
++    "m_ShaderOutputName": "B",
++    "m_StageCapability": 3,
++    "m_Value": 0.0,
++    "m_DefaultValue": 0.0,
++    "m_Labels": []
++}
++
++{
++    "m_SGVersion": 0,
++    "m_Type": "UnityEditor.ShaderGraph.Vector1MaterialSlot",
++    "m_ObjectId": "b139ea50a4e444858ffa77c3e3b760a1",
++    "m_Id": 8,
++    "m_DisplayName": "A",
++    "m_SlotType": 1,
++    "m_Hidden": false,
++    "m_ShaderOutputName": "A",
++    "m_StageCapability": 3,
++    "m_Value": 0.0,
++    "m_DefaultValue": 0.0,
++    "m_Labels": []
++}
++
++{
++    "m_SGVersion": 0,
++    "m_Type": "UnityEditor.ShaderGraph.Texture2DInputMaterialSlot",
++    "m_ObjectId": "1ac6510eb7a348f7887f12282cafcb51",
++    "m_Id": 1,
++    "m_DisplayName": "Texture",
++    "m_SlotType": 0,
++    "m_Hidden": false,
++    "m_ShaderOutputName": "Texture",
++    "m_StageCapability": 3,
++    "m_BareResource": false,
++    "m_Texture": {
++        "m_SerializedTexture": "{\"texture\":{\"instanceID\":0}}",
++        "m_Guid": ""
++    },
++    "m_DefaultType": 0
++}
++
++{
++    "m_SGVersion": 0,
++    "m_Type": "UnityEditor.ShaderGraph.UVMaterialSlot",
++    "m_ObjectId": "8d959f47726e406690ba8b75931bf2b8",
++    "m_Id": 2,
++    "m_DisplayName": "UV",
++    "m_SlotType": 0,
++    "m_Hidden": false,
++    "m_ShaderOutputName": "UV",
++    "m_StageCapability": 3,
++    "m_Value": {
++        "x": 0.0,
++        "y": 0.0
++    },
++    "m_DefaultValue": {
++        "x": 0.0,
++        "y": 0.0
++    },
++    "m_Labels": [],
++    "m_Channel": 0
++}
++
++{
++    "m_SGVersion": 0,
++    "m_Type": "UnityEditor.ShaderGraph.SamplerStateMaterialSlot",
++    "m_ObjectId": "e56b7e27bfa44b8b9d29041580cb2123",
++    "m_Id": 3,
++    "m_DisplayName": "Sampler",
++    "m_SlotType": 0,
++    "m_Hidden": false,
++    "m_ShaderOutputName": "Sampler",
++    "m_StageCapability": 3,
++    "m_BareResource": false
++}
++
++{
++    "m_SGVersion": 0,
++    "m_Type": "UnityEditor.ShaderGraph.Vector1MaterialSlot",
++    "m_ObjectId": "a65ad03f5d59491a907c95da211d1848",
++    "m_Id": 4,
++    "m_DisplayName": "LOD",
++    "m_SlotType": 0,
++    "m_Hidden": false,
++    "m_ShaderOutputName": "LOD",
++    "m_StageCapability": 3,
++    "m_Value": 0.0,
++    "m_DefaultValue": 0.0,
++    "m_Labels": []
++}
++
++{
++    "m_SGVersion": 0,
++    "m_Type": "UnityEditor.ShaderGraph.SampleTexture2DLODNode",
++    "m_ObjectId": "9719c12250504934bd5ec3a1a73e7d56",
++    "m_Group": {
++        "m_Id": ""
++    },
++    "m_Name": "Sample Texture 2D LOD",
++    "m_DrawState": {
++        "m_Expanded": true,
++        "m_Position": {
++            "serializedVersion": "2",
++            "x": -1609.0,
++            "y": 531.9998168945312,
++            "width": 208,
++            "height": 434
++        }
++    },
++    "m_Slots": [
++        {
++            "m_Id": "fa013ca8b58a47abaa8015f9001d6842"
++        },
++        {
++            "m_Id": "1f17b70254164f1bb945e55cd4037939"
++        },
++        {
++            "m_Id": "a0fa9cbe6c7645e09dd9c685405f0d9a"
++        },
++        {
++            "m_Id": "923cfad30e614ac0a780f96789c17bde"
++        },
++        {
++            "m_Id": "b139ea50a4e444858ffa77c3e3b760a1"
++        },
++        {
++            "m_Id": "1ac6510eb7a348f7887f12282cafcb51"
++        },
++        {
++            "m_Id": "8d959f47726e406690ba8b75931bf2b8"
++        },
++        {
++            "m_Id": "e56b7e27bfa44b8b9d29041580cb2123"
++        },
++        {
++            "m_Id": "a65ad03f5d59491a907c95da211d1848"
++        }
++    ],
++    "synonyms": [],
++    "m_Precision": 0,
++    "m_PreviewExpanded": false,
++    "m_PreviewMode": 0,
++    "m_CustomColors": {
++        "m_SerializableColors": []
++    },
++    "m_TextureType": 0,
++    "m_NormalMapSpace": 0
++}
++
++{
++    "m_SGVersion": 0,
++    "m_Type": "UnityEditor.ShaderGraph.DynamicValueMaterialSlot",
++    "m_ObjectId": "995bd90720f547468be6aff023af4426",
++    "m_Id": 0,
++    "m_DisplayName": "A",
++    "m_SlotType": 0,
++    "m_Hidden": false,
++    "m_ShaderOutputName": "A",
++    "m_StageCapability": 3,
++    "m_Value": {
++        "e00": 0.0,
++        "e01": 0.0,
++        "e02": 0.0,
++        "e03": 0.0,
++        "e10": 0.0,
++        "e11": 0.0,
++        "e12": 0.0,
++        "e13": 0.0,
++        "e20": 0.0,
++        "e21": 0.0,
++        "e22": 0.0,
++        "e23": 0.0,
++        "e30": 0.0,
++        "e31": 0.0,
++        "e32": 0.0,
++        "e33": 0.0
++    },
++    "m_DefaultValue": {
++        "e00": 1.0,
++        "e01": 0.0,
++        "e02": 0.0,
++        "e03": 0.0,
++        "e10": 0.0,
++        "e11": 1.0,
++        "e12": 0.0,
++        "e13": 0.0,
++        "e20": 0.0,
++        "e21": 0.0,
++        "e22": 1.0,
++        "e23": 0.0,
++        "e30": 0.0,
++        "e31": 0.0,
++        "e32": 0.0,
++        "e33": 1.0
++    }
++}
++
++{
++    "m_SGVersion": 0,
++    "m_Type": "UnityEditor.ShaderGraph.DynamicValueMaterialSlot",
++    "m_ObjectId": "a9f83d2e47ea4f0f8289dc74313a2617",
++    "m_Id": 1,
++    "m_DisplayName": "B",
++    "m_SlotType": 0,
++    "m_Hidden": false,
++    "m_ShaderOutputName": "B",
++    "m_StageCapability": 3,
++    "m_Value": {
++        "e00": 1.0,
++        "e01": 0.0,
++        "e02": 0.0,
++        "e03": 0.0,
++        "e10": 0.0,
++        "e11": 1.0,
++        "e12": 0.0,
++        "e13": 0.0,
++        "e20": 0.0,
++        "e21": 0.0,
++        "e22": 1.0,
++        "e23": 0.0,
++        "e30": 0.0,
++        "e31": 0.0,
++        "e32": 0.0,
++        "e33": 1.0
++    },
++    "m_DefaultValue": {
++        "e00": 1.0,
++        "e01": 0.0,
++        "e02": 0.0,
++        "e03": 0.0,
++        "e10": 0.0,
++        "e11": 1.0,
++        "e12": 0.0,
++        "e13": 0.0,
++        "e20": 0.0,
++        "e21": 0.0,
++        "e22": 1.0,
++        "e23": 0.0,
++        "e30": 0.0,
++        "e31": 0.0,
++        "e32": 0.0,
++        "e33": 1.0
++    }
++}
++
++{
++    "m_SGVersion": 0,
++    "m_Type": "UnityEditor.ShaderGraph.DynamicValueMaterialSlot",
++    "m_ObjectId": "13a77048124443faa7a2a76eb118ee2c",
++    "m_Id": 2,
++    "m_DisplayName": "Out",
++    "m_SlotType": 1,
++    "m_Hidden": false,
++    "m_ShaderOutputName": "Out",
++    "m_StageCapability": 3,
++    "m_Value": {
++        "e00": 0.0,
++        "e01": 0.0,
++        "e02": 0.0,
++        "e03": 0.0,
++        "e10": 0.0,
++        "e11": 0.0,
++        "e12": 0.0,
++        "e13": 0.0,
++        "e20": 0.0,
++        "e21": 0.0,
++        "e22": 0.0,
++        "e23": 0.0,
++        "e30": 0.0,
++        "e31": 0.0,
++        "e32": 0.0,
++        "e33": 0.0
++    },
++    "m_DefaultValue": {
++        "e00": 1.0,
++        "e01": 0.0,
++        "e02": 0.0,
++        "e03": 0.0,
++        "e10": 0.0,
++        "e11": 1.0,
++        "e12": 0.0,
++        "e13": 0.0,
++        "e20": 0.0,
++        "e21": 0.0,
++        "e22": 1.0,
++        "e23": 0.0,
++        "e30": 0.0,
++        "e31": 0.0,
++        "e32": 0.0,
++        "e33": 1.0
++    }
++}
++
++{
++    "m_SGVersion": 0,
++    "m_Type": "UnityEditor.ShaderGraph.MultiplyNode",
++    "m_ObjectId": "93903136351a4a0f819ae71c545753c5",
++    "m_Group": {
++        "m_Id": ""
++    },
++    "m_Name": "Multiply",
++    "m_DrawState": {
++        "m_Expanded": true,
++        "m_Position": {
++            "serializedVersion": "2",
++            "x": -1289.0,
++            "y": 511.99981689453125,
++            "width": 130,
++            "height": 118
++        }
++    },
++    "m_Slots": [
++        {
++            "m_Id": "995bd90720f547468be6aff023af4426"
++        },
++        {
++            "m_Id": "a9f83d2e47ea4f0f8289dc74313a2617"
++        },
++        {
++            "m_Id": "13a77048124443faa7a2a76eb118ee2c"
++        }
++    ],
++    "synonyms": [
++        "multiplication",
++        "times",
++        "x"
++    ],
++    "m_Precision": 0,
++    "m_PreviewExpanded": false,
++    "m_DismissedVersion": 0,
++    "m_PreviewMode": 0,
++    "m_CustomColors": {
++        "m_SerializableColors": []
++    }
++}
++
+diff --git a/Assets/Programmer/Scene/Test/Toon/Toon.unity b/Assets/Programmer/Scene/Test/Toon/Toon.unity
+index 07b4680..4bcb5b8 100644
+--- a/Assets/Programmer/Scene/Test/Toon/Toon.unity
++++ b/Assets/Programmer/Scene/Test/Toon/Toon.unity
+@@ -5304,7 +5304,7 @@ GameObject:
+   m_Icon: {fileID: 0}
+   m_NavMeshLayer: 0
+   m_StaticEditorFlags: 0
+-  m_IsActive: 0
++  m_IsActive: 1
+ --- !u!114 &1480446597
+ MonoBehaviour:
+   m_ObjectHideFlags: 0
+diff --git a/Assets/Programmer/min/YosimotoRyo/mutou/Eye_HideMask.png b/Assets/Programmer/min/YosimotoRyo/mutou/Eye_HideMask.png
+new file mode 100644
+index 0000000000000000000000000000000000000000..f223c47d5241e6d49aa3c425adc190222745a44c
+GIT binary patch
+literal 9657
+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
+E0*Tqeg8%>k
+
+literal 0
+HcmV?d00001
+
+diff --git a/Assets/Programmer/min/YosimotoRyo/mutou/Eye_HideMask.png.meta b/Assets/Programmer/min/YosimotoRyo/mutou/Eye_HideMask.png.meta
+new file mode 100644
+index 0000000..5c612aa
+--- /dev/null
++++ b/Assets/Programmer/min/YosimotoRyo/mutou/Eye_HideMask.png.meta
+@@ -0,0 +1,117 @@
++fileFormatVersion: 2
++guid: 5b1e7c3a9d2f4e60a8c4f1d7e3b9a265
++TextureImporter:
++  internalIDToNameTable: []
++  externalObjects: {}
++  serializedVersion: 13
++  mipmaps:
++    mipMapMode: 0
++    enableMipMap: 0
++    sRGBTexture: 0
++    linearTexture: 0
++    fadeOut: 0
++    borderMipMap: 0
++    mipMapsPreserveCoverage: 0
++    alphaTestReferenceValue: 0.5
++    mipMapFadeDistanceStart: 1
++    mipMapFadeDistanceEnd: 3
++  bumpmap:
++    convertToNormalMap: 0
++    externalNormalMap: 0
++    heightScale: 0.25
++    normalMapFilter: 0
++    flipGreenChannel: 0
++  isReadable: 0
++  streamingMipmaps: 0
++  streamingMipmapsPriority: 0
++  vTOnly: 0
++  ignoreMipmapLimit: 0
++  grayScaleToAlpha: 0
++  generateCubemap: 6
++  cubemapConvolution: 0
++  seamlessCubemap: 0
++  textureFormat: 1
++  maxTextureSize: 2048
++  textureSettings:
++    serializedVersion: 2
++    filterMode: 1
++    aniso: 1
++    mipBias: 0
++    wrapU: 1
++    wrapV: 1
++    wrapW: 0
++  nPOTScale: 1
++  lightmap: 0
++  compressionQuality: 50
++  spriteMode: 0
++  spriteExtrude: 1
++  spriteMeshType: 1
++  alignment: 0
++  spritePivot: {x: 0.5, y: 0.5}
++  spritePixelsToUnits: 100
++  spriteBorder: {x: 0, y: 0, z: 0, w: 0}
++  spriteGenerateFallbackPhysicsShape: 1
++  alphaUsage: 1
++  alphaIsTransparency: 0
++  spriteTessellationDetail: -1
++  textureType: 0
++  textureShape: 1
++  singleChannelComponent: 0
++  flipbookRows: 1
++  flipbookColumns: 1
++  maxTextureSizeSet: 0
++  compressionQualitySet: 0
++  textureFormatSet: 0
++  ignorePngGamma: 0
++  applyGammaDecoding: 0
++  swizzle: 50462976
++  cookieLightType: 0
++  platformSettings:
++  - serializedVersion: 4
++    buildTarget: DefaultTexturePlatform
++    maxTextureSize: 2048
++    resizeAlgorithm: 0
++    textureFormat: -1
++    textureCompression: 0
++    compressionQuality: 50
++    crunchedCompression: 0
++    allowsAlphaSplitting: 0
++    overridden: 0
++    ignorePlatformSupport: 0
++    androidETC2FallbackOverride: 0
++    forceMaximumCompressionQuality_BC6H_BC7: 0
++  - serializedVersion: 4
++    buildTarget: Standalone
++    maxTextureSize: 2048
++    resizeAlgorithm: 0
++    textureFormat: -1
++    textureCompression: 0
++    compressionQuality: 50
++    crunchedCompression: 0
++    allowsAlphaSplitting: 0
++    overridden: 0
++    ignorePlatformSupport: 0
++    androidETC2FallbackOverride: 0
++    forceMaximumCompressionQuality_BC6H_BC7: 0
++  spriteSheet:
++    serializedVersion: 2
++    sprites: []
++    outline: []
++    customData: 
++    physicsShape: []
++    bones: []
++    spriteID: 
++    internalID: 0
++    vertices: []
++    indices: 
++    edges: []
++    weights: []
++    secondaryTextures: []
++    spriteCustomMetadata:
++      entries: []
++    nameFileIdTable: {}
++  mipmapLimitGroupName: 
++  pSDRemoveMatte: 0
++  userData: 
++  assetBundleName: 
++  assetBundleVariant: 
+diff --git a/Assets/Programmer/min/YosimotoRyo/mutou/Materials/Unlit/MT_Mutou_Outline_Skin.mat b/Assets/Programmer/min/YosimotoRyo/mutou/Materials/Unlit/MT_Mutou_Outline_Skin.mat
+index bbcc6af..51d6c51 100644
+--- a/Assets/Programmer/min/YosimotoRyo/mutou/Materials/Unlit/MT_Mutou_Outline_Skin.mat
++++ b/Assets/Programmer/min/YosimotoRyo/mutou/Materials/Unlit/MT_Mutou_Outline_Skin.mat
+@@ -46,6 +46,10 @@ Material:
+         m_Texture: {fileID: 2800000, guid: f381fa90dec921e45b7298e277aef505, type: 3}
+         m_Scale: {x: 1, y: 1}
+         m_Offset: {x: 0, y: 0}
++    - _OutlineWidthMask:
++        m_Texture: {fileID: 2800000, guid: 0a5dfc192c4140e2b81c702e96398e8b, type: 3}
++        m_Scale: {x: 1, y: 1}
++        m_Offset: {x: 0, y: 0}
+     - _BentNormalMap:
+         m_Texture: {fileID: 0}
+         m_Scale: {x: 1, y: 1}
+diff --git a/Assets/Programmer/min/YosimotoRyo/mutou/Materials/Unlit/MT_Mutou_Toon_Eye.mat b/Assets/Programmer/min/YosimotoRyo/mutou/Materials/Unlit/MT_Mutou_Toon_Eye.mat
+index c7f1226..054acf5 100644
+--- a/Assets/Programmer/min/YosimotoRyo/mutou/Materials/Unlit/MT_Mutou_Toon_Eye.mat
++++ b/Assets/Programmer/min/YosimotoRyo/mutou/Materials/Unlit/MT_Mutou_Toon_Eye.mat
+@@ -28,9 +28,9 @@ Material:
+   m_Parent: {fileID: 0}
+   m_ModifiedSerializedProperties: 0
+   m_ValidKeywords:
+-  - _DISABLE_SSR_TRANSPARENT
+   - _DOUBLESIDED_ON
+   - _ENABLE_FOG_ON_TRANSPARENT
++  - _MATERIAL_FEATURE_SPECULAR_COLOR
+   - _SURFACE_TYPE_TRANSPARENT
+   m_InvalidKeywords: []
+   m_LightmapFlags: 4
+@@ -41,7 +41,6 @@ Material:
+     MotionVector: User
+     RenderType: Transparent
+   disabledShaderPasses:
+-  - TransparentDepthPrepass
+   - TransparentDepthPostpass
+   - TransparentBackface
+   - RayTracingPrepass
+@@ -54,6 +53,10 @@ Material:
+         m_Texture: {fileID: 2800000, guid: effdbbd0cdd872e459d6b7789d556b5f, type: 3}
+         m_Scale: {x: 1, y: 1}
+         m_Offset: {x: 0, y: 0}
++    - _EyeHideMask:
++        m_Texture: {fileID: 2800000, guid: 5b1e7c3a9d2f4e60a8c4f1d7e3b9a265, type: 3}
++        m_Scale: {x: 1, y: 1}
++        m_Offset: {x: 0, y: 0}
+     - _EyeHighlightMap:
+         m_Texture: {fileID: 0}
+         m_Scale: {x: 1, y: 1}
+@@ -94,22 +97,24 @@ Material:
+     - _EyeHighlightStrength: 0
+     - _EyeIrisGradient: 0
+     - _EyeIrisSaturation: 0.25
+-    - _MaterialID: 1
+-    - _MaterialTypeMask: 2
++    - _EyeReflection: 0.2
++    - _EyeSmoothness: 0.95
++    - _MaterialID: 4
++    - _MaterialTypeMask: 16
+     - _OpaqueCullMode: 2
+     - _PerPixelSorting: 0
+     - _RayTracing: 0
+     - _ReceivesSSR: 1
+-    - _ReceivesSSRTransparent: 0
++    - _ReceivesSSRTransparent: 1
+     - _RefractionModel: 0
+     - _RenderQueueType: 4
+     - _RequireSplitLighting: 0
+     - _SrcBlend: 1
+     - _StencilRef: 0
+-    - _StencilRefDepth: 0
++    - _StencilRefDepth: 8
+     - _StencilRefDistortionVec: 4
+-    - _StencilRefGBuffer: 2
+-    - _StencilRefMV: 32
++    - _StencilRefGBuffer: 10
++    - _StencilRefMV: 40
+     - _StencilWriteMask: 6
+     - _StencilWriteMaskDepth: 9
+     - _StencilWriteMaskDistortionVec: 4
+@@ -121,7 +126,7 @@ Material:
+     - _TransparentBackfaceEnable: 0
+     - _TransparentCullMode: 2
+     - _TransparentDepthPostpassEnable: 0
+-    - _TransparentDepthPrepassEnable: 0
++    - _TransparentDepthPrepassEnable: 1
+     - _TransparentSortPriority: 0
+     - _TransparentWritingMotionVec: 0
+     - _TransparentZWrite: 0
+diff --git a/Assets/Programmer/min/YosimotoRyo/mutou/Skin_OutlineMask.png b/Assets/Programmer/min/YosimotoRyo/mutou/Skin_OutlineMask.png
+new file mode 100644
+index 0000000000000000000000000000000000000000..2c06a2ad1bfc045e624742e2a839254cb95c4f2c
+GIT binary patch
+literal 13201
+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
+Pvo2rn-k!VF@8o|1!sWNA
+
+literal 0
+HcmV?d00001
+
+diff --git a/Assets/Programmer/min/YosimotoRyo/mutou/Skin_OutlineMask.png.meta b/Assets/Programmer/min/YosimotoRyo/mutou/Skin_OutlineMask.png.meta
+new file mode 100644
+index 0000000..de9c7b7
+--- /dev/null
++++ b/Assets/Programmer/min/YosimotoRyo/mutou/Skin_OutlineMask.png.meta
+@@ -0,0 +1,117 @@
++fileFormatVersion: 2
++guid: 0a5dfc192c4140e2b81c702e96398e8b
++TextureImporter:
++  internalIDToNameTable: []
++  externalObjects: {}
++  serializedVersion: 13
++  mipmaps:
++    mipMapMode: 0
++    enableMipMap: 0
++    sRGBTexture: 0
++    linearTexture: 0
++    fadeOut: 0
++    borderMipMap: 0
++    mipMapsPreserveCoverage: 0
++    alphaTestReferenceValue: 0.5
++    mipMapFadeDistanceStart: 1
++    mipMapFadeDistanceEnd: 3
++  bumpmap:
++    convertToNormalMap: 0
++    externalNormalMap: 0
++    heightScale: 0.25
++    normalMapFilter: 0
++    flipGreenChannel: 0
++  isReadable: 0
++  streamingMipmaps: 0
++  streamingMipmapsPriority: 0
++  vTOnly: 0
++  ignoreMipmapLimit: 0
++  grayScaleToAlpha: 0
++  generateCubemap: 6
++  cubemapConvolution: 0
++  seamlessCubemap: 0
++  textureFormat: 1
++  maxTextureSize: 2048
++  textureSettings:
++    serializedVersion: 2
++    filterMode: 1
++    aniso: 1
++    mipBias: 0
++    wrapU: 1
++    wrapV: 1
++    wrapW: 0
++  nPOTScale: 1
++  lightmap: 0
++  compressionQuality: 50
++  spriteMode: 0
++  spriteExtrude: 1
++  spriteMeshType: 1
++  alignment: 0
++  spritePivot: {x: 0.5, y: 0.5}
++  spritePixelsToUnits: 100
++  spriteBorder: {x: 0, y: 0, z: 0, w: 0}
++  spriteGenerateFallbackPhysicsShape: 1
++  alphaUsage: 1
++  alphaIsTransparency: 0
++  spriteTessellationDetail: -1
++  textureType: 0
++  textureShape: 1
++  singleChannelComponent: 0
++  flipbookRows: 1
++  flipbookColumns: 1
++  maxTextureSizeSet: 0
++  compressionQualitySet: 0
++  textureFormatSet: 0
++  ignorePngGamma: 0
++  applyGammaDecoding: 0
++  swizzle: 50462976
++  cookieLightType: 0
++  platformSettings:
++  - serializedVersion: 4
++    buildTarget: DefaultTexturePlatform
++    maxTextureSize: 2048
++    resizeAlgorithm: 0
++    textureFormat: -1
++    textureCompression: 0
++    compressionQuality: 50
++    crunchedCompression: 0
++    allowsAlphaSplitting: 0
++    overridden: 0
++    ignorePlatformSupport: 0
++    androidETC2FallbackOverride: 0
++    forceMaximumCompressionQuality_BC6H_BC7: 0
++  - serializedVersion: 4
++    buildTarget: Standalone
++    maxTextureSize: 2048
++    resizeAlgorithm: 0
++    textureFormat: -1
++    textureCompression: 0
++    compressionQuality: 50
++    crunchedCompression: 0
++    allowsAlphaSplitting: 0
++    overridden: 0
++    ignorePlatformSupport: 0
++    androidETC2FallbackOverride: 0
++    forceMaximumCompressionQuality_BC6H_BC7: 0
++  spriteSheet:
++    serializedVersion: 2
++    sprites: []
++    outline: []
++    customData: 
++    physicsShape: []
++    bones: []
++    spriteID: 
++    internalID: 0
++    vertices: []
++    indices: 
++    edges: []
++    weights: []
++    secondaryTextures: []
++    spriteCustomMetadata:
++      entries: []
++    nameFileIdTable: {}
++  mipmapLimitGroupName: 
++  pSDRemoveMatte: 0
++  userData: 
++  assetBundleName: 
++  assetBundleVariant: 
+diff --git a/Assets/Settings/Build Profiles/MayaPreviewHost_Windows.asset b/Assets/Settings/Build Profiles/MayaPreviewHost_Windows.asset
+index 1cb571f..af5ae0e 100644
+--- a/Assets/Settings/Build Profiles/MayaPreviewHost_Windows.asset	
++++ b/Assets/Settings/Build Profiles/MayaPreviewHost_Windows.asset	
+@@ -21,7 +21,7 @@ MonoBehaviour:
+   m_OverrideGlobalSceneList: 1
+   m_Scenes:
+   - m_enabled: 1
+-    m_path: Assets/Programmer/Scene/Test/Maya/HDRP_May_Toon_Scene.unity
++    m_path: Assets/Programmer/Scene/Test/Maya/HDRP_Maya_Toon_Scene.unity
+   m_HasScriptingDefines: 0
+   m_ScriptingDefines: []
+   m_PlayerSettingsYaml:
+-- 
+2.34.1
+

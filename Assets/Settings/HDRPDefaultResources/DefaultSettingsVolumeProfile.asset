@@ -1286,6 +1286,7 @@ MonoBehaviour:
   - {fileID: 2105802090242699278}
   - {fileID: -3187100799325981341}
   - {fileID: -1268136327117847989}
+  - {fileID: 8720631620714147469}
 --- !u!114 &448115243408767295
 MonoBehaviour:
   m_ObjectHideFlags: 3
@@ -2763,6 +2764,34 @@ MonoBehaviour:
   opacity:
     m_OverrideState: 1
     m_Value: 1
+--- !u!114 &8720631620714147469
+MonoBehaviour:
+  m_ObjectHideFlags: 3
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d37baf52a0464e7b9221d8466528be29, type: 3}
+  m_Name: CSV_EdgeBlur
+  m_EditorClassIdentifier: Assembly-CSharp::CSV_EdgeBlur
+  active: 1
+  intensity:
+    m_OverrideState: 1
+    m_Value: 0
+  blurRadius:
+    m_OverrideState: 1
+    m_Value: 0.015
+  center:
+    m_OverrideState: 1
+    m_Value: {x: 0.5, y: 0.5}
+  innerRadius:
+    m_OverrideState: 1
+    m_Value: 0.45
+  softness:
+    m_OverrideState: 1
+    m_Value: 0.3
 --- !u!114 &8985250182218814574
 MonoBehaviour:
   m_ObjectHideFlags: 3

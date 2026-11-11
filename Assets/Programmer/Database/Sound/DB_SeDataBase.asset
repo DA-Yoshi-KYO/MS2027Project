@@ -13,93 +13,903 @@ MonoBehaviour:
   m_Name: DB_SeDataBase
   m_EditorClassIdentifier: Assembly-CSharp::CSO_SeDatabase
   _seList:
+  - _id: 100
+    _clips:
+    - {fileID: 8300000, guid: 7c2ad0d76f7a9f545b40b3f4be8fce68, type: 3}
+    _basicSettings:
+      _volume: 1
+      _pitchRandom: 0
+      _maxConcurrent: 1
+    _threeDimensionalSettings:
+      _is3D: 0
+      _minDistance: 1
+      _maxDistance: 30
+      _rolloff: 0
+  - _id: 101
+    _clips:
+    - {fileID: 8300000, guid: f908a29962f205c4699c5dad05f96747, type: 3}
+    _basicSettings:
+      _volume: 1
+      _pitchRandom: 0
+      _maxConcurrent: 1
+    _threeDimensionalSettings:
+      _is3D: 0
+      _minDistance: 1
+      _maxDistance: 30
+      _rolloff: 0
+  - _id: 102
+    _clips:
+    - {fileID: 8300000, guid: 4e87b5186c17ac54090a9154f39268df, type: 3}
+    _basicSettings:
+      _volume: 1
+      _pitchRandom: 0
+      _maxConcurrent: 1
+    _threeDimensionalSettings:
+      _is3D: 0
+      _minDistance: 1
+      _maxDistance: 30
+      _rolloff: 0
+  - _id: 103
+    _clips:
+    - {fileID: 8300000, guid: ec0f50539e3dd0e4a8fa5a819fcb5030, type: 3}
+    _basicSettings:
+      _volume: 1
+      _pitchRandom: 0
+      _maxConcurrent: 1
+    _threeDimensionalSettings:
+      _is3D: 0
+      _minDistance: 1
+      _maxDistance: 30
+      _rolloff: 0
+  - _id: 104
+    _clips:
+    - {fileID: 8300000, guid: dacd17e2eedcd63448cedf80eb6e2b35, type: 3}
+    _basicSettings:
+      _volume: 1
+      _pitchRandom: 0
+      _maxConcurrent: 1
+    _threeDimensionalSettings:
+      _is3D: 0
+      _minDistance: 1
+      _maxDistance: 30
+      _rolloff: 0
   - _id: 200
     _clips:
-    - {fileID: 8300000, guid: bf9c85399e4d22340b16d79bf8875eae, type: 3}
-    _volume: 1
-    _pitchRandom: 0
-    _maxConcurrent: 4
-    _is3D: 1
-    _minDistance: 0
-    _maxDistance: 0
-    _rolloff: 0
+    - {fileID: 8300000, guid: fb2f2b067a5cc38469d3723697dac43a, type: 3}
+    _basicSettings:
+      _volume: 1
+      _pitchRandom: 0
+      _maxConcurrent: 4
+    _threeDimensionalSettings:
+      _is3D: 1
+      _minDistance: 1
+      _maxDistance: 100
+      _rolloff: 0
   - _id: 201
     _clips:
-    - {fileID: 8300000, guid: f2d8aa2eaf3b8e844bc949aab6ae24d7, type: 3}
-    _volume: 1
-    _pitchRandom: 0
-    _maxConcurrent: 4
-    _is3D: 1
-    _minDistance: 2
-    _maxDistance: 30
-    _rolloff: 0
+    - {fileID: 8300000, guid: 2113bc27f3d6fb241a78236c2a41c9c3, type: 3}
+    _basicSettings:
+      _volume: 1
+      _pitchRandom: 0
+      _maxConcurrent: 4
+    _threeDimensionalSettings:
+      _is3D: 1
+      _minDistance: 1
+      _maxDistance: 100
+      _rolloff: 0
   - _id: 202
     _clips:
-    - {fileID: 8300000, guid: cff4a5a3ae584ab4a8df8998fdbc3464, type: 3}
-    _volume: 1
-    _pitchRandom: 0
-    _maxConcurrent: 4
-    _is3D: 1
-    _minDistance: 2
-    _maxDistance: 30
-    _rolloff: 0
+    - {fileID: 8300000, guid: a22f297b2eb02cc419f985eb363bbb9c, type: 3}
+    _basicSettings:
+      _volume: 1
+      _pitchRandom: 0
+      _maxConcurrent: 4
+    _threeDimensionalSettings:
+      _is3D: 1
+      _minDistance: 1
+      _maxDistance: 100
+      _rolloff: 0
   - _id: 203
     _clips:
-    - {fileID: 8300000, guid: bf9c85399e4d22340b16d79bf8875eae, type: 3}
-    _volume: 1
-    _pitchRandom: 0
-    _maxConcurrent: 4
-    _is3D: 1
-    _minDistance: 2
-    _maxDistance: 30
-    _rolloff: 0
+    - {fileID: 8300000, guid: 03f385c8d68641240ba86c400da6ab25, type: 3}
+    _basicSettings:
+      _volume: 1
+      _pitchRandom: 0
+      _maxConcurrent: 4
+    _threeDimensionalSettings:
+      _is3D: 1
+      _minDistance: 1
+      _maxDistance: 100
+      _rolloff: 0
   - _id: 204
     _clips:
-    - {fileID: 8300000, guid: f2d8aa2eaf3b8e844bc949aab6ae24d7, type: 3}
-    _volume: 1
-    _pitchRandom: 0
-    _maxConcurrent: 4
-    _is3D: 1
-    _minDistance: 2
-    _maxDistance: 30
-    _rolloff: 0
+    - {fileID: 8300000, guid: 7e090f4ed1a72bf4c97ec621ad7cf289, type: 3}
+    _basicSettings:
+      _volume: 1
+      _pitchRandom: 0
+      _maxConcurrent: 4
+    _threeDimensionalSettings:
+      _is3D: 1
+      _minDistance: 1
+      _maxDistance: 100
+      _rolloff: 0
   - _id: 205
     _clips:
-    - {fileID: 8300000, guid: 1d55fc7da46f7f14180e0c1196e27ddf, type: 3}
-    _volume: 1
-    _pitchRandom: 0
-    _maxConcurrent: 4
-    _is3D: 1
-    _minDistance: 2
-    _maxDistance: 30
-    _rolloff: 0
+    - {fileID: 8300000, guid: 14ef128b3d698284cbbe49652e306f34, type: 3}
+    _basicSettings:
+      _volume: 1
+      _pitchRandom: 0
+      _maxConcurrent: 4
+    _threeDimensionalSettings:
+      _is3D: 1
+      _minDistance: 1
+      _maxDistance: 100
+      _rolloff: 0
   - _id: 206
     _clips:
+    - {fileID: 8300000, guid: 377ec664a4508be4fb3e29c67f872dc2, type: 3}
+    _basicSettings:
+      _volume: 1
+      _pitchRandom: 0
+      _maxConcurrent: 4
+    _threeDimensionalSettings:
+      _is3D: 1
+      _minDistance: 1
+      _maxDistance: 100
+      _rolloff: 0
+  - _id: 207
+    _clips:
+    - {fileID: 8300000, guid: 0665231f868c0324cba6cc829281a8e6, type: 3}
+    _basicSettings:
+      _volume: 1
+      _pitchRandom: 0
+      _maxConcurrent: 4
+    _threeDimensionalSettings:
+      _is3D: 1
+      _minDistance: 1
+      _maxDistance: 100
+      _rolloff: 0
+  - _id: 208
+    _clips:
+    - {fileID: 8300000, guid: 311119680721dd14da41370319572311, type: 3}
+    _basicSettings:
+      _volume: 1
+      _pitchRandom: 0
+      _maxConcurrent: 4
+    _threeDimensionalSettings:
+      _is3D: 1
+      _minDistance: 1
+      _maxDistance: 100
+      _rolloff: 0
+  - _id: 209
+    _clips:
+    - {fileID: 8300000, guid: ecdfd77ce7ca5834aa6a38b735e8581b, type: 3}
+    _basicSettings:
+      _volume: 1
+      _pitchRandom: 0
+      _maxConcurrent: 4
+    _threeDimensionalSettings:
+      _is3D: 1
+      _minDistance: 1
+      _maxDistance: 100
+      _rolloff: 0
+  - _id: 210
+    _clips:
+    - {fileID: 8300000, guid: e017ba4485166c24893b855e911e0b11, type: 3}
+    _basicSettings:
+      _volume: 1
+      _pitchRandom: 0
+      _maxConcurrent: 4
+    _threeDimensionalSettings:
+      _is3D: 1
+      _minDistance: 1
+      _maxDistance: 100
+      _rolloff: 0
+  - _id: 211
+    _clips:
+    - {fileID: 8300000, guid: f148c4a8abe325e46adbf24bc00ace62, type: 3}
+    _basicSettings:
+      _volume: 1
+      _pitchRandom: 0
+      _maxConcurrent: 4
+    _threeDimensionalSettings:
+      _is3D: 1
+      _minDistance: 1
+      _maxDistance: 100
+      _rolloff: 0
+  - _id: 212
+    _clips:
+    - {fileID: 8300000, guid: e05fa44240b1081458aff9f26f1f2021, type: 3}
+    _basicSettings:
+      _volume: 1
+      _pitchRandom: 0
+      _maxConcurrent: 4
+    _threeDimensionalSettings:
+      _is3D: 1
+      _minDistance: 1
+      _maxDistance: 100
+      _rolloff: 0
+  - _id: 213
+    _clips:
+    - {fileID: 8300000, guid: 1d55fc7da46f7f14180e0c1196e27ddf, type: 3}
+    _basicSettings:
+      _volume: 1
+      _pitchRandom: 0
+      _maxConcurrent: 4
+    _threeDimensionalSettings:
+      _is3D: 1
+      _minDistance: 1
+      _maxDistance: 100
+      _rolloff: 0
+  - _id: 214
+    _clips:
+    - {fileID: 8300000, guid: ec30c1c020cb47344909328ad9048862, type: 3}
+    _basicSettings:
+      _volume: 1
+      _pitchRandom: 0
+      _maxConcurrent: 4
+    _threeDimensionalSettings:
+      _is3D: 1
+      _minDistance: 1
+      _maxDistance: 100
+      _rolloff: 0
+  - _id: 215
+    _clips:
+    - {fileID: 8300000, guid: 89b663febd816be4cb7fd63c54f74c44, type: 3}
+    _basicSettings:
+      _volume: 1
+      _pitchRandom: 0
+      _maxConcurrent: 4
+    _threeDimensionalSettings:
+      _is3D: 1
+      _minDistance: 1
+      _maxDistance: 100
+      _rolloff: 0
+  - _id: 216
+    _clips:
+    - {fileID: 8300000, guid: 96e35393e865c6b4398e9ceaae7035e6, type: 3}
+    _basicSettings:
+      _volume: 1
+      _pitchRandom: 0
+      _maxConcurrent: 4
+    _threeDimensionalSettings:
+      _is3D: 1
+      _minDistance: 1
+      _maxDistance: 100
+      _rolloff: 0
+  - _id: 217
+    _clips:
+    - {fileID: 8300000, guid: 02c664d5b090ec24494eb35e67a728ee, type: 3}
+    _basicSettings:
+      _volume: 1
+      _pitchRandom: 0
+      _maxConcurrent: 4
+    _threeDimensionalSettings:
+      _is3D: 1
+      _minDistance: 1
+      _maxDistance: 100
+      _rolloff: 0
+  - _id: 218
+    _clips:
+    - {fileID: 8300000, guid: e63314bae6c04c34ea27b637124db54d, type: 3}
+    _basicSettings:
+      _volume: 1
+      _pitchRandom: 0
+      _maxConcurrent: 4
+    _threeDimensionalSettings:
+      _is3D: 1
+      _minDistance: 1
+      _maxDistance: 100
+      _rolloff: 0
+  - _id: 219
+    _clips:
+    - {fileID: 8300000, guid: 2c2c7881edcd4b84aa0f62031a7245e2, type: 3}
+    _basicSettings:
+      _volume: 1
+      _pitchRandom: 0
+      _maxConcurrent: 4
+    _threeDimensionalSettings:
+      _is3D: 1
+      _minDistance: 1
+      _maxDistance: 100
+      _rolloff: 0
+  - _id: 220
+    _clips:
+    - {fileID: 8300000, guid: fd89b333f1bd11f4b9901e0cd45ac452, type: 3}
+    _basicSettings:
+      _volume: 1
+      _pitchRandom: 0
+      _maxConcurrent: 4
+    _threeDimensionalSettings:
+      _is3D: 1
+      _minDistance: 1
+      _maxDistance: 100
+      _rolloff: 0
+  - _id: 221
+    _clips:
     - {fileID: 8300000, guid: 57ca52bbe4b479345b29e180aaac9dd9, type: 3}
-    _volume: 1
-    _pitchRandom: 0
-    _maxConcurrent: 4
-    _is3D: 1
-    _minDistance: 2
-    _maxDistance: 30
-    _rolloff: 0
-  - _id: 207
+    _basicSettings:
+      _volume: 1
+      _pitchRandom: 0
+      _maxConcurrent: 4
+    _threeDimensionalSettings:
+      _is3D: 1
+      _minDistance: 1
+      _maxDistance: 100
+      _rolloff: 0
+  - _id: 222
     _clips:
-    - {fileID: 8300000, guid: fb2f2b067a5cc38469d3723697dac43a, type: 3}
-    _volume: 1
-    _pitchRandom: 0
-    _maxConcurrent: 4
-    _is3D: 1
-    _minDistance: 2
-    _maxDistance: 30
-    _rolloff: 0
-  - _id: 207
+    - {fileID: 8300000, guid: 6a9e4b33b41c8964f9f3b7be1727e3ae, type: 3}
+    _basicSettings:
+      _volume: 1
+      _pitchRandom: 0
+      _maxConcurrent: 4
+    _threeDimensionalSettings:
+      _is3D: 1
+      _minDistance: 1
+      _maxDistance: 100
+      _rolloff: 0
+  - _id: 223
     _clips:
-    - {fileID: 8300000, guid: 6427d3b902f1c164c8c1fef0426068f0, type: 3}
-    _volume: 1
-    _pitchRandom: 0
-    _maxConcurrent: 4
-    _is3D: 1
-    _minDistance: 2
-    _maxDistance: 30
-    _rolloff: 0
+    - {fileID: 8300000, guid: efe160f122125e6409e945c96e53df4a, type: 3}
+    _basicSettings:
+      _volume: 1
+      _pitchRandom: 0
+      _maxConcurrent: 4
+    _threeDimensionalSettings:
+      _is3D: 1
+      _minDistance: 1
+      _maxDistance: 100
+      _rolloff: 0
+  - _id: 224
+    _clips:
+    - {fileID: 8300000, guid: 49adee1c3a7a44e43a5339811cd01e50, type: 3}
+    _basicSettings:
+      _volume: 1
+      _pitchRandom: 0
+      _maxConcurrent: 4
+    _threeDimensionalSettings:
+      _is3D: 1
+      _minDistance: 1
+      _maxDistance: 100
+      _rolloff: 0
+  - _id: 225
+    _clips:
+    - {fileID: 8300000, guid: 8dacf9fa3b2eee742a81e811f9860958, type: 3}
+    _basicSettings:
+      _volume: 1
+      _pitchRandom: 0
+      _maxConcurrent: 4
+    _threeDimensionalSettings:
+      _is3D: 1
+      _minDistance: 1
+      _maxDistance: 100
+      _rolloff: 0
+  - _id: 226
+    _clips:
+    - {fileID: 8300000, guid: 9aca0f36ffa20b348a209070ce61b5ad, type: 3}
+    _basicSettings:
+      _volume: 1
+      _pitchRandom: 0
+      _maxConcurrent: 4
+    _threeDimensionalSettings:
+      _is3D: 1
+      _minDistance: 1
+      _maxDistance: 100
+      _rolloff: 0
+  - _id: 227
+    _clips:
+    - {fileID: 8300000, guid: 712da242beb90b14dbce63c304d1c3bd, type: 3}
+    _basicSettings:
+      _volume: 1
+      _pitchRandom: 0
+      _maxConcurrent: 4
+    _threeDimensionalSettings:
+      _is3D: 1
+      _minDistance: 1
+      _maxDistance: 100
+      _rolloff: 0
+  - _id: 228
+    _clips:
+    - {fileID: 8300000, guid: 1ad7c50ab3c7c31459d8f2bf504f19ea, type: 3}
+    _basicSettings:
+      _volume: 1
+      _pitchRandom: 0
+      _maxConcurrent: 4
+    _threeDimensionalSettings:
+      _is3D: 1
+      _minDistance: 1
+      _maxDistance: 100
+      _rolloff: 0
+  - _id: 229
+    _clips:
+    - {fileID: 8300000, guid: 80349a04363e2dc4bb3541fb0aff7dd0, type: 3}
+    _basicSettings:
+      _volume: 1
+      _pitchRandom: 0
+      _maxConcurrent: 4
+    _threeDimensionalSettings:
+      _is3D: 1
+      _minDistance: 1
+      _maxDistance: 100
+      _rolloff: 0
+  - _id: 300
+    _clips:
+    - {fileID: 8300000, guid: cef998641a0a6cd4682e3be674a54696, type: 3}
+    _basicSettings:
+      _volume: 1
+      _pitchRandom: 0
+      _maxConcurrent: 4
+    _threeDimensionalSettings:
+      _is3D: 1
+      _minDistance: 1
+      _maxDistance: 100
+      _rolloff: 0
+  - _id: 301
+    _clips:
+    - {fileID: 8300000, guid: 212a295ed2c4b9948b5acdd6c4c00e30, type: 3}
+    _basicSettings:
+      _volume: 1
+      _pitchRandom: 0
+      _maxConcurrent: 4
+    _threeDimensionalSettings:
+      _is3D: 1
+      _minDistance: 1
+      _maxDistance: 100
+      _rolloff: 0
+  - _id: 302
+    _clips:
+    - {fileID: 8300000, guid: 6e3e61c0c51648d48a880f9ef9e5d9ad, type: 3}
+    _basicSettings:
+      _volume: 1
+      _pitchRandom: 0
+      _maxConcurrent: 4
+    _threeDimensionalSettings:
+      _is3D: 1
+      _minDistance: 1
+      _maxDistance: 100
+      _rolloff: 0
+  - _id: 303
+    _clips:
+    - {fileID: 8300000, guid: d9e083a78cfa62441be703467cb897e0, type: 3}
+    _basicSettings:
+      _volume: 1
+      _pitchRandom: 0
+      _maxConcurrent: 4
+    _threeDimensionalSettings:
+      _is3D: 1
+      _minDistance: 1
+      _maxDistance: 100
+      _rolloff: 0
+  - _id: 304
+    _clips:
+    - {fileID: 8300000, guid: 346dc7f8efaaf2746b5b2b6c0d86f7d7, type: 3}
+    _basicSettings:
+      _volume: 1
+      _pitchRandom: 0
+      _maxConcurrent: 4
+    _threeDimensionalSettings:
+      _is3D: 1
+      _minDistance: 1
+      _maxDistance: 100
+      _rolloff: 0
+  - _id: 305
+    _clips:
+    - {fileID: 8300000, guid: 50dde376a51e1ec40a82d5e5a0f07efc, type: 3}
+    _basicSettings:
+      _volume: 1
+      _pitchRandom: 0
+      _maxConcurrent: 4
+    _threeDimensionalSettings:
+      _is3D: 1
+      _minDistance: 1
+      _maxDistance: 100
+      _rolloff: 0
+  - _id: 306
+    _clips:
+    - {fileID: 8300000, guid: dee25077483fede48a51687902734698, type: 3}
+    _basicSettings:
+      _volume: 1
+      _pitchRandom: 0
+      _maxConcurrent: 4
+    _threeDimensionalSettings:
+      _is3D: 1
+      _minDistance: 1
+      _maxDistance: 100
+      _rolloff: 0
+  - _id: 307
+    _clips:
+    - {fileID: 8300000, guid: a4a252c35140b7b4f82f88ab5902d855, type: 3}
+    _basicSettings:
+      _volume: 1
+      _pitchRandom: 0
+      _maxConcurrent: 4
+    _threeDimensionalSettings:
+      _is3D: 1
+      _minDistance: 1
+      _maxDistance: 100
+      _rolloff: 0
+  - _id: 400
+    _clips:
+    - {fileID: 8300000, guid: 30a954a8b6f11664ab18a2bf8192a597, type: 3}
+    _basicSettings:
+      _volume: 1
+      _pitchRandom: 0
+      _maxConcurrent: 4
+    _threeDimensionalSettings:
+      _is3D: 1
+      _minDistance: 1
+      _maxDistance: 100
+      _rolloff: 0
+  - _id: 401
+    _clips:
+    - {fileID: 8300000, guid: df617a90ace1214498867965553ac821, type: 3}
+    _basicSettings:
+      _volume: 1
+      _pitchRandom: 0
+      _maxConcurrent: 4
+    _threeDimensionalSettings:
+      _is3D: 1
+      _minDistance: 1
+      _maxDistance: 100
+      _rolloff: 0
+  - _id: 402
+    _clips:
+    - {fileID: 8300000, guid: 0a74ebe941c31004cbb15ea671d5f56d, type: 3}
+    _basicSettings:
+      _volume: 1
+      _pitchRandom: 0
+      _maxConcurrent: 4
+    _threeDimensionalSettings:
+      _is3D: 1
+      _minDistance: 1
+      _maxDistance: 100
+      _rolloff: 0
+  - _id: 403
+    _clips:
+    - {fileID: 8300000, guid: 4dae75945f01af4458650a21ca7b9c95, type: 3}
+    _basicSettings:
+      _volume: 1
+      _pitchRandom: 0
+      _maxConcurrent: 4
+    _threeDimensionalSettings:
+      _is3D: 1
+      _minDistance: 1
+      _maxDistance: 100
+      _rolloff: 0
+  - _id: 404
+    _clips:
+    - {fileID: 8300000, guid: 2141aa645d34d9b49b78c69969269409, type: 3}
+    _basicSettings:
+      _volume: 1
+      _pitchRandom: 0
+      _maxConcurrent: 4
+    _threeDimensionalSettings:
+      _is3D: 1
+      _minDistance: 1
+      _maxDistance: 100
+      _rolloff: 0
+  - _id: 405
+    _clips:
+    - {fileID: 8300000, guid: d38972ed0bea3de4da585db792720fed, type: 3}
+    _basicSettings:
+      _volume: 1
+      _pitchRandom: 0
+      _maxConcurrent: 4
+    _threeDimensionalSettings:
+      _is3D: 1
+      _minDistance: 1
+      _maxDistance: 100
+      _rolloff: 0
+  - _id: 406
+    _clips:
+    - {fileID: 8300000, guid: dc6b58c1ddf6f1e4187cbf8663edc787, type: 3}
+    _basicSettings:
+      _volume: 1
+      _pitchRandom: 0
+      _maxConcurrent: 4
+    _threeDimensionalSettings:
+      _is3D: 1
+      _minDistance: 1
+      _maxDistance: 100
+      _rolloff: 0
+  - _id: 407
+    _clips:
+    - {fileID: 8300000, guid: aefdd1ef67e9c814498242c54e23e6a5, type: 3}
+    _basicSettings:
+      _volume: 1
+      _pitchRandom: 0
+      _maxConcurrent: 4
+    _threeDimensionalSettings:
+      _is3D: 1
+      _minDistance: 1
+      _maxDistance: 100
+      _rolloff: 0
+  - _id: 500
+    _clips:
+    - {fileID: 8300000, guid: 68dbe9c6c3cbe80438bee0309fc54097, type: 3}
+    _basicSettings:
+      _volume: 1
+      _pitchRandom: 0
+      _maxConcurrent: 4
+    _threeDimensionalSettings:
+      _is3D: 1
+      _minDistance: 1
+      _maxDistance: 100
+      _rolloff: 0
+  - _id: 501
+    _clips:
+    - {fileID: 8300000, guid: 3c2f16b696d112f4a8047c55a3a67089, type: 3}
+    _basicSettings:
+      _volume: 1
+      _pitchRandom: 0
+      _maxConcurrent: 4
+    _threeDimensionalSettings:
+      _is3D: 1
+      _minDistance: 1
+      _maxDistance: 100
+      _rolloff: 0
+  - _id: 502
+    _clips:
+    - {fileID: 8300000, guid: ba7e0ee88ebc67d43a7182b828de55ce, type: 3}
+    _basicSettings:
+      _volume: 1
+      _pitchRandom: 0
+      _maxConcurrent: 4
+    _threeDimensionalSettings:
+      _is3D: 1
+      _minDistance: 1
+      _maxDistance: 100
+      _rolloff: 0
+  - _id: 503
+    _clips:
+    - {fileID: 8300000, guid: 7d1c03981d99fe047a97134a71ea4ddc, type: 3}
+    _basicSettings:
+      _volume: 1
+      _pitchRandom: 0
+      _maxConcurrent: 4
+    _threeDimensionalSettings:
+      _is3D: 1
+      _minDistance: 1
+      _maxDistance: 100
+      _rolloff: 0
+  - _id: 504
+    _clips:
+    - {fileID: 8300000, guid: ffaf5d0a813848949b8f1124f705f221, type: 3}
+    _basicSettings:
+      _volume: 1
+      _pitchRandom: 0
+      _maxConcurrent: 4
+    _threeDimensionalSettings:
+      _is3D: 1
+      _minDistance: 1
+      _maxDistance: 100
+      _rolloff: 0
+  - _id: 505
+    _clips:
+    - {fileID: 8300000, guid: 9a9bd313f2916be40ae235838269ca4d, type: 3}
+    _basicSettings:
+      _volume: 1
+      _pitchRandom: 0
+      _maxConcurrent: 4
+    _threeDimensionalSettings:
+      _is3D: 1
+      _minDistance: 1
+      _maxDistance: 100
+      _rolloff: 0
+  - _id: 506
+    _clips:
+    - {fileID: 8300000, guid: 61638e28be868fb4c95e070552a3146d, type: 3}
+    _basicSettings:
+      _volume: 1
+      _pitchRandom: 0
+      _maxConcurrent: 4
+    _threeDimensionalSettings:
+      _is3D: 1
+      _minDistance: 1
+      _maxDistance: 100
+      _rolloff: 0
+  - _id: 507
+    _clips:
+    - {fileID: 8300000, guid: 7c18a2df738f62c438824953dd0701af, type: 3}
+    _basicSettings:
+      _volume: 1
+      _pitchRandom: 0
+      _maxConcurrent: 4
+    _threeDimensionalSettings:
+      _is3D: 1
+      _minDistance: 1
+      _maxDistance: 100
+      _rolloff: 0
+  - _id: 508
+    _clips:
+    - {fileID: 8300000, guid: 7ead88b9f6901c14b898981127dca67a, type: 3}
+    _basicSettings:
+      _volume: 1
+      _pitchRandom: 0
+      _maxConcurrent: 4
+    _threeDimensionalSettings:
+      _is3D: 1
+      _minDistance: 1
+      _maxDistance: 100
+      _rolloff: 0
+  - _id: 509
+    _clips:
+    - {fileID: 8300000, guid: 375669dcae77d3043a66a73651bbecf1, type: 3}
+    _basicSettings:
+      _volume: 1
+      _pitchRandom: 0
+      _maxConcurrent: 4
+    _threeDimensionalSettings:
+      _is3D: 1
+      _minDistance: 1
+      _maxDistance: 100
+      _rolloff: 0
+  - _id: 600
+    _clips:
+    - {fileID: 8300000, guid: 8a350b22b6327664590d7255dee50ee5, type: 3}
+    _basicSettings:
+      _volume: 1
+      _pitchRandom: 0
+      _maxConcurrent: 4
+    _threeDimensionalSettings:
+      _is3D: 1
+      _minDistance: 1
+      _maxDistance: 100
+      _rolloff: 0
+  - _id: 601
+    _clips:
+    - {fileID: 8300000, guid: ed6199ec7adfaa645b3dec77a245a7dc, type: 3}
+    _basicSettings:
+      _volume: 1
+      _pitchRandom: 0
+      _maxConcurrent: 4
+    _threeDimensionalSettings:
+      _is3D: 1
+      _minDistance: 1
+      _maxDistance: 100
+      _rolloff: 0
+  - _id: 602
+    _clips:
+    - {fileID: 8300000, guid: 42973885686b2674cb50bdf5e3deaa1f, type: 3}
+    _basicSettings:
+      _volume: 1
+      _pitchRandom: 0
+      _maxConcurrent: 4
+    _threeDimensionalSettings:
+      _is3D: 1
+      _minDistance: 1
+      _maxDistance: 100
+      _rolloff: 0
+  - _id: 603
+    _clips:
+    - {fileID: 8300000, guid: 9138dde4bc8396a4a8a5ac1abfbb97c7, type: 3}
+    _basicSettings:
+      _volume: 1
+      _pitchRandom: 0
+      _maxConcurrent: 4
+    _threeDimensionalSettings:
+      _is3D: 1
+      _minDistance: 1
+      _maxDistance: 100
+      _rolloff: 0
+  - _id: 604
+    _clips:
+    - {fileID: 8300000, guid: 29f8b2480e24dee4a80aa77a58526554, type: 3}
+    _basicSettings:
+      _volume: 1
+      _pitchRandom: 0
+      _maxConcurrent: 4
+    _threeDimensionalSettings:
+      _is3D: 1
+      _minDistance: 1
+      _maxDistance: 100
+      _rolloff: 0
+  - _id: 605
+    _clips:
+    - {fileID: 8300000, guid: d7c2ab3943b8b5e4e96fcb7ef2f87d5b, type: 3}
+    _basicSettings:
+      _volume: 1
+      _pitchRandom: 0
+      _maxConcurrent: 4
+    _threeDimensionalSettings:
+      _is3D: 1
+      _minDistance: 1
+      _maxDistance: 100
+      _rolloff: 0
+  - _id: 700
+    _clips:
+    - {fileID: 8300000, guid: 6adda3daf7faba84fb797c9f0c5a1db8, type: 3}
+    _basicSettings:
+      _volume: 1
+      _pitchRandom: 0
+      _maxConcurrent: 4
+    _threeDimensionalSettings:
+      _is3D: 1
+      _minDistance: 1
+      _maxDistance: 100
+      _rolloff: 0
+  - _id: 701
+    _clips:
+    - {fileID: 8300000, guid: c8c7fad8013452a4cb2d5af1fce39bad, type: 3}
+    _basicSettings:
+      _volume: 1
+      _pitchRandom: 0
+      _maxConcurrent: 4
+    _threeDimensionalSettings:
+      _is3D: 1
+      _minDistance: 1
+      _maxDistance: 100
+      _rolloff: 0
+  - _id: 702
+    _clips:
+    - {fileID: 8300000, guid: a5a786658f8df6543b7d91601cf9bd01, type: 3}
+    _basicSettings:
+      _volume: 1
+      _pitchRandom: 0
+      _maxConcurrent: 4
+    _threeDimensionalSettings:
+      _is3D: 1
+      _minDistance: 1
+      _maxDistance: 100
+      _rolloff: 0
+  - _id: 703
+    _clips:
+    - {fileID: 8300000, guid: 05d600bbaa4bafa4e9a6c7ccf68af18f, type: 3}
+    _basicSettings:
+      _volume: 1
+      _pitchRandom: 0
+      _maxConcurrent: 4
+    _threeDimensionalSettings:
+      _is3D: 1
+      _minDistance: 1
+      _maxDistance: 100
+      _rolloff: 0
+  - _id: 800
+    _clips:
+    - {fileID: 8300000, guid: 2fb78f96a13bf4b4eaacd9cf64ca7095, type: 3}
+    _basicSettings:
+      _volume: 1
+      _pitchRandom: 0
+      _maxConcurrent: 4
+    _threeDimensionalSettings:
+      _is3D: 0
+      _minDistance: 1
+      _maxDistance: 100
+      _rolloff: 0
+  - _id: 801
+    _clips:
+    - {fileID: 8300000, guid: 78008bc21e04fc6439ae037ec7a4424e, type: 3}
+    _basicSettings:
+      _volume: 1
+      _pitchRandom: 0
+      _maxConcurrent: 4
+    _threeDimensionalSettings:
+      _is3D: 0
+      _minDistance: 1
+      _maxDistance: 100
+      _rolloff: 0
+  - _id: 802
+    _clips:
+    - {fileID: 8300000, guid: 7a9bd97d117445e4cb7a1bb2fb784eec, type: 3}
+    _basicSettings:
+      _volume: 1
+      _pitchRandom: 0
+      _maxConcurrent: 4
+    _threeDimensionalSettings:
+      _is3D: 0
+      _minDistance: 1
+      _maxDistance: 100
+      _rolloff: 0
+  - _id: 803
+    _clips:
+    - {fileID: 8300000, guid: 9f31720e11ad665438ff927534359c3b, type: 3}
+    _basicSettings:
+      _volume: 1
+      _pitchRandom: 0
+      _maxConcurrent: 4
+    _threeDimensionalSettings:
+      _is3D: 0
+      _minDistance: 1
+      _maxDistance: 100
+      _rolloff: 0

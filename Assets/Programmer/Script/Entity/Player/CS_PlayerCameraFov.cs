@@ -98,10 +98,10 @@ public class CS_PlayerCameraFov : MonoBehaviour
         return velocity.sqrMagnitude >= _minSprintSpeed * _minSprintSpeed;
     }
 
-    // SAでハイドポイントへ飛んでいるか(張り付いたら戻す)
+    // SAでハイドポイントへ飛んでいるか(着いたら戻す)
     private bool IsHideFlying()
     {
-        return _hide != null && _hide.isHiding && !_hide.isAttached;
+        return _hide != null && _hide.isHiding;
     }
 
     // 奇襲で飛び込んでいるか(当たる瞬間まで)

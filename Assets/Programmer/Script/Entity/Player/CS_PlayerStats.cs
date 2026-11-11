@@ -32,6 +32,9 @@ using UnityEngine;
  * ・暗躍ボーナス(CS_PlayerStealthBonus)の倍率は、基準の値とは別にstealthBonusRateで持つ(SetStealthBonusRate)
  *   移動速度・スプリント速度・ジャンプ力・攻撃力・コンボのモーション速度に掛かる。使う側はcurrentXxx / comboSpeedRateを読む
  *   (アイテムは基準の値(moveSpeedなど)を読み書きするため、ボーナスを混ぜない。ボーナスが途切れても基準の値はそのまま)
+ * ・キャラクター(CS_PlayerCharacter)が付いていて、そのキャラクターに基礎数値が設定されていれば、Base Statsの代わりにそれを使う
+ * ・必殺技の「身体能力の強化」の倍率は、暗躍ボーナスとは別にspecialBoostRateで持つ(SetSpecialBoostRate。CS_PlayerCharacterが掛ける)
+ *   暗躍ボーナスと同じ値(currentXxx / comboSpeedRate)に、暗躍ボーナスの倍率と掛け合わせて掛かる
  */
 // ========================================
 
@@ -41,6 +44,7 @@ public class CS_PlayerStats : NetworkBehaviour
     [SerializeField] private CSO_PlayerStats _baseStats;
 
     private CS_PlayerSpecialGauge _gauge;
+    private CS_PlayerCharacter _character;   // 付いていれば、キャラクターの基礎数値を使う
 
     // 書き込みはサーバーのみ(NetworkVariableのデフォルト)。読み取りは全員可
     private readonly NetworkVariable<float> _maxHp = new NetworkVariable<float>();
@@ -52,6 +56,7 @@ public class CS_PlayerStats : NetworkBehaviour
     private readonly NetworkVariable<float> _maxGauge = new NetworkVariable<float>();
     private readonly NetworkVariable<float> _specialAttackPower = new NetworkVariable<float>();
     private readonly NetworkVariable<float> _stealthBonusRate = new NetworkVariable<float>(1f);   // 暗躍ボーナスの倍率(1で無し)
+    private readonly NetworkVariable<float> _specialBoostRate = new NetworkVariable<float>(1f);   // 必殺技の「身体能力の強化」の倍率(1で無し)
 
     public float maxHp => _maxHp.Value;
     public float attackPower => _attackPower.Value;
@@ -62,13 +67,15 @@ public class CS_PlayerStats : NetworkBehaviour
     public float maxGauge => _maxGauge.Value;
     public float specialAttackPower => _specialAttackPower.Value;
     public float stealthBonusRate => _stealthBonusRate.Value;
+    public float specialBoostRate => _specialBoostRate.Value;
 
-    // 暗躍ボーナスを掛けた、実際に使う値
-    public float currentMoveSpeed => moveSpeed * stealthBonusRate;
-    public float currentSprintSpeed => sprintSpeed * stealthBonusRate;
-    public float currentJumpPower => jumpPower * stealthBonusRate;
-    public float currentAttackPower => attackPower * stealthBonusRate;
-    public float comboSpeedRate => stealthBonusRate;     // コンボのモーション速度の倍率
+    // 暗躍ボーナス・必殺技の強化を掛けた、実際に使う値
+    public float currentMoveSpeed => moveSpeed * bonusRate;
+    public float currentSprintSpeed => sprintSpeed * bonusRate;
+    public float currentJumpPower => jumpPower * bonusRate;
+    public float currentAttackPower => attackPower * bonusRate;
+    public float comboSpeedRate => bonusRate;            // コンボのモーション速度の倍率
+    private float bonusRate => stealthBonusRate * specialBoostRate;
     public float currentGauge => _gauge.currentGauge;   // 実体はCS_PlayerSpecialGaugeにある値の中継
 
     public event Action<float> onMaxHpChanged;
@@ -83,6 +90,7 @@ public class CS_PlayerStats : NetworkBehaviour
     private void Awake()
     {
         _gauge = GetComponent<CS_PlayerSpecialGauge>();
+        _character = GetComponent<CS_PlayerCharacter>();
 
         if (_baseStats == null)
         {
@@ -200,6 +208,14 @@ public class CS_PlayerStats : NetworkBehaviour
         _stealthBonusRate.Value = Mathf.Max(0f, value);
     }
 
+    // 必殺技の「身体能力の強化」の倍率を変える(サーバーのみ。CS_PlayerCharacterが使う)
+    public void SetSpecialBoostRate(float value)
+    {
+        if (IsSpawned && !IsServer) return;
+
+        _specialBoostRate.Value = Mathf.Max(0f, value);
+    }
+
     // 全ステータスをBase Statsの値に戻す(サーバーのみ。リスポーン処理などからの呼び出しを想定)
     public void ResetToBase()
     {
@@ -210,16 +226,24 @@ public class CS_PlayerStats : NetworkBehaviour
 
     private void ApplyBaseStats()
     {
-        if (_baseStats == null) return;
+        CSO_PlayerStats baseStats = GetBaseStats();
+        if (baseStats == null) return;
 
-        _maxHp.Value = _baseStats.maxHp;
-        _attackPower.Value = _baseStats.attackPower;
-        _moveSpeed.Value = _baseStats.moveSpeed;
-        _jumpPower.Value = _baseStats.jumpPower;
-        _dashSpeed.Value = _baseStats.dashSpeed;
-        _sprintSpeed.Value = _baseStats.sprintSpeed;
-        _maxGauge.Value = _baseStats.maxGauge;
-        _specialAttackPower.Value = _baseStats.specialAttackPower;
+        _maxHp.Value = baseStats.maxHp;
+        _attackPower.Value = baseStats.attackPower;
+        _moveSpeed.Value = baseStats.moveSpeed;
+        _jumpPower.Value = baseStats.jumpPower;
+        _dashSpeed.Value = baseStats.dashSpeed;
+        _sprintSpeed.Value = baseStats.sprintSpeed;
+        _maxGauge.Value = baseStats.maxGauge;
+        _specialAttackPower.Value = baseStats.specialAttackPower;
+    }
+
+    // 使う基準の値(キャラクターに基礎数値が設定されていればそれ、無ければBase Stats)
+    private CSO_PlayerStats GetBaseStats()
+    {
+        CSO_PlayableCharacter character = _character != null ? _character.currentCharacter : null;
+        return character != null && character.stats != null ? character.stats : _baseStats;
     }
 
     private void HandleMaxHpChanged(float previous, float current) => onMaxHpChanged?.Invoke(current);

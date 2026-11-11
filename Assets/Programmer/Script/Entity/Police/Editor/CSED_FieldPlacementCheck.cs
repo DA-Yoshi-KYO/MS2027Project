@@ -51,6 +51,7 @@ public static class CSED_FieldPlacementCheck
         AppendSquadMembers(report);
         AppendBlockedRouteSegments(report);
         CheckPoints<CS_SecurityLaser>(report, "防犯レーザー", true);
+        AppendLaserSweeps(report);
         CheckPoints<CS_SecurityLight>(report, "ストリートライト", true);
         CheckPoints<CS_SecurityDroneSpawner>(report, "巡回ドローンの出現位置", false);
         AppendDronePatrolPoints(report);
@@ -285,6 +286,54 @@ public static class CSED_FieldPlacementCheck
 
         report.AppendLine();
         report.AppendLine($"【{label}】{found.Length}個 / 問題あり {problems.Count}個");
+        AppendProblems(report, problems);
+    }
+
+    /// <summary>
+    /// マルチ用の防犯レーザーの、往復する通り道を調べて書き出すメソッド
+    /// 始点から終点まで1mおきに、レーザーの箱が、壁・柱などのコライダーに当たらないか、始点・終点が歩ける場所の近くか、を調べる
+    /// </summary>
+    private static void AppendLaserSweeps(StringBuilder report)
+    {
+        int total = 0;
+        List<string> problems = new List<string>();
+        foreach (CS_SecurityLaser laser in Object.FindObjectsByType<CS_SecurityLaser>(FindObjectsInactive.Include, FindObjectsSortMode.None))
+        {
+            if (GetMode(laser.transform) != "Field_Multi") continue;
+
+            total++;
+            SerializedObject serialized = new SerializedObject(laser);
+            Vector3 direction = laser.transform.rotation * serialized.FindProperty("_moveDirection").vector3Value.normalized;
+            float distance = serialized.FindProperty("_moveDistance").floatValue;
+            float length = serialized.FindProperty("_beamLength").floatValue;
+            float thickness = serialized.FindProperty("_beamThickness").floatValue;
+            Vector3 half = new Vector3(length * 0.5f, thickness * 0.5f, thickness * 0.5f);
+
+            string hit = null;
+            for (float t = 0.0f; t <= distance + 0.01f && hit == null; t += 1.0f)
+            {
+                foreach (Collider collider in Physics.OverlapBox(laser.transform.position + direction * t, half, laser.transform.rotation, ~0, QueryTriggerInteraction.Ignore))
+                {
+                    if (collider.transform.IsChildOf(laser.transform)) continue;
+
+                    hit = $"始点から {t:F0}m の所で {collider.name} に当たる";
+                    break;
+                }
+            }
+
+            string ends = null;
+            foreach (float t in new[] { 0.0f, distance })
+            {
+                Vector3 point = laser.transform.position + direction * t;
+                if (!NavMesh.SamplePosition(point, out _, 3.0f, NavMesh.AllAreas)) ends = $"{(t == 0.0f ? "始点" : "終点")} {Format(point)} の3m以内に歩ける場所が無い";
+            }
+
+            string problem = hit ?? ends;
+            if (problem != null) problems.Add($"  {GetPath(laser.transform)} 往復 {distance:F0}m・長さ {length:F1}m → {problem}");
+        }
+
+        report.AppendLine();
+        report.AppendLine($"【防犯レーザー(マルチ用)の往復】{total}本 / 通り道が壁などに当たる・始点終点が歩ける場所から外れるもの {problems.Count}本");
         AppendProblems(report, problems);
     }
 

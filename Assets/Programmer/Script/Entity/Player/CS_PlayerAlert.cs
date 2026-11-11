@@ -30,6 +30,8 @@ using UnityEngine;
  * ・onAlertChangedは全クライアントで発生する(UI・警察側用)
  * ・手配度(CS_PlayerWantedLevel)は、警察側が警戒状態へ移った(Issue #271)ため削除した
  * ・オフライン(NetworkManagerが動いていない)のテストシーンでも単体で動く
+ * ・自分のプレイヤー(isLocalPlayer)は、シーンにCS_InGameBgmControllerがあれば登録する(警戒状態でBGMを通常⇔警戒に切り替えるため)
+ *   BGMのないテストシーンでは何もしない。NPCや他人のプレイヤーは登録しない
  */
 // ========================================
 
@@ -50,26 +52,63 @@ public class CS_PlayerAlert : NetworkBehaviour
     // 警察陣営に倒された時(倒されたプレイヤー)。サーバー、またはオフラインのみ。警察側が、このプレイヤーへの追跡・警戒を解除するのに使う
     public static event Action<CS_PlayerHealth> onDefeatedByPolice;
 
+    private CS_InGameBgmController _bgmController;     // 自分のプレイヤーとして登録した時のBGM切り替え(未登録ならnull)
+
     private void Awake()
     {
         _health = GetComponent<CS_PlayerHealth>();
         _health.onDeath += HandleDeath;
     }
 
+    // オフライン(NetworkManagerが動いていない)のテストシーン用
+    private void Start()
+    {
+        if (IsSpawned) return;
+        if (NetworkManager.Singleton != null && NetworkManager.Singleton.IsListening) return;
+
+        RegisterBgmController();
+    }
+
     public override void OnNetworkSpawn()
     {
         _state.OnValueChanged += HandleStateChanged;
+        RegisterBgmController();
     }
 
     public override void OnNetworkDespawn()
     {
         _state.OnValueChanged -= HandleStateChanged;
+        UnregisterBgmController();
     }
 
     public override void OnDestroy()
     {
+        UnregisterBgmController();
         if (_health != null) _health.onDeath -= HandleDeath;
         base.OnDestroy();
+    }
+
+    // 自分のプレイヤーだけ、インゲームBGMの切り替えに登録する(NPCはホストでIsOwnerになるため、isLocalPlayerで判定する)
+    private void RegisterBgmController()
+    {
+        if (_bgmController != null) return;
+
+        CS_Player player = GetComponent<CS_Player>();
+        if (player == null || !player.isLocalPlayer) return;
+
+        CS_InGameBgmController controller = FindAnyObjectByType<CS_InGameBgmController>();
+        if (controller == null) return;
+
+        controller.RegisterLocalPlayer(this);
+        _bgmController = controller;
+    }
+
+    private void UnregisterBgmController()
+    {
+        if (_bgmController == null) return;
+
+        _bgmController.UnregisterLocalPlayer();
+        _bgmController = null;
     }
 
     // 警察側が、警察・巡回ドローンの実際の状態から決めた警戒状態を渡す(毎フレーム呼んでよい。サーバー、またはオフラインのみ)

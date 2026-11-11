@@ -54,19 +54,43 @@ public static class CSED_FieldMultiLayoutGenerator
     private const float _fixSearchRadius = 8.0f;          // 埋まったSAObjectを、ずらして探す範囲(m)
     private const float _fixRoadsideMax = 1.8f;           // ずらした先が、歩ける場所の縁から離れてよい距離の上限(m。これより遠いと、道のど真ん中)
     private const float _patrolEndMargin = 1.5f;          // 悪人の往復ルートの両端を、壁・柱・縁から離す距離(m)
-    private const int _groundSitesPerArea = 3;           // エリアごとの悪人の出現点のうち、地上の狭い道に置く数(残りは、低い屋上)
-    private const float _maxVillainStreetWidth = 10.0f;   // 地上の悪人の出現点を置ける、道の幅の上限(m。これより広い道は、大通りとみなして置かない)
+    private const int _groundSitesPerArea = 2;           // エリアごとの悪人の出現点のうち、地上の狭い道に置く数(残りは、屋上などの高所。SAで倒しに行く)
+    private const float _maxVillainStreetWidth = 16.0f;   // 地上の悪人の出現点を置ける、道の幅の上限(m。ビルの間のある程度広い所まで。これより広い道は、大通りとみなして置かない)
+    private const int _roofSitesPerArea = 3;              // エリアごとの、登れるビルの屋上の悪人の出現点の数
+    private const float _roofVillainMinHeight = 8.0f;     // 登れるビルの屋上の悪人の出現点の高さの下限(m。地上から)
+    private const float _roofVillainMaxHeight = 120.0f;
+    private const float _roofVillainNearSa = 30.0f;       // 登れる屋上のSAObjectから、悪人の出現点を離してよい距離の上限(m)
+    private const float _roofVillainMinPatrol = 3.0f;     // 屋上の悪人の往復ルートの、片側の長さの下限(m)
+    private const float _groupRadiusMargin = 1.5f;        // 悪人のグループの広がり(半径)の分、SAObjectの柱から離す距離(m)
     private const float _roofSiteMinEdge = 2.5f;          // 屋上の悪人の出現点は、屋上の縁からこの距離(m)以上内側に置く
     private const float _roofSiteMinHeight = 4.0f;        // 屋上の悪人の出現点の高さの範囲(m。SAで飛んで行ける高さ)
     private const float _roofSiteMaxHeight = 14.0f;
     private const int _extraSquadsPerArea = 2;   // エリアごとに足す、警察のグループの数(悪人の出現点ごとのグループとは別。空いている所に置く)
     private const int _droneStride = 3;          // ドローンを置く悪人の出現点の間隔(番号を、この数で割った余りが1の所に置く)
-    private const int _laserCount = 4;      // エリアごとの高所のレーザーの数
-    private const float _laserMinSpacing = 90.0f;      // レーザー同士を離す距離(m)
+    private const int _sweepGroundPerArea = 3;          // エリアごとの、地上の通路を横切って往復するレーザーの数
+    private const int _sweepRoofPerArea = 2;            // エリアごとの、屋上を横切って往復するレーザーの数
+    private const float _sweepSpacing = 45.0f;          // 往復するレーザー同士の、往復の線を離す距離(m)
+    private const float _sweepMinLength = 10.0f;        // 往復する距離の範囲(m。上限は、CS_SecurityLaserの往復の距離の上限50mに収める)
+    private const float _sweepMaxLength = 40.0f;
+    private static readonly float[] _sweepLengths = { 40.0f, 30.0f, 22.0f, 16.0f, 12.0f };   // 往復する距離の候補(長い順。m)
+    private static readonly float[] _sweepStartShares = { 1.0f, 0.6f, 0.3f, 0.0f };      // 始点の位置の候補(通路の後ろの端から、点までの間の、どこまで戻るか)
+    private const float _sweepHeight = 1.0f;            // レーザーの高さ(足元から。m。ジャンプで越える・かわす高さ)
+    private const float _sweepBeamThickness = 0.3f;     // レーザーの太さ(m)
+    private const float _sweepBeamExtra = 0.6f;         // レーザーの長さを、歩ける幅より足す長さ(m。壁際をすり抜けられないように)
+    private const float _sweepGroundMinWidth = 3.0f;    // 地上の通路の、道幅の範囲(m)
+    private const float _sweepGroundMaxWidth = 12.0f;
+    private const float _sweepGroundWideWidth = 24.0f;   // 道幅が _sweepGroundMaxWidth までの通路が無いエリアで、選ぶ通路の道幅の上限(m)
+    private const float _sweepWideFromVillain = 150.0f; // その時の、悪人の出現点からの距離の上限(m)
+    private const float _sweepRoofMinWidth = 4.0f;      // 屋上の通路(屋上の幅)の範囲(m)
+    private const float _sweepRoofMaxWidth = 40.0f;
+    private const float _sweepMinFromVillain = 10.0f;   // 地上のレーザーを置く、悪人の出現点からの距離の範囲(m)
+    private const float _sweepMaxFromVillain = 80.0f;
+    private const float _sweepRoofMinFromVillain = 6.0f;    // 屋上のレーザーを置く、悪人の出現点からの距離の範囲(m)
+    private const float _sweepRoofMaxFromVillain = 35.0f;
     private const int _lightsPerArea = 4;              // エリアごとのストリートライトの数(ソロ用は全体で12本)
     private const float _lightDistance = 100.0f;       // ストリートライトが往復する距離の上限(m。ソロ用と同じ)
     private const float _lightMinLine = 60.0f;         // ストリートライトを置く大通りの、まっすぐ続く長さの下限(m)
-    private const float _lightMinWidth = 9.0f;         // ストリートライトを置く大通りの、道幅の下限(m。ライトの直径10mがほぼ収まる)
+    private const float _lightMinWidth = 12.0f;        // ストリートライトを置く大通りの、道幅の下限(m。これより狭い道には置かない)
     private const float _lightMinSpacing = 60.0f;      // ストリートライトの往復する線同士を離す距離(m)
     private const float _lightHeightOffset = 0.25f;    // ストリートライトを、歩ける床から浮かせる高さ(m。ソロ用は床+0.25m)
 
@@ -91,7 +115,26 @@ public static class CSED_FieldMultiLayoutGenerator
     private const float _minExtraRouteLength = 300.0f;  // 空いている所に足すグループの、巡回ルートの一周の長さの下限(m。これより短いルートは、意味が薄いので置かない)
     private const int _gapCandidateTries = 14;             // 空いている所のグループを置く時に、試す中心の候補の数
     private const int _routePoints = 10;                    // 巡回ルートのポイントの数(上限)
-    private const float _roadSpacing = 28.0f;            // 地上のSAObjectを立てる間隔の目安(m。地上のどの点からも、この距離以内に1本ある)
+    private const float _roadSpacing = 22.0f;            // 地上のSAObjectを立てる間隔の目安(m。地上のどの点からも、この距離以内に1本ある。短いほど、ただ走る移動が減る)
+    private const float _runSpeed = 5.0f;                // 街を走る速さ(m/秒。プレイヤーの moveSpeed の初期値)
+    private const float _lightCoverageMin = 0.85f;      // ライトの円(往復する範囲)のうち、道(歩ける場所)の上にある割合の下限
+    private const float _climbMinTargetHeight = 8.0f;   // 登れるようにするビルの屋上の高さの下限(m。地上から)
+    private const float _climbMinRoofHeight = 4.0f;     // 登る時に足場にする屋上の高さの範囲(m)
+    private const float _climbMaxRoofHeight = 120.0f;
+    private const float _climbGrid = 3.0f;              // 登る足場の屋上を探す格子の間隔(m)
+    private const float _climbMinStep = 6.0f;           // 1回で飛び移る水平距離の下限(m。上限は、足元の範囲の箱の広さ)
+    private const float _climbMinGain = 0.0f;           // 1回で飛び移る高さの差の範囲(m)
+    private const float _climbMaxGain = 19.0f;
+    private const int _climbMaxSteps = 20;              // 登る段の数の上限
+    private const float _ledgeMinHeight = 6.0f;         // 壁に足す足場(壁から張り出したSAObject)の、一番低い高さ(m。足元)
+    private const float _ledgeStep = 6.0f;              // 壁に足す足場の候補を並べる、高さの間隔(m)
+    private const int _ledgeEvery = 3;                  // 壁に足す足場の候補を、屋上の縁の格子の何点おきに置くか
+    private const float _ledgeProbe = 7.0f;             // 屋上の縁の外を調べる距離(m。この先が低くなっていれば、本物の縁)
+    private const float _ledgeDrop = 4.0f;              // 屋上の縁の外が、屋上よりこれ以上低ければ、本物の縁とみなす(m)
+    private const float _ledgeArmWidth = 0.35f;         // 壁と足場の柱をつなぐ腕の太さ(m)
+    private const int _climbTriesPerBuilding = 40;     // 1棟のビルで、登り道を作れる屋上の点を試す数の上限
+    private const float _climbSameRoof = 1.0f;          // 隣り合う屋上の点の高さの差がこれ以内なら、同じビルの屋上とみなす(m)
+    private const float _maxRunSeconds = 120.0f;         // ただ走る移動の長さの上限(秒。これを超える場所が無いようにする)
     private const float _maxFlightDistance = 22.0f;      // SAで飛んで着くまでの距離の上限(m)。プレイヤーの飛ぶ速さ(25m/秒)×飛べる時間(1秒)より、少し短くする
     private const float _maxReachHalf = 18.0f;           // 足元の範囲の箱の、水平方向の半分の大きさの上限(m)
 
@@ -111,6 +154,8 @@ public static class CSED_FieldMultiLayoutGenerator
     private const string _policeGroup = "Police";
     private const string _laserGroup = "SecurityLasers";
     private const string _lightGroup = "SecurityLights";
+    private const string _handLaserGroup = "SecurityLaseres";    // 手で置いたレーザーの親(ソロ用と同じ綴り)。配置し直す時は消す
+    private const string _handLightGroup = "ScurityLights";      // 手で置いたライトの親。配置し直す時は消す
     private const string _droneGroup = "SecurityDrones";
     private const string _hideGroup = "HidePoints";
     private const string _saObjectGroup = "SAObjects";         // SAポイントの足場にする、信号・街灯に見立てた仮オブジェクト(SAObject)の親
@@ -144,6 +189,8 @@ public static class CSED_FieldMultiLayoutGenerator
     private static List<Vector3> _ground;
     private static List<(Vector3 a, Vector3 b)> _villainLines;   // 悪人の往復ルート(両端の線)。SAObjectの柱をここに立てない
     private static bool _relaxSites;               // 悪人の出現点を選ぶ条件を、ゆるめているか(道の幅の上限・中心からの距離の上限)
+    private static List<Vector3> _roofNavAll;       // 高さ _roofVillainMinHeight〜_roofVillainMaxHeight の屋上の、歩ける場所(NavMesh)の点
+    private static List<Vector3> _climbRoofNodes = new List<Vector3>();   // 登れる屋上のSAObjectの位置(屋上の点)
     private static List<Vector3> _roofNav;          // 低い屋上(高さ _roofSiteMinHeight〜_roofSiteMaxHeight)の、歩ける場所(NavMesh)の点
     private static float _nearRadius = _routeNearRadius;   // 今作っている巡回ルートの、最初のポイントを悪人の出現点から離す距離(m)
     private static List<Vector3> _squadPoints;     // 置いた警察のグループ(もとからある物を含む)の巡回ポイントの位置(重なりを避けるのに使う)
@@ -209,11 +256,25 @@ public static class CSED_FieldMultiLayoutGenerator
     /// <summary>
     /// マルチのフィールドの、防犯レーザーとストリートライトだけを、配置し直すメソッド(警察・SAObject・ハイドポイント・ドローンは、そのまま)
     /// ライト: 地上の大通り(長くまっすぐで、幅の広い道)を、ソロ用と同じように、大通りに沿って往復して照らす。エリアごとに _lightsPerArea 本
-    /// レーザー: 屋上(高所)に置く。エリアごとに _laserCount 本。エリアの中で、他のレーザーから離れた所に置く
+    /// レーザー: 通路を横切って、通路に沿って往復する棒。地上の通路と、屋上の悪人のそばに置く(悪人・SAObjectは、今ある物を使う)
     /// 結果は Temp/FieldLaserLightReport.txt
     /// </summary>
     [MenuItem("Tools/Police/マルチのレーザーとライトを配置する")]
     private static void PlaceLasersAndLights()
+    {
+        PlaceDevices(true, true);
+    }
+
+    /// <summary>
+    /// マルチのフィールドの、ストリートライトだけを、配置し直すメソッド(レーザーを含む他の物は、そのまま。手で置いたライトは消す)
+    /// </summary>
+    [MenuItem("Tools/Police/マルチのライトだけを配置する")]
+    private static void PlaceLightsOnly()
+    {
+        PlaceDevices(false, true);
+    }
+
+    private static void PlaceDevices(bool withLasers, bool withLights)
     {
         _report = new StringBuilder();
         _policeFaction = new List<Vector3>();
@@ -233,7 +294,10 @@ public static class CSED_FieldMultiLayoutGenerator
 
         // 前に置いたレーザー・ライトのコライダーが、空きの判定に混ざらないよう、調べている間だけ無効にする
         List<GameObject> hidden = new List<GameObject>();
-        foreach (string groupName in new[] { _laserGroup, _lightGroup })
+        List<string> groupNames = new List<string>();
+        if (withLasers) groupNames.AddRange(new[] { _laserGroup, _handLaserGroup });
+        if (withLights) groupNames.AddRange(new[] { _lightGroup, _handLightGroup });
+        foreach (string groupName in groupNames)
         {
             Transform group = _multi.Find(groupName);
             if (group == null || !group.gameObject.activeSelf) continue;
@@ -249,14 +313,18 @@ public static class CSED_FieldMultiLayoutGenerator
             CollectGeometry();
             References refs = CollectReferences();
             contents = PrefabUtility.LoadPrefabContents(path);
-            foreach (string groupName in new[] { _laserGroup, _lightGroup })
+            foreach (string groupName in groupNames)
             {
                 Transform group = contents.transform.Find(groupName);
                 if (group != null) Object.DestroyImmediate(group.gameObject);
             }
 
-            PlaceLights(contents, refs);
-            PlaceLasers(contents, refs);
+            if (withLights) PlaceLights(contents, refs);
+            if (withLasers)
+            {
+                _saBases = CollectSceneSaBases();
+                PlaceSweepLasers(contents, refs, CollectSceneSites());
+            }
             PrefabUtility.SaveAsPrefabAsset(contents, path);
         }
         finally
@@ -277,6 +345,8 @@ public static class CSED_FieldMultiLayoutGenerator
         public float yaw;
         public float distance;
         public float score;
+        public float diameter;     // 円の直径(m。道幅に合わせる)
+        public float width;        // 線に沿った道幅の最小値(m)
     }
 
     /// <summary>
@@ -292,7 +362,7 @@ public static class CSED_FieldMultiLayoutGenerator
         {
             foreach (LightLine line in candidates)
             {
-                if (perArea[line.area] >= _lightsPerArea || IsLightLineNear(chosen, line, spacing)) continue;
+                if (perArea[line.area] >= _lightsPerArea || IsLightLineNear(chosen, line, spacing) || LightRoadCoverage(line) < _lightCoverageMin) continue;
 
                 chosen.Add(line);
                 perArea[line.area]++;
@@ -300,12 +370,12 @@ public static class CSED_FieldMultiLayoutGenerator
             }
         }
         _report.AppendLine($"ストリートライト(地上の大通り): {chosen.Count}本(エリアごと: {string.Join(", ", perArea)})");
-        foreach (LightLine line in chosen) _report.AppendLine($"  エリア{line.area}: 始点 ({line.origin.x:F0}, {line.origin.y:F1}, {line.origin.z:F0}) 向き {line.yaw:F0}度 往復 {line.distance:F0}m 点数 {line.score:F0}");
+        foreach (LightLine line in chosen) _report.AppendLine($"  エリア{line.area}: 始点 ({line.origin.x:F0}, {line.origin.y:F1}, {line.origin.z:F0}) 向き {line.yaw:F0}度 往復 {line.distance:F0}m 道幅 {line.width:F0}m 円の直径 {line.diameter:F0}m 点数 {line.score:F0}");
     }
 
     /// <summary>
     /// 大通りの候補(長くまっすぐで、幅が広く、建物や柱に当たらない線)を、点数の高い順に集めるメソッド
-    /// 点数: 線の長さ + 道幅の最小値 × 4 - エリアの中心から線の真ん中までの距離 × 0.5(長く、広く、エリアの中心に近い道ほど高い)
+    /// 点数: 道幅の最小値 × 10 + 線の長さ × 0.5 - エリアの中心から線の真ん中までの距離 × 0.2(道幅が一番効く。一番広い大通りから選ばれる)
     /// </summary>
     private static List<LightLine> FindLightLines()
     {
@@ -330,8 +400,8 @@ public static class CSED_FieldMultiLayoutGenerator
                 if (!TryCenterOnStreet(hit.position, direction, distance, out Vector3 centered, out float width) || width < _lightMinWidth) continue;
 
                 Vector3 middle = centered + direction * (distance * 0.5f);
-                float score = distance + width * 4.0f - FlatDistance(middle, _areaCenters[area]) * 0.5f;
-                lines.Add(new LightLine { area = area, origin = centered, yaw = yaw, distance = distance, score = score });
+                float score = width * 10.0f + distance * 0.5f - FlatDistance(middle, _areaCenters[area]) * 0.2f;
+                lines.Add(new LightLine { area = area, origin = centered, yaw = yaw, distance = distance, score = score, diameter = Mathf.Clamp(width - 1.0f, 8.0f, 20.0f), width = width });
             }
         }
         lines.Sort((a, b) => b.score.CompareTo(a.score));
@@ -414,6 +484,33 @@ public static class CSED_FieldMultiLayoutGenerator
         return false;
     }
 
+    /// <summary>
+    /// ライトの円が、往復する間ずっと、道(歩ける場所)の上にどれだけ乗るか(0〜1)を返すメソッド(10mおきに、円の中を2mおきに調べる)
+    /// 建物や壁の上を照らす割合が多いライトを、選ばないために使う
+    /// </summary>
+    private static float LightRoadCoverage(LightLine line)
+    {
+        Vector3 direction = Quaternion.Euler(0.0f, line.yaw, 0.0f) * Vector3.forward;
+        float radius = line.diameter * 0.5f;
+        int total = 0;
+        int onRoad = 0;
+        for (float t = 0.0f; t <= line.distance; t += 10.0f)
+        {
+            Vector3 center = line.origin + direction * t;
+            for (float dx = -radius; dx <= radius; dx += 2.0f)
+            {
+                for (float dz = -radius; dz <= radius; dz += 2.0f)
+                {
+                    if (dx * dx + dz * dz > radius * radius) continue;
+
+                    total++;
+                    if (NavMesh.SamplePosition(center + new Vector3(dx, 0.0f, dz), out _, 0.6f, NavMesh.AllAreas)) onRoad++;
+                }
+            }
+        }
+        return total > 0 ? (float)onRoad / total : 0.0f;
+    }
+
     private static void CreateLight(Transform container, References refs, LightLine line, int number)
     {
         GameObject instance = (GameObject)PrefabUtility.InstantiatePrefab(refs.lightPrefab, container);
@@ -426,61 +523,8 @@ public static class CSED_FieldMultiLayoutGenerator
         SerializedObject serialized = new SerializedObject(instance.GetComponent<CS_SecurityLight>());
         serialized.FindProperty("_moveDirection").vector3Value = Vector3.forward;
         serialized.FindProperty("_moveDistance").floatValue = Mathf.Clamp(line.distance, 0.0f, 100.0f);
+        serialized.FindProperty("_diameter").floatValue = line.diameter;
         serialized.ApplyModifiedPropertiesWithoutUndo();
-    }
-
-    /// <summary>
-    /// 防犯レーザーを、屋上(高所)に置くメソッド(エリアごとに _laserCount 本。他のレーザーから _laserMinSpacing 以上離す)
-    /// </summary>
-    private static void PlaceLasers(GameObject contents, References refs)
-    {
-        Transform lasers = FindOrCreateGroup(contents.transform, _laserGroup);
-        List<Vector3> placed = new List<Vector3>();
-        int[] perArea = new int[_areaCenters.Count];
-        for (int area = 0; area < _areaCenters.Count; area++)
-        {
-            for (int k = 0; k < _laserCount; k++)
-            {
-                foreach (Vector3 center in GetLaserCenters(area, placed))
-                {
-                    List<Vector3> roofs = FindRoofs(new Site { area = area, position = center }, _highMinAbove, _highMaxAbove, _perchMinDistance, _perchMaxDistance);
-                    if (roofs.Count == 0 || !TryCreateLaser(lasers, refs, roofs, $"SecurityLaser_A{area}_{placed.Count + 1:00}")) continue;
-
-                    placed.Add(center);
-                    perArea[area]++;
-                    break;
-                }
-            }
-        }
-        _report.AppendLine($"防犯レーザー(屋上): {placed.Count}本(エリアごと: {string.Join(", ", perArea)})");
-    }
-
-    /// <summary>
-    /// エリアの中で、置いたレーザーから遠い順に、レーザーの周りの屋上を探す中心(地上の歩ける点)を並べるメソッド
-    /// </summary>
-    private static List<Vector3> GetLaserCenters(int area, List<Vector3> placed)
-    {
-        List<(float distance, Vector3 position)> scored = new List<(float, Vector3)>();
-        for (int i = 0; i < _ground.Count; i += 3)
-        {
-            Vector3 candidate = _ground[i];
-            if (NearestArea(candidate) != area || IsNearAny(_startPoints, candidate, _siteMinFromStart)) continue;
-
-            float nearest = float.MaxValue;
-            foreach (Vector3 other in placed) nearest = Mathf.Min(nearest, FlatDistance(candidate, other));
-            if (nearest < _laserMinSpacing) continue;
-
-            scored.Add((Mathf.Min(nearest, 400.0f), candidate));
-        }
-        scored.Sort((a, b) => b.distance.CompareTo(a.distance));
-
-        List<Vector3> result = new List<Vector3>();
-        foreach ((float distance, Vector3 position) entry in scored)
-        {
-            if (!IsNearAny(result, entry.position, 40.0f)) result.Add(entry.position);
-            if (result.Count >= _gapCandidateTries * 2) break;
-        }
-        return result;
     }
 
     /// <summary>
@@ -503,7 +547,7 @@ public static class CSED_FieldMultiLayoutGenerator
         try
         {
             Transform root = contents.transform;
-            foreach (string groupName in new[] { _laserGroup, _lightGroup, _droneGroup })
+            foreach (string groupName in new[] { _laserGroup, _lightGroup, _droneGroup, _handLaserGroup, _handLightGroup })
             {
                 Transform group = root.Find(groupName);
                 if (group != null) Object.DestroyImmediate(group.gameObject);
@@ -698,9 +742,12 @@ public static class CSED_FieldMultiLayoutGenerator
         PlaceRoofSa(contents, refs, sites);     // SAObjectの位置を、警察のルートで使うので、警察より先に置く
         PlaceRoadSa(contents, refs);
         PlacePolice(contents, refs, sites);
-        PlaceDronesAndLasers(contents, refs, sites);
+        PlaceClimbSa(contents, refs);           // 屋上のSAObjectを足して、ビルを登れるようにする(ドローン・レーザーの空き判定に混ざるよう、先に置く)
+        PlaceRoofVillains(contents, refs, sites);   // 登れるビルの屋上に、悪人を置く(警察のグループも、そのそばに置く)
+        PlaceDrones(contents, refs, sites);
         EnsurePoliceCoverage(contents, refs, sites);
         ReportCoverage(sites);
+        ReportRunTime(sites);
     }
 
     // =====================================================================
@@ -814,11 +861,14 @@ public static class CSED_FieldMultiLayoutGenerator
 
         _ground = new List<Vector3>();
         _roofNav = new List<Vector3>();
+        _roofNavAll = new List<Vector3>();
         NavMeshTriangulation triangulation = NavMesh.CalculateTriangulation();
         HashSet<Vector2Int> seen = new HashSet<Vector2Int>();
         HashSet<Vector3Int> seenRoof = new HashSet<Vector3Int>();
+        HashSet<Vector3Int> seenHigh = new HashSet<Vector3Int>();
         foreach (Vector3 vertex in triangulation.vertices)
         {
+            if (vertex.y >= _roofVillainMinHeight && vertex.y <= _roofVillainMaxHeight && seenHigh.Add(new Vector3Int(Mathf.RoundToInt(vertex.x / 3.0f), Mathf.RoundToInt(vertex.y / 2.0f), Mathf.RoundToInt(vertex.z / 3.0f)))) _roofNavAll.Add(vertex);
             if (vertex.y >= _roofSiteMinHeight && vertex.y <= _roofSiteMaxHeight)
             {
                 if (seenRoof.Add(new Vector3Int(Mathf.RoundToInt(vertex.x / 3.0f), Mathf.RoundToInt(vertex.y / 2.0f), Mathf.RoundToInt(vertex.z / 3.0f)))) _roofNav.Add(vertex);
@@ -828,7 +878,7 @@ public static class CSED_FieldMultiLayoutGenerator
             _ground.Add(vertex);
         }
         _ground.Sort((a, b) => a.x != b.x ? a.x.CompareTo(b.x) : a.z.CompareTo(b.z));
-        _report.AppendLine($"地上の歩ける点 {_ground.Count}個 / 低い屋上の歩ける点 {_roofNav.Count}個 / エリア {_areaCenters.Count}個");
+        _report.AppendLine($"地上の歩ける点 {_ground.Count}個 / 低い屋上の歩ける点 {_roofNav.Count}個 / 高い屋上の歩ける点 {_roofNavAll.Count}個 / エリア {_areaCenters.Count}個");
     }
 
     /// <summary>
@@ -937,9 +987,9 @@ public static class CSED_FieldMultiLayoutGenerator
 
         for (int area = 0; area < _areaCenters.Count; area++)
         {
-            for (int index = 0; index < _sitesPerArea; index++)
+            for (int index = 0; index < _groundSitesPerArea; index++)
             {
-                // 狭い道・低い屋上だけでは足りないエリアは、道の幅・中心からの距離を少しゆるめて、選び直す
+                // 地上は、ビルの間の狭い道だけでは足りないエリアは、道の幅・中心からの距離を少しゆるめて、選び直す
                 Site site = PickSite(area, index, sites);
                 if (site == null)
                 {
@@ -1152,6 +1202,160 @@ public static class CSED_FieldMultiLayoutGenerator
         serialized.FindProperty("_fallbackPatrolDistance").floatValue = Mathf.Min(_trailDistance[site.area % _trailDistance.Length], site.patrolHalf);
         serialized.FindProperty("_lookAroundTime").floatValue = _trailLookTime[site.area % _trailLookTime.Length];
         serialized.ApplyModifiedPropertiesWithoutUndo();
+    }
+
+    // =====================================================================
+    // 悪人(屋上): SAで登れるビルの屋上
+    // =====================================================================
+
+    /// <summary>
+    /// SAで登れるビルの屋上に、悪人の出現点を置くメソッド(ビルを登るSAObjectを立てた後に行う)
+    /// エリアごとに _roofSitesPerArea 個。登れる屋上のSAObjectから _roofVillainNearSa 以内の、同じ高さの屋上の、歩ける場所から選ぶ
+    /// 置いた出現点ごとに、そのそばの地上に警察のグループも置く。出現点が _sitesPerArea に足りないエリアは、ビルの間の地上で補う
+    /// </summary>
+    private static void PlaceRoofVillains(GameObject contents, References refs, List<Site> sites)
+    {
+        Transform parent = contents.transform.Find("Villain/VillainSpawnPoints");
+        if (parent == null || refs.villainPointPrefab == null) return;
+
+        Transform police = FindOrCreateGroup(contents.transform, _policeGroup);
+        int roofCount = 0;
+        int groundCount = 0;
+        int squadCount = 0;
+        List<string> heights = new List<string>();
+        for (int area = 0; area < _areaCenters.Count; area++)
+        {
+            for (int k = 0; k < _roofSitesPerArea; k++)
+            {
+                Site site = PickRoofVillainSite(area, NextSiteIndex(sites, area), sites);
+                if (site == null) break;
+
+                AddVillainSite(parent, refs, sites, site);
+                if (TryPlaceSquad(police, refs, GetGroundCenter(site), $"{_generatedSquadPrefix}{site.area}_{site.index + 1:00}")) squadCount++;
+                roofCount++;
+                heights.Add($"エリア{area}:{site.position.y:F0}m");
+            }
+
+            // 屋上に足りない分は、ビルの間の地上(ある程度広い所)で補う
+            while (sites.FindAll(other => other.area == area).Count < _sitesPerArea)
+            {
+                _relaxSites = true;
+                Site site = PickBestSite(area, NextSiteIndex(sites, area), sites, _ground, false);
+                _relaxSites = false;
+                if (site == null) break;
+
+                FitPatrolLine(site);
+                AddVillainSite(parent, refs, sites, site);
+                if (TryPlaceSquad(police, refs, GetGroundCenter(site), $"{_generatedSquadPrefix}{site.area}_{site.index + 1:00}")) squadCount++;
+                groundCount++;
+            }
+        }
+        _report.AppendLine($"悪人の出現点(登れるビルの屋上): {roofCount}個({string.Join(", ", heights)}) / 足りない分をビルの間の地上で補った {groundCount}個 / 警察のグループ {squadCount}個");
+    }
+
+    private static void AddVillainSite(Transform parent, References refs, List<Site> sites, Site site)
+    {
+        RegisterVillainLine(site);
+        sites.Add(site);
+        CreateVillainPoint(parent, refs.villainPointPrefab, site);
+    }
+
+    private static int NextSiteIndex(List<Site> sites, int area)
+    {
+        int next = 0;
+        foreach (Site site in sites)
+        {
+            if (site.area == area) next = Mathf.Max(next, site.index + 1);
+        }
+        return next;
+    }
+
+    /// <summary>
+    /// 登れるビルの屋上から、悪人の出現点を1つ選ぶメソッド(エリアの中で、すでに選んだ点から離れていて、高い屋上を優先)
+    /// 屋上の縁の外へ落ちないよう、縁から _roofSiteMinEdge 以上内側へ寄せ、往復ルートの線が、SAObjectの柱に当たらない所を選ぶ
+    /// </summary>
+    private static Site PickRoofVillainSite(int area, int index, List<Site> chosen)
+    {
+        Site best = null;
+        float bestScore = -1.0f;
+        foreach (Vector3 candidate in _roofNavAll)
+        {
+            if (NearestArea(candidate) != area || IsNearAny(_startPoints, candidate, _siteMinFromStart) || !IsNearClimbNode(candidate)) continue;
+
+            float spacing = MinDistanceToSites(chosen, candidate);
+            if (spacing < _siteMinSpacing) continue;
+
+            float score = Mathf.Min(spacing, 250.0f) + Mathf.Min(candidate.y, 60.0f);
+            if (score <= bestScore) continue;
+
+            // 重い判定は、点数が上がる候補だけ行う
+            if (!TryMoveInsideRoof(candidate, out Vector3 inside)) continue;
+
+            Site site = new Site { area = area, index = index, position = inside, yaw = 0.0f, isRoof = false };
+            FitPatrolLine(site);
+            site.isRoof = true;
+            if (site.patrolHalf < _roofVillainMinPatrol || IsVillainLineOnSaObject(site) || !IsNearClimbNode(site.position)) continue;
+
+            bestScore = score;
+            best = site;
+        }
+        return best;
+    }
+
+    /// <summary>
+    /// 屋上の歩ける場所の点を、縁(歩ける場所の縁)から _roofSiteMinEdge 以上内側へ寄せるメソッド(寄せられなければ false)
+    /// </summary>
+    private static bool TryMoveInsideRoof(Vector3 position, out Vector3 inside)
+    {
+        inside = position;
+        for (int i = 0; i < 4; i++)
+        {
+            if (!NavMesh.FindClosestEdge(inside, out NavMeshHit edge, NavMesh.AllAreas)) return false;
+            if (edge.distance >= _roofSiteMinEdge) return true;
+
+            Vector3 inward = FlatOf(inside - edge.position);
+            if (inward.sqrMagnitude < 0.01f) inward = FlatOf(edge.normal);
+            if (inward.sqrMagnitude < 0.01f) return false;
+
+            Vector3 moved = inside + inward.normalized * (_roofSiteMinEdge + 0.5f - edge.distance);
+            if (!NavMesh.SamplePosition(moved, out NavMeshHit hit, 1.0f, NavMesh.AllAreas) || Mathf.Abs(hit.position.y - position.y) > 1.5f) return false;
+
+            inside = hit.position;
+        }
+        return NavMesh.FindClosestEdge(inside, out NavMeshHit last, NavMesh.AllAreas) && last.distance >= _roofSiteMinEdge * 0.8f;
+    }
+
+    /// <summary>
+    /// 位置が、登れる屋上のSAObject(_climbRoofNodes)の近く(水平距離が _roofVillainNearSa 以内)で、同じ高さの屋上かを判定するメソッド
+    /// </summary>
+    private static bool IsNearClimbNode(Vector3 position)
+    {
+        foreach (Vector3 node in _climbRoofNodes)
+        {
+            if (Mathf.Abs(node.y - position.y) <= 1.5f && FlatDistance(node, position) <= _roofVillainNearSa) return true;
+        }
+        return false;
+    }
+
+    /// <summary>
+    /// 悪人の往復ルートの線が、すでに立てたSAObjectの柱に近すぎる(線から _villainLineClearance + 柱の太さ以内)かを判定するメソッド
+    /// </summary>
+    private static bool IsVillainLineOnSaObject(Site site)
+    {
+        Vector3 direction = Quaternion.Euler(0.0f, site.yaw, 0.0f) * Vector3.forward;
+        float half = Mathf.Min(_trailDistance[site.area % _trailDistance.Length], site.patrolHalf);
+        Vector3 a = site.position + direction * half;
+        Vector3 b = site.position - direction * half;
+        foreach (Vector3 saBase in _saBases)
+        {
+            if (Mathf.Abs(saBase.y - site.position.y) > 4.0f) continue;
+
+            Vector3 d = FlatOf(b - a);
+            Vector3 toBase = FlatOf(saBase - a);
+            float t = d.sqrMagnitude < 0.0001f ? 0.0f : Mathf.Clamp01(Vector3.Dot(toBase, d) / d.sqrMagnitude);
+            if ((toBase - d * t).magnitude < _villainLineClearance + _saPoleWidth + _groupRadiusMargin) return true;
+        }
+        return false;
     }
 
     // =====================================================================
@@ -1522,27 +1726,18 @@ public static class CSED_FieldMultiLayoutGenerator
     // ドローンとレーザー(高所)
     // =====================================================================
 
-    private static void PlaceDronesAndLasers(GameObject contents, References refs, List<Site> sites)
+    private static void PlaceDrones(GameObject contents, References refs, List<Site> sites)
     {
         Transform drones = FindOrCreateGroup(contents.transform, _droneGroup);
-        Transform lasers = FindOrCreateGroup(contents.transform, _laserGroup);
         int droneCount = 0;
-        int laserCount = 0;
-        int[] lasersPerArea = new int[_areaCenters.Count];
         foreach (Site site in sites)
         {
-            bool isDroneSite = site.index % _droneStride == 1;
-            List<Vector3> roofs = FindRoofs(site, _highMinAbove, _highMaxAbove, _perchMinDistance, _perchMaxDistance);
-            if (roofs.Count == 0) continue;
+            if (site.index % _droneStride != 1) continue;
 
-            if (isDroneSite && TryCreateDrone(drones, refs, roofs, $"SecurityDroneSpawner_A{site.area}_{site.index + 1:00}")) droneCount++;
-            if (lasersPerArea[site.area] < _laserCount && TryCreateLaser(lasers, refs, roofs, $"SecurityLaser_A{site.area}_{site.index + 1:00}"))
-            {
-                lasersPerArea[site.area]++;
-                laserCount++;
-            }
+            List<Vector3> roofs = FindRoofs(site, _highMinAbove, _highMaxAbove, _perchMinDistance, _perchMaxDistance);
+            if (roofs.Count > 0 && TryCreateDrone(drones, refs, roofs, $"SecurityDroneSpawner_A{site.area}_{site.index + 1:00}")) droneCount++;
         }
-        _report.AppendLine($"巡回ドローン(屋上の上空)・防犯レーザー(屋上): {droneCount}機・{laserCount}本");
+        _report.AppendLine($"巡回ドローン(屋上の上空): {droneCount}機");
     }
 
     /// <summary>
@@ -1618,30 +1813,6 @@ public static class CSED_FieldMultiLayoutGenerator
         GameObject created = new GameObject(childName);
         created.transform.SetParent(parent, false);
         return created.transform;
-    }
-
-    private static bool TryCreateLaser(Transform container, References refs, List<Vector3> roofs, string laserName)
-    {
-        Vector3 roof = roofs[roofs.Count / 3];
-        for (float yaw = 0.0f; yaw < 180.0f; yaw += 30.0f)
-        {
-            Quaternion rotation = Quaternion.Euler(0.0f, yaw, 0.0f);
-            Vector3 center = roof + Vector3.up * 1.2f;
-            if (Physics.CheckBox(center, new Vector3(6.0f, 0.3f, 0.3f), rotation, ~0, QueryTriggerInteraction.Ignore)) continue;
-
-            GameObject instance = (GameObject)PrefabUtility.InstantiatePrefab(refs.laserPrefab, container);
-            instance.name = laserName;
-            CopyScriptValues(refs.laserTemplate.gameObject, instance);
-            instance.transform.position = ToLocal(roof + Vector3.up * 1.2f - rotation * Vector3.right * 6.0f);
-            instance.transform.rotation = Quaternion.Inverse(_multi.rotation) * rotation;
-            _policeFaction.Add(roof);
-            SerializedObject serialized = new SerializedObject(instance.GetComponent<CS_SecurityLaser>());
-            serialized.FindProperty("_beamLength").floatValue = 12.0f;
-            serialized.FindProperty("_moveDistance").floatValue = 6.0f;
-            serialized.ApplyModifiedPropertiesWithoutUndo();
-            return true;
-        }
-        return false;
     }
 
     // =====================================================================
@@ -2108,6 +2279,714 @@ public static class CSED_FieldMultiLayoutGenerator
     }
 
     // =====================================================================
+    // SAポイント: ビルを登る(屋上から屋上へ、SAで飛び移る)
+    // =====================================================================
+
+    /// <summary>
+    /// ほとんどのビルの屋上へ、SAで飛び移りながら登っていけるように、屋上にSAObjectとハイドポイントを、階段のように足していくメソッド
+    /// まず、地上(や地上のSAObject)から飛び立てる屋上を1段目にして、そこから、1回で飛べる高さ(_climbMinGain〜_climbMaxGain)ずつ高い屋上へ、段を広げていく(幅優先)。
+    /// 屋上の点は、つながった同じ高さの面ごとに「ビル」としてまとめ、高さ _climbMinTargetHeight 以上のビルを、高い順に1棟ずつ調べる。
+    /// すでに屋上にSAObjectがあるビル・他のビルの登り道で足場になったビルは、そのまま登れるとみなす。
+    /// どちらでもなければ、登れる屋上の点を、段の少ない順に試して、1段目からその点までの屋上に、下から順にSAObjectを立てる
+    /// </summary>
+    private static void PlaceClimbSa(GameObject contents, References refs)
+    {
+        Transform hideGroup = FindOrCreateGroup(contents.transform, _hideGroup);
+        Transform saGroup = FindOrCreateGroup(contents.transform, _saObjectGroup);
+        _climbRoofNodes = new List<Vector3>();
+
+        // 屋上の点を、ビルごとにまとめる(すでにSAObjectが立っているビルを見つけるため、近さで絞る前にまとめる)
+        List<Vector3> allCells = CollectRoofCells();
+        int[] buildingOfAll = ClusterRoofCells(allCells, out int buildingCount);
+        float[] buildingTop = new float[buildingCount];
+        bool[] hasSa = new bool[buildingCount];
+        for (int i = 0; i < allCells.Count; i++)
+        {
+            int b = buildingOfAll[i];
+            buildingTop[b] = Mathf.Max(buildingTop[b], allCells[i].y);
+            if (hasSa[b]) continue;
+
+            foreach (Vector3 saBase in _saBases)
+            {
+                if (FlatDistance(saBase, allCells[i]) < _climbGrid * 1.5f && Mathf.Abs(saBase.y - allCells[i].y) < 1.5f)
+                {
+                    hasSa[b] = true;
+                    _climbRoofNodes.Add(saBase);
+                    break;
+                }
+            }
+        }
+
+        List<Vector3> cells = new List<Vector3>();
+        List<int> buildingOf = new List<int>();
+        for (int i = 0; i < allCells.Count; i++)
+        {
+            if (!IsFarFromOtherSa(allCells[i]) || !IsPoleFree(allCells[i], _roofPoleHeight)) continue;
+
+            cells.Add(allCells[i]);
+            buildingOf.Add(buildingOfAll[i]);
+        }
+
+        // 屋上へ飛び移れる足場が無い高いビルのために、ビルの壁にも、張り出した足場の候補を並べる(屋上の点より後ろに足す)
+        int roofCount = cells.Count;
+        Dictionary<int, Vector3> walls = AddWallLedges(allCells, buildingOfAll, buildingTop, cells, buildingOf);
+
+        int[] depth = new int[cells.Count];
+        int[] parent = new int[cells.Count];
+        int[] roadParent = new int[cells.Count];     // 地上のSAObjectの頭の上から飛ぶ時の、そのSAObjectの番号(_roadRoots の添字)。違えば -1
+        Vector3[] grounds = new Vector3[cells.Count];
+        Queue<int> queue = new Queue<int>();
+        for (int i = 0; i < cells.Count; i++)
+        {
+            depth[i] = -1;
+            parent[i] = -1;
+            roadParent[i] = -1;
+            if (!CanReachFromGround(cells[i], out grounds[i])) continue;
+
+            depth[i] = 1;
+            queue.Enqueue(i);
+        }
+        // 地上のSAObject(頭の上は、屋上のSAObjectより _roadPoleHeight - _roofPoleHeight 高い)の頭の上からも、屋上へ飛べる(地上 → 地上のSA → 屋上)
+        for (int i = 0; i < cells.Count; i++)
+        {
+            if (depth[i] != -1) continue;
+
+            for (int r = 0; r < _roadRoots.Count; r++)
+            {
+                Vector3 low = _roadRoots[r] + Vector3.up * (_roadPoleHeight - _roofPoleHeight);
+                if (!CanHop(low, cells[i])) continue;
+
+                depth[i] = 2;
+                roadParent[i] = r;
+                queue.Enqueue(i);
+                break;
+            }
+        }
+        int reachable = queue.Count;
+        while (queue.Count > 0)
+        {
+            int low = queue.Dequeue();
+            if (depth[low] >= _climbMaxSteps) continue;
+
+            for (int high = 0; high < cells.Count; high++)
+            {
+                if (depth[high] != -1 || !CanHop(cells[low], cells[high])) continue;
+
+                depth[high] = depth[low] + 1;
+                parent[high] = low;
+                queue.Enqueue(high);
+                reachable++;
+            }
+        }
+
+        // ビルごとの、登れる屋上の点
+        List<int>[] members = new List<int>[buildingCount];
+        for (int i = 0; i < roofCount; i++)
+        {
+            if (depth[i] < 1) continue;
+
+            if (members[buildingOf[i]] == null) members[buildingOf[i]] = new List<int>();
+            members[buildingOf[i]].Add(i);
+        }
+
+        // 高いビルから順に、登れるようにする
+        List<int> order = new List<int>();
+        for (int b = 0; b < buildingCount; b++)
+        {
+            if (buildingTop[b] >= _climbMinTargetHeight) order.Add(b);
+        }
+        order.Sort((a, b) => buildingTop[b].CompareTo(buildingTop[a]));
+
+        HashSet<int> built = new HashSet<int>();     // もう立てた屋上の点(番号)
+        int[] areaTotal = new int[_areaCenters.Count];
+        int[] areaClimbable = new int[_areaCenters.Count];
+        int alreadyHas = 0;
+        int sharedOne = 0;
+        int madeNew = 0;
+        int blocked = 0;
+        int unreachableLow = 0;
+        int unreachableMid = 0;
+        int unreachableHigh = 0;
+        int steps = 0;
+        float highest = 0.0f;
+        foreach (int b in order)
+        {
+            int area = NearestArea(AverageOf(allCells, buildingOfAll, b));
+            areaTotal[area]++;
+            if (hasSa[b])
+            {
+                alreadyHas++;
+                areaClimbable[area]++;
+                continue;
+            }
+
+            List<int> candidates = members[b];
+            if (candidates == null)
+            {
+                if (buildingTop[b] < 16.0f) unreachableLow++;
+                else if (buildingTop[b] < 30.0f) unreachableMid++;
+                else unreachableHigh++;
+                continue;
+            }
+
+            if (candidates.Exists(index => built.Contains(index)))
+            {
+                sharedOne++;
+                areaClimbable[area]++;
+                continue;
+            }
+
+            // 段の少ない順に試す(同じ段数なら、ビルの真ん中に近い順)
+            Vector3 middle = AverageOf(cells, buildingOf, b, roofCount);
+            candidates.Sort((x, y) =>
+            {
+                int byDepth = depth[x].CompareTo(depth[y]);
+                return byDepth != 0 ? byDepth : FlatDistance(cells[x], middle).CompareTo(FlatDistance(cells[y], middle));
+            });
+            bool made = false;
+            for (int t = 0; t < candidates.Count && t < _climbTriesPerBuilding && !made; t++)
+            {
+                List<int> path = TryMakeClimbPath(candidates[t], parent, cells, built);
+                if (path == null) continue;
+
+                steps += BuildClimb(hideGroup, saGroup, refs, path, cells, parent, roadParent, grounds, built, walls);
+                highest = Mathf.Max(highest, buildingTop[b]);
+                made = true;
+            }
+            if (made)
+            {
+                madeNew++;
+                areaClimbable[area]++;
+            }
+            else
+            {
+                blocked++;
+            }
+        }
+        _report.AppendLine($"  ビルを登る: 高さ{_climbMinTargetHeight}m以上のビル {order.Count}棟(エリアごと: {string.Join(", ", areaTotal)}) / 登れる {alreadyHas + sharedOne + madeNew}棟(エリアごと: {string.Join(", ", areaClimbable)})");
+        _report.AppendLine($"    内訳: 屋上にSAObjectがもともとある {alreadyHas}棟 / 他の登り道の足場になった {sharedOne}棟 / 新しく登り道を作った {madeNew}棟");
+        _report.AppendLine($"    登れない: 他のSAObjectに近すぎて立てられない {blocked}棟 / 飛び移れる足場が無い(高さ16m未満 {unreachableLow}棟, 30m未満 {unreachableMid}棟, 30m以上 {unreachableHigh}棟)");
+        _report.AppendLine($"SAポイント(ビルを登る): 足場にできる屋上 {roofCount}点 + 壁の足場の候補 {walls.Count}点(うち、地上から飛べる1段目 {CountDepth(depth, 1)}点、段を広げて登れる屋上 {reachable}点) / 足したSAObject {steps}本 / 一番高い屋上 {highest:F0}m");
+    }
+
+    /// <summary>
+    /// 屋上の点から1段目まで(上から下へ)の、立てる屋上の列を作るメソッド
+    /// すでに立てた屋上は使い回し、新しく立てる屋上が、他のSAObjectや、同じ列の別の屋上に近すぎれば、null を返す
+    /// </summary>
+    private static List<int> TryMakeClimbPath(int start, int[] parent, List<Vector3> cells, HashSet<int> built)
+    {
+        List<int> path = new List<int>();
+        for (int node = start; node != -1; node = parent[node])
+        {
+            if (!built.Contains(node))
+            {
+                if (!IsFarFromOtherSa(cells[node])) return null;
+
+                // 同じ列の中でも、つながっていない屋上同士が近すぎないようにする(横に飛び移る列で、行って戻るような並びを避ける)
+                foreach (int other in path)
+                {
+                    if (!built.Contains(other) && Vector3.Distance(cells[node], cells[other]) < _saMinSpacing) return null;
+                }
+            }
+            path.Add(node);
+        }
+        return path;
+    }
+
+    /// <summary>
+    /// 屋上の点を、つながった同じ高さの面ごとに、ビル(の屋上)としてまとめるメソッド(隣り合う点の高さの差が _climbSameRoof 以内なら同じビル)
+    /// </summary>
+    /// <returns>点ごとの、ビルの番号</returns>
+    private static int[] ClusterRoofCells(List<Vector3> cells, out int count)
+    {
+        Dictionary<long, int> lookup = new Dictionary<long, int>();
+        for (int i = 0; i < cells.Count; i++) lookup[RoofGridKey(cells[i].x, cells[i].z, 0, 0)] = i;
+
+        int[] result = new int[cells.Count];
+        for (int i = 0; i < result.Length; i++) result[i] = -1;
+        count = 0;
+        Stack<int> stack = new Stack<int>();
+        for (int i = 0; i < cells.Count; i++)
+        {
+            if (result[i] != -1) continue;
+
+            result[i] = count;
+            stack.Push(i);
+            while (stack.Count > 0)
+            {
+                int current = stack.Pop();
+                for (int dx = -1; dx <= 1; dx++)
+                {
+                    for (int dz = -1; dz <= 1; dz++)
+                    {
+                        if (!lookup.TryGetValue(RoofGridKey(cells[current].x, cells[current].z, dx, dz), out int next) || result[next] != -1) continue;
+                        if (Mathf.Abs(cells[next].y - cells[current].y) > _climbSameRoof) continue;
+
+                        result[next] = count;
+                        stack.Push(next);
+                    }
+                }
+            }
+            count++;
+        }
+        return result;
+    }
+
+    private static long RoofGridKey(float x, float z, int dx, int dz)
+    {
+        return (long)(Mathf.RoundToInt((x + 400.0f) / _climbGrid) + dx) * 100000L + (Mathf.RoundToInt((z + 400.0f) / _climbGrid) + dz);
+    }
+
+    /// <summary>
+    /// 同じビルの屋上の点の、真ん中の位置を求めるメソッド
+    /// </summary>
+    private static Vector3 AverageOf(List<Vector3> cells, IList<int> buildingOfCell, int building, int length = int.MaxValue)
+    {
+        Vector3 sum = Vector3.zero;
+        int count = 0;
+        for (int i = 0; i < cells.Count && i < length; i++)
+        {
+            if (buildingOfCell[i] != building) continue;
+
+            sum += cells[i];
+            count++;
+        }
+        return count > 0 ? sum / count : Vector3.zero;
+    }
+
+    /// <summary>
+    /// ビルの壁に、張り出した足場(壁から腕でつないだSAObject)の候補を、高さ _ledgeStep おきに並べるメソッド
+    /// 屋上の縁(外が _ledgeDrop 以上低くなっている所)の格子点から外向きに、各高さで壁を探し、壁から離した位置に柱を立てられれば、候補にする
+    /// </summary>
+    /// <returns>候補の番号(cells の添字)と、壁の点</returns>
+    private static Dictionary<int, Vector3> AddWallLedges(List<Vector3> allCells, int[] buildingOfAll, float[] buildingTop, List<Vector3> cells, List<int> buildingOf)
+    {
+        Dictionary<int, Vector3> walls = new Dictionary<int, Vector3>();
+        HashSet<long> roofKeys = new HashSet<long>();
+        foreach (Vector3 cell in allCells) roofKeys.Add(RoofGridKey(cell.x, cell.z, 0, 0));
+
+        Vector3[] outward = { Vector3.right, Vector3.left, Vector3.forward, Vector3.back };
+        float offset = _saHeadSize * 0.5f + _poleMargin + 0.3f;
+        for (int i = 0; i < allCells.Count; i++)
+        {
+            Vector3 roof = allCells[i];
+            int b = buildingOfAll[i];
+            int gridX = Mathf.RoundToInt((roof.x + 400.0f) / _climbGrid);
+            int gridZ = Mathf.RoundToInt((roof.z + 400.0f) / _climbGrid);
+            if (buildingTop[b] < _climbMinTargetHeight || (gridX + gridZ) % _ledgeEvery != 0) continue;
+
+            foreach (Vector3 direction in outward)
+            {
+                if (roofKeys.Contains(RoofGridKey(roof.x, roof.z, Mathf.RoundToInt(direction.x), Mathf.RoundToInt(direction.z)))) continue;
+
+                // 本物の縁か(この先が、屋上より十分低くなっているか)
+                Vector3 beyond = roof + direction * _ledgeProbe;
+                if (Physics.Raycast(new Vector3(beyond.x, roof.y + 3.0f, beyond.z), Vector3.down, out RaycastHit below, roof.y + 10.0f, ~0, QueryTriggerInteraction.Ignore) && below.point.y > roof.y - _ledgeDrop) continue;
+
+                for (float y = _ledgeMinHeight; y <= roof.y - 3.0f; y += _ledgeStep)
+                {
+                    Vector3 origin = new Vector3(roof.x + direction.x * (_ledgeProbe + 1.0f), y, roof.z + direction.z * (_ledgeProbe + 1.0f));
+                    if (!Physics.Raycast(origin, -direction, out RaycastHit wall, _ledgeProbe + 1.5f, ~0, QueryTriggerInteraction.Ignore)) continue;
+                    if (wall.distance < 1.0f || Vector3.Dot(wall.normal, direction) < 0.9f || Mathf.Abs(wall.normal.y) > 0.25f) continue;
+
+                    Vector3 pole = wall.point + wall.normal * offset;
+                    pole.y = y;
+                    if (!IsFarFromOtherSa(pole) || !IsPoleFree(pole, _roofPoleHeight)) continue;
+
+                    walls[cells.Count] = wall.point;
+                    cells.Add(pole);
+                    buildingOf.Add(b);
+                }
+            }
+        }
+        return walls;
+    }
+
+    /// <summary>
+    /// 壁に張り出した足場の柱と、壁をつなぐ腕(コライダー無しの細い箱)を、SAObjectに足すメソッド
+    /// 壁から少しだけ(5cm)離して、壁に埋まっている扱いにならないようにする
+    /// </summary>
+    private static void AddWallArm(Transform saObject, Vector3 poleBase, Vector3 wallPoint, References refs)
+    {
+        Vector3 toWall = FlatOf(wallPoint - poleBase);
+        float length = toWall.magnitude - 0.05f;
+        if (length <= 0.1f) return;
+
+        Vector3 direction = toWall.normalized;
+        GameObject arm = new GameObject("Cube (2)");
+        arm.transform.SetParent(saObject, false);
+        arm.transform.position = ToLocal(poleBase + direction * (length * 0.5f) + Vector3.up * (_roofPoleHeight * 0.5f));
+        arm.transform.rotation = Quaternion.LookRotation(direction, Vector3.up);
+        arm.transform.localScale = new Vector3(_ledgeArmWidth, _ledgeArmWidth, length);
+        arm.AddComponent<MeshFilter>().sharedMesh = Resources.GetBuiltinResource<Mesh>("Cube.fbx");
+        MeshRenderer meshRenderer = arm.AddComponent<MeshRenderer>();
+        if (refs.saPoleMaterial != null) meshRenderer.sharedMaterial = refs.saPoleMaterial;
+    }
+
+    private static int CountDepth(int[] depth, int value)
+    {
+        int count = 0;
+        foreach (int item in depth)
+        {
+            if (item == value) count++;
+        }
+        return count;
+    }
+
+    /// <summary>
+    /// 屋上の点(格子状。_climbGrid おき)を集めるメソッド(高さ _climbMinRoofHeight 以上の、屋上の内側だけ)
+    /// </summary>
+    private static List<Vector3> CollectRoofCells()
+    {
+        List<Vector3> cells = new List<Vector3>();
+        for (float x = -400.0f; x <= 400.0f; x += _climbGrid)
+        {
+            for (float z = -400.0f; z <= 400.0f; z += _climbGrid)
+            {
+                if (TryGetRoof(x, z, out Vector3 roof) && roof.y >= _climbMinRoofHeight && roof.y <= _climbMaxRoofHeight && IsRoofInterior(roof)) cells.Add(roof);
+            }
+        }
+        return cells;
+    }
+
+    /// <summary>
+    /// 低い屋上から、高い屋上へ、1回のSAで飛び移れるかを判定するメソッド
+    /// 高さの差が _climbMinGain〜_climbMaxGain、水平距離が _climbMinStep 以上で、足元の範囲の箱(ReachHalf)に収まり、SAObject同士が近すぎないこと
+    /// </summary>
+    private static bool CanHop(Vector3 low, Vector3 high)
+    {
+        float gain = high.y - low.y;
+        if (gain < _climbMinGain || gain > _climbMaxGain) return false;
+
+        float flat = FlatDistance(low, high);
+        return flat >= _climbMinStep && flat <= ReachHalf(gain + 0.5f) * 0.9f && Vector3.Distance(low, high) >= _saMinSpacing;
+    }
+
+    /// <summary>
+    /// 屋上のSAObjectの頭の上へ、地上のどこかから飛んで着けるかを判定するメソッド(足元の範囲の箱が、地上の歩ける場所に届くこと)
+    /// </summary>
+    private static bool CanReachFromGround(Vector3 roof, out Vector3 ground)
+    {
+        if (!TryFindNearestGround(roof, out ground) || ground.y >= _groundHeight) return false;
+
+        float topY = roof.y + _roofPoleHeight + _saHeadSize;
+        float feetY = ground.y - 0.5f;
+        return topY - feetY <= _maxFlightDistance && FlatDistance(ground, roof) <= ReachHalf(topY - feetY) * 0.9f;
+    }
+
+    /// <summary>
+    /// たどれた屋上の列に、下から順に、SAObjectとハイドポイントを立てるメソッド(一番下は、地上から。上は、1つ下のSAObjectの頭の上から飛ぶ)
+    /// すでに立てた屋上は、立て直さない
+    /// </summary>
+    /// <param name="path">目標から1段目まで(上から下へ)の屋上の番号</param>
+    /// <returns>新しく立てたSAObjectの数</returns>
+    private static int BuildClimb(Transform hideGroup, Transform saGroup, References refs, List<int> path, List<Vector3> cells, int[] parent, int[] roadParent, Vector3[] grounds, HashSet<int> built, Dictionary<int, Vector3> walls)
+    {
+        int count = 0;
+        for (int i = path.Count - 1; i >= 0; i--)
+        {
+            int node = path[i];
+            if (!built.Add(node)) continue;
+
+            float feetY;
+            if (parent[node] != -1) feetY = cells[parent[node]].y + _roofPoleHeight + _saHeadSize - 0.5f;
+            else if (roadParent[node] != -1) feetY = _roadRoots[roadParent[node]].y + _roadPoleHeight + _saHeadSize - 0.5f;
+            else feetY = grounds[node].y - 0.5f;
+            Vector3 top = PlaceSaObject(saGroup, refs, cells[node], _roofPoleHeight);
+            if (walls.TryGetValue(node, out Vector3 wallPoint)) AddWallArm(saGroup.GetChild(saGroup.childCount - 1), cells[node], wallPoint, refs);
+            else _climbRoofNodes.Add(cells[node]);
+            PlaceHidePoint(hideGroup, refs.hidePrefab, cells[node], top, feetY, true);
+            count++;
+        }
+        return count;
+    }
+
+    // =====================================================================
+    // 防犯レーザー: 通路を横切って、通路に沿って往復する
+    // =====================================================================
+
+    // 往復するレーザー1本分(置く場所・往復する向きと長さ・レーザーの長さ)
+    private class SweepLaser
+    {
+        public int area;
+        public Vector3 start;        // 往復の始点(通路の真ん中。足元の高さ)
+        public Vector3 direction;    // 始点から終点へ向かう向き(水平)
+        public float distance;       // 始点から終点までの距離(m)
+        public float length;         // レーザーの長さ(m。通路の端から端まで)
+        public float score;
+        public bool isRoof;
+        public string place;         // 報告用の、置いた場所の説明
+    }
+
+    /// <summary>
+    /// 防犯レーザーを置くメソッド。通路(壁と壁の間・屋上の端から端まで)を端から端まで横切る棒が、通路に沿って、始点から終点まで往復する
+    /// 始点・終点は、通路が続く両端(壁・柱・SAObjectの柱・歩ける場所の終わり)に当たらない範囲に合わせる
+    /// ・地上: 悪人の出現点の近く(_sweepMinFromVillain〜_sweepMaxFromVillain)の、道幅が _sweepGroundMinWidth〜_sweepGroundMaxWidth の通路を、エリアごとに _sweepGroundPerArea 本
+    /// ・屋上: 登れるビルの屋上の悪人の出現点のそばの屋上を、エリアごとに _sweepRoofPerArea 本(SAで着いた後、悪人へ向かう途中を横切る)
+    /// </summary>
+    private static void PlaceSweepLasers(GameObject contents, References refs, List<Site> sites)
+    {
+        Transform lasers = FindOrCreateGroup(contents.transform, _laserGroup);
+        List<SweepLaser> chosen = new List<SweepLaser>();
+        // 道幅 _sweepGroundMaxWidth までの通路を優先し、無いエリアは、_sweepGroundWideWidth までの、広めの通路から選ぶ
+        List<SweepLaser> groundCandidates = FindGroundSweeps(sites, _sweepGroundMaxWidth);
+        groundCandidates.AddRange(FindGroundSweeps(sites, _sweepGroundWideWidth));
+        for (int round = 0; round < _sweepGroundPerArea; round++)
+        {
+            for (int area = 0; area < _areaCenters.Count; area++)
+            {
+                SweepLaser best = groundCandidates.Find(candidate => candidate.area == area && !IsSweepNear(chosen, candidate));
+                if (best != null) chosen.Add(best);
+            }
+        }
+
+        for (int area = 0; area < _areaCenters.Count; area++)
+        {
+            List<Site> roofSites = sites.FindAll(site => site.isRoof && site.area == area);
+            roofSites.Sort((a, b) => b.position.y.CompareTo(a.position.y));
+            int made = 0;
+            foreach (Site site in roofSites)
+            {
+                if (made >= _sweepRoofPerArea) break;
+
+                SweepLaser best = FindRoofSweeps(site).Find(candidate => !IsSweepNear(chosen, candidate));
+                if (best == null) continue;
+
+                chosen.Add(best);
+                made++;
+            }
+        }
+
+        int[] groundPerArea = new int[_areaCenters.Count];
+        int[] roofPerArea = new int[_areaCenters.Count];
+        int number = 0;
+        foreach (SweepLaser sweep in chosen)
+        {
+            number++;
+            if (sweep.isRoof) roofPerArea[sweep.area]++;
+            else groundPerArea[sweep.area]++;
+
+            CreateSweepLaser(lasers, refs, sweep, $"SecurityLaser_A{sweep.area}_{number:00}");
+            _report.AppendLine($"  レーザー{number}(エリア{sweep.area}・{sweep.place}): 始点 ({sweep.start.x:F0}, {sweep.start.y:F1}, {sweep.start.z:F0}) → 終点 ({(sweep.start + sweep.direction * sweep.distance).x:F0}, {sweep.start.y:F1}, {(sweep.start + sweep.direction * sweep.distance).z:F0}) / 往復 {sweep.distance:F0}m / レーザーの長さ {sweep.length:F1}m");
+        }
+        _report.AppendLine($"防犯レーザー(通路を横切って往復): {chosen.Count}本(地上 エリアごと: {string.Join(", ", groundPerArea)} / 屋上 エリアごと: {string.Join(", ", roofPerArea)})");
+    }
+
+    /// <summary>
+    /// 選んだレーザーのどれかと、近すぎる(往復の線の上の点同士が _sweepSpacing 未満。屋上と地上は、高さが離れていれば別)かを判定するメソッド
+    /// </summary>
+    private static bool IsSweepNear(List<SweepLaser> chosen, SweepLaser sweep)
+    {
+        foreach (SweepLaser other in chosen)
+        {
+            if (Mathf.Abs(other.start.y - sweep.start.y) > 4.0f) continue;
+
+            for (float a = 0.0f; a <= sweep.distance; a += 5.0f)
+            {
+                Vector3 pointA = sweep.start + sweep.direction * a;
+                for (float b = 0.0f; b <= other.distance; b += 5.0f)
+                {
+                    if (FlatDistance(pointA, other.start + other.direction * b) < _sweepSpacing) return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    /// <summary>
+    /// 地上の通路の、往復するレーザーの候補を、点数の高い順に集めるメソッド
+    /// 点数: 往復の長さ + (悪人の出現点が近いほど高い) - 道幅 × 2(狭い通路ほど、すり抜けにくい)
+    /// </summary>
+    private static List<SweepLaser> FindGroundSweeps(List<Site> sites, float maxWidth)
+    {
+        List<SweepLaser> result = new List<SweepLaser>();
+        HashSet<Vector2Int> seenStart = new HashSet<Vector2Int>();
+        for (int i = 0; i < _ground.Count; i += 2)
+        {
+            Vector3 point = _ground[i];
+            if (IsNearAny(_startPoints, point, _siteMinFromStart)) continue;
+
+            float nearVillain = DistanceToNearestSite(sites, point, false);
+            if (nearVillain < _sweepMinFromVillain || nearVillain > (maxWidth > _sweepGroundMaxWidth ? _sweepWideFromVillain : _sweepMaxFromVillain)) continue;
+            if (FindStreetYaw(point, out float yaw) < _sweepMinLength + 2.0f) continue;
+            if (!TryBuildSweep(point, yaw, maxWidth > _sweepGroundMaxWidth ? _sweepGroundMaxWidth : _sweepGroundMinWidth, maxWidth, out SweepLaser sweep)) continue;
+            if (!seenStart.Add(new Vector2Int(Mathf.RoundToInt(sweep.start.x / 4.0f), Mathf.RoundToInt(sweep.start.z / 4.0f)))) continue;
+
+            sweep.area = NearestArea(point);
+            sweep.place = $"地上の通路 道幅{sweep.length - _sweepBeamExtra:F0}m";
+            sweep.score = sweep.distance + (_sweepMaxFromVillain - nearVillain) * 0.5f - (sweep.length - _sweepBeamExtra) * 2.0f;
+            result.Add(sweep);
+        }
+        result.Sort((a, b) => b.score.CompareTo(a.score));
+        return result;
+    }
+
+    /// <summary>
+    /// 屋上の悪人の出現点のそばの、同じ屋上の通路(屋上の端から端まで)の、往復するレーザーの候補を、点数の高い順に集めるメソッド
+    /// 点数: 往復の長さ - 悪人の出現点からの距離 × 0.5
+    /// </summary>
+    private static List<SweepLaser> FindRoofSweeps(Site site)
+    {
+        List<SweepLaser> result = new List<SweepLaser>();
+        HashSet<Vector2Int> seenStart = new HashSet<Vector2Int>();
+        foreach (Vector3 point in _roofNavAll)
+        {
+            if (Mathf.Abs(point.y - site.position.y) > 1.5f) continue;
+
+            float distance = FlatDistance(point, site.position);
+            if (distance < _sweepRoofMinFromVillain || distance > _sweepRoofMaxFromVillain) continue;
+            if (FindStreetYaw(point, out float yaw) < _sweepMinLength + 2.0f) continue;
+            if (!TryBuildSweep(point, yaw, _sweepRoofMinWidth, _sweepRoofMaxWidth, out SweepLaser sweep)) continue;
+            if (!seenStart.Add(new Vector2Int(Mathf.RoundToInt(sweep.start.x / 4.0f), Mathf.RoundToInt(sweep.start.z / 4.0f)))) continue;
+
+            sweep.area = site.area;
+            sweep.isRoof = true;
+            sweep.place = $"屋上 高さ{site.position.y:F0}m";
+            sweep.score = sweep.distance - distance * 0.5f;
+            result.Add(sweep);
+        }
+        result.Sort((a, b) => b.score.CompareTo(a.score));
+        return result;
+    }
+
+    private static float DistanceToNearestSite(List<Site> sites, Vector3 position, bool roof)
+    {
+        float min = float.MaxValue;
+        foreach (Site site in sites)
+        {
+            if (site.isRoof == roof) min = Mathf.Min(min, FlatDistance(site.position, position));
+        }
+        return min;
+    }
+
+    /// <summary>
+    /// 点を通る、向き(yaw)に続く通路に、往復するレーザーを作れるかを調べるメソッド
+    /// 長い往復から順に(_sweepLengths)、通路が続く後ろの端から点までの間のいくつかの位置(_sweepStartShares)を始点にして、通路の真ん中に寄せられるかを試す。
+    /// 道幅(線に直角な向きの、歩ける幅の最小値)が minWidth〜maxWidth であること。終点は、壁・柱・SAObjectの柱に当たる手前まで縮める
+    /// </summary>
+    private static bool TryBuildSweep(Vector3 point, float yaw, float minWidth, float maxWidth, out SweepLaser sweep)
+    {
+        sweep = null;
+        Vector3 along = Quaternion.Euler(0.0f, yaw, 0.0f) * Vector3.forward;
+        float forward = ClearLength100(point, along);
+        float back = ClearLength100(point, -along);
+        if (forward + back - 2.0f < _sweepMinLength) return false;
+
+        foreach (float wanted in _sweepLengths)
+        {
+            foreach (float share in _sweepStartShares)
+            {
+                float behind = Mathf.Max(0.0f, (back - 1.0f) * share);
+                float distance = Mathf.Min(wanted, forward + behind - 2.0f);
+                if (distance < _sweepMinLength) continue;
+                if (!NavMesh.SamplePosition(point - along * behind, out NavMeshHit hit, 0.8f, NavMesh.AllAreas)) continue;
+                if (!TryCenterOnStreet(hit.position, along, distance, out Vector3 centered, out float width) || width < minWidth || width > maxWidth) continue;
+
+                float length = width + _sweepBeamExtra;
+                float free = SweepFreeLength(centered, along, length, distance);
+                if (free < _sweepMinLength) continue;
+
+                sweep = new SweepLaser { start = centered, direction = along, distance = free, length = length };
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /// <summary>
+    /// 始点から向きへ、レーザー(長さlength・高さ _sweepHeight)を動かして、壁・柱・SAObjectの柱に当たらずに動ける距離を返すメソッド
+    /// </summary>
+    private static float SweepFreeLength(Vector3 start, Vector3 along, float length, float maxDistance)
+    {
+        Quaternion rotation = Quaternion.LookRotation(along);
+        Vector3 side = rotation * Vector3.right;
+        float free = maxDistance;
+
+        // 立てたSAObject(柱と頭の箱)が、レーザーの高さにあり、通り道の上にあれば、その手前まで
+        foreach (Vector3 saBase in _saBases)
+        {
+            if (saBase.y - start.y > _sweepHeight + 0.3f || saBase.y + _roadPoleHeight + _saHeadSize < start.y + _sweepHeight - 0.3f) continue;
+
+            Vector3 offset = FlatOf(saBase - start);
+            float ahead = Vector3.Dot(offset, along);
+            if (ahead < -1.0f || ahead > maxDistance + 1.0f || Mathf.Abs(Vector3.Dot(offset, side)) > length * 0.5f + 1.0f) continue;
+
+            free = Mathf.Min(free, ahead - 1.5f);
+        }
+
+        Vector3 half = new Vector3(length * 0.5f, _sweepBeamThickness * 0.5f + 0.1f, 0.5f);
+        for (float t = 0.0f; t <= free; t += 1.0f)
+        {
+            if (Physics.CheckBox(start + along * t + Vector3.up * _sweepHeight, half, rotation, ~0, QueryTriggerInteraction.Ignore)) return Mathf.Max(0.0f, t - 1.5f);
+        }
+        return Mathf.Max(0.0f, free);
+    }
+
+    /// <summary>
+    /// 道に沿う向きに直角な向きの、歩ける幅(両側の合計)を返すメソッド(centerShiftは、道の真ん中が、点から直角な向きにずれている量)
+    /// </summary>
+    private static float CrossWidth(Vector3 position, Vector3 along, out float centerShift)
+    {
+        Vector3 side = Vector3.Cross(Vector3.up, along);
+        float left = WalkLength(position, side);
+        float right = WalkLength(position, -side);
+        centerShift = (left - right) * 0.5f;
+        return left + right;
+    }
+
+    private static void CreateSweepLaser(Transform container, References refs, SweepLaser sweep, string laserName)
+    {
+        GameObject instance = (GameObject)PrefabUtility.InstantiatePrefab(refs.laserPrefab, container);
+        instance.name = laserName;
+        CopyScriptValues(refs.laserTemplate.gameObject, instance);
+        Quaternion rotation = Quaternion.LookRotation(sweep.direction);
+        instance.transform.position = ToLocal(sweep.start + Vector3.up * _sweepHeight);
+        instance.transform.rotation = Quaternion.Inverse(_multi.rotation) * rotation;
+        _policeFaction.Add(sweep.start + sweep.direction * (sweep.distance * 0.5f));
+
+        SerializedObject serialized = new SerializedObject(instance.GetComponent<CS_SecurityLaser>());
+        serialized.FindProperty("_beamLength").floatValue = sweep.length;
+        serialized.FindProperty("_beamThickness").floatValue = _sweepBeamThickness;
+        serialized.FindProperty("_moveDirection").vector3Value = Vector3.forward;
+        serialized.FindProperty("_moveDistance").floatValue = Mathf.Clamp(sweep.distance, 0.0f, 50.0f);
+        serialized.ApplyModifiedPropertiesWithoutUndo();
+    }
+
+    private static float MinFlatDistance(List<Vector3> points, Vector3 position)
+    {
+        float min = float.MaxValue;
+        foreach (Vector3 point in points) min = Mathf.Min(min, FlatDistance(point, position));
+        return min;
+    }
+
+    /// <summary>
+    /// シーンにあるマルチの悪人の出現点を、Site にして集めるメソッド(レーザーだけ置き直す時に使う)
+    /// </summary>
+    private static List<Site> CollectSceneSites()
+    {
+        List<Site> found = new List<Site>();
+        foreach (CS_VillainSpawnPoint point in _multi.GetComponentsInChildren<CS_VillainSpawnPoint>(true))
+        {
+            Vector3 position = point.transform.position;
+            found.Add(new Site { area = NearestArea(position), index = found.Count, position = position, yaw = point.transform.eulerAngles.y, isRoof = position.y >= _roofVillainMinHeight });
+        }
+        return found;
+    }
+
+    /// <summary>
+    /// シーンにあるマルチのSAObjectの、柱の根元の位置を集めるメソッド(レーザーだけ置き直す時に使う)
+    /// </summary>
+    private static List<Vector3> CollectSceneSaBases()
+    {
+        List<Vector3> found = new List<Vector3>();
+        Transform group = _multi.Find(_saObjectGroup);
+        if (group == null) return found;
+
+        foreach (Transform child in group) found.Add(child.position);
+        return found;
+    }
+
+    // =====================================================================
     // 設定値の写し・確認
     // =====================================================================
 
@@ -2137,6 +3016,59 @@ public static class CSED_FieldMultiLayoutGenerator
             }
             to.ApplyModifiedPropertiesWithoutUndo();
         }
+    }
+
+    /// <summary>
+    /// 街を走るだけの移動の長さを調べて書き出すメソッド
+    /// 地上の歩ける点ごとに、道のり(NavMesh)で一番近い「SAポイント」と「敵(悪人・警察陣営)」までを走る時間にして、
+    /// 中央値・95%・最大と、上限(_maxRunSeconds)を超える点の数を出す。道のりは、まっすぐの距離が近い順に5か所だけ調べる
+    /// </summary>
+    private static void ReportRunTime(List<Site> sites)
+    {
+        List<Vector3> saTargets = new List<Vector3>(_roadRoots);
+        List<Vector3> enemyTargets = new List<Vector3>(_policeFaction);
+        foreach (Site site in sites) enemyTargets.Add(site.position);
+
+        List<float> saTimes = new List<float>();
+        List<float> enemyTimes = new List<float>();
+        NavMeshPath path = new NavMeshPath();
+        for (int i = 0; i < _ground.Count; i += 2)
+        {
+            saTimes.Add(NearestRunSeconds(_ground[i], saTargets, path));
+            enemyTimes.Add(NearestRunSeconds(_ground[i], enemyTargets, path));
+        }
+        _report.AppendLine($"走るだけの移動(速さ {_runSpeed}m/秒。地上の{saTimes.Count}点で調査):");
+        AppendRunTime("  一番近いSAポイントまで", saTimes);
+        AppendRunTime("  一番近い敵(悪人・警察陣営)まで", enemyTimes);
+    }
+
+    private static float NearestRunSeconds(Vector3 from, List<Vector3> targets, NavMeshPath path)
+    {
+        List<(float distance, Vector3 target)> near = new List<(float, Vector3)>();
+        foreach (Vector3 target in targets) near.Add((FlatDistance(from, target), target));
+        near.Sort((a, b) => a.distance.CompareTo(b.distance));
+
+        float best = float.MaxValue;
+        for (int i = 0; i < Mathf.Min(5, near.Count); i++)
+        {
+            float length = NavMesh.CalculatePath(from, near[i].target, NavMesh.AllAreas, path) && path.status == NavMeshPathStatus.PathComplete ? PathLength(path) : near[i].distance * 1.5f;
+            best = Mathf.Min(best, length);
+        }
+        return best / _runSpeed;
+    }
+
+    private static float PathLength(NavMeshPath path)
+    {
+        float length = 0.0f;
+        for (int i = 1; i < path.corners.Length; i++) length += Vector3.Distance(path.corners[i - 1], path.corners[i]);
+        return length;
+    }
+
+    private static void AppendRunTime(string label, List<float> seconds)
+    {
+        seconds.Sort();
+        int over = seconds.FindAll(value => value > _maxRunSeconds).Count;
+        _report.AppendLine($"{label}: 中央値 {seconds[seconds.Count / 2]:F0}秒 / 95% {seconds[seconds.Count * 95 / 100]:F0}秒 / 最大 {seconds[seconds.Count - 1]:F0}秒 / {_maxRunSeconds:F0}秒を超える点 {over}個");
     }
 
     /// <summary>

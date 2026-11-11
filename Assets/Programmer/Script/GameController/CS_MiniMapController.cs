@@ -13,8 +13,8 @@ using UnityEngine;
 
 /// <summary>
 /// ミニマップのController。
-/// プレイヤー・敵・他プレイヤー・警察・アイテム・ランダムイベントを管理する。
-/// ローカルプレイヤーは本体Transformから位置、viewTransformから向きを取得する。
+/// プレイヤー、悪人、他プレイヤー、警察、アイテム、
+/// ランダムイベントを管理する。
 /// </summary>
 public class CS_MiniMapController : MonoBehaviour
 {
@@ -22,17 +22,33 @@ public class CS_MiniMapController : MonoBehaviour
     // Inspector
     // =========================================================
 
-    [Header("ローカルプレイヤー（動的生成の場合は空でOK）")]
-    [SerializeField] private Transform _localPlayerTransform;
-    [SerializeField] private Transform _localPlayerViewTransform;
+    [Header("ローカルプレイヤー")]
+    [SerializeField]
+    private Transform _localPlayerTransform;
 
-    [Header("UICanvas配下のMiniMapを直接セット")]
-    [SerializeField] private CS_UIMiniMapView _miniMapView;
+    [SerializeField]
+    private Transform _localPlayerViewTransform;
+
+    [Header("UICanvas配下のMiniMap")]
+    [SerializeField]
+    private CS_UIMiniMapView _miniMapView;
 
     [Header("ミニマップ設定")]
-    [SerializeField] private float _mapRadius = 50f;
-    [SerializeField] private float _mapWorldSize = 240f;
-    [SerializeField] private bool _rotateWithPlayer = true;
+    [Min(0.01f)]
+    [SerializeField]
+    private float _mapRadius = 50f;
+
+    [Min(0.01f)]
+    [SerializeField]
+    private float _mapWorldSize = 240f;
+
+    [SerializeField]
+    private bool _rotateWithPlayer = true;
+
+    [Header("更新間隔")]
+    [Min(0.01f)]
+    [SerializeField]
+    private float _updateInterval = 0.05f;
 
     // =========================================================
     // 内部フィールド
@@ -57,7 +73,6 @@ public class CS_MiniMapController : MonoBehaviour
         _randomEventTransforms = new();
 
     private float _updateTimer;
-    private const float _updateInterval = 0.05f;
 
     // =========================================================
     // 初期化
@@ -77,24 +92,32 @@ public class CS_MiniMapController : MonoBehaviour
         if (_miniMapView == null)
         {
             Debug.LogError(
-                "[CS_MiniMapController] _miniMapViewが未設定です。"
+                "[CS_MiniMapController] " +
+                "_miniMapViewが未設定です。",
+                this
             );
             return;
         }
 
         _presenter =
-            _miniMapView.GetComponent<CS_UIMiniMapPresenter>();
+            _miniMapView.GetComponent<
+                CS_UIMiniMapPresenter
+            >();
 
         if (_presenter == null)
         {
             Debug.LogError(
-                "[CS_MiniMapController] MiniMapにPresenterがありません。"
+                "[CS_MiniMapController] " +
+                "MiniMapにPresenterがありません。",
+                this
             );
             return;
         }
 
         _presenter.SetView(_miniMapView);
         _model.OnDataChanged += OnModelDataChanged;
+
+        SyncPositions();
     }
 
     // =========================================================
@@ -114,7 +137,9 @@ public class CS_MiniMapController : MonoBehaviour
 
     private void SyncPositions()
     {
-        // 位置はPlayer本体、向きはviewTransformを使用する。
+        if (_model == null)
+            return;
+
         if (_localPlayerTransform != null)
         {
             Transform rotationSource =
@@ -154,7 +179,7 @@ public class CS_MiniMapController : MonoBehaviour
         );
     }
 
-    private void SyncEntityPositions(
+    private static void SyncEntityPositions(
         Dictionary<string, Transform> transforms,
         Action<string, Vector3, float> updateAction)
     {
@@ -180,10 +205,6 @@ public class CS_MiniMapController : MonoBehaviour
     // ローカルプレイヤー
     // =========================================================
 
-    /// <summary>
-    /// Player(Clone)生成後に呼ぶ。
-    /// playerTransformは位置、viewTransformはミニマップの向きに使用する。
-    /// </summary>
     public void RegisterLocalPlayer(
         Transform playerTransform,
         Transform viewTransform)
@@ -191,18 +212,21 @@ public class CS_MiniMapController : MonoBehaviour
         if (playerTransform == null)
         {
             Debug.LogError(
-                "[CS_MiniMapController] playerTransformがnullです。"
+                "[CS_MiniMapController] " +
+                "playerTransformがnullです。",
+                this
             );
             return;
         }
 
-        _localPlayerTransform = playerTransform;
+        _localPlayerTransform =
+            playerTransform;
+
         _localPlayerViewTransform =
             viewTransform != null
                 ? viewTransform
                 : playerTransform;
 
-        // 登録したフレームから表示できるよう、直ちにModelへ反映する。
         _model.SetLocalPlayer(
             _localPlayerTransform.position,
             _localPlayerViewTransform.eulerAngles.y
@@ -210,7 +234,7 @@ public class CS_MiniMapController : MonoBehaviour
     }
 
     // =========================================================
-    // 敵
+    // 悪人
     // =========================================================
 
     public void RegisterEnemy(
@@ -229,6 +253,43 @@ public class CS_MiniMapController : MonoBehaviour
     {
         _enemyTransforms.Remove(id);
         _model.RemoveEnemy(id);
+    }
+
+    public void SetEnemyActive(
+        string id,
+        bool isActive)
+    {
+        _model.SetEnemyActive(
+            id,
+            isActive
+        );
+    }
+
+    /// <summary>
+    /// 悪人の犯罪完遂率を設定する。
+    /// 0～100の値を渡す。
+    /// </summary>
+    public void SetEnemyCrimeProgress(
+        string id,
+        float progressPercent)
+    {
+        _model?.SetEnemyCrimeProgress(
+            id,
+            progressPercent
+        );
+    }
+
+    /// <summary>
+    /// 犯罪進行率を0～1で管理している場合に使用する。
+    /// </summary>
+    public void SetEnemyCrimeProgressRate(
+        string id,
+        float progressRate)
+    {
+        SetEnemyCrimeProgress(
+            id,
+            Mathf.Clamp01(progressRate) * 100f
+        );
     }
 
     // =========================================================
@@ -297,18 +358,20 @@ public class CS_MiniMapController : MonoBehaviour
         _model.RemoveItem(id);
     }
 
-    public void SetItemActive(string id, bool isActive)
+    public void SetItemActive(
+        string id,
+        bool isActive)
     {
-        _model.SetItemActive(id, isActive);
+        _model.SetItemActive(
+            id,
+            isActive
+        );
     }
 
     // =========================================================
     // ランダムイベント
     // =========================================================
 
-    /// <summary>
-    /// ランダムイベント発生時に、発生地点のTransformを登録する。
-    /// </summary>
     public void RegisterRandomEvent(
         string id,
         Transform eventTransform)
@@ -321,10 +384,8 @@ public class CS_MiniMapController : MonoBehaviour
         );
     }
 
-    /// <summary>
-    /// ランダムイベント終了・クリア時に登録解除する。
-    /// </summary>
-    public void UnregisterRandomEvent(string id)
+    public void UnregisterRandomEvent(
+        string id)
     {
         _randomEventTransforms.Remove(id);
         _model.RemoveRandomEvent(id);
@@ -334,18 +395,22 @@ public class CS_MiniMapController : MonoBehaviour
         string id,
         bool isActive)
     {
-        _model.SetRandomEventActive(id, isActive);
+        _model.SetRandomEventActive(
+            id,
+            isActive
+        );
     }
 
     // =========================================================
     // 共通処理
     // =========================================================
 
-    private void RegisterEntity(
+    private static void RegisterEntity(
         Dictionary<string, Transform> transforms,
         string id,
         Transform entityTransform,
-        Action<string, Vector3, float> updateAction)
+        Action<string, Vector3, float>
+            updateAction)
     {
         if (string.IsNullOrWhiteSpace(id) ||
             entityTransform == null)
@@ -372,6 +437,11 @@ public class CS_MiniMapController : MonoBehaviour
         _model.SetMapWorldSize(size);
     }
 
+    public void SetRotateWithPlayer(bool rotate)
+    {
+        _model.SetRotateWithPlayer(rotate);
+    }
+
     // =========================================================
     // 終了処理
     // =========================================================
@@ -381,7 +451,22 @@ public class CS_MiniMapController : MonoBehaviour
         if (_model == null)
             return;
 
-        _model.OnDataChanged -= OnModelDataChanged;
+        _model.OnDataChanged -=
+            OnModelDataChanged;
+
         _model.Dispose();
+        _model = null;
+    }
+
+    private void OnValidate()
+    {
+        _mapRadius =
+            Mathf.Max(0.01f, _mapRadius);
+
+        _mapWorldSize =
+            Mathf.Max(0.01f, _mapWorldSize);
+
+        _updateInterval =
+            Mathf.Max(0.01f, _updateInterval);
     }
 }

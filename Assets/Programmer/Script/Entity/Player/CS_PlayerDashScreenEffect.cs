@@ -15,7 +15,7 @@ using UnityEngine.Rendering;
  * ・かける条件はCS_PlayerCameraFov(ダッシュ中に画角を広げる)と同じ。次のどれかの時にかける
  *   ブリンク中(CS_Player.isDashing) または スプリント中(isSprinting)で実際に動いている時
  *   (止まってダッシュボタンを押しているだけの時はかけない)
- *   SAでハイドポイントへ飛んでいる時(CS_PlayerHide.isHiding で、まだ張り付いていない時)
+ *   SAでハイドポイントへ飛んでいる時(CS_PlayerHide.isHiding。着いたら止める)
  *   奇襲の飛び込み〜当たる瞬間(CS_PlayerAmbush.isLunging)
  *   CS_PlayerHide・CS_PlayerAmbushは付いていなければ見ない
  * ・SA・奇襲は短いので、SetHeldではなく毎フレームPlayして、すぐ最大の強さで出す
@@ -81,10 +81,10 @@ public class CS_PlayerDashScreenEffect : MonoBehaviour
         return velocity.sqrMagnitude >= _minSprintSpeed * _minSprintSpeed;
     }
 
-    // SAでハイドポイントへ飛んでいるか(張り付いた後はCS_PlayerHideScreenEffectの効果に切り替わる)
+    // SAでハイドポイントへ飛んでいるか(隠れられる箱の中にいる間は、CS_PlayerHideScreenEffectの効果が出る)
     private bool IsHideFlying()
     {
-        return _hide != null && _hide.isHiding && !_hide.isAttached;
+        return _hide != null && _hide.isHiding;
     }
 
     // 奇襲で飛び込んでいるか(当たる瞬間まで)

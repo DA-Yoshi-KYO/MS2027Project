@@ -4,6 +4,7 @@
  * 制作者：宇留野陸斗
  * ------------------------------------------------
  * 2026-10-26 | 初回作成
+ * 2026-11-02 | テーザーが外れた時の待ち時間を、データ(CSO_SecurityDroneData)の攻撃ディレイ時間にした
  * ================================================ */
 
 using Unity.Netcode;
@@ -15,7 +16,7 @@ using UnityEngine;
 /// 流れ(サーバー、またはオフラインだけで進む。見た目は、状態の同期と、RPCで全員に出す)
 ///   1. テーザーの溜め: プレイヤーを追いながら溜める
 ///   2. テーザーの狙い: 撃つ向きを決め、赤い線で知らせる(避けられる)。時間が来たら、その向きに光線を撃つ
-///      外れたら、短い間隔のあと、もう一度溜める(当たるまで繰り返す)
+///      外れたら、攻撃ディレイ時間(データ)のあと、もう一度溜める(当たるまで繰り返す)
 ///   3. 当たったら: プレイヤーはスタン(動けない)。ドローンは近づいて、即死攻撃を溜める。地面に範囲の赤い円が出る
 ///      プレイヤーがスタンから抜けられたかに関係なく、ドローンは溜めの最後まで動く
 ///   4. 溜め終わりに、範囲の中にいるプレイヤーは即死する
@@ -85,10 +86,6 @@ public class CS_SecurityDroneSuppression : NetworkBehaviour
     [SerializeField, Min(0.05f)]
     [Tooltip("テーザーの光線の太さ(半径。m)。この範囲にプレイヤーがいれば当たる")]
     private float _taserRadius = 0.5f;
-
-    [SerializeField, Min(0.0f)]
-    [Tooltip("テーザーが外れた時に、もう一度溜め始めるまでの間隔(秒)")]
-    private float _taserRetryInterval = 1.0f;
 
     [Header("＝＝＝ 即死攻撃 ＝＝＝")]
     [SerializeField, Min(0.0f)]
@@ -160,6 +157,7 @@ public class CS_SecurityDroneSuppression : NetworkBehaviour
         }
 
         ReportTarget(deltaTime);
+        ReportExposure();
         _timer -= deltaTime;
 
         switch (_phase)
@@ -267,7 +265,15 @@ public class CS_SecurityDroneSuppression : NetworkBehaviour
 
         _reportTimer = _reportInterval;
         CS_PlayerHealth health = _target.GetComponent<CS_PlayerHealth>();
-        if (health != null) CS_PoliceAlertManager.Report(health, _target.position);
+        if (health != null) CS_PoliceAlertManager.Report(health, _target.position, _drone.transform.position);
+    }
+
+    /// <summary>
+    /// 攻撃している間、プレイヤーを、見られている時間として警察側の管理へ知らせ続けるメソッド(毎フレーム。スコアの減点に使う)
+    /// </summary>
+    private void ReportExposure()
+    {
+        if (_target != null && _target.TryGetComponent(out CS_PlayerHealth health)) CS_PoliceAlertManager.ReportExposure(health);
     }
 
     /// <summary>
@@ -305,7 +311,7 @@ public class CS_SecurityDroneSuppression : NetworkBehaviour
 
         if (hitPlayer == null)
         {
-            StartPhase(Phase.TaserRetry, _taserRetryInterval, CSE_SecurityDroneState.TaserCharge);
+            StartPhase(Phase.TaserRetry, _drone.data.attackDelayTime, CSE_SecurityDroneState.TaserCharge);
             return;
         }
 

@@ -1,0 +1,21 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 664ee0a7ee904d548112482dd926813b, type: 3}
+  m_Name: DB_PoliceInformant
+  m_EditorClassIdentifier: Assembly-CSharp::CSO_PoliceInformantData
+  _policePrefab: {fileID: 769974262908060740, guid: 6dc8d9277d6c9e946a9d1237009a748a, type: 3}
+  _policeStatus: {fileID: 11400000, guid: 047b3aaf3c777874096d259e0127665b, type: 2}
+  _playerBaseStats: {fileID: 11400000, guid: 817504dae6f859c46802b52e2c8274fb, type: 2}
+  _policeCountPerPlayer: 1
+  _spawnDistanceMin: 12
+  _spawnDistanceMax: 18
+  _homingDuration: 10

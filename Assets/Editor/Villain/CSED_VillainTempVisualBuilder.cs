@@ -31,6 +31,10 @@ using UnityEngine.Rendering.HighDefinition;
  *   パンチのモーションで手が一番後ろに来る位置(腕を引き切った)と、一番前に来る位置(腕が伸び切った)を求め、
  *   CS_VillainVisualのwindupTime・strikeTimeへ設定する(Villain・VillainBossの両方)
  *   あわせて、今あるAnimator Controllerの溜め・攻撃をMotion Timeで動くように直す(作り直さない)
+ * ・Tools/Villain/死亡モーションを追加
+ *   今あるAnimator Controllerに、死亡モーション(Death)とDeadパラメータを追加する(作り直さない。何度実行しても同じ結果)
+ *   Deadがtrueになると、どの状態からでも死亡モーションへ移り、最後の姿勢のまま止まる(消えるのはCS_VillainHealthが行う)
+ *   → Controllerを作り直すとVillainBossからの参照が切れるので、追加はこのメニューで行う
  * ・本番アセットに差し替えるときは、このツールは不要になる(CS_VillainVisualのメモを参照)
  */
 // ========================================
@@ -65,6 +69,9 @@ public static class CSED_VillainTempVisualBuilder
     private const string _strafeRight = "Running_Strafe_Right";
     private const string _attack = "Melee_Unarmed_Attack_Punch_A";   // 溜め(腕を引く)・攻撃判定中(腕を伸ばす)
     private const string _hit = "Hit_A";                             // ノックバック
+    private const string _death = "Death_A";                         // 撃退されて倒れる
+    private const string _generalFile = "Rig_Medium_General";
+    private const string _deathStateName = "Death";
     private static readonly string[] _loopClips = { _idle, _forward, _backward, _strafeLeft, _strafeRight };
 
     [MenuItem("Tools/Villain/仮の見た目を組み込む")]
@@ -195,6 +202,7 @@ public static class CSED_VillainTempVisualBuilder
         controller.AddParameter(CS_VillainAnimatorParams.attacking, AnimatorControllerParameterType.Bool);
         controller.AddParameter(CS_VillainAnimatorParams.attackTime, AnimatorControllerParameterType.Float);
         controller.AddParameter(CS_VillainAnimatorParams.hit, AnimatorControllerParameterType.Trigger);
+        controller.AddParameter(CS_VillainAnimatorParams.dead, AnimatorControllerParameterType.Bool);
 
         AnimatorStateMachine machine = controller.layers[0].stateMachine;
         AnimatorState locomotion = AddLocomotion(controller, machine, clips);
@@ -202,6 +210,7 @@ public static class CSED_VillainTempVisualBuilder
 
         AddAttack(machine, locomotion, Clip(clips, _attack));
         AddHit(machine, locomotion, Clip(clips, _hit));
+        AddDeath(controller, Clip(clips, _death));
 
         EditorUtility.SetDirty(controller);
         return controller;
@@ -273,6 +282,65 @@ public static class CSED_VillainTempVisualBuilder
 
         AnimatorStateTransition exit = hit.AddTransition(locomotion);
         SetupTransition(exit, true, 0.9f);
+    }
+
+    // Deadがtrueになったら、どの状態からでも死亡モーションへ移る(戻らない。最後の姿勢のまま止まる)
+    // 今あるControllerにも使えるよう、既にあれば作り直さずに設定し直す
+    private static void AddDeath(AnimatorController controller, AnimationClip clip)
+    {
+        if (!HasParameter(controller, CS_VillainAnimatorParams.dead))
+        {
+            controller.AddParameter(CS_VillainAnimatorParams.dead, AnimatorControllerParameterType.Bool);
+        }
+
+        AnimatorStateMachine machine = controller.layers[0].stateMachine;
+        AnimatorState death = FindState(machine, _deathStateName);
+        if (death == null) death = machine.AddState(_deathStateName);
+        death.motion = clip;
+
+        // 死亡モーションへの遷移を作り直す
+        foreach (AnimatorStateTransition transition in machine.anyStateTransitions)
+        {
+            if (transition.destinationState == death) machine.RemoveAnyStateTransition(transition);
+        }
+        AddAnyStateTransition(machine, death, AnimatorConditionMode.If, CS_VillainAnimatorParams.dead);
+
+        // 倒れた後は、くらい・溜め・攻撃などの他の状態へ移らない
+        foreach (AnimatorStateTransition transition in machine.anyStateTransitions)
+        {
+            if (transition.destinationState == death || HasCondition(transition, CS_VillainAnimatorParams.dead)) continue;
+
+            transition.AddCondition(AnimatorConditionMode.IfNot, 0f, CS_VillainAnimatorParams.dead);
+        }
+
+        EditorUtility.SetDirty(controller);
+    }
+
+    private static bool HasParameter(AnimatorController controller, string parameterName)
+    {
+        foreach (AnimatorControllerParameter parameter in controller.parameters)
+        {
+            if (parameter.name == parameterName) return true;
+        }
+        return false;
+    }
+
+    private static AnimatorState FindState(AnimatorStateMachine machine, string stateName)
+    {
+        foreach (ChildAnimatorState child in machine.states)
+        {
+            if (child.state.name == stateName) return child.state;
+        }
+        return null;
+    }
+
+    private static bool HasCondition(AnimatorStateTransition transition, string parameterName)
+    {
+        foreach (AnimatorCondition condition in transition.conditions)
+        {
+            if (condition.parameter == parameterName) return true;
+        }
+        return false;
     }
 
     private static void AddAnyStateTransition(AnimatorStateMachine machine, AnimatorState state, AnimatorConditionMode mode, string parameter)
@@ -348,6 +416,28 @@ public static class CSED_VillainTempVisualBuilder
     }
 
     // ---- 攻撃モーションの解析 ----
+
+    [MenuItem("Tools/Villain/死亡モーションを追加")]
+    public static void AddDeathMotion()
+    {
+        AnimationClip clip = LoadFbxClip(_generalFile, _death);
+        if (clip == null)
+        {
+            Debug.LogError("CSED_VillainTempVisualBuilder: アニメーションが見つかりません: " + _death);
+            return;
+        }
+
+        AnimatorController controller = AssetDatabase.LoadAssetAtPath<AnimatorController>(_controllerPath);
+        if (controller == null)
+        {
+            Debug.LogWarning("CSED_VillainTempVisualBuilder: Animator Controllerが無いため、先に 仮の見た目を組み込む を実行してください");
+            return;
+        }
+
+        AddDeath(controller, clip);
+        AssetDatabase.SaveAssets();
+        Debug.Log("CSED_VillainTempVisualBuilder: 死亡モーションを追加しました");
+    }
 
     [MenuItem("Tools/Villain/攻撃モーションを解析")]
     public static void AnalyzeAttackMotion()

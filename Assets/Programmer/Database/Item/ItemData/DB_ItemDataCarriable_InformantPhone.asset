@@ -1,0 +1,19 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7d672da7d62fb7e2c8967a92d611bf2a, type: 3}
+  m_Name: DB_ItemDataCarriable_InformantPhone
+  m_EditorClassIdentifier: 
+  _itemName: "内通フォン"
+  _icon: {fileID: 0}
+  _description: "他のプレイヤーの近くに警察を呼ぶ。呼ばれた警察は、10秒間プレイヤーの現在地を追跡する"
+  _effects:
+  - {fileID: 11400000, guid: b81d101d512e402bb323c47cc88ca148, type: 2}

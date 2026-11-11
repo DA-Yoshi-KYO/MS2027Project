@@ -61,7 +61,14 @@ public static class CSED_FieldMultiLayoutGenerator
     private const float _roofSiteMaxHeight = 14.0f;
     private const int _extraSquadsPerArea = 2;   // エリアごとに足す、警察のグループの数(悪人の出現点ごとのグループとは別。空いている所に置く)
     private const int _droneStride = 3;          // ドローンを置く悪人の出現点の間隔(番号を、この数で割った余りが1の所に置く)
-    private const int _laserCount = 3;      // エリアごとの高所のレーザーの数
+    private const int _laserCount = 4;      // エリアごとの高所のレーザーの数
+    private const float _laserMinSpacing = 90.0f;      // レーザー同士を離す距離(m)
+    private const int _lightsPerArea = 4;              // エリアごとのストリートライトの数(ソロ用は全体で12本)
+    private const float _lightDistance = 100.0f;       // ストリートライトが往復する距離の上限(m。ソロ用と同じ)
+    private const float _lightMinLine = 60.0f;         // ストリートライトを置く大通りの、まっすぐ続く長さの下限(m)
+    private const float _lightMinWidth = 9.0f;         // ストリートライトを置く大通りの、道幅の下限(m。ライトの直径10mがほぼ収まる)
+    private const float _lightMinSpacing = 60.0f;      // ストリートライトの往復する線同士を離す距離(m)
+    private const float _lightHeightOffset = 0.25f;    // ストリートライトを、歩ける床から浮かせる高さ(m。ソロ用は床+0.25m)
 
     // ---- 距離(m) ----
     private const float _siteMinFromCenter = 45.0f;
@@ -197,6 +204,283 @@ public static class CSED_FieldMultiLayoutGenerator
         }
 
         Debug.Log("CSED_FieldMultiLayoutGenerator: 配置し直しました");
+    }
+
+    /// <summary>
+    /// マルチのフィールドの、防犯レーザーとストリートライトだけを、配置し直すメソッド(警察・SAObject・ハイドポイント・ドローンは、そのまま)
+    /// ライト: 地上の大通り(長くまっすぐで、幅の広い道)を、ソロ用と同じように、大通りに沿って往復して照らす。エリアごとに _lightsPerArea 本
+    /// レーザー: 屋上(高所)に置く。エリアごとに _laserCount 本。エリアの中で、他のレーザーから離れた所に置く
+    /// 結果は Temp/FieldLaserLightReport.txt
+    /// </summary>
+    [MenuItem("Tools/Police/マルチのレーザーとライトを配置する")]
+    private static void PlaceLasersAndLights()
+    {
+        _report = new StringBuilder();
+        _policeFaction = new List<Vector3>();
+        _multi = FindMulti();
+        if (_multi == null)
+        {
+            Debug.LogError("CSED_FieldMultiLayoutGenerator: シーンに Field/Field_Multi が見つかりません(MainSceneを開いてください)");
+            return;
+        }
+
+        string path = AssetDatabase.GetAssetPath(PrefabUtility.GetCorrespondingObjectFromOriginalSource(_multi.gameObject));
+        if (!path.EndsWith("/Field_Multi.prefab"))
+        {
+            Debug.LogError($"CSED_FieldMultiLayoutGenerator: コピー先が Field_Multi.prefab ではありません({path})。中止しました");
+            return;
+        }
+
+        // 前に置いたレーザー・ライトのコライダーが、空きの判定に混ざらないよう、調べている間だけ無効にする
+        List<GameObject> hidden = new List<GameObject>();
+        foreach (string groupName in new[] { _laserGroup, _lightGroup })
+        {
+            Transform group = _multi.Find(groupName);
+            if (group == null || !group.gameObject.activeSelf) continue;
+
+            group.gameObject.SetActive(false);
+            hidden.Add(group.gameObject);
+        }
+        Physics.SyncTransforms();
+
+        GameObject contents = null;
+        try
+        {
+            CollectGeometry();
+            References refs = CollectReferences();
+            contents = PrefabUtility.LoadPrefabContents(path);
+            foreach (string groupName in new[] { _laserGroup, _lightGroup })
+            {
+                Transform group = contents.transform.Find(groupName);
+                if (group != null) Object.DestroyImmediate(group.gameObject);
+            }
+
+            PlaceLights(contents, refs);
+            PlaceLasers(contents, refs);
+            PrefabUtility.SaveAsPrefabAsset(contents, path);
+        }
+        finally
+        {
+            RestoreLayout(hidden);
+            if (contents != null) PrefabUtility.UnloadPrefabContents(contents);
+            string reportPath = Path.Combine(Path.GetDirectoryName(Application.dataPath), "Temp", "FieldLaserLightReport.txt");
+            File.WriteAllText(reportPath, _report.ToString(), new UTF8Encoding(false));
+        }
+        Debug.Log("CSED_FieldMultiLayoutGenerator: レーザーとライトを配置しました");
+    }
+
+    // 往復して照らすライトの1本分(置く場所・向き・往復する長さ)
+    private class LightLine
+    {
+        public int area;
+        public Vector3 origin;
+        public float yaw;
+        public float distance;
+        public float score;
+    }
+
+    /// <summary>
+    /// ストリートライトを、地上の大通りに置くメソッド(エリアごとに、点数の高い大通りから、離れたものを選ぶ)
+    /// </summary>
+    private static void PlaceLights(GameObject contents, References refs)
+    {
+        Transform lights = FindOrCreateGroup(contents.transform, _lightGroup);
+        List<LightLine> candidates = FindLightLines();
+        List<LightLine> chosen = new List<LightLine>();
+        int[] perArea = new int[_areaCenters.Count];
+        foreach (float spacing in new[] { _lightMinSpacing, _lightMinSpacing * 0.6f })
+        {
+            foreach (LightLine line in candidates)
+            {
+                if (perArea[line.area] >= _lightsPerArea || IsLightLineNear(chosen, line, spacing)) continue;
+
+                chosen.Add(line);
+                perArea[line.area]++;
+                CreateLight(lights, refs, line, chosen.Count);
+            }
+        }
+        _report.AppendLine($"ストリートライト(地上の大通り): {chosen.Count}本(エリアごと: {string.Join(", ", perArea)})");
+        foreach (LightLine line in chosen) _report.AppendLine($"  エリア{line.area}: 始点 ({line.origin.x:F0}, {line.origin.y:F1}, {line.origin.z:F0}) 向き {line.yaw:F0}度 往復 {line.distance:F0}m 点数 {line.score:F0}");
+    }
+
+    /// <summary>
+    /// 大通りの候補(長くまっすぐで、幅が広く、建物や柱に当たらない線)を、点数の高い順に集めるメソッド
+    /// 点数: 線の長さ + 道幅の最小値 × 4 - エリアの中心から線の真ん中までの距離 × 0.5(長く、広く、エリアの中心に近い道ほど高い)
+    /// </summary>
+    private static List<LightLine> FindLightLines()
+    {
+        List<LightLine> lines = new List<LightLine>();
+        for (int i = 0; i < _ground.Count; i += 2)
+        {
+            Vector3 point = _ground[i];
+            int area = NearestArea(point);
+            for (float yaw = 0.0f; yaw < 180.0f; yaw += 15.0f)
+            {
+                Vector3 direction = Quaternion.Euler(0.0f, yaw, 0.0f) * Vector3.forward;
+                float forwardLength = ClearLength100(point, direction);
+                float backLength = ClearLength100(point, -direction);
+                if (forwardLength + backLength < _lightMinLine + 2.0f) continue;
+
+                // 線の一方の端を始点にして、そこから大通りに沿って、最大 _lightDistance まで往復する
+                Vector3 origin = point - direction * Mathf.Max(0.0f, backLength - 1.0f);
+                float distance = Mathf.Min(_lightDistance, forwardLength + backLength - 2.0f);
+                if (!NavMesh.SamplePosition(origin, out NavMeshHit hit, 0.6f, NavMesh.AllAreas)) continue;
+
+                // 道のどこかではなく、道の真ん中を往復させる(円が道からはみ出さず、道を照らす)
+                if (!TryCenterOnStreet(hit.position, direction, distance, out Vector3 centered, out float width) || width < _lightMinWidth) continue;
+
+                Vector3 middle = centered + direction * (distance * 0.5f);
+                float score = distance + width * 4.0f - FlatDistance(middle, _areaCenters[area]) * 0.5f;
+                lines.Add(new LightLine { area = area, origin = centered, yaw = yaw, distance = distance, score = score });
+            }
+        }
+        lines.Sort((a, b) => b.score.CompareTo(a.score));
+        return lines;
+    }
+
+    /// <summary>
+    /// 位置から向きへ、歩ける場所の中を、壁・柱に当たらずにまっすぐ進める長さを返すメソッド(最大 _lightDistance)
+    /// </summary>
+    private static float ClearLength100(Vector3 position, Vector3 direction)
+    {
+        float length = NavMesh.Raycast(position, position + direction * _lightDistance, out NavMeshHit hit, NavMesh.AllAreas) ? hit.distance : _lightDistance;
+        for (float distance = 1.0f; distance <= length; distance += 1.0f)
+        {
+            if (Physics.CheckSphere(position + direction * distance + Vector3.up * 0.9f, 0.3f, ~0, QueryTriggerInteraction.Ignore)) return distance - 1.0f;
+        }
+        return length;
+    }
+
+    /// <summary>
+    /// 線を、道の真ん中へ寄せるメソッド(5mおきに、線に直角な向きの歩ける長さを両側で測り、道の中心のずれの中央値だけ線を動かす)
+    /// 道の中心が線に沿って大きくずれる(道が曲がっている・幅が変わる)・動かした線が壁や柱に当たる・歩ける場所から外れる場合は false
+    /// </summary>
+    /// <param name="origin">線の始点(歩ける場所)</param>
+    /// <param name="direction">線の向き</param>
+    /// <param name="distance">線の長さ</param>
+    /// <param name="centered">道の真ん中に寄せた始点</param>
+    /// <param name="width">線に沿った道幅の最小値</param>
+    private static bool TryCenterOnStreet(Vector3 origin, Vector3 direction, float distance, out Vector3 centered, out float width)
+    {
+        const float maxCenterDeviation = 1.5f;     // 道の中心が、寄せた線からずれてよい最大(m)
+        centered = origin;
+        width = 0.0f;
+        Vector3 side = Vector3.Cross(Vector3.up, direction);
+        List<float> offsets = new List<float>();
+        float minWidth = float.MaxValue;
+        for (float t = 0.0f; t <= distance; t += 5.0f)
+        {
+            if (!NavMesh.SamplePosition(origin + direction * t, out NavMeshHit hit, 0.8f, NavMesh.AllAreas)) return false;
+
+            float sideLength = Mathf.Min(WalkLength(hit.position, side), 20.0f);
+            float backLength = Mathf.Min(WalkLength(hit.position, -side), 20.0f);
+            offsets.Add((sideLength - backLength) * 0.5f);
+            minWidth = Mathf.Min(minWidth, sideLength + backLength);
+        }
+
+        List<float> sorted = new List<float>(offsets);
+        sorted.Sort();
+        float median = sorted[sorted.Count / 2];
+        foreach (float offset in offsets)
+        {
+            if (Mathf.Abs(offset - median) > maxCenterDeviation) return false;
+        }
+
+        if (!NavMesh.SamplePosition(origin + side * median, out NavMeshHit start, 0.8f, NavMesh.AllAreas)) return false;
+        if (ClearLength100(start.position, direction) < distance - 0.5f) return false;
+
+        centered = start.position;
+        width = minWidth;
+        return true;
+    }
+
+    /// <summary>
+    /// 選んだ線のどれかと、近すぎる(線の上の点同士が spacing 未満)かを判定するメソッド
+    /// </summary>
+    private static bool IsLightLineNear(List<LightLine> chosen, LightLine line, float spacing)
+    {
+        foreach (LightLine other in chosen)
+        {
+            for (float a = 0.0f; a <= line.distance; a += 10.0f)
+            {
+                Vector3 pointA = line.origin + Quaternion.Euler(0.0f, line.yaw, 0.0f) * Vector3.forward * a;
+                for (float b = 0.0f; b <= other.distance; b += 10.0f)
+                {
+                    Vector3 pointB = other.origin + Quaternion.Euler(0.0f, other.yaw, 0.0f) * Vector3.forward * b;
+                    if (FlatDistance(pointA, pointB) < spacing) return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    private static void CreateLight(Transform container, References refs, LightLine line, int number)
+    {
+        GameObject instance = (GameObject)PrefabUtility.InstantiatePrefab(refs.lightPrefab, container);
+        instance.name = $"SecurityLight_A{line.area}_{number:00}";
+        CopyScriptValues(refs.lightTemplate.gameObject, instance);
+        Quaternion rotation = Quaternion.Euler(0.0f, line.yaw, 0.0f);
+        instance.transform.position = ToLocal(line.origin + Vector3.up * _lightHeightOffset);
+        instance.transform.rotation = Quaternion.Inverse(_multi.rotation) * rotation;
+
+        SerializedObject serialized = new SerializedObject(instance.GetComponent<CS_SecurityLight>());
+        serialized.FindProperty("_moveDirection").vector3Value = Vector3.forward;
+        serialized.FindProperty("_moveDistance").floatValue = Mathf.Clamp(line.distance, 0.0f, 100.0f);
+        serialized.ApplyModifiedPropertiesWithoutUndo();
+    }
+
+    /// <summary>
+    /// 防犯レーザーを、屋上(高所)に置くメソッド(エリアごとに _laserCount 本。他のレーザーから _laserMinSpacing 以上離す)
+    /// </summary>
+    private static void PlaceLasers(GameObject contents, References refs)
+    {
+        Transform lasers = FindOrCreateGroup(contents.transform, _laserGroup);
+        List<Vector3> placed = new List<Vector3>();
+        int[] perArea = new int[_areaCenters.Count];
+        for (int area = 0; area < _areaCenters.Count; area++)
+        {
+            for (int k = 0; k < _laserCount; k++)
+            {
+                foreach (Vector3 center in GetLaserCenters(area, placed))
+                {
+                    List<Vector3> roofs = FindRoofs(new Site { area = area, position = center }, _highMinAbove, _highMaxAbove, _perchMinDistance, _perchMaxDistance);
+                    if (roofs.Count == 0 || !TryCreateLaser(lasers, refs, roofs, $"SecurityLaser_A{area}_{placed.Count + 1:00}")) continue;
+
+                    placed.Add(center);
+                    perArea[area]++;
+                    break;
+                }
+            }
+        }
+        _report.AppendLine($"防犯レーザー(屋上): {placed.Count}本(エリアごと: {string.Join(", ", perArea)})");
+    }
+
+    /// <summary>
+    /// エリアの中で、置いたレーザーから遠い順に、レーザーの周りの屋上を探す中心(地上の歩ける点)を並べるメソッド
+    /// </summary>
+    private static List<Vector3> GetLaserCenters(int area, List<Vector3> placed)
+    {
+        List<(float distance, Vector3 position)> scored = new List<(float, Vector3)>();
+        for (int i = 0; i < _ground.Count; i += 3)
+        {
+            Vector3 candidate = _ground[i];
+            if (NearestArea(candidate) != area || IsNearAny(_startPoints, candidate, _siteMinFromStart)) continue;
+
+            float nearest = float.MaxValue;
+            foreach (Vector3 other in placed) nearest = Mathf.Min(nearest, FlatDistance(candidate, other));
+            if (nearest < _laserMinSpacing) continue;
+
+            scored.Add((Mathf.Min(nearest, 400.0f), candidate));
+        }
+        scored.Sort((a, b) => b.distance.CompareTo(a.distance));
+
+        List<Vector3> result = new List<Vector3>();
+        foreach ((float distance, Vector3 position) entry in scored)
+        {
+            if (!IsNearAny(result, entry.position, 40.0f)) result.Add(entry.position);
+            if (result.Count >= _gapCandidateTries * 2) break;
+        }
+        return result;
     }
 
     /// <summary>
@@ -435,6 +719,8 @@ public static class CSED_FieldMultiLayoutGenerator
         public CS_SecurityDroneSpawner droneTemplate;
         public GameObject laserPrefab;
         public CS_SecurityLaser laserTemplate;
+        public GameObject lightPrefab;
+        public CS_SecurityLight lightTemplate;
         public GameObject hidePrefab;
         public Material saHeadMaterial;     // SAObjectの頭のマテリアル
         public Material saPoleMaterial;     // SAObjectの柱のマテリアル
@@ -466,6 +752,8 @@ public static class CSED_FieldMultiLayoutGenerator
         refs.dronePrefab = Original(refs.droneTemplate);
         refs.laserTemplate = FirstOf<CS_SecurityLaser>();
         refs.laserPrefab = Original(refs.laserTemplate);
+        refs.lightTemplate = FirstOf<CS_SecurityLight>();
+        refs.lightPrefab = Original(refs.lightTemplate);
         refs.hidePrefab = Original(FirstOf<CS_HidePoint>());
         CollectSaObjectLook(refs);
         return refs;

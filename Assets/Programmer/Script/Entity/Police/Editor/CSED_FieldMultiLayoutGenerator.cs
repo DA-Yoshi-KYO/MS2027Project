@@ -147,6 +147,11 @@ public static class CSED_FieldMultiLayoutGenerator
     private const float _highMinAbove = 6.0f;            // ドローン・レーザーを置く屋上の高さ(悪人の足元から。こちらは高所なら、高いほどよい)
     private const float _highMaxAbove = 60.0f;
     private const float _droneAboveRoof = 4.0f;
+    private const int _reconPerArea = 4;                // エリアごとに足す、屋上を偵察するドローンの数の上限
+    private const int _reconMinCells = 12;              // 偵察する屋上の広さの下限(屋上の点の数。3m格子)
+    private const float _reconAboveRoof = 3.0f;         // 偵察ドローンの巡回ポイントを置く、屋上からの高さ(m。今ある手置きのドローンは屋上の2〜5m上)
+    private const float _reconMinLoop = 24.0f;          // 偵察ドローンの経路の、一周の長さの下限(m)
+    private const float _reconSpacing = 25.0f;          // 偵察ドローンの巡回ポイントを、今あるドローンの巡回ポイントから離す距離(m。水平)
 
     private const float _roofStartHeight = 250.0f;
     private const float _roofGrid = 2.5f;
@@ -744,7 +749,6 @@ public static class CSED_FieldMultiLayoutGenerator
         PlacePolice(contents, refs, sites);
         PlaceClimbSa(contents, refs);           // 屋上のSAObjectを足して、ビルを登れるようにする(ドローン・レーザーの空き判定に混ざるよう、先に置く)
         PlaceRoofVillains(contents, refs, sites);   // 登れるビルの屋上に、悪人を置く(警察のグループも、そのそばに置く)
-        PlaceDrones(contents, refs, sites);
         EnsurePoliceCoverage(contents, refs, sites);
         ReportCoverage(sites);
         ReportRunTime(sites);
@@ -890,17 +894,28 @@ public static class CSED_FieldMultiLayoutGenerator
         for (int i = root.childCount - 1; i >= 0; i--)
         {
             string childName = root.GetChild(i).name;
-            if (childName.StartsWith(_legacyContainerPrefix) || childName == _laserGroup || childName == _droneGroup || childName == _hideGroup || childName == _saObjectGroup)
+            if (childName.StartsWith(_legacyContainerPrefix) || childName == _laserGroup || childName == _hideGroup || childName == _saObjectGroup)
                 Object.DestroyImmediate(root.GetChild(i).gameObject);
         }
 
         DestroyChildrenStartingWith(root.Find(_policeGroup), _generatedSquadPrefix);
+        DestroyChildrenEndingWith(root.Find(_droneGroup), "_cover");     // 手で置いた・足したドローンは消さない(前に足した「悪人の近く用」のドローンだけ消す)
         MoveLightsToGroup(root);
 
         Transform points = root.Find("Villain/VillainSpawnPoints");
         if (points == null) return;
 
         for (int i = points.childCount - 1; i >= 0; i--) Object.DestroyImmediate(points.GetChild(i).gameObject);
+    }
+
+    private static void DestroyChildrenEndingWith(Transform parent, string suffix)
+    {
+        if (parent == null) return;
+
+        for (int i = parent.childCount - 1; i >= 0; i--)
+        {
+            if (parent.GetChild(i).name.EndsWith(suffix)) Object.DestroyImmediate(parent.GetChild(i).gameObject);
+        }
     }
 
     private static void DestroyChildrenStartingWith(Transform parent, string prefix)
@@ -2984,6 +2999,205 @@ public static class CSED_FieldMultiLayoutGenerator
 
         foreach (Transform child in group) found.Add(child.position);
         return found;
+    }
+
+    // =====================================================================
+    // 偵察ドローン: 屋上など、警察が行けない所を巡回する
+    // =====================================================================
+
+    // 屋上を巡回するドローンの経路1本分
+    private class ReconRoute
+    {
+        public int area;
+        public List<Vector3> points;
+        public float score;
+        public float roofHeight;
+        public bool hasVillain;
+        public int cellCount;
+    }
+
+    /// <summary>
+    /// 屋上など、警察が行けない所を偵察・警備するドローンを、今ある物は消さずに、足すメソッド
+    /// 登れるビル(SAObjectがある)や、悪人がいるビルの屋上ごとに、屋上の縁に近い所を一周する経路を作る(今ある手置きのドローンと同じ、屋上の上を回る形)
+    /// 悪人がいる屋上・広い屋上を優先し、エリアごとに _reconPerArea 機まで。今あるドローンの巡回ポイントから _reconSpacing 以上離れた屋上だけに足す
+    /// 結果は Temp/FieldDroneReport.txt
+    /// </summary>
+    [MenuItem("Tools/Police/マルチの偵察ドローンを足す")]
+    private static void AddReconDrones()
+    {
+        _report = new StringBuilder();
+        _policeFaction = new List<Vector3>();
+        _multi = FindMulti();
+        if (_multi == null)
+        {
+            Debug.LogError("CSED_FieldMultiLayoutGenerator: シーンに Field/Field_Multi が見つかりません(MainSceneを開いてください)");
+            return;
+        }
+
+        string path = AssetDatabase.GetAssetPath(PrefabUtility.GetCorrespondingObjectFromOriginalSource(_multi.gameObject));
+        if (!path.EndsWith("/Field_Multi.prefab"))
+        {
+            Debug.LogError($"CSED_FieldMultiLayoutGenerator: コピー先が Field_Multi.prefab ではありません({path})。中止しました");
+            return;
+        }
+
+        // 今あるSAObjectの位置・悪人・ドローンを、調べる前に控える。SAObjectのコライダーが、屋上の判定に混ざらないよう、調べている間だけ無効にする
+        _saBases = CollectSceneSaBases();
+        List<Vector3> existing = new List<Vector3>();
+        foreach (CS_SecurityDroneSpawner spawner in _multi.GetComponentsInChildren<CS_SecurityDroneSpawner>(true))
+        {
+            foreach (Transform child in spawner.transform) existing.Add(child.position);
+        }
+        Transform saGroup = _multi.Find(_saObjectGroup);
+        bool saWasActive = saGroup != null && saGroup.gameObject.activeSelf;
+        if (saWasActive)
+        {
+            saGroup.gameObject.SetActive(false);
+            Physics.SyncTransforms();
+        }
+
+        GameObject contents = null;
+        try
+        {
+            CollectGeometry();
+            References refs = CollectReferences();
+            List<Site> sites = CollectSceneSites();
+            List<ReconRoute> routes = FindReconRoutes(sites);
+            List<ReconRoute> chosen = ChooseReconRoutes(routes, existing);
+
+            contents = PrefabUtility.LoadPrefabContents(path);
+            Transform group = FindOrCreateGroup(contents.transform, _droneGroup);
+            int number = 0;
+            foreach (ReconRoute route in chosen)
+            {
+                number++;
+                CreateDrone(group, refs, route.points, $"SecurityDroneSpawner_R{route.area}_{number:00}");
+                _report.AppendLine($"  偵察ドローン{number}(エリア{route.area}): 屋上の高さ {route.roofHeight:F0}m / 巡回ポイント {route.points.Count}個 / 屋上の点 {route.cellCount}個 / 悪人 {(route.hasVillain ? "いる" : "いない")}");
+            }
+            PrefabUtility.SaveAsPrefabAsset(contents, path);
+            _report.AppendLine($"偵察ドローン: 候補の屋上 {routes.Count}か所 → 足した {chosen.Count}機 (今あるドローン {existing.Count}ポイント分は、そのまま)");
+        }
+        finally
+        {
+            if (saWasActive && saGroup != null) saGroup.gameObject.SetActive(true);
+            if (contents != null) PrefabUtility.UnloadPrefabContents(contents);
+            string reportPath = Path.Combine(Path.GetDirectoryName(Application.dataPath), "Temp", "FieldDroneReport.txt");
+            File.WriteAllText(reportPath, _report.ToString(), new UTF8Encoding(false));
+        }
+        Debug.Log("CSED_FieldMultiLayoutGenerator: 偵察ドローンを足しました");
+    }
+
+    /// <summary>
+    /// 屋上ごとの、ドローンの経路の候補を、点数の高い順に集めるメソッド
+    /// 屋上: つながった同じ高さの面(ビル)。高さ _climbMinTargetHeight 以上で、屋上の点が _reconMinCells 個以上あり、登れる(SAObjectがある)か、悪人がいること
+    /// 点数: 悪人がいる +1000 / 登れる +100 / 屋上の点の数(最大200)
+    /// </summary>
+    private static List<ReconRoute> FindReconRoutes(List<Site> sites)
+    {
+        List<Vector3> cells = CollectRoofCells();
+        int[] building = ClusterRoofCells(cells, out int count);
+        List<int>[] members = new List<int>[count];
+        for (int i = 0; i < cells.Count; i++)
+        {
+            if (members[building[i]] == null) members[building[i]] = new List<int>();
+            members[building[i]].Add(i);
+        }
+
+        List<ReconRoute> routes = new List<ReconRoute>();
+        for (int b = 0; b < count; b++)
+        {
+            List<int> member = members[b];
+            if (member == null || member.Count < _reconMinCells || cells[member[0]].y < _climbMinTargetHeight) continue;
+
+            bool hasSa = member.Exists(i => _saBases.Exists(saBase => FlatDistance(saBase, cells[i]) < _climbGrid * 1.5f && Mathf.Abs(saBase.y - cells[i].y) < 1.5f));
+            bool hasVillain = member.Exists(i => sites.Exists(site => Mathf.Abs(site.position.y - cells[i].y) <= 1.5f && FlatDistance(site.position, cells[i]) < _climbGrid * 1.5f));
+            if (!hasSa && !hasVillain) continue;
+
+            List<Vector3> loop = BuildRoofLoop(cells, member);
+            if (loop == null) continue;
+
+            routes.Add(new ReconRoute
+            {
+                area = NearestArea(loop[0]),
+                points = loop,
+                score = (hasVillain ? 1000.0f : 0.0f) + (hasSa ? 100.0f : 0.0f) + Mathf.Min(member.Count, 200),
+                roofHeight = cells[member[0]].y,
+                hasVillain = hasVillain,
+                cellCount = member.Count,
+            });
+        }
+        routes.Sort((a, c) => c.score.CompareTo(a.score));
+        return routes;
+    }
+
+    /// <summary>
+    /// 屋上の点の真ん中のまわりを60度ずつに分け、それぞれ一番遠い点を、屋上の _reconAboveRoof 上に並べた、一周する経路を作るメソッド
+    /// 4か所以上並べられ、一周が _reconMinLoop 以上で、点・線が壁や機器に当たらなければ、その経路を返す(高さを上げて、もう一度試す)。作れなければ null
+    /// </summary>
+    private static List<Vector3> BuildRoofLoop(List<Vector3> cells, List<int> member)
+    {
+        Vector3 centroid = Vector3.zero;
+        foreach (int i in member) centroid += cells[i];
+        centroid /= member.Count;
+
+        Vector3?[] picks = new Vector3?[6];
+        float[] far = new float[6];
+        foreach (int i in member)
+        {
+            Vector3 offset = FlatOf(cells[i] - centroid);
+            float distance = offset.magnitude;
+            if (distance < 3.0f) continue;
+
+            float angle = Mathf.Atan2(offset.z, offset.x) * Mathf.Rad2Deg;
+            if (angle < 0.0f) angle += 360.0f;
+            int sector = Mathf.Min(5, (int)(angle / 60.0f));
+            if (distance <= far[sector]) continue;
+
+            far[sector] = distance;
+            picks[sector] = cells[i];
+        }
+
+        foreach (float lift in new[] { _reconAboveRoof, _reconAboveRoof + 4.0f })
+        {
+            List<Vector3> ring = new List<Vector3>();
+            foreach (Vector3? pick in picks)
+            {
+                if (pick.HasValue && !Physics.CheckSphere(pick.Value + Vector3.up * lift, 0.8f, ~0, QueryTriggerInteraction.Ignore)) ring.Add(pick.Value + Vector3.up * lift);
+            }
+            if (ring.Count < 4) continue;
+
+            float length = 0.0f;
+            bool clear = true;
+            for (int k = 0; k < ring.Count && clear; k++)
+            {
+                Vector3 from = ring[k];
+                Vector3 to = ring[(k + 1) % ring.Count];
+                length += Vector3.Distance(from, to);
+                clear = !Physics.SphereCast(from, 0.8f, (to - from).normalized, out _, Vector3.Distance(from, to), ~0, QueryTriggerInteraction.Ignore);
+            }
+            if (clear && length >= _reconMinLoop) return ring;
+        }
+        return null;
+    }
+
+    /// <summary>
+    /// 経路の候補から、エリアごとに _reconPerArea 機まで、今あるドローンや、すでに選んだ経路の巡回ポイントから _reconSpacing 以上離れたものを選ぶメソッド
+    /// </summary>
+    private static List<ReconRoute> ChooseReconRoutes(List<ReconRoute> routes, List<Vector3> existing)
+    {
+        List<ReconRoute> chosen = new List<ReconRoute>();
+        List<Vector3> taken = new List<Vector3>(existing);
+        int[] perArea = new int[_areaCenters.Count];
+        foreach (ReconRoute route in routes)
+        {
+            if (perArea[route.area] >= _reconPerArea) continue;
+            if (route.points.Exists(point => IsNearAny(taken, point, _reconSpacing))) continue;
+
+            chosen.Add(route);
+            taken.AddRange(route.points);
+            perArea[route.area]++;
+        }
+        return chosen;
     }
 
     // =====================================================================

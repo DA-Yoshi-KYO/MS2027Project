@@ -8,7 +8,7 @@ using UnityEngine.Rendering;
 /*
 +=====================================
  File   : CSE_MayaPreviewHostBuild
- Summary: Builds the Maya preview player (MS2027.exe) from HDRP_Maya_Toon_Scene.
+ Summary: Builds the Maya preview player (MS2027.exe) from HDRP_Maya_Toon_Scene_01 (the export scene).
           - Menu: Tools > Maya Preview > Build Preview Host
           - Command line (the project must not be open in another editor):
             Unity.exe -batchmode -quit -projectPath <project>
@@ -25,7 +25,7 @@ using UnityEngine.Rendering;
 */
 public static class CSE_MayaPreviewHostBuild
 {
-    private const string Scene = "Assets/Programmer/Scene/Test/Maya/HDRP_Maya_Toon_Scene.unity";
+    private const string Scene = "Assets/Programmer/Scene/Test/Maya/HDRP_Maya_Toon_Scene_01.unity";
 
     public static string DefaultFolder =>
         Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory), "Unity_Maya_PreviewHost");
@@ -65,17 +65,29 @@ public static class CSE_MayaPreviewHostBuild
         // setting (DX12 first) is put back right after the build.
         GraphicsDeviceType[] previousApis = PlayerSettings.GetGraphicsAPIs(BuildTarget.StandaloneWindows64);
         bool previousAuto = PlayerSettings.GetUseDefaultGraphicsAPIs(BuildTarget.StandaloneWindows64);
+        // The preview starts as a 960 x 540 resizable window (the game's own settings are full screen).
+        FullScreenMode previousMode = PlayerSettings.fullScreenMode;
+        int previousWidth = PlayerSettings.defaultScreenWidth, previousHeight = PlayerSettings.defaultScreenHeight;
+        bool previousResizable = PlayerSettings.resizableWindow;
         BuildReport report;
         try
         {
             PlayerSettings.SetUseDefaultGraphicsAPIs(BuildTarget.StandaloneWindows64, false);
             PlayerSettings.SetGraphicsAPIs(BuildTarget.StandaloneWindows64, new[] { GraphicsDeviceType.Direct3D11 });
+            PlayerSettings.fullScreenMode = FullScreenMode.Windowed;
+            PlayerSettings.defaultScreenWidth = 960;
+            PlayerSettings.defaultScreenHeight = 540;
+            PlayerSettings.resizableWindow = true;
             report = BuildPipeline.BuildPlayer(options);
         }
         finally
         {
             PlayerSettings.SetGraphicsAPIs(BuildTarget.StandaloneWindows64, previousApis);
             PlayerSettings.SetUseDefaultGraphicsAPIs(BuildTarget.StandaloneWindows64, previousAuto);
+            PlayerSettings.fullScreenMode = previousMode;
+            PlayerSettings.defaultScreenWidth = previousWidth;
+            PlayerSettings.defaultScreenHeight = previousHeight;
+            PlayerSettings.resizableWindow = previousResizable;
         }
         if (report.summary.result == BuildResult.Succeeded)
         {

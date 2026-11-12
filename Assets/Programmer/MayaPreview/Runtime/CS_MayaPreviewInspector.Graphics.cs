@@ -17,12 +17,15 @@ using UnityEngine.Rendering.HighDefinition;
                              everything back as the project has it
             - Textures     : full / half / quarter size (memory)
             - Features     : each HDRP feature on / off (camera Custom Frame Settings)
-          First run (and once after Light got lighter) applies Light; "Full" restores the look.
+          First run (and once when GraphicsVersion goes up) applies the default setup:
+          heavy features off, Quality Low, textures 1/4, render scale 100 %, max 15 fps.
+          "Full" restores the look.
           The scene, Volume profiles and HDRP asset files are not modified. Render scale changes the
           HDRP asset only in memory and only in the built exe (never in the Editor).
           Shown state = what the camera really renders with. Remembered between runs.
  History: 2026/11/05 New
           2026/11/05 Drop-down under the button, render scale, max fps, light by default
+          2026/11/09 Default setup (15 fps, 100 %, Low, textures 1/4)
 =====================================+
 */
 public partial class CS_MayaPreviewInspector
@@ -32,7 +35,7 @@ public partial class CS_MayaPreviewInspector
     private const string ActiveFpsPrefsKey = "MayaPreview.ActiveFps";
     // Raised when "Light" gets lighter: the new light setup is applied once on the next start.
     private const string GraphicsVersionPrefsKey = "MayaPreview.GraphicsVersion";
-    private const int GraphicsVersion = 3;
+    private const int GraphicsVersion = 4;   // 4: the default setup below
 
     private static readonly float[] RenderScales = { 1f, 0.75f, 0.5f };
     private static readonly int[] FpsCaps = { 60, 30, 15 };
@@ -67,7 +70,7 @@ public partial class CS_MayaPreviewInspector
         new GraphicsFeature { field = FrameSettingsField.Antialiasing, label = "Anti-aliasing" },
     };
 
-    private bool _graphicsOpen;
+    private bool _graphicsOpen = true;
     private Rect _graphicsRect;
     private Vector2 _graphicsScroll;
 
@@ -102,11 +105,11 @@ public partial class CS_MayaPreviewInspector
     {
         bool firstRun = !PlayerPrefs.HasKey(GraphicsPrefsKey) || PlayerPrefs.GetInt(GraphicsVersionPrefsKey, 0) < GraphicsVersion;
         PlayerPrefs.SetInt(GraphicsVersionPrefsKey, GraphicsVersion);
-        _renderScale = PlayerPrefs.GetFloat(RenderScalePrefsKey, 0.75f);
-        CS_MayaPreviewIdleThrottle.ActiveFps = PlayerPrefs.GetInt(ActiveFpsPrefsKey, 30);
+        _renderScale = PlayerPrefs.GetFloat(RenderScalePrefsKey, 1f);
+        CS_MayaPreviewIdleThrottle.ActiveFps = PlayerPrefs.GetInt(ActiveFpsPrefsKey, 15);
         ApplyRenderScale();
 
-        if (firstRun) { LightGraphics(false); return; }
+        if (firstRun) { DefaultGraphics(); return; }
         string saved = PlayerPrefs.GetString(GraphicsPrefsKey, "");
         if (string.IsNullOrEmpty(saved) || !EnsureCameraData()) return;
         foreach (string entry in saved.Split(','))
@@ -167,6 +170,21 @@ public partial class CS_MayaPreviewInspector
         SaveGraphics();
         CS_MayaPreviewIdleThrottle.Wake();
         Flash("Graphics: full");
+    }
+
+    // First run: heavy features off, lowest quality, quarter-size textures, 100 %, max 15 fps.
+    private void DefaultGraphics()
+    {
+        foreach (GraphicsFeature feature in GraphicsFeatures)
+            ApplyFeature(feature.field, !feature.heavy);
+        int low = QualitySettings.names.Length - 1;
+        if (RenderScaleAvailable && low >= 0 && QualitySettings.GetQualityLevel() != low) QualitySettings.SetQualityLevel(low, true);
+        if (RenderScaleAvailable) QualitySettings.globalTextureMipmapLimit = 2;
+        _renderScale = 1f;
+        ApplyRenderScale();
+        CS_MayaPreviewIdleThrottle.ActiveFps = 15;
+        SaveGraphics();
+        CS_MayaPreviewIdleThrottle.Wake();
     }
 
     private void LightGraphics(bool flash = true)

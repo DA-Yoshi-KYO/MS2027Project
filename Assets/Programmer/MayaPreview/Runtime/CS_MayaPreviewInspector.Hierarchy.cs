@@ -127,7 +127,7 @@ public partial class CS_MayaPreviewInspector
             Node parent = bar > 0 ? Group(path.Substring(0, bar)) : root;
             node = new Node
             {
-                key = "maya:" + path, label = CS_MayaPreviewExport.LastSegment(path),
+                key = "maya:" + path, label = CS_MayaPreviewExport.NameOf(path),
                 kind = CS_MayaPreviewKind.MayaGroup, mayaGroup = path
             };
             parent.children.Add(node);
@@ -142,7 +142,7 @@ public partial class CS_MayaPreviewInspector
             Node parent = groupPaths.Contains(path) ? Group(path) : bar > 0 ? Group(path.Substring(0, bar)) : root;
             parent.children.Add(new Node
             {
-                key = "t:" + o.transform.GetInstanceID(), label = CS_MayaPreviewExport.LastSegment(path),
+                key = "t:" + o.transform.GetInstanceID(), label = CS_MayaPreviewExport.NameOf(path),
                 kind = CS_MayaPreviewKind.MayaMesh, t = o.transform, active = o.activeInHierarchy
             });
         }

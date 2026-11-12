@@ -14,7 +14,7 @@ using UnityEngine;
 using UnityEngine.AI;
 
 /// <summary>
-/// マルチ用のフィールド(Field_Multi.prefab)の、悪人・警察・防犯装置・SAポイントを、フィールドの形から自動で配置し直すエディタ専用ツール
+/// ソロ用のフィールド(Field_Solo1.prefab。ツールの名前は、はじめにマルチ用として作った名残)の、悪人・警察・防犯装置・SAポイントを、フィールドの形から自動で配置し直すエディタ専用ツール
 /// 方針
 ///   ・悪人の出現点は、3つのエリアごとに5つ置く。大通りのような広い道には置かず、狭い道(路地裏のような所。幅 _maxVillainStreetWidth 以下)に3つと、
 ///     低い屋上の歩ける場所(高さ4〜14m。屋上にSAのSAObjectを立てて、SAで飛んで行ける所だけ)に2つ置く。エリアごとに悪人の動きに特色を付ける
@@ -187,7 +187,10 @@ public static class CSED_FieldMultiLayoutGenerator
         public float patrolHalf; // 往復する巡回ルートの、片側の長さの上限(m。両端が壁や柱に当たらない長さ)
     }
 
-    private static Transform _multi;
+    private const string _targetName = "Field_Solo1";                  // 配置するフィールド(シーンの Field の子)の名前
+    private const string _targetFile = "/Field_Solo1.prefab";           // そのプレハブのファイル名
+    private const string _areaSourceName = "Field_Multi";               // エリアの中心・開始地点を読む、PlayerSpawner(エリアごとの開始地点)がある側のフィールドの名前
+    private static Transform _multi;                                    // 配置するフィールド(_targetName)
     private static StringBuilder _report;
     private static List<Vector3> _areaCenters;
     private static List<Vector3> _startPoints;
@@ -219,7 +222,7 @@ public static class CSED_FieldMultiLayoutGenerator
         _multi = FindMulti();
         if (_multi == null)
         {
-            Debug.LogError("CSED_FieldMultiLayoutGenerator: シーンに Field/Field_Multi が見つかりません(MainSceneを開いてください)");
+            Debug.LogError("CSED_FieldMultiLayoutGenerator: シーンに Field/Field_Solo1 が見つかりません(MainSceneを開いてください)");
             return;
         }
 
@@ -235,9 +238,9 @@ public static class CSED_FieldMultiLayoutGenerator
         }
         hidden = DisablePreviousLayout();
         string path = AssetDatabase.GetAssetPath(PrefabUtility.GetCorrespondingObjectFromOriginalSource(_multi.gameObject));
-        if (!path.EndsWith("/Field_Multi.prefab"))
+        if (!path.EndsWith(_targetFile))
         {
-            Debug.LogError($"CSED_FieldMultiLayoutGenerator: コピー先が Field_Multi.prefab ではありません({path})。中止しました");
+            Debug.LogError($"CSED_FieldMultiLayoutGenerator: コピー先が Field_Solo1.prefab ではありません({path})。中止しました");
             return;
         }
 
@@ -286,14 +289,14 @@ public static class CSED_FieldMultiLayoutGenerator
         _multi = FindMulti();
         if (_multi == null)
         {
-            Debug.LogError("CSED_FieldMultiLayoutGenerator: シーンに Field/Field_Multi が見つかりません(MainSceneを開いてください)");
+            Debug.LogError("CSED_FieldMultiLayoutGenerator: シーンに Field/Field_Solo1 が見つかりません(MainSceneを開いてください)");
             return;
         }
 
         string path = AssetDatabase.GetAssetPath(PrefabUtility.GetCorrespondingObjectFromOriginalSource(_multi.gameObject));
-        if (!path.EndsWith("/Field_Multi.prefab"))
+        if (!path.EndsWith(_targetFile))
         {
-            Debug.LogError($"CSED_FieldMultiLayoutGenerator: コピー先が Field_Multi.prefab ではありません({path})。中止しました");
+            Debug.LogError($"CSED_FieldMultiLayoutGenerator: コピー先が Field_Solo1.prefab ではありません({path})。中止しました");
             return;
         }
 
@@ -541,12 +544,12 @@ public static class CSED_FieldMultiLayoutGenerator
         _multi = FindMulti();
         if (_multi == null)
         {
-            Debug.LogError("CSED_FieldMultiLayoutGenerator: シーンに Field/Field_Multi が見つかりません(MainSceneを開いてください)");
+            Debug.LogError("CSED_FieldMultiLayoutGenerator: シーンに Field/Field_Solo1 が見つかりません(MainSceneを開いてください)");
             return;
         }
 
         string path = AssetDatabase.GetAssetPath(PrefabUtility.GetCorrespondingObjectFromOriginalSource(_multi.gameObject));
-        if (!path.EndsWith("/Field_Multi.prefab")) return;
+        if (!path.EndsWith(_targetFile)) return;
 
         GameObject contents = PrefabUtility.LoadPrefabContents(path);
         try
@@ -584,9 +587,9 @@ public static class CSED_FieldMultiLayoutGenerator
         Transform saGroup = _multi != null ? _multi.Find(_saObjectGroup) : null;
         Transform hideGroup = _multi != null ? _multi.Find(_hideGroup) : null;
         string path = _multi != null ? AssetDatabase.GetAssetPath(PrefabUtility.GetCorrespondingObjectFromOriginalSource(_multi.gameObject)) : "";
-        if (saGroup == null || hideGroup == null || !path.EndsWith("/Field_Multi.prefab"))
+        if (saGroup == null || hideGroup == null || !path.EndsWith(_targetFile))
         {
-            Debug.LogError("CSED_FieldMultiLayoutGenerator: Field_Multi のSAObjectsまたはHidePointsが見つかりません(MainSceneを開いてください)");
+            Debug.LogError("CSED_FieldMultiLayoutGenerator: Field_Solo1 のSAObjectsまたはHidePointsが見つかりません(MainSceneを開いてください)");
             return;
         }
 
@@ -665,7 +668,7 @@ public static class CSED_FieldMultiLayoutGenerator
     }
 
     /// <summary>
-    /// ずらす・削除する結果を、プレハブ(Field_Multi.prefab)へ反映するメソッド(SAObjectと、同じ足元にあるハイドポイントを、同じ分だけ動かす・消す)
+    /// ずらす・削除する結果を、プレハブ(Field_Solo1.prefab)へ反映するメソッド(SAObjectと、同じ足元にあるハイドポイントを、同じ分だけ動かす・消す)
     /// </summary>
     private static void ApplySaFix(string path, Transform sceneHideGroup, List<(string name, Vector3 from, Vector3 to)> moves, List<(string name, Vector3 from)> deletes)
     {
@@ -778,11 +781,20 @@ public static class CSED_FieldMultiLayoutGenerator
         public int saLayer;
     }
 
+    private static Transform FindAreaSource()
+    {
+        foreach (Transform candidate in Object.FindObjectsByType<Transform>(FindObjectsInactive.Include, FindObjectsSortMode.None))
+        {
+            if (candidate.name == _areaSourceName && candidate.parent != null && candidate.parent.name == "Field") return candidate;
+        }
+        return _multi;
+    }
+
     private static Transform FindMulti()
     {
         foreach (Transform candidate in Object.FindObjectsByType<Transform>(FindObjectsInactive.Include, FindObjectsSortMode.None))
         {
-            if (candidate.name == "Field_Multi" && candidate.parent != null && candidate.parent.name == "Field") return candidate;
+            if (candidate.name == _targetName && candidate.parent != null && candidate.parent.name == "Field") return candidate;
         }
         return null;
     }
@@ -798,7 +810,7 @@ public static class CSED_FieldMultiLayoutGenerator
         CS_VillainSpawnPoint point = FirstOf<CS_VillainSpawnPoint>();
         refs.villainPointPrefab = Original(point);
         refs.squadTemplate = _multi.GetComponentInChildren<CS_PoliceSquad>(true);
-        refs.squadPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(_squadPrefabPath);   // 既存のグループは、Field_Multiの中にそのまま置いてあるので、元のプレハブから引けない
+        refs.squadPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(_squadPrefabPath);   // 既存のグループは、配置するフィールドの中にそのまま置いてあるので、元のプレハブから引けない
         refs.droneTemplate = FirstOf<CS_SecurityDroneSpawner>();
         refs.dronePrefab = Original(refs.droneTemplate);
         refs.laserTemplate = FirstOf<CS_SecurityLaser>();
@@ -851,7 +863,8 @@ public static class CSED_FieldMultiLayoutGenerator
     {
         _areaCenters = new List<Vector3>();
         _startPoints = new List<Vector3>();
-        CS_PlayerSpawner spawner = _multi.GetComponentInChildren<CS_PlayerSpawner>(true);
+        // エリアごとの開始地点は、マルチ側の PlayerSpawner が持っている(ソロの PlayerSpawner には無いため、そちらから読む)
+        CS_PlayerSpawner spawner = FindAreaSource().GetComponentInChildren<CS_PlayerSpawner>(true);
         foreach (Transform root in spawner.areaSpawnRoots)
         {
             Vector3 center = Vector3.zero;
@@ -3030,14 +3043,14 @@ public static class CSED_FieldMultiLayoutGenerator
         _multi = FindMulti();
         if (_multi == null)
         {
-            Debug.LogError("CSED_FieldMultiLayoutGenerator: シーンに Field/Field_Multi が見つかりません(MainSceneを開いてください)");
+            Debug.LogError("CSED_FieldMultiLayoutGenerator: シーンに Field/Field_Solo1 が見つかりません(MainSceneを開いてください)");
             return;
         }
 
         string path = AssetDatabase.GetAssetPath(PrefabUtility.GetCorrespondingObjectFromOriginalSource(_multi.gameObject));
-        if (!path.EndsWith("/Field_Multi.prefab"))
+        if (!path.EndsWith(_targetFile))
         {
-            Debug.LogError($"CSED_FieldMultiLayoutGenerator: コピー先が Field_Multi.prefab ではありません({path})。中止しました");
+            Debug.LogError($"CSED_FieldMultiLayoutGenerator: コピー先が Field_Solo1.prefab ではありません({path})。中止しました");
             return;
         }
 

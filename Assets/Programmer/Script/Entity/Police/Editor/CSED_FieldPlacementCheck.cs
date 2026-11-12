@@ -37,6 +37,9 @@ public static class CSED_FieldPlacementCheck
 
     private const string _reportName = "FieldPlacementReport.txt";
 
+    // 詳しく調べる遊び方(Field_Multi / Field_Solo1)。配置ツールの配置先に合わせる
+    private const string _targetMode = "Field_Solo1";
+
     /// <summary>
     /// 配置を調べて、結果を書き出すメソッド
     /// </summary>
@@ -143,7 +146,7 @@ public static class CSED_FieldPlacementCheck
         int groups = 0;
         foreach (CS_PoliceSquad squad in Object.FindObjectsByType<CS_PoliceSquad>(FindObjectsInactive.Include, FindObjectsSortMode.None))
         {
-            if (GetMode(squad.transform) != "Field_Multi") continue;
+            if (GetMode(squad.transform) != _targetMode) continue;
 
             SerializedObject serialized = new SerializedObject(squad);
             int members = serialized.FindProperty("_memberStatuses").arraySize;
@@ -169,7 +172,7 @@ public static class CSED_FieldPlacementCheck
         List<string> blocked = new List<string>();
         foreach (CS_PoliceSquad squad in Object.FindObjectsByType<CS_PoliceSquad>(FindObjectsInactive.Include, FindObjectsSortMode.None))
         {
-            if (GetMode(squad.transform) != "Field_Multi") continue;
+            if (GetMode(squad.transform) != _targetMode) continue;
 
             List<Transform> points = squad.GetRouteDrawPoints();
             for (int i = 0; i < points.Count; i++)
@@ -299,7 +302,7 @@ public static class CSED_FieldPlacementCheck
         List<string> problems = new List<string>();
         foreach (CS_SecurityLaser laser in Object.FindObjectsByType<CS_SecurityLaser>(FindObjectsInactive.Include, FindObjectsSortMode.None))
         {
-            if (GetMode(laser.transform) != "Field_Multi") continue;
+            if (GetMode(laser.transform) != _targetMode) continue;
 
             total++;
             SerializedObject serialized = new SerializedObject(laser);
@@ -347,7 +350,7 @@ public static class CSED_FieldPlacementCheck
         List<string> buried = new List<string>();
         foreach (Transform root in Object.FindObjectsByType<Transform>(FindObjectsInactive.Include, FindObjectsSortMode.None))
         {
-            if (!root.name.StartsWith("SAObject") || root.parent == null || root.parent.name != "SAObjects" || GetMode(root) != "Field_Multi") continue;
+            if (!root.name.StartsWith("SAObject") || root.parent == null || root.parent.name != "SAObjects" || GetMode(root) != _targetMode) continue;
 
             total++;
             string hit = FindBuriedCollider(root);
@@ -447,7 +450,7 @@ public static class CSED_FieldPlacementCheck
         List<Transform> objects = new List<Transform>();
         foreach (Transform root in Object.FindObjectsByType<Transform>(FindObjectsInactive.Include, FindObjectsSortMode.None))
         {
-            if (root.name.StartsWith("SAObject") && root.parent != null && root.parent.name == "SAObjects" && GetMode(root) == "Field_Multi") objects.Add(root);
+            if (root.name.StartsWith("SAObject") && root.parent != null && root.parent.name == "SAObjects" && GetMode(root) == _targetMode) objects.Add(root);
         }
 
         int closePairs = 0;
@@ -486,7 +489,7 @@ public static class CSED_FieldPlacementCheck
         List<string> buried = new List<string>();
         foreach (CS_HidePoint point in Object.FindObjectsByType<CS_HidePoint>(FindObjectsInactive.Include, FindObjectsSortMode.None))
         {
-            if (GetMode(point.transform) != "Field_Multi") continue;
+            if (GetMode(point.transform) != _targetMode) continue;
 
             total++;
             Vector3 center = point.standPosition + Vector3.up * 1.7f;
@@ -520,7 +523,7 @@ public static class CSED_FieldPlacementCheck
         List<string> problems = new List<string>();
         foreach (CS_VillainSpawnPoint spawnPoint in Object.FindObjectsByType<CS_VillainSpawnPoint>(FindObjectsInactive.Include, FindObjectsSortMode.None))
         {
-            if (GetMode(spawnPoint.transform) != "Field_Multi") continue;
+            if (GetMode(spawnPoint.transform) != _targetMode) continue;
 
             total++;
             spawnPoint.GetPatrolEnds(out Vector3 endA, out Vector3 endB);

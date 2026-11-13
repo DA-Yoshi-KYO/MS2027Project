@@ -46,13 +46,25 @@ GameObject:
   - component: {fileID: 6038915642972428042}
   - component: {fileID: 5203948171630284711}
   - component: {fileID: 6619284730158836402}
+  - component: {fileID: 7421905630218845591}
   - component: {fileID: 3846102957716629043}
   - component: {fileID: 7731590264018837125}
   - component: {fileID: 4718293045561290871}
   - component: {fileID: 6660456579872789801}
   - component: {fileID: 5684253229926721997}
   - component: {fileID: 8473531523518073818}
+  - component: {fileID: 7746205138316608213}
   - component: {fileID: 3958217640385529173}
+  - component: {fileID: 2958174630182749316}
+  - component: {fileID: 365371107231031251}
+  - component: {fileID: 3130328960277820292}
+  - component: {fileID: 738142572027155397}
+  - component: {fileID: 5246955127504645171}
+  - component: {fileID: 1627482432968856487}
+  - component: {fileID: 1000006798085298387}
+  - component: {fileID: 1000004464205835075}
+  - component: {fileID: 192866817224853479}
+  - component: {fileID: 3150130518343412178}
   m_Layer: 31
   m_Name: Player
   m_TagString: PlayerNoTransformation
@@ -141,7 +153,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Unity.Netcode.Runtime::Unity.Netcode.NetworkObject
-  GlobalObjectIdHash: 2789187359
+  GlobalObjectIdHash: 2681437817
   InScenePlacedSourceGlobalObjectIdHash: 0
   m_InScenePlacedDisabledByDefault: 0
   DeferredDespawnTick: 0
@@ -181,7 +193,7 @@ MonoBehaviour:
   _virtualCameraTransform: {fileID: 3590718967009566022}
   _cameraDistance: 4
   _cameraPivotHeight: 1
-  _minPitch: -15
+  _minPitch: -25
   _maxPitch: 60
   _mouseSensitivity: 0.1
   _stickSensitivity: 180
@@ -330,6 +342,9 @@ MonoBehaviour:
   - {fileID: 11400000, guid: 0346968b69ed2ed384f4982f842d527a, type: 2}
   - {fileID: 11400000, guid: 9d4f7b2e6a1c45d8b3e0a7c5f2d9b164, type: 2}
   - {fileID: 11400000, guid: 5d1f8b3e7a2c49c6a8e4b0f2d9c7e351, type: 2}
+  - {fileID: 11400000, guid: 37c574bbccdb4b6796256274e2a212c7, type: 2}
+  - {fileID: 11400000, guid: 2ea04ab418cc422380d55d20f0324daf, type: 2}
+  - {fileID: 11400000, guid: aa5afaff90494af299da9de6bfb20b48, type: 2}
 --- !u!114 &3346322341716874633
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -347,7 +362,15 @@ MonoBehaviour:
   _locomotionDamping: 0.08
   _maxTrackedSpeed: 40
   _blinkInterval: 0.1
+  _stepHeight: 1
+  _stepGroundLayers:
+    serializedVersion: 2
+    m_Bits: 4294967295
   _attackMotionCount: 3
+  _attackMotionForStep: 0000000001000000020000000000000002000000
+  _ambushImpactTime: 1.0666667
+  _minAmbushSpeed: 0.3
+  _maxAmbushSpeed: 6
 --- !u!114 &6914253087416032519
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -499,6 +522,8 @@ MonoBehaviour:
   _foundByPolicePenalty: 50
   _foundByPoliceInterval: 5
   _defeatPlayerScore: 0
+  _scorePopupPrefab: {fileID: 3390211868830361032, guid: 0ed524d57d112a44a81051bec09c24ae, type: 3}
+  _scorePopupHeight: 2.2
 --- !u!114 &349586411803567952
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -694,8 +719,6 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::CS_PlayerAlert
   ShowTopMostFoldoutHeaderGroup: 1
-  _lostDelay: 0.5
-  _clearTime: 20
 --- !u!114 &5884805568190594611
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -759,10 +782,15 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a28e3446266f4869a85868e54eb4c451, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::CS_PlayerScan
-  _baseRadius: 30
+  _baseRadius: 60
+  _height: 30
   _expandTime: 1
   _fadeTime: 0.3
   _revealDuration: 10
+  _autoScanEnabled: 1
+  _autoScanInterval: 20
+  _autoScanOnStart: 1
+  _resetAutoScanOnManual: 1
 --- !u!114 &6619284730158836402
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -780,6 +808,21 @@ MonoBehaviour:
   _waveWidth: 0.3
   _waveSegments: 96
   _waveHeight: 0.2
+--- !u!114 &7421905630218845591
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1825699444668748530}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2dc7ce27e95744dd97c11d1509647a42, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CS_PlayerScanHighlight
+  _villainMaterial: {fileID: 2100000, guid: bc2419814c1943bf8d34756b0377d410, type: 2}
+  _policeMaterial: {fileID: 2100000, guid: ac8eb32640ac47d1a96839dfe39bc370, type: 2}
+  _droneMaterial: {fileID: 2100000, guid: 520d5d4aa2d549a38058aaf363f50beb, type: 2}
 --- !u!114 &3846102957716629043
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -824,6 +867,7 @@ MonoBehaviour:
   _dashSpeed: 30
   _maxDashTime: 1
   _strikeDistance: 1.2
+  _verticalTolerance: 0.3
   _strikeDelay: 0.1
   _strikeDuration: 0.4
   _freezeMargin: 0.5
@@ -831,6 +875,9 @@ MonoBehaviour:
   _dashPassThroughLayers:
     serializedVersion: 2
     m_Bits: 2147483648
+  _pressGraceTime: 0.3
+  _splashRadius: 1.5
+  _splashIncludesRaidBoss: 0
 --- !u!114 &4718293045561290871
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -858,13 +905,13 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::CS_PlayerHide
   ShowTopMostFoldoutHeaderGroup: 1
-  _searchRange: 10
-  _sightHeight: 1.3
   _pointHeight: 1
+  _requiredVisibleRatio: 0.3
+  _sightSampleCount: 3
+  _sightSampleInset: 0.1
   _flySpeed: 25
   _arriveDistance: 0.3
   _maxFlyTime: 1
-  _exitInputThreshold: 0.5
   _revealDistance: 2
 --- !u!114 &5684253229926721997
 MonoBehaviour:
@@ -878,18 +925,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 98ae5aa3d0ce4b05a64ce2824ea519fb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::CS_PlayerHideMarkerUI
---- !u!114 &3958217640385529173
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1825699444668748530}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 1bfdfffef64447a5845471342577469d, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::CS_PlayerScanMarkerUI
 --- !u!114 &8473531523518073818
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -903,6 +938,173 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::CS_PlayerHideScreenEffect
   _hideEffect: {fileID: 11400000, guid: 105e1c159b4c433faa2cce73892ffa49, type: 2}
+--- !u!114 &7746205138316608213
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1825699444668748530}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d71e614852e840c5a786e2b70db6bea5, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CS_PlayerAlertScreenEffect
+  _color: {r: 1, g: 0.35, b: 0.35, a: 1}
+  _intensityMin: 0.25
+  _intensityMax: 0.4
+  _smoothness: 0.4
+  _pulseSpeed: 1
+  _fadeInTime: 0.2
+  _fadeOutTime: 0.5
+  _priority: 110
+--- !u!114 &3958217640385529173
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1825699444668748530}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 1bfdfffef64447a5845471342577469d, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CS_PlayerScanMarkerUI
+--- !u!114 &2958174630182749316
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1825699444668748530}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 96ed42d50c3575d838780a10d71d31ff, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CS_PlayerStunEscape
+  ShowTopMostFoldoutHeaderGroup: 1
+  _shortenPerCycle: 0.5
+  _inputThreshold: 0.5
+  _snapAngle: 150
+--- !u!114 &365371107231031251
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1825699444668748530}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 778b8fcaba7e48dca60e594bde078c29, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CS_NetworkEffectPlayer
+  ShowTopMostFoldoutHeaderGroup: 1
+--- !u!114 &3130328960277820292
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1825699444668748530}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5fe923f7d0a549eb8db47d1e5e901a36, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CS_PlayerAttackEffect
+--- !u!114 &738142572027155397
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1825699444668748530}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f550d98ad61849419b199690151eed56, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CS_PlayerDamageEffect
+  _height: 1
+  _cameraOffset: 0.5
+--- !u!114 &5246955127504645171
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1825699444668748530}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7423333c8e134a57a3bf276fd8ea605b, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CS_PlayerParrySuccessEffect
+  _height: 1
+  _cameraOffset: 0.5
+--- !u!114 &1627482432968856487
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1825699444668748530}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e8d1ccc340f74ab1b1b9bf79934cd2fb, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CS_PlayerSpawnEffect
+--- !u!114 &1000006798085298387
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1825699444668748530}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b9cb3a8f6f726a23d225754e76de0c73, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CS_PlayerAttentionAlertUI
+--- !u!114 &1000004464205835075
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1825699444668748530}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c5fc2d75e8c4b0ce1de8c92c438dd43e, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CS_PlayerLimitBreakUI
+--- !u!114 &192866817224853479
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1825699444668748530}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8f058a6d04e8a674fbe00e806bcbb762, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CS_PlayerOpticalCamoVisual
+  _modelRoot: {fileID: 5104249098706007781}
+  _camoMaterial: {fileID: 2100000, guid: c106c1c6d57f90a4c9aa20e19a25ea22, type: 2}
+  _selfAlpha: 0.25
+  _othersAlpha: 0.05
+--- !u!114 &3150130518343412178
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1825699444668748530}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5dbbcc706883eb143bf930299cb51290, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CS_PlayerCharacter
+  ShowTopMostFoldoutHeaderGroup: 1
+  _roster: {fileID: 11400000, guid: 4aca111469ac0e14091b3239ffd4a62d, type: 2}
 --- !u!1 &3298430547158640491
 GameObject:
   m_ObjectHideFlags: 0
@@ -1457,7 +1659,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 8211388652041010643, guid: da07e20c2bfc65e4ca8fe6762518ce3a, type: 3}
       propertyPath: GlobalObjectIdHash
-      value: 4256807303
+      value: 2593234121
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []

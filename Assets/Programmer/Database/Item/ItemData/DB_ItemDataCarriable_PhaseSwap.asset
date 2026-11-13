@@ -1,0 +1,19 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7d672da7d62fb7e2c8967a92d611bf2a, type: 3}
+  m_Name: DB_ItemDataCarriable_PhaseSwap
+  m_EditorClassIdentifier: 
+  _itemName: "位相置換機"
+  _icon: {fileID: 0}
+  _description: "使ってから2秒後に、ランダムなプレイヤーと自分の位置を入れ替える"
+  _effects:
+  - {fileID: 11400000, guid: 4e1c49786d1c4aeb9196f0f19f8fae83, type: 2}

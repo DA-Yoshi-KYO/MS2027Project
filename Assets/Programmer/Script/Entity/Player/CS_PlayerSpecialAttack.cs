@@ -23,6 +23,8 @@ using UnityEngine;
  * ・必殺技自体はゲージを増やさない想定(Special Attack DataのGauge Gainは0を推奨)
  * ・動けなくなった(死亡・スタン)時は必殺技を中断する
  * ・ダメージ倍率はCS_PlayerStats.specialAttackPowerを使う(通常攻撃のattackPowerとは別枠)
+ * ・キャラクター(CS_PlayerCharacter)が付いていて、そのキャラクターに必殺技の攻撃が設定されていれば、Special Attack Dataの代わりにそれを使う
+ * ・ゲージを消費した時(必殺技が決まった時)にonSpecialActivatedを出す(サーバー、またはオフラインのみ)。キャラクターごとの効果が始まる
  */
 // ========================================
 
@@ -45,6 +47,7 @@ public class CS_PlayerSpecialAttack : NetworkBehaviour
     private CS_PlayerSpecialGauge _gauge;
     private CS_PlayerAttack _attack;
     private CS_PlayerScoring _scoring;
+    private CS_PlayerCharacter _character;   // 付いていれば、キャラクターの必殺技の攻撃を使う
     private readonly Collider[] _hitBuffer = new Collider[_hitBufferSize];
     private readonly HashSet<IDamageable> _hitTargets = new HashSet<IDamageable>();
 
@@ -58,7 +61,17 @@ public class CS_PlayerSpecialAttack : NetworkBehaviour
     public event System.Action onSpecialStarted;
     // 操作しているクライアントでだけ発生する。判定が出る瞬間に呼ばれる。カメラの揺れなどが購読する
     public event System.Action onSpecialHitTiming;
-    public CSO_AttackData specialAttackData => _specialAttackData;
+    // ゲージを消費して必殺技が決まった時(サーバー、またはオフラインのみ)。キャラクターごとの効果(CS_PlayerCharacter)が購読する
+    public event System.Action onSpecialActivated;
+    // 今使う必殺技の攻撃(キャラクターに設定されていればそれ、無ければSpecial Attack Data)
+    public CSO_AttackData specialAttackData
+    {
+        get
+        {
+            CSO_PlayableCharacter character = _character != null ? _character.currentCharacter : null;
+            return character != null && character.specialAttack != null ? character.specialAttack : _specialAttackData;
+        }
+    }
     public LayerMask targetLayers => _targetLayers;     // ダメージを与える対象のレイヤー(カメラの揺れの当たり確認にも使う)
 
     private void Awake()
@@ -68,6 +81,7 @@ public class CS_PlayerSpecialAttack : NetworkBehaviour
         _gauge = GetComponent<CS_PlayerSpecialGauge>();
         _attack = GetComponent<CS_PlayerAttack>();
         _scoring = GetComponent<CS_PlayerScoring>();
+        _character = GetComponent<CS_PlayerCharacter>();
 
         if (_specialAttackData != null) return;
 
@@ -111,14 +125,14 @@ public class CS_PlayerSpecialAttack : NetworkBehaviour
 
         _elapsed += Time.deltaTime;
 
-        if (!_hasHit && _elapsed >= _specialAttackData.hitDelay)
+        if (!_hasHit && _elapsed >= specialAttackData.hitDelay)
         {
             _hasHit = true;
             RequestHit();
             onSpecialHitTiming?.Invoke();
         }
 
-        if (_elapsed >= _specialAttackData.duration)
+        if (_elapsed >= specialAttackData.duration)
         {
             _isPerforming = false;
         }
@@ -152,17 +166,20 @@ public class CS_PlayerSpecialAttack : NetworkBehaviour
     private void ExecuteHit(Vector3 position, Vector3 forward)
     {
         if (!_gauge.TryConsumeFull()) return;
+        onSpecialActivated?.Invoke();
+
+        CSO_AttackData attackData = specialAttackData;
 
         AttackContext context = new AttackContext(transform, _specialStepIndex);
         CS_AttackHitDetector.ResolvePose(transform, ref position, ref forward);
-        CS_AttackHitDetector.FindTargets(transform, position, forward, _specialAttackData, _targetLayers, _hitBuffer, _hitTargets);
+        CS_AttackHitDetector.FindTargets(transform, position, forward, attackData, _targetLayers, _hitBuffer, _hitTargets);
 
         foreach (IDamageable target in _hitTargets)
         {
-            float damage = _specialAttackData.CalculateDamage(context, target) * _stats.specialAttackPower;
+            float damage = attackData.CalculateDamage(context, target) * _stats.specialAttackPower;
             DealDamage(target, damage);
             CS_AttackHitDetector.TryKnockback(target, position);   // 攻撃した位置から離れる方向へ下がる
-            _specialAttackData.OnHit(context, target);
+            attackData.OnHit(context, target);
         }
     }
 
@@ -181,10 +198,11 @@ public class CS_PlayerSpecialAttack : NetworkBehaviour
     // 選択中に、判定範囲をシーンビューへ表示する(調整用)
     private void OnDrawGizmosSelected()
     {
-        if (_specialAttackData == null) return;
+        CSO_AttackData attackData = Application.isPlaying ? specialAttackData : _specialAttackData;
+        if (attackData == null) return;
 
         Gizmos.color = Color.yellow;
         Gizmos.DrawWireSphere(
-            transform.position + transform.forward * _specialAttackData.hitRange, _specialAttackData.hitRadius);
+            transform.position + transform.forward * attackData.hitRange, attackData.hitRadius);
     }
 }

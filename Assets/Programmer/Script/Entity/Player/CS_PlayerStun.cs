@@ -3,7 +3,7 @@ using UnityEngine;
 
 /*
  * プレイヤーのスタン(一定時間、行動できなくなる)を管理するクラス
- * IStunnableを実装し、他のプレイヤーにパリー(CS_PlayerParry)された時にスタンする
+ * IStunnableを実装し、他のプレイヤーにパリー(CS_PlayerParry)された時や、巡回ドローンのテーザーに当たった時にスタンする
  *
  * 制作者：　秋野翔太
  */
@@ -17,6 +17,7 @@ using UnityEngine;
  *   操作している本人の手元でも、サーバーと同じタイミングでスタンが解ける
  * ・Stun()はサーバー(またはオフライン)で呼ぶ(パリーの判定はサーバーで行うため)
  * ・スタン中にもう一度スタンされた時は、長い方に合わせる(短くはならない)
+ * ・コマンド入力(CS_PlayerStunEscape)で、スタンを短くできる(Shorten。サーバー、またはオフラインのみ)
  * ・オフライン(NetworkManagerが動いていない)のテストシーンでも単体で動く
  */
 // ========================================
@@ -39,6 +40,15 @@ public class CS_PlayerStun : NetworkBehaviour, IStunnable
         if (endTime <= _stunEndTime.Value) return;
 
         _stunEndTime.Value = endTime;
+    }
+
+    // スタンをseconds秒短くする(サーバー、またはオフラインのみ。CS_PlayerStunEscapeが呼ぶ)
+    public void Shorten(float seconds)
+    {
+        if (IsSpawned && !IsServer) return;
+        if (seconds <= 0f || !isStunned) return;
+
+        _stunEndTime.Value = System.Math.Max(GetCurrentTime(), _stunEndTime.Value - seconds);
     }
 
     // オンラインではサーバーの時刻、オフラインではゲームの時刻

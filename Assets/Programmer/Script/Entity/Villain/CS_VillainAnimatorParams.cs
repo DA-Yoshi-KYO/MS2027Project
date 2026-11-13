@@ -29,6 +29,9 @@ public static class CS_VillainAnimatorParams
     public const string attacking = "Attacking";   // bool 攻撃判定が出ているか
     public const string attackTime = "AttackTime"; // float 0〜1 攻撃モーションの再生位置(溜め・攻撃のStateのMotion Timeに使う)
 
+    // 撃退(常時更新)
+    public const string dead = "Dead";             // bool 撃退されて倒れているか(死亡モーション)
+
     // 単発の動作(トリガー)
     public const string hit = "Hit";               // ノックバックした瞬間
 
@@ -39,4 +42,5 @@ public static class CS_VillainAnimatorParams
     public static readonly int attackingHash = Animator.StringToHash(attacking);
     public static readonly int attackTimeHash = Animator.StringToHash(attackTime);
     public static readonly int hitHash = Animator.StringToHash(hit);
+    public static readonly int deadHash = Animator.StringToHash(dead);
 }

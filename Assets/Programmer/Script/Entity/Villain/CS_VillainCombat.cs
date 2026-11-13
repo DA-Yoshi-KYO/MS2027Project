@@ -18,9 +18,13 @@ using UnityEngine.AI;
  *   犯罪中(Idle) → [プレイヤーが臨戦態勢範囲に入る / 攻撃される] → 追跡(Chase) ⇔ 攻撃(Attack)
  *   追跡中に以下のどれかになったら → 帰還(Return) → 犯罪中
  *     ・ターゲットが倒れた・いなくなった
+ *     ・ターゲットのプレイヤーが隠れた(SAなどでハイドポイントの隠れられる箱に入った。CS_PlayerHide.isHidden)
+ *       → 近づかれていても見失う(新しく見つける時の「revealDistance以内なら隠れていても見つかる」は、追跡中の相手には使わない)
+ *       → 同じプレイヤーを追っている仲間も、それぞれ同じ判定で戻る。仲間から知らされた時も、隠れているプレイヤーは追わない
  *     ・ターゲットが路地裏の外に出てから leaveAlleyGiveUpTime 秒たった
- *     ・スポーン位置から leashRange 以上離れた(路地裏判定の取りこぼし対策)
- *   帰還中は、プレイヤーが臨戦態勢範囲に入っても追跡しない(スポーン位置に着いて犯罪中に戻ってから反応する)
+ *     ・戻り先(巡回するグループはルートの今の位置、それ以外はスポーン位置)から leashRange 以上離れた(路地裏判定の取りこぼし対策)
+ *   帰還は、巡回するグループなら自分のルートの今の進み具合の位置へ合流する(CS_VillainPatrol.TickReturn)。それ以外はスポーン位置へ戻る
+ *   帰還中は、プレイヤーが臨戦態勢範囲に入っても追跡しない(戻って犯罪中になってから反応する)
  *   ただし帰還中に攻撃された場合は、反撃のため再び追跡する
  * ・グループの攻撃枠(CS_VillainGroup)
  *   追跡中は毎回攻撃枠を取りに行き、取れたら攻撃する
@@ -51,11 +55,10 @@ using UnityEngine.AI;
  *   止まっている間は移動・向き変え・プレイヤーへの気付き・攻撃をすべて止める(ノックバック中と同じ扱い。攻撃中なら中断する)
  *   時間がたつか、Unfreeze()で動き出す
  * ・isEngagedがtrueの間は犯罪の手を止める(犯罪の進行側から参照する想定)
- * ・見張り役(SetWatcherで巡回ルートを渡された悪人)は、犯罪中(Idle)の間CS_VillainPatrolで路地裏を巡回する
- *   巡回中も犯罪中の扱い(グループの犯罪は進む)。臨戦態勢範囲の確認も、他のメンバーと同じように行う
- *   帰還してスポーン位置に着いたら、巡回を始め直す
- *   実行役が全員倒されたら、巡回中に犯行地点(スポーン位置)の近くを通った時に気付き、戦闘時の速さで向かって犯罪を引き継ぐ
- *   (引き継ぐまではグループの犯罪は進まない。着いたら巡回をやめて実行役になり、そこを新しい戻り先にする)
+ * ・巡回: スポーン位置のあるグループのメンバーは全員、犯罪中(Idle)の間CS_VillainPatrolで自分の巡回ルートを往復する
+ *   どこを歩くかはグループで共有する進み具合で決まる(CS_VillainGroup)。巡回中も犯罪中の扱い(グループの犯罪は進む)
+ *   臨戦態勢範囲の確認は、巡回中も行う
+ *   スポーン位置の無いグループ(ランダムイベント)・グループに属さない悪人は巡回せず、その場で犯罪を行う
  * ・仲間への通知
  *   犯罪中・帰還中から新しく臨戦態勢になった時(標的を見つけた・攻撃されて反撃する)、同じグループの仲間へ知らせる
  *   知らされた仲間は、犯罪中なら同じ標的を追跡し始める(臨戦態勢範囲の外にいても、煙幕越しでも気付く)
@@ -195,7 +198,7 @@ public class CS_VillainCombat : NetworkBehaviour
     private CS_VillainStats _stats;
     private CS_VillainHealth _health;
     private CS_VillainKnockback _knockback;   // 付いていなければノックバックしない
-    private CS_VillainPatrol _patrol;         // 付いていなければ見張り役にならない
+    private CS_VillainPatrol _patrol;         // 付いていなければ巡回しない
     private CS_VillainGroup _group;       // 所属するグループ。スポナーを通さず置いた悪人はnull
     private readonly Collider[] _hitBuffer = new Collider[_hitBufferSize];
     private readonly HashSet<IDamageable> _hitTargets = new HashSet<IDamageable>();
@@ -209,10 +212,10 @@ public class CS_VillainCombat : NetworkBehaviour
 
     private State _state = State.Idle;
     private bool _isSurrounding;             // 攻撃枠が無く、取り囲んで様子を見ているか
-    private bool _isTakingOver;              // 見張り役が、実行役のいない犯行地点へ犯罪を引き継ぎに向かっているか
     private Transform _target;               // 標的(プレイヤー、警察、または陽動ホログラム)
     private CS_PlayerHealth _targetPlayer;   // 標的がプレイヤーの時のHP(倒れたかの判定に使う)。それ以外の時はnull
     private CS_PoliceBrain _targetPolice;    // 標的が警察の時の行動(消える演出中かの判定に使う)。それ以外の時はnull
+    private CS_PlayerHide _targetHide;       // 標的がプレイヤーの時の隠れている判定。それ以外の時・付いていない時はnull
     private Vector3 _homePosition;        // スポーンした位置(犯罪を行う場所)
     private Quaternion _homeRotation;
     private float _scanTimer;
@@ -229,11 +232,10 @@ public class CS_VillainCombat : NetworkBehaviour
     private float _freezeRemaining;       // 奇襲で止められている残り時間(秒)
 
     public bool isEngaged => _state == State.Chase || _state == State.Attack;   // 臨戦態勢中か
-    public bool isCommittingCrime => enabled && _state == State.Idle;             // スポーン位置で犯罪を進めているか
+    public bool isCommittingCrime => enabled && _state == State.Idle;             // 犯罪を進めているか(巡回している間も含む)
     public bool isAttacking => _state == State.Attack;                           // 攻撃中か(溜め・攻撃判定)
     public bool isFrozen => _freezeRemaining > 0f;                                // 奇襲で止められているか(サーバーのみ)
-    public bool isSurrounding => _state == State.Chase && _isSurrounding;         // 取り囲んで様子を見ているか(サーバーのみ)
-    public bool isWatcher => _patrol != null && _patrol.hasRoute;    // 見張り役(巡回ルートを持つ)か(サーバーのみ)
+    public bool isSurrounding => enabled && _state == State.Chase && _isSurrounding;   // 取り囲んで様子を見ているか(サーバーのみ。倒れた・逃走中はfalse)
     public Transform target => _target;                                           // 標的(サーバーのみ)
     public CSE_VillainAttackPhase attackPhase => _attackPhase.Value;              // 攻撃の段階(全クライアントで参照可)
     public float chargeTime => _chargeTime;
@@ -248,7 +250,7 @@ public class CS_VillainCombat : NetworkBehaviour
     private bool hasAuthority => !IsSpawned || IsServer;
 
     private float moveSpeed => _playerBaseStats.moveSpeed * _stats.moveSpeedMultiplier;
-    private float patrolSpeed => _playerBaseStats.moveSpeed * _stats.patrolSpeedMultiplier;
+    public float patrolSpeed => _playerBaseStats.moveSpeed * _stats.patrolSpeedMultiplier;   // 巡回時の速さ(グループが進み具合の速さを決めるのに使う)
 
     // 臨戦態勢になる範囲。範囲の中に留まる悪人(レイドのボス)は、イベントの範囲全体を見る
     // (範囲の外の標的はFindNearestPlayer / FindNearestHologramで外す)
@@ -350,57 +352,13 @@ public class CS_VillainCombat : NetworkBehaviour
     }
 
     // 犯罪中。臨戦態勢範囲にプレイヤーが入ったら追跡を始める
-    // 見張り役は、犯罪中は路地裏を巡回する(巡回中も臨戦態勢範囲は確認する)
+    // 巡回するグループのメンバーは、犯罪中は自分のルートを巡回する(巡回中も臨戦態勢範囲は確認する)
     private void UpdateIdle()
     {
-        if (isWatcher) UpdateWatcher();
-        else _move.Stop();
+        bool isPatrolling = _patrol != null && _group != null && _patrol.Tick(this, _group, moveSpeed, Time.fixedDeltaTime);
+        if (!isPatrolling) _move.Stop();
 
         ScanEngageRange();
-    }
-
-    // 見張り役。巡回し、実行役がいなくなっていれば犯行地点の近くを通った時に気付いて犯罪を引き継ぐ
-    private void UpdateWatcher()
-    {
-        if (_isTakingOver)
-        {
-            MoveToTakeOver();
-            return;
-        }
-
-        _patrol.Tick(patrolSpeed, Time.fixedDeltaTime);
-        if (CanNoticeNoExecutor()) _isTakingOver = true;
-    }
-
-    // 実行役が誰もいない犯行地点の近くまで来たか
-    private bool CanNoticeNoExecutor()
-    {
-        if (_group == null || _group.spawnPoint == null || _group.HasExecutor()) return false;
-
-        return GetFlatDirection(_group.spawnPoint.transform.position).magnitude <= _patrol.takeOverNoticeDistance;
-    }
-
-    // 戦闘時の速さで犯行地点へ向かい、着いたら実行役になる
-    private void MoveToTakeOver()
-    {
-        _move.MoveTo(_group.spawnPoint.transform.position, moveSpeed);
-        if (!_move.IsNearDestination(_arriveDistance)) return;
-
-        _move.Stop();
-        _patrol.ClearRoute();
-        _isTakingOver = false;
-
-        // 犯行地点を新しい戻り先にする(臨戦態勢の後はここへ戻って犯罪を続ける)
-        _homePosition = transform.position;
-        _homeRotation = transform.rotation;
-    }
-
-    // 見張り役にする(生成直後にCS_VillainSpawnerから呼ばれる)。CS_VillainPatrolが付いていなければ見張り役にならない
-    public void SetWatcher(Vector3 patrolEndA, Vector3 patrolEndB)
-    {
-        if (_patrol == null) return;
-
-        _patrol.SetRoute(patrolEndA, patrolEndB);
     }
 
     private void UpdateChase()
@@ -410,7 +368,7 @@ public class CS_VillainCombat : NetworkBehaviour
         // 標的が倒れた・ホログラムが消えた時は、近くに別の標的がいればそちらを狙う
         if (!IsTargetValid() && TryEngageInRange(engageRange, true)) return;
 
-        if (!IsTargetValid() || HasTargetLeftAlley() || IsTooFarFromHome())
+        if (!IsTargetValid() || IsTargetHidden() || HasTargetLeftAlley() || IsTooFarFromHome())
         {
             ClearTarget();
             _state = State.Return;
@@ -468,10 +426,21 @@ public class CS_VillainCombat : NetworkBehaviour
         _state = State.Chase;
     }
 
-    // スポーン位置へ戻る。着いたら犯罪を再開する
-    // 戻っている間は、プレイヤーが臨戦態勢範囲に入っても追跡しない(攻撃された時の反撃はHandleDamagedで行う)
+    // 戻り先へ戻る。着いたら犯罪を再開する
+    // 巡回するグループのメンバーは、自分のルートの今の進み具合の位置へ合流する。それ以外はスポーン位置へ戻る
+    // 戻っている間は、プレイヤーが臨戦態勢範囲に入っても追跡しない(攻撃された時の反撃はHandleDamagedByで行う)
     private void UpdateReturn()
     {
+        if (_patrol != null && _group != null)
+        {
+            bool hasRejoined = _patrol.TickReturn(this, _group, moveSpeed, out bool isPatrol);
+            if (isPatrol)
+            {
+                if (hasRejoined) _state = State.Idle;
+                return;
+            }
+        }
+
         // 経路に沿った残りの距離で到着を判定する(曲がり角や障害物を考慮するため)
         _move.MoveTo(_homePosition, moveSpeed);
         if (!_move.IsNearDestination(_arriveDistance)) return;
@@ -479,8 +448,6 @@ public class CS_VillainCombat : NetworkBehaviour
         _move.Stop();
         transform.rotation = _homeRotation;
         _state = State.Idle;
-        _isTakingOver = false;   // 引き継ぎに向かう途中で臨戦態勢になった時は、また巡回して気付くところからやり直す
-        if (isWatcher) _patrol.Restart();
     }
 
     // 攻撃枠が無い間、ターゲットを取り囲むように広がり、ターゲットの方を向いて様子を見る
@@ -688,6 +655,7 @@ public class CS_VillainCombat : NetworkBehaviour
         _target = target;
         _targetPlayer = player;
         _targetPolice = player == null ? target.GetComponentInParent<CS_PoliceBrain>() : null;
+        _targetHide = player != null ? player.GetComponent<CS_PlayerHide>() : null;
         _state = State.Chase;
 
         // 追跡を始めた時点では路地裏にいるものとして数え直す
@@ -704,6 +672,7 @@ public class CS_VillainCombat : NetworkBehaviour
     {
         if (!enabled || _state != State.Idle) return;
         if (target == null || (player != null && !IsValidTarget(player))) return;
+        if (player != null && player.TryGetComponent(out CS_PlayerHide hide) && hide.isHidden) return;   // 隠れているプレイヤーは追わない
         if (IsOutsideConfinedArea(target.position)) return;
 
         SetTarget(target, player, false);
@@ -733,6 +702,14 @@ public class CS_VillainCombat : NetworkBehaviour
         _target = null;
         _targetPlayer = null;
         _targetPolice = null;
+        _targetHide = null;
+    }
+
+    // 追っているプレイヤーが隠れたか(SAなどでハイドポイントの隠れられる箱に入った。サーバーが決めて全員に同期している値)
+    // 近づかれていても見失う(追跡をやめて戻る)
+    private bool IsTargetHidden()
+    {
+        return _targetHide != null && _targetHide.isHidden;
     }
 
     // 標的がまだ狙える状態か(プレイヤーは倒れていない、警察は消える演出中でない、ホログラムは消えていない)
@@ -936,9 +913,16 @@ public class CS_VillainCombat : NetworkBehaviour
         return _isConfinedToEventArea && !IsInEventArea(position);
     }
 
+    // 戻り先から leashRange 以上離れたか(巡回するグループはルートの今の位置、それ以外はスポーン位置から測る)
     private bool IsTooFarFromHome()
     {
-        return (transform.position - _homePosition).sqrMagnitude > _leashRange * _leashRange;
+        Vector3 offset = transform.position - _homePosition;
+        if (_group != null && _group.TryGetPatrolTarget(this, 0f, out _, out Vector3 patrolPosition, out _, out _))
+        {
+            offset = transform.position - patrolPosition;
+            offset.y = 0f;   // ルートの位置は足元(NavMeshの上)なので、高さは比べない
+        }
+        return offset.sqrMagnitude > _leashRange * _leashRange;
     }
 
     // 目的地までの水平方向のベクトル(長さ = 距離)

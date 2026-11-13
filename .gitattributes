@@ -112,11 +112,11 @@ Artist/**/*.FBX         lfs
 # Designer asset lock (作成者以外の編集を禁止する疑似排他制御)
 # ロック未所有のファイルはチェックアウト時に read-only になる。
 # 自動ロック取得/チェックは .githooks/pre-commit で行う。
-Assets/Designer/**/*.mb     lockable
 Artist/**/*.mb     lockable
-Assets/Designer/**/*.fbx    lockable
 Artist/**/*.fbx    lockable
-Assets/Designer/**/*.FBX    lockable
 Artist/**/*.FBX    lockable
-Assets/Designer/**/*.abc    lockable
 Artist/**/*.abc    lockable
+
+# LFS budget exceeded: small mask textures are stored as normal git files
+Assets/Programmer/min/YosimotoRyo/mutou/Skin_OutlineMask.png !filter !diff !merge binary
+Assets/Programmer/min/YosimotoRyo/mutou/Eye_HideMask.png !filter !diff !merge binary

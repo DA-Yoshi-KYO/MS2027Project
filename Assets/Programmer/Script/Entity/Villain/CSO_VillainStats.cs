@@ -13,7 +13,7 @@ using UnityEngine;
  * ・悪人の種類(A, Bなど)ごとにアセットを作る
  *   右クリック → Create → Villain → Villain Stats
  * ・moveSpeedMultiplier はプレイヤーの通常移動速度を1とした倍率
- * ・patrolSpeedMultiplier は見張り役が巡回する時の速さ。プレイヤーの通常移動速度を1とした倍率(データ表「悪人データ」巡回時)
+ * ・patrolSpeedMultiplier は巡回する時の速さ。プレイヤーの通常移動速度を1とした倍率(データ表「悪人データ」巡回時)
  * ・attackPower はプレイヤーに与えるダメージ量(プレイヤーのHPと同じ単位)
  * ・engageRange はプレイヤーがこの距離(m)以内に入ると臨戦態勢になる範囲
  * ・crimeCompleteTime は放置されてから犯罪を完遂するまでの時間(秒)
@@ -26,7 +26,7 @@ public class CSO_VillainStats : ScriptableObject
     [Header("基礎値")]
     [SerializeField] private float _maxHp = 3f;
     [SerializeField] private float _moveSpeedMultiplier = 1f;   // プレイヤーの通常移動速度を1とした倍率
-    [SerializeField] private float _patrolSpeedMultiplier = 0.3f; // 見張り役が巡回する時の速さ(プレイヤーの通常移動速度を1とした倍率)
+    [SerializeField] private float _patrolSpeedMultiplier = 0.3f; // 巡回する時の速さ(プレイヤーの通常移動速度を1とした倍率)
     [SerializeField] private float _attackPower = 1f;           // プレイヤーに与えるダメージ量
 
     [Header("行動")]

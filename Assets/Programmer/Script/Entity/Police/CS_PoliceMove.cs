@@ -4,6 +4,7 @@
  * 制作者：宇留野陸斗
  * ------------------------------------------------
  * 2026-09-24 | 初回作成
+ * 2026-11-01 | 標的の方を向き続ける(移動の向きに合わせて回らない)指示を追加
  * ================================================ */
 
 using System.Collections.Generic;
@@ -13,7 +14,7 @@ using UnityEngine.AI;
 /// <summary>
 /// 警察の移動を管理するクラス
 /// どこへ向かうか・いつ止めるかの判断はCS_PoliceBrainが行い、このクラスは指示どおりに移動・停止・向きの変更を行う
-/// 経路探索・移動・移動中の回転はNavMeshAgentに任せ、止めている間の向きの変更だけTurnTowardsで行う
+/// 経路探索・移動・移動中の回転はNavMeshAgentに任せ、止めている間と、標的を見ている間の向きの変更はTurnTowardsで行う
 /// </summary>
 [RequireComponent(typeof(NavMeshAgent))]
 public class CS_PoliceMove : MonoBehaviour
@@ -44,6 +45,9 @@ public class CS_PoliceMove : MonoBehaviour
 
     // 意図的にその場で止めているか(攻撃のチャージ中など)。止めている間は詰まりと判定しない
     private bool _isStopped = false;
+
+    // 標的の方を向き続けているか(移動の向きに合わせた自動回転を切り、TurnTowardsで向きを変える)
+    private bool _isFacingTarget = false;
 
     // NavMeshAgentに元々設定されている、通れるAreaのマスク
     private int _baseAreaMask = NavMesh.AllAreas;
@@ -185,10 +189,26 @@ public class CS_PoliceMove : MonoBehaviour
         _agent.isStopped = isStopped;
 
         // 止めている間はNavMeshAgentの自動回転を切り、TurnTowardsで向きを変えられるようにする
-        _agent.updateRotation = !isStopped;
+        _agent.updateRotation = !isStopped && !_isFacingTarget;
 
         // 止める時は、残っている速度も消してその場ですぐ止まるようにする
         if (isStopped) _agent.velocity = Vector3.zero;
+    }
+
+    /// <summary>
+    /// 標的の方を向き続ける・やめるメソッド
+    /// 向き続けている間は、移動の向きに合わせた自動回転を切るので、標的が横や後ろへ動いても、標的の方を向いたまま移動できる
+    /// 実際に向きを変えるには、毎フレームTurnTowardsを呼ぶこと
+    /// </summary>
+    /// <param name="isFacing">向き続ける場合はtrue</param>
+    public void SetFacingTarget(bool isFacing)
+    {
+        if (_isFacingTarget == isFacing) return;
+
+        _isFacingTarget = isFacing;
+        if (!_agent.isOnNavMesh) return;
+
+        _agent.updateRotation = !_isStopped && !isFacing;
     }
 
     /// <summary>

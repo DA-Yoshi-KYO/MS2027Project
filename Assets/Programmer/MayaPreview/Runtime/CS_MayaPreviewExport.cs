@@ -188,21 +188,67 @@ public static class CS_MayaPreviewExport
     // Paths
     // =========================================================
 
-    // The Unity project's Assets folder (the build of the player records it).
+    // The Unity project's Assets folder, in this order:
+    //   1. the folder chosen in the Export panel (PlayerPrefs)
+    //   2. MayaPreviewProject.txt written next to the player by the build
+    //   3. a Unity project above the exe's folder (the exe was built into the project)
+    private const string ProjectPrefsKey = "MayaPreview.ProjectAssets";
+    private static string s_projectAssets;
+    private static float s_projectCheckTime = -100f;
+
     public static string ProjectAssets()
     {
         if (Application.isEditor) return Normalize(Application.dataPath);
+        // Checked at most every 2 s (the panel asks every frame).
+        if (Time.unscaledTime - s_projectCheckTime < 2f) return s_projectAssets;
+        s_projectCheckTime = Time.unscaledTime;
+        s_projectAssets = FindProjectAssets();
+        return s_projectAssets;
+    }
+
+    private static string FindProjectAssets()
+    {
         try
         {
+            string chosen = PlayerPrefs.GetString(ProjectPrefsKey, "");
+            if (IsAssetsFolder(chosen)) return Normalize(chosen);
+
             string file = Path.Combine(Application.streamingAssetsPath, ProjectFile);
             if (File.Exists(file))
             {
                 string path = File.ReadAllText(file).Trim();
-                if (Directory.Exists(path)) return Normalize(path);
+                if (IsAssetsFolder(path)) return Normalize(path);
+            }
+
+            for (DirectoryInfo dir = new DirectoryInfo(Application.dataPath).Parent; dir != null; dir = dir.Parent)
+            {
+                string assets = Path.Combine(dir.FullName, "Assets");
+                if (IsAssetsFolder(assets)) return Normalize(assets);
             }
         }
         catch (Exception exception) { Debug.LogWarning("Maya Preview Export : " + exception.Message); }
         return null;
+    }
+
+    // <project>/Assets of a Unity project (ProjectSettings next to it).
+    private static bool IsAssetsFolder(string assets)
+    {
+        if (string.IsNullOrEmpty(assets) || !Directory.Exists(assets)) return false;
+        string project = Path.GetDirectoryName(Normalize(assets));
+        return project != null && Directory.Exists(Path.Combine(project, "ProjectSettings"));
+    }
+
+    // Export panel: the user points at the project (the project folder or its Assets folder).
+    public static bool SetProjectFolder(string path)
+    {
+        path = Normalize((path ?? "").Trim().Trim('"'));
+        if (string.IsNullOrEmpty(path)) return false;
+        string assets = IsAssetsFolder(path) ? path : Normalize(Path.Combine(path, "Assets"));
+        if (!IsAssetsFolder(assets)) return false;
+        PlayerPrefs.SetString(ProjectPrefsKey, assets);
+        PlayerPrefs.Save();
+        s_projectCheckTime = -100f;
+        return true;
     }
 
     // <project>/Assets/Designer

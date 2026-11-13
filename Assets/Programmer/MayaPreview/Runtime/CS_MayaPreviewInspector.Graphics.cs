@@ -332,11 +332,17 @@ public partial class CS_MayaPreviewInspector
             Rect row = GUILayoutUtility.GetRect(10, RowHeight, GUILayout.ExpandWidth(true));
             if (GUI.Button(row, GUIContent.none, GUIStyle.none)) SetFeature(feature.field, !on);
             if (row.Contains(Event.current.mousePosition)) Fill(row, HoverColor);
+            // Asked for but not drawn (the HDRP asset of this quality level has it switched off):
+            // shown as off, with the reason, instead of a grey half-checked box.
+            bool drawn = on && !unsupported;
             Rect box = new Rect(row.x + 4, row.y + 3, 12, 12);
-            Fill(box, on ? OutlineYellow : DimColor);
+            Fill(box, drawn ? OutlineYellow : DimColor);
             Fill(new Rect(box.x + 1, box.y + 1, box.width - 2, box.height - 2), FieldColor);
-            if (on) Fill(new Rect(box.x + 3, box.y + 3, box.width - 6, box.height - 6), unsupported ? DimColor : OutlineYellow);
-            GUI.Label(new Rect(row.x + 22, row.y, row.width - 24, row.height), feature.label + (unsupported ? "  (n/a)" : ""), on && !unsupported ? _row : _rowDim);
+            if (drawn) Fill(new Rect(box.x + 3, box.y + 3, box.width - 6, box.height - 6), OutlineYellow);
+            GUI.Label(new Rect(row.x + 22, row.y, row.width - 24, row.height),
+                feature.label + (unsupported ? "  （この Quality では使えません）" : ""), drawn ? _row : _rowDim);
+            if (unsupported && row.Contains(Event.current.mousePosition))
+                _tooltip = "Quality を High にすると使えます。クリックでオフにします。";
         }
         GUILayout.EndScrollView();
         GUILayout.EndArea();

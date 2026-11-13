@@ -22,8 +22,10 @@ public sealed class CS_UILimitBreakModel : CS_BaseModel
     public static event Action OnUnbound;
 
     private readonly ReactiveProperty<int> _bonusPercent = new(0);
+    private readonly ReactiveProperty<Camera> _targetCamera = new(null);
 
     public ReadOnlyReactiveProperty<int> bonusPercent => _bonusPercent;
+    public ReadOnlyReactiveProperty<Camera> targetCamera => _targetCamera;
     public int currentBonusPercent => _bonusPercent.Value;
 
     [RuntimeInitializeOnLoadMethod(
@@ -83,9 +85,23 @@ public sealed class CS_UILimitBreakModel : CS_BaseModel
         SetBonusPercent(0);
     }
 
+    /// <summary>
+    /// UIを3D空間に配置する際の基準となるカメラ(ローカルプレイヤーのカメラ)を設定する。
+    /// </summary>
+    public void SetTargetCamera(Camera camera)
+    {
+        _targetCamera.Value = camera;
+    }
+
+    public void ClearTargetCamera()
+    {
+        _targetCamera.Value = null;
+    }
+
     public override void Dispose()
     {
         Unbind();
         _bonusPercent.Dispose();
+        _targetCamera.Dispose();
     }
 }

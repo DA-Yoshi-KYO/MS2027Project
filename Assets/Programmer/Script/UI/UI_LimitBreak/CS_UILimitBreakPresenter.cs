@@ -18,8 +18,11 @@ public sealed class CS_UILimitBreakPresenter : CS_BasePresenter
 {
     private CS_UILimitBreakView _view;
     private CS_UILimitBreakModel _model;
+    private CS_PinToScreenCorner _pin;
 
     private readonly SerialDisposable _modelSubscription =
+        new SerialDisposable();
+    private readonly SerialDisposable _cameraSubscription =
         new SerialDisposable();
 
     private void Awake()
@@ -27,6 +30,10 @@ public sealed class CS_UILimitBreakPresenter : CS_BasePresenter
         _view = GetComponent<CS_UILimitBreakView>();
         _view.SetPresenter(this);
         _modelSubscription.AddTo(_disposables);
+        _cameraSubscription.AddTo(_disposables);
+
+        // 3D空間への配置は親(World SpaceのCanvas)のCS_PinToScreenCornerが行う
+        _pin = GetComponentInParent<CS_PinToScreenCorner>(true);
     }
 
     private void OnEnable()
@@ -80,11 +87,25 @@ public sealed class CS_UILimitBreakPresenter : CS_BasePresenter
 
                 _view.AnimateTo(percent);
             });
+
+        // ローカルプレイヤーのカメラを、3D空間配置の基準として渡す
+        _cameraSubscription.Disposable =
+            _model.targetCamera.Subscribe(ApplyTargetCamera);
+    }
+
+    private void ApplyTargetCamera(Camera camera)
+    {
+        if (_pin == null) return;
+
+        if (camera != null) _pin.SetTargetCamera(camera);
+        else _pin.ClearTargetCamera();
     }
 
     private void UnbindModel()
     {
         _modelSubscription.Disposable = null;
+        _cameraSubscription.Disposable = null;
+        if (_pin != null) _pin.ClearTargetCamera();
         _model = null;
         _view.SetImmediate(0);
     }

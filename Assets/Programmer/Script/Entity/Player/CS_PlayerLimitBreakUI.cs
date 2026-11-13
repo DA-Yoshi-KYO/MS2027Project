@@ -18,6 +18,8 @@
  *   途切れた時は0%を渡す(UI側で0%まで下がってから消える)
  * ・暗躍ボーナスUIは自分の画面に1つだけのため、自分(isLocalPlayer)のプレイヤーだけがModelを作ってBindする
  *   isLocalPlayerはスポーン後に決まるため、毎フレーム確かめて、自分のプレイヤーになった時にBindする
+ * ・LIMITBREAKは3D空間(World SpaceのCanvas)に置かれていて、配置にはプレイヤーのカメラが必要なため、
+ *   自分のカメラ(CS_Player.playerCamera)もModel経由でUI側へ渡す(UI側はCS_Playerを知らない)
  * ・連続撃破数はNetworkVariableで同期されていて、onStreakChangedは全クライアントで発生する
  * ・CS_PlayerStealthBonusのロジックはこのクラスを知らない(外しても暗躍ボーナスは動く)
  * ・オフライン(NetworkManagerが動いていない)のテストシーンでも単体で動く
@@ -70,6 +72,7 @@ public class CS_PlayerLimitBreakUI : MonoBehaviour
     private void BindLimitBreakUI()
     {
         _limitBreakModel = new CS_UILimitBreakModel();
+        _limitBreakModel.SetTargetCamera(_player.playerCamera);   // UIを3D空間に置くための自分のカメラ
         ApplyBonusPercent();            // Bind前に今の値を入れておく(Bind時はアニメーションせずにすぐ出る)
         _limitBreakModel.Bind();
     }

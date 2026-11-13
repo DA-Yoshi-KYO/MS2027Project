@@ -2,8 +2,49 @@
     "version": 1,
     "name": "M_Lam_Face",
     "shader": "Shader Graphs/SHG_NTE_Skin",
-    "floats": [],
-    "colors": [],
+    "floats": [
+        {
+            "prop": "_CelSpecStrength",
+            "value": 2.0
+        },
+        {
+            "prop": "_SkyLight",
+            "value": 0.051370538771152499
+        },
+        {
+            "prop": "_CelShadowStrength",
+            "value": 1.0
+        }
+    ],
+    "colors": [
+        {
+            "prop": "_CelRimColor",
+            "value": {
+                "x": 1.0,
+                "y": 1.0,
+                "z": 0.9399999976158142,
+                "w": 1.0
+            }
+        },
+        {
+            "prop": "_CelSpecColor",
+            "value": {
+                "x": 1.0,
+                "y": 1.0,
+                "z": 0.4554796516895294,
+                "w": 1.0
+            }
+        },
+        {
+            "prop": "_ShadowColor",
+            "value": {
+                "x": 1.0,
+                "y": 1.0,
+                "z": 1.0,
+                "w": 0.0
+            }
+        }
+    ],
     "vectors": [],
     "textures": []
 }

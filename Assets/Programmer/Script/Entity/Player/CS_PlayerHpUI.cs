@@ -80,7 +80,7 @@ public class CS_PlayerHpUI : NetworkBehaviour
         }
 
         _hpModel = new CS_UIPlayerHpModel((int)_health.maxHp, (int)_health.currentHp);
-        _hpModel.Bind(_player.playerNumber);
+        _hpModel.Bind(_player.playerNumber, CSE_CharacterType.Giro);
 
         _health.onHpChanged += HandleHpChanged;
         _stats.onMaxHpChanged += HandleMaxHpChanged;

@@ -13,6 +13,7 @@ using R3;
 /// Hpの変化をViewに通知する
 /// ・ローカルプレイヤーの番号と一致したら表示する
 /// ・_playerNumber の指定不要（Model の localPlayerNumber を使う）
+/// ・購読の前に Model のキャラの種類を View に渡す
 /// </summary>
 public class CS_UIPlayerHpPresenter : CS_BasePresenter
 {
@@ -75,6 +76,10 @@ public class CS_UIPlayerHpPresenter : CS_BasePresenter
 
     private void BindModel(CS_UIPlayerHpModel model)
     {
+        // 購読より先にキャラを渡す
+        // （購読した瞬間に現在値で UpdateHp が呼ばれ、このキャラのハートで生成される）
+        _view.SetCharacter(model.characterType);
+
         _modelSubscription.Disposable = model.currentHp
             .CombineLatest(model.maxHp, (hp, max) => (hp, max))
             .Subscribe(x => _view.UpdateHp(x.hp, x.max));

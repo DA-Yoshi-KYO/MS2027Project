@@ -36,8 +36,9 @@ public partial class CS_MayaPreviewInspector
     private Vector2 _ladderCentre;                   // GUI space of the top level (the field is in a scroll view)
     private float _ladderPressY;                     // screen y (Input System, y up) at the press
     private int _ladderStep = LadderDefault;
-    private bool _scrubHover, _scrubCursorShown;
-    private Texture2D _scrubCursor;
+    private bool _scrubHover, _splitHover;
+    private int _cursorShown;                        // 0 = normal, 1 = <-> (scrub), 2 = up / down (panel splitter)
+    private Texture2D _scrubCursor, _splitCursor;
 
     private static bool MiddlePressedNow()
     {
@@ -170,12 +171,34 @@ public partial class CS_MayaPreviewInspector
         }
 
         if (Event.current.type != EventType.Repaint) return;
-        bool want = _scrubHover || _scrubKey != null;
-        _scrubHover = false;
-        if (want == _scrubCursorShown) return;
-        _scrubCursorShown = want;
-        if (want) Cursor.SetCursor(ScrubCursor(), new Vector2(16, 16), CursorMode.Auto);
+        int want = _scrubHover || _scrubKey != null ? 1 : _splitHover || _splitUpper >= 0 ? 2 : 0;
+        _scrubHover = _splitHover = false;
+        SetCursorShape(want);
+    }
+
+    private void SetCursorShape(int shape)
+    {
+        if (shape == _cursorShown) return;
+        _cursorShown = shape;
+        if (shape == 1) Cursor.SetCursor(ScrubCursor(), new Vector2(16, 16), CursorMode.Auto);
+        else if (shape == 2) Cursor.SetCursor(SplitCursor(), new Vector2(16, 16), CursorMode.Auto);
         else Cursor.SetCursor(null, Vector2.zero, CursorMode.Auto);
+    }
+
+    // The <-> cursor turned upright, for the splitters between panels.
+    private Texture2D SplitCursor()
+    {
+        if (_splitCursor != null) return _splitCursor;
+        Texture2D across = ScrubCursor();
+        const int size = 32;
+        var texture = new Texture2D(size, size, TextureFormat.RGBA32, false) { hideFlags = HideFlags.DontSave };
+        for (int y = 0; y < size; y++)
+            for (int x = 0; x < size; x++)
+                texture.SetPixel(x, y, across.GetPixel(y, x));
+        texture.Apply();
+        _owned.Add(texture);
+        _splitCursor = texture;
+        return texture;
     }
 
     // A white <-> with a black outline, made once.

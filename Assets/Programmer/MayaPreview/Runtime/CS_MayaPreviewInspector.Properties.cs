@@ -93,6 +93,7 @@ public partial class CS_MayaPreviewInspector
                 CS_MayaPreviewUndo.WatchVolume(volume, "Volume", () => DrawVolume(volume));
             if (target.TryGetComponent(out AudioSource audio) && Section("Audio Source", CS_MayaPreviewIcons.Get(CS_MayaPreviewKind.Audio), CS_MayaPreviewIcons.Tint(CS_MayaPreviewKind.Audio)))
                 CS_MayaPreviewUndo.WatchAudio(audio, "Audio", () => DrawAudio(audio));
+            DrawOutlineSection(target);
         }
         DrawMaterialList();
         GUILayout.Space(4);
@@ -294,7 +295,7 @@ public partial class CS_MayaPreviewInspector
     {
         List<MaterialSlot> slots = CollectMaterials();
         if (slots.Count == 0) return;
-        if (!Section("Materials  (" + slots.Count + ")")) return;
+        Section("Materials  (" + slots.Count + ")", foldable: false);   // always open
         float nameWidth = 60f;
         foreach (MaterialSlot slot in slots) nameWidth = Mathf.Max(nameWidth, _row.CalcSize(new GUIContent(slot.name)).x);
         Event e = Event.current;
@@ -381,7 +382,40 @@ public partial class CS_MayaPreviewInspector
                 slot.users++;
             }
         }
+        // Outlines made in the preview (child objects, not selectable): their material is edited here too.
+        foreach (GameObject o in _selection.Selected)
+        {
+            CS_MayaPreviewOutline outline = CS_MayaPreviewOutline.Of(o);
+            if (outline == null || outline.Material == null || slots.Exists(s => s.material == outline.Material)) continue;
+            slots.Add(new MaterialSlot { material = outline.Material, key = "#" + outline.Material.GetInstanceID(), name = outline.Material.name, users = 1 });
+        }
         return slots;
+    }
+
+    // Japanese short name of a shader for the picker and the Material panel
+    // ("Shader Graphs/SHG_NTE_Skin" -> "トゥーン 肌"). Unknown words keep the English name.
+    private static readonly (string word, string ja)[] ShaderWords =
+    {
+        ("Skin", "肌"), ("Hair", "髪"), ("Eye", "目"), ("Cloth", "服"), ("Metal", "金属"), ("Leather", "革"),
+        ("Outline", "アウトライン"), ("Dither", "ディザ"), ("Glass", "ガラス"), ("Water", "水"), ("Hologram", "ホログラム"),
+        ("Camo", "光学迷彩"), ("Laser", "レーザー"), ("Area", "範囲"), ("Warning", "警告"), ("Debug", "デバッグ"),
+        ("Range", "範囲"), ("Mannequin", "マネキン"), ("Bill", "ビル"), ("Terrain", "地形"), ("Tessellation", "テッセレーション"),
+        ("Layered", "レイヤー"), ("Decal", "デカール"), ("Particle", "パーティクル"), ("Sample", "サンプル"), ("Texture", "テクスチャ"),
+    };
+
+    private static string JapaneseShader(string shader)
+    {
+        if (string.IsNullOrEmpty(shader)) return "";
+        if (shader == "HDRP/Lit") return "標準（ライトあり）";
+        if (shader == "HDRP/Unlit") return "ライトなし";
+        string name = shader.Substring(shader.LastIndexOf('/') + 1);
+        var parts = new List<string>();
+        if (name.IndexOf("NTE", System.StringComparison.Ordinal) >= 0 || name.IndexOf("Toon", System.StringComparison.OrdinalIgnoreCase) >= 0) parts.Add("トゥーン");
+        foreach (var (word, ja) in ShaderWords)
+            if (name.IndexOf(word, System.StringComparison.OrdinalIgnoreCase) >= 0 && !parts.Contains(ja)) parts.Add(ja);
+        if (name.IndexOf("Unlit", System.StringComparison.OrdinalIgnoreCase) >= 0) parts.Add("ライトなし");
+        else if (name.EndsWith("Lit", System.StringComparison.OrdinalIgnoreCase)) parts.Add("ライトあり");
+        return parts.Count > 0 ? string.Join(" ", parts) : ShortShader(shader);
     }
 
     private static string ShortShader(string shader)
@@ -408,6 +442,9 @@ public partial class CS_MayaPreviewInspector
         var library = CS_MayaPreviewMaterialLibrary.Current;
 
         GUILayout.BeginArea(new Rect(content.x + 4, content.y + 4, content.width - 8, content.height - 6));
+        // The whole panel scrolls (ball, shader list and properties): nothing is cut off at the bottom.
+        _materialScroll = GUILayout.BeginScrollView(_materialScroll, false, false, GUIStyle.none, _skin.verticalScrollbar, GUIStyle.none);
+        GUILayout.BeginVertical(GUILayout.Width(content.width - 20));
 
         // Ball + name / shader
         GUILayout.BeginHorizontal();
@@ -432,6 +469,8 @@ public partial class CS_MayaPreviewInspector
         GUILayout.BeginVertical();
         Rect nameRect = GUILayoutUtility.GetRect(10, 22, GUILayout.ExpandWidth(true));
         GUI.Label(nameRect, Fit(active.name, _bold, nameRect.width), _bold);
+        // 2nd line: what the shader is, in Japanese (the English name is on the button / below)
+        GUILayout.Label(new GUIContent(JapaneseShader(active.material.shader.name), active.material.shader.name), _row);
         GUILayout.Label(active.maya ? "Maya material  - saved per name" : "Scene material  - this run only", _dim);
         GUILayout.Label("Used by " + active.users + (active.users == 1 ? " slot" : " slots") + " in the selection", _dim);
         GUILayout.Space(4);
@@ -468,13 +507,15 @@ public partial class CS_MayaPreviewInspector
         {
             GUILayout.Space(4);
             DrawShaderPicker(library, active);
+            GUILayout.Space(6);
+            GUILayout.EndVertical();
+            GUILayout.EndScrollView();
             GUILayout.EndArea();
             return;   // the material is replaced when a shader is picked; values next frame
         }
 
         GUILayout.Space(6);
         Fill(GUILayoutUtility.GetRect(10, 1, GUILayout.ExpandWidth(true)), BorderColor);
-        _materialScroll = GUILayout.BeginScrollView(_materialScroll, false, false, GUIStyle.none, _skin.verticalScrollbar, GUIStyle.none);
         _fieldScope = "Material." + active.key + ".";
         if (active.maya && library != null)
             CS_MayaPreviewUndo.WatchMayaMaterial(library, active.key, "Material " + active.name, () => DrawProperties(active, library));
@@ -483,6 +524,7 @@ public partial class CS_MayaPreviewInspector
         GUILayout.Space(8);
         if (library != null && library.Folder != null && active.maya) Note("Saved in: " + library.Folder);
         GUILayout.Space(6);
+        GUILayout.EndVertical();
         GUILayout.EndScrollView();
         GUILayout.EndArea();
     }
@@ -509,7 +551,8 @@ public partial class CS_MayaPreviewInspector
         {
             GUILayout.BeginHorizontal();
             GUILayout.Space(4);
-            if (GUILayout.Button(new GUIContent(name), name == current ? _buttonOn : _button, GUILayout.Height(RowHeight + 2)))
+            string label = JapaneseShader(name) + "　（" + ShortShader(name) + "）";
+            if (GUILayout.Button(new GUIContent(label, name), name == current ? _buttonOn : _button, GUILayout.Height(RowHeight + 2)))
             {
                 _shaderPickerOpen = false;
                 if (name != current)

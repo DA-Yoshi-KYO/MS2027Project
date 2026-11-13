@@ -5,6 +5,7 @@
  * ------------------------------------------------
  * 2026-10-26 | 初回作成
  * 2026-11-02 | テーザーが外れた時の待ち時間を、データ(CSO_SecurityDroneData)の攻撃ディレイ時間にした
+ * 2026-11-13 | 無敵中(復活後・被弾後・パリー後)のプレイヤーには、テーザーを当てないようにした(通り抜けて、後ろのプレイヤーに当たる。Issue #449)
  * ================================================ */
 
 using Unity.Netcode;
@@ -323,6 +324,7 @@ public class CS_SecurityDroneSuppression : NetworkBehaviour
 
     /// <summary>
     /// 光線の上にいる、一番近いプレイヤーを探すメソッド(ドローン自身は除く)
+    /// 無敵中のプレイヤーには当たらず、通り抜ける(無敵の状態はサーバーにしか無いので、サーバー・オフラインで呼ぶこと)
     /// </summary>
     private CS_PlayerHealth FindFirstPlayerOnBeam(Vector3 origin, float distance)
     {
@@ -334,7 +336,7 @@ public class CS_SecurityDroneSuppression : NetworkBehaviour
         for (int i = 0; i < count; i++)
         {
             CS_PlayerHealth player = _hitBuffer[i].collider.GetComponentInParent<CS_PlayerHealth>();
-            if (player == null || player.isDead || _hitBuffer[i].distance >= nearestDistance) continue;
+            if (player == null || player.isDead || player.isInvincible || _hitBuffer[i].distance >= nearestDistance) continue;
 
             nearest = player;
             nearestDistance = _hitBuffer[i].distance;

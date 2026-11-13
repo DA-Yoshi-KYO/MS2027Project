@@ -4,6 +4,7 @@
  * 制作者：宇留野陸斗
  * ------------------------------------------------
  * 2026-09-24 | 初回作成
+ * 2026-11-13 | 復活後の無敵中のプレイヤーは、狙わない・追いかけない・攻撃を当てないようにした(仕様書「リスポーン」: この間は警察に視認されない。Issue #453)
  * ================================================ */
 
 using UnityEngine;
@@ -227,14 +228,26 @@ public class CS_PoliceVision : MonoBehaviour
     }
 
     /// <summary>
-    /// プレイヤーが警察の攻撃対象になるかを判定するメソッド(生きていて、変身中のプレイヤーだけが対象)
-    /// 視界(標的を探す)と攻撃判定(ダメージを与える)の両方で使う
+    /// プレイヤーが警察の攻撃対象になるかを判定するメソッド(生きていて、変身中で、復活後の無敵中でないプレイヤーだけが対象)
+    /// 視界(標的を探す。巡回ドローンも同じ視界を使う)と攻撃判定(ダメージを与える)の両方で使う
     /// </summary>
     /// <param name="player">判定するプレイヤー</param>
     /// <returns>攻撃対象ならtrue</returns>
     public static bool IsPlayerTargetable(CS_PlayerHealth player)
     {
-        return !player.isDead && IsTransformed(player);
+        return !player.isDead && IsTransformed(player) && !IsRespawnInvincible(player);
+    }
+
+    /// <summary>
+    /// プレイヤーが復活後の無敵中かを判定するメソッド(この間は警察陣営に見つからない。仕様書「リスポーン」)
+    /// 被弾後・パリー後の無敵では見つかるので、CS_PlayerHealth.isInvincibleではなく、復活後の無敵だけを見る
+    /// 無敵の終わる時刻は全員に同期されているので、どこで呼んでもよい
+    /// </summary>
+    /// <param name="player">判定するプレイヤー</param>
+    /// <returns>復活後の無敵中ならtrue</returns>
+    public static bool IsRespawnInvincible(CS_PlayerHealth player)
+    {
+        return player.TryGetComponent(out CS_PlayerRespawn respawn) && respawn.isRespawnInvincible;
     }
 
     /// <summary>

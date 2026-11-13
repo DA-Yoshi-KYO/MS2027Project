@@ -31,6 +31,15 @@ MonoBehaviour:
   - name: MT_SAPoint
     guid: 9cfc3b5e441109a4688db27bec074611
     material: {fileID: 2100000, guid: 9cfc3b5e441109a4688db27bec074611, type: 2}
+  - name: MT_ScanHighlightDrone
+    guid: 520d5d4aa2d549a38058aaf363f50beb
+    material: {fileID: 2100000, guid: 520d5d4aa2d549a38058aaf363f50beb, type: 2}
+  - name: MT_ScanHighlightPolice
+    guid: ac8eb32640ac47d1a96839dfe39bc370
+    material: {fileID: 2100000, guid: ac8eb32640ac47d1a96839dfe39bc370, type: 2}
+  - name: MT_ScanHighlightVillain
+    guid: bc2419814c1943bf8d34756b0377d410
+    material: {fileID: 2100000, guid: bc2419814c1943bf8d34756b0377d410, type: 2}
   - name: MT_SecurityDrone
     guid: 9d179ed587a14c0aa2dbfd44483701a9
     material: {fileID: 2100000, guid: 9d179ed587a14c0aa2dbfd44483701a9, type: 2}
@@ -76,6 +85,57 @@ MonoBehaviour:
   - name: MT_Munkki_Skin
     guid: 740338777883f6541824559e7480c178
     material: {fileID: 2100000, guid: 740338777883f6541824559e7480c178, type: 2}
+  - name: MT_BomExplosion
+    guid: 84def36ba507c474496935325a3a2ef5
+    material: {fileID: 2100000, guid: 84def36ba507c474496935325a3a2ef5, type: 2}
+  - name: MT_BomExplosion_black
+    guid: c115d68ac63181f45a56051fe9cf2d2d
+    material: {fileID: 2100000, guid: c115d68ac63181f45a56051fe9cf2d2d, type: 2}
+  - name: MT_BomExplosion_white
+    guid: b657bc270e2c94f4bbf625727198d79d
+    material: {fileID: 2100000, guid: b657bc270e2c94f4bbf625727198d79d, type: 2}
+  - name: MT_BomGroundHaze
+    guid: 93c097dd7e73eca428695eb4fd8f3bbe
+    material: {fileID: 2100000, guid: 93c097dd7e73eca428695eb4fd8f3bbe, type: 2}
+  - name: MT_BomOrangeHaze
+    guid: d7f7e52f73756c445b5aa4c48bdb7b6a
+    material: {fileID: 2100000, guid: d7f7e52f73756c445b5aa4c48bdb7b6a, type: 2}
+  - name: MT_BomPuffFire_0
+    guid: 81e7e0af5fc28994caad05d8824d8601
+    material: {fileID: 2100000, guid: 81e7e0af5fc28994caad05d8824d8601, type: 2}
+  - name: MT_BomPuffFire_1
+    guid: 692c9e0a6bda2db41b1ba475bcf3ba2c
+    material: {fileID: 2100000, guid: 692c9e0a6bda2db41b1ba475bcf3ba2c, type: 2}
+  - name: MT_BomPuffFire_2
+    guid: 708fa2207b31b554a917c322d77a9c2b
+    material: {fileID: 2100000, guid: 708fa2207b31b554a917c322d77a9c2b, type: 2}
+  - name: MT_BomPuffSmoke
+    guid: a6d4597fb437e72469999df623d1117a
+    material: {fileID: 2100000, guid: a6d4597fb437e72469999df623d1117a, type: 2}
+  - name: MT_BomShockwave
+    guid: 33d544d95431c2d40b970ef21c6ec4e3
+    material: {fileID: 2100000, guid: 33d544d95431c2d40b970ef21c6ec4e3, type: 2}
+  - name: MT_BomSmoke
+    guid: cc7e17292af633e4db4faa2a1e7c517e
+    material: {fileID: 2100000, guid: cc7e17292af633e4db4faa2a1e7c517e, type: 2}
+  - name: MT_BomWhiteSmoke
+    guid: a143045d1b5d5254983374cb24ec52dc
+    material: {fileID: 2100000, guid: a143045d1b5d5254983374cb24ec52dc, type: 2}
+  - name: MT_Bom_01
+    guid: d7ef6418a9a06fb4295009c9b14d6a78
+    material: {fileID: 2100000, guid: d7ef6418a9a06fb4295009c9b14d6a78, type: 2}
+  - name: MT_Bom_03
+    guid: b252482955c9f45459b9f97c9471e213
+    material: {fileID: 2100000, guid: b252482955c9f45459b9f97c9471e213, type: 2}
+  - name: MT_Bom_Burnt
+    guid: 6b2b9b4434e5d2d469084b9a1eded978
+    material: {fileID: 2100000, guid: 6b2b9b4434e5d2d469084b9a1eded978, type: 2}
+  - name: MT_Bom_Ecplode
+    guid: 87d244343eef1d14d82af0d9ae614d53
+    material: {fileID: 2100000, guid: 87d244343eef1d14d82af0d9ae614d53, type: 2}
+  - name: MT_Bom_Spark
+    guid: 265fca1580f4d2143a54303f9d64edc1
+    material: {fileID: 2100000, guid: 265fca1580f4d2143a54303f9d64edc1, type: 2}
   - name: MT_circle_up_line
     guid: 9d5361d0545bcd346aec09c0fe753924
     material: {fileID: 2100000, guid: 9d5361d0545bcd346aec09c0fe753924, type: 2}

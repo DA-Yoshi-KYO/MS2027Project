@@ -87,7 +87,7 @@ public partial class CS_MayaPreviewInspector : MonoBehaviour
         if (_uiHidden) return false;
         if (_typing || _drag != null || _previewDragging || _splitUpper >= 0 || _scrubKey != null || ExportDialogOpen) return true;
         Vector2 point = new Vector2(screenPosition.x, Screen.height - screenPosition.y) / _scale;
-        if (OverPanel(point)) return true;
+        if (OverPanel(point) || ContextMenuBlocks(point)) return true;
         if (icons) foreach (Rect rect in _iconRects) if (rect.Contains(point)) return true;
         return false;
     }
@@ -137,6 +137,7 @@ public partial class CS_MayaPreviewInspector : MonoBehaviour
         TickPerformance();
         TickLadder();
         TickExportRestore();
+        TickContextMenu();
 
         var mouse = Mouse.current;
         bool held = mouse != null && (mouse.leftButton.isPressed || mouse.rightButton.isPressed || mouse.middleButton.isPressed);
@@ -198,8 +199,7 @@ public partial class CS_MayaPreviewInspector : MonoBehaviour
         if (_uiHidden)
         {
             if (_scrubKey != null) EndScrub();
-            if (_scrubCursorShown && Event.current.type == EventType.Repaint)
-            { _scrubCursorShown = false; Cursor.SetCursor(null, Vector2.zero, CursorMode.Auto); }
+            if (Event.current.type == EventType.Repaint) SetCursorShape(0);
             return;
         }
 
@@ -221,6 +221,13 @@ public partial class CS_MayaPreviewInspector : MonoBehaviour
             DrawExportDialog();
             if (current.type != EventType.Used && current.type != EventType.Layout) current.Use();
         }
+        // The right-click menu also takes clicks on it before the panels under it.
+        if (!modal && _contextOpen && input)
+        {
+            bool inside = _contextRect.Contains(current.mousePosition);
+            DrawContextMenu();
+            if (inside && current.isMouse && current.type != EventType.Used) current.Use();
+        }
 
         Layout();
         HandleSplitters();
@@ -239,6 +246,7 @@ public partial class CS_MayaPreviewInspector : MonoBehaviour
         DrawFlash();
         DrawTooltip();
         DrawScrubOverlay();
+        if (!modal && !input) DrawContextMenu();
         if (modal && !input) DrawExportDialog();
 
         _typing = GUI.GetNameOfFocusedControl().StartsWith("F.");

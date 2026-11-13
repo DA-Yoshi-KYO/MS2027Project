@@ -42,6 +42,7 @@ public class CS_VillainCrime : NetworkBehaviour
     private CS_VillainCombat _combat;
     private CS_VillainHealth _health;
     private Renderer[] _renderers;
+    private CS_CrimeArea _crimeArea;   // 担当のエリア(ソロ。サーバー・オフラインのみ。無ければnull)
 
     // 書き込みはサーバーのみ(NetworkVariableのデフォルト)。クライアントはこれを見てフェードを始める
     private readonly NetworkVariable<bool> _isEscaping = new NetworkVariable<bool>();
@@ -51,7 +52,8 @@ public class CS_VillainCrime : NetworkBehaviour
     private readonly NetworkVariable<float> _crimeProgress = new NetworkVariable<float>();
 
     public int groupId => _groupId.Value;                // 所属するグループの番号(グループに属さなければ-1)
-    public float crimeProgress => _crimeProgress.Value;  // グループの犯罪の進行度(0〜1)
+    public float crimeProgress => _crimeProgress.Value;  // グループの犯罪の進行度(0〜1)。エリアの担当なら、エリアの犯罪完遂率
+    public CS_CrimeArea crimeArea => _crimeArea;         // 担当のエリア(ソロ。サーバー・オフラインのみ。無ければnull)
     public bool isEscaping => _isEscaping.Value;
     public bool isCommittingCrime => !_isEscaping.Value && _combat.isCommittingCrime;
     public float crimeCompleteTime => _stats.crimeCompleteTime;
@@ -82,6 +84,13 @@ public class CS_VillainCrime : NetworkBehaviour
 
         _groupId.Value = groupId;
         _crimeProgress.Value = crimeProgress;
+    }
+
+    // 担当のエリアを設定する(CS_VillainGroup.AddMemberから呼ばれる。サーバー、またはオフライン)
+    // ソロは通信せずに遊ぶので同期しない
+    public void SetCrimeArea(CS_CrimeArea crimeArea)
+    {
+        _crimeArea = crimeArea;
     }
 
     // グループの犯罪の進行度を設定する(CS_VillainGroupから呼ばれる。サーバー、またはオフライン)

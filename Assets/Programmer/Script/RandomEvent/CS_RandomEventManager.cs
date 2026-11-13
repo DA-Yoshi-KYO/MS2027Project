@@ -47,6 +47,7 @@ using UnityEngine;
  *   警察側は、標的を見つける判定に IsPoliceDetectionBlocked(標的の位置) を足す(煙幕のIsLineBlockedと同じ使い方)
  *     if (CS_RandomEventManager.IsPoliceDetectionBlocked(targetPosition)) return false;
  *   開催中のイベントはクライアントにも通知しているので、サーバー・クライアントのどちらで呼んでもよい
+ * ・エリアの犯罪完遂ゲージ(ソロ)の特殊倍率は GetCrimeRateMultiplier(開催中のイベントの倍率を掛け合わせる)
  */
 // ========================================
 
@@ -106,6 +107,19 @@ public class CS_RandomEventManager : NetworkBehaviour
             if (offset.sqrMagnitude <= radius * radius) return true;
         }
         return false;
+    }
+
+    // エリアの犯罪完遂ゲージ(ソロ)の特殊倍率。開催中のイベントの倍率を全部掛け合わせる(イベントが無ければ1)
+    public static float GetCrimeRateMultiplier()
+    {
+        float multiplier = 1f;
+        if (_current == null) return multiplier;
+
+        foreach (CS_RandomEventContext context in _current._activeEvents)
+        {
+            multiplier *= context.randomEvent.crimeRateMultiplier;
+        }
+        return multiplier;
     }
 
     private void Start()

@@ -14,7 +14,7 @@ Material:
   m_ValidKeywords:
   - _ALPHA_TRANSITION_MAP_MODE_2D
   - _BASE_MAP_MODE_2D
-  - _EMISSION_AREA_ALL
+  - _EMISSION_AREA_MAP
   - _EMISSION_COLOR_BASECOLOR
   - _EMISSION_MAP_MODE_2D
   - _PARALLAX_MAP_MODE_2D
@@ -36,6 +36,10 @@ Material:
         m_Texture: {fileID: 2800000, guid: 8383ac1952293f14ba969fe242394572, type: 3}
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
+    - _EmissionMap:
+        m_Texture: {fileID: 2800000, guid: f12cb164ae7c4ecbb3c5b6f2152b4c1a, type: 3}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
     - _GradientMap:
         m_Texture: {fileID: 2800000, guid: cf58d3f7ea0b0da4eac856df418da2d8, type: 3}
         m_Scale: {x: 1, y: 1}
@@ -49,9 +53,9 @@ Material:
     - _ColorCorrectionMode: 0
     - _Cull: 2
     - _Cutoff: 0.089
-    - _EmissionAreaType: 1
+    - _EmissionAreaType: 2
     - _EmissionColorType: 1
-    - _EmissionIntensity: 150
+    - _EmissionIntensity: 300
     - _EmissionIntensityCoord: 0
     - _QueueOffset: 0
     - _RenderType: 2

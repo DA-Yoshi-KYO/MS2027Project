@@ -295,7 +295,7 @@ public partial class CS_MayaPreviewInspector
     {
         List<MaterialSlot> slots = CollectMaterials();
         if (slots.Count == 0) return;
-        if (!Section("Materials  (" + slots.Count + ")")) return;
+        Section("Materials  (" + slots.Count + ")", foldable: false);   // always open
         float nameWidth = 60f;
         foreach (MaterialSlot slot in slots) nameWidth = Mathf.Max(nameWidth, _row.CalcSize(new GUIContent(slot.name)).x);
         Event e = Event.current;
@@ -382,6 +382,13 @@ public partial class CS_MayaPreviewInspector
                 slot.users++;
             }
         }
+        // Outlines made in the preview (child objects, not selectable): their material is edited here too.
+        foreach (GameObject o in _selection.Selected)
+        {
+            CS_MayaPreviewOutline outline = CS_MayaPreviewOutline.Of(o);
+            if (outline == null || outline.Material == null || slots.Exists(s => s.material == outline.Material)) continue;
+            slots.Add(new MaterialSlot { material = outline.Material, key = "#" + outline.Material.GetInstanceID(), name = outline.Material.name, users = 1 });
+        }
         return slots;
     }
 
@@ -435,6 +442,9 @@ public partial class CS_MayaPreviewInspector
         var library = CS_MayaPreviewMaterialLibrary.Current;
 
         GUILayout.BeginArea(new Rect(content.x + 4, content.y + 4, content.width - 8, content.height - 6));
+        // The whole panel scrolls (ball, shader list and properties): nothing is cut off at the bottom.
+        _materialScroll = GUILayout.BeginScrollView(_materialScroll, false, false, GUIStyle.none, _skin.verticalScrollbar, GUIStyle.none);
+        GUILayout.BeginVertical(GUILayout.Width(content.width - 20));
 
         // Ball + name / shader
         GUILayout.BeginHorizontal();
@@ -497,13 +507,15 @@ public partial class CS_MayaPreviewInspector
         {
             GUILayout.Space(4);
             DrawShaderPicker(library, active);
+            GUILayout.Space(6);
+            GUILayout.EndVertical();
+            GUILayout.EndScrollView();
             GUILayout.EndArea();
             return;   // the material is replaced when a shader is picked; values next frame
         }
 
         GUILayout.Space(6);
         Fill(GUILayoutUtility.GetRect(10, 1, GUILayout.ExpandWidth(true)), BorderColor);
-        _materialScroll = GUILayout.BeginScrollView(_materialScroll, false, false, GUIStyle.none, _skin.verticalScrollbar, GUIStyle.none);
         _fieldScope = "Material." + active.key + ".";
         if (active.maya && library != null)
             CS_MayaPreviewUndo.WatchMayaMaterial(library, active.key, "Material " + active.name, () => DrawProperties(active, library));
@@ -512,6 +524,7 @@ public partial class CS_MayaPreviewInspector
         GUILayout.Space(8);
         if (library != null && library.Folder != null && active.maya) Note("Saved in: " + library.Folder);
         GUILayout.Space(6);
+        GUILayout.EndVertical();
         GUILayout.EndScrollView();
         GUILayout.EndArea();
     }

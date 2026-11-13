@@ -1,4 +1,5 @@
 using UnityEngine;
+using UnityEngine.Rendering.HighDefinition;
 
 /*
 +=====================================
@@ -60,7 +61,8 @@ public class CS_MayaPreviewOutline : MonoBehaviour
     {
         error = null;
         if (!CanHave(target)) { error = "メッシュがないので、アウトラインを作れません。"; return null; }
-        Shader shader = Shader.Find(ShaderName);
+        Material template = Template();
+        Shader shader = template != null ? template.shader : Shader.Find(ShaderName);
         if (shader == null) { error = "SHG_Outline シェーダーが exe に入っていません。"; return null; }
 
         var holder = new GameObject(target.name + Suffix);
@@ -69,7 +71,11 @@ public class CS_MayaPreviewOutline : MonoBehaviour
         holder.transform.SetParent(target.transform, false);
         var outline = holder.AddComponent<CS_MayaPreviewOutline>();
         outline._source = target.GetComponent<Renderer>();
-        outline._material = new Material(shader) { name = "MT_Outline_" + target.name };
+        // A copy of an outline material of the scene keeps HDRP's render state (queue, depth,
+        // keywords); a bare new Material(shader) drew a grey hull over the object.
+        outline._material = template != null ? new Material(template) : new Material(shader);
+        outline._material.name = "MT_Outline_" + target.name;
+        try { HDMaterial.ValidateMaterial(outline._material); } catch (System.Exception) { /* not HDRP */ }
         if (outline._source is SkinnedMeshRenderer)
             outline._renderer = holder.AddComponent<SkinnedMeshRenderer>();
         else
@@ -85,7 +91,38 @@ public class CS_MayaPreviewOutline : MonoBehaviour
         float size = mesh != null ? mesh.bounds.extents.magnitude : 1f;
         outline.Width = Mathf.Max(0.0001f, size * DefaultWidthRatio);
         outline.Color = Color.black;
+        outline.UseSourceTexture();
         return outline;
+    }
+
+    // An SHG_Outline material already in the scene (MT_Mutou_Outline_*), or null.
+    private static Material Template()
+    {
+        Material found = null;
+        foreach (Material material in Resources.FindObjectsOfTypeAll<Material>())
+        {
+            if (material == null || material.shader == null || material.shader.name != ShaderName) continue;
+            if (material.name.StartsWith("MT_Outline_")) continue;   // one made here
+            found = material;
+            if (material.name.IndexOf("Skin", System.StringComparison.OrdinalIgnoreCase) >= 0) break;
+        }
+        return found;
+    }
+
+    // SHG_Outline colours the line with the object's own texture (darkened, _OutlineTexBlend):
+    // give it the texture of this object, or plain _OutlineColor when it has none.
+    // The width mask of the copied material belongs to another model: full width everywhere.
+    private void UseSourceTexture()
+    {
+        if (_material == null) return;
+        Texture texture = null;
+        Material first = _source != null ? _source.sharedMaterial : null;
+        if (first != null)
+            foreach (string prop in new[] { "_BaseMap", "_BaseColorMap", "_MainTex" })
+                if (first.HasProperty(prop) && first.GetTexture(prop) != null) { texture = first.GetTexture(prop); break; }
+        if (_material.HasProperty("_BaseMap")) _material.SetTexture("_BaseMap", texture);
+        if (texture == null && _material.HasProperty("_OutlineTexBlend")) _material.SetFloat("_OutlineTexBlend", 0f);
+        if (_material.HasProperty("_OutlineWidthMask")) _material.SetTexture("_OutlineWidthMask", Texture2D.whiteTexture);
     }
 
     private Mesh SourceMesh()

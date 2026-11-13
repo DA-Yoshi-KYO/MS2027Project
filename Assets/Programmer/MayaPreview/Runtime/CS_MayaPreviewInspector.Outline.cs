@@ -146,17 +146,21 @@ public partial class CS_MayaPreviewInspector
     {
         CS_MayaPreviewOutline outline = CS_MayaPreviewOutline.Of(target);
         if (outline == null || !Section("アウトライン", CS_MayaPreviewIcons.Get(CS_MayaPreviewKind.Mesh), null)) return;
-        float width = Number("太さ", outline.Width, "outline.width", "メッシュの法線方向に押し出す量（オブジェクトの単位）");
-        if (!Mathf.Approximately(width, outline.Width)) outline.Width = width;
-        Color color = ColorField("色", outline.Color, false, "outline.color");
-        if (color != outline.Color) outline.Color = color;
+        Note("シェーダー: " + (outline.Material != null ? outline.Material.shader.name : "-") +
+             "\n全部の設定は「設定を開く」（下の Materials の " + (outline.Material != null ? outline.Material.name : "") + "）から変えられます。");
         GUILayout.BeginHorizontal();
-        GUILayout.Space(_labelWidth + 4);
+        GUILayout.Space(8);
+        if (GUILayout.Button("設定を開く", _button, GUILayout.Height(RowHeight + 2)) && outline.Material != null)
+        {
+            MaterialSlot slot = CollectMaterials().Find(s => s.material == outline.Material);
+            if (slot != null) EditMaterial(slot);
+        }
         if (GUILayout.Button("アウトラインを削除", _button, GUILayout.Height(RowHeight + 2)))
         {
             Destroy(outline.gameObject);
             ClearFields();
         }
+        GUILayout.Space(8);
         GUILayout.EndHorizontal();
     }
 }

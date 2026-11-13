@@ -232,6 +232,7 @@ public partial class CS_MayaPreviewInspector
             Rect upper = _panelRect[(int)column[i]];
             Rect zone = new Rect(upper.x, upper.yMax - SplitterHeight * 0.5f + PanelGap * 0.5f, upper.width, SplitterHeight);
             bool hover = zone.Contains(e.mousePosition);
+            if (hover) _splitHover = true;   // up / down arrow cursor (DrawScrubOverlay)
             if (hover && e.type == EventType.Repaint)
                 Fill(new Rect(zone.x + zone.width * 0.35f, upper.yMax + PanelGap * 0.5f - 1, zone.width * 0.3f, 2), AccentColor);
             if (hover && e.type == EventType.MouseDown && e.button == 0)

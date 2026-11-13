@@ -250,6 +250,8 @@ public class CS_MayaPreviewMaterialLibrary : IDisposable
 
         GetOrCreate(def.name);
         Record record = _records[def.name];
+        float[] previousColor = record.mayaColor;
+        string previousBase = record.mayaBase, previousNormal = record.mayaNormal;
         record.mayaColor = def.baseColor;
         record.mayaBase = null;
         record.mayaNormal = null;
@@ -264,8 +266,33 @@ public class CS_MayaPreviewMaterialLibrary : IDisposable
             }
         }
 
+        // 後から変えた方が勝つ: Mayaで色・テクスチャを変えたら、exeのInspectorで上書きしていた値より優先する
+        // （最初の受信では変更扱いにしない。保存した設定はそのまま）
+        ShaderInfo info = InfoOf(record);
+        bool changed = false;
+        if (previousColor != null && !SameColor(previousColor, record.mayaColor))
+            foreach (string prop in new[] { "_BaseColor", "_Color" }) changed |= record.colors.Remove(prop);
+        if (previousColor != null && info != null && !string.IsNullOrEmpty(info.baseProp) && previousBase != record.mayaBase)
+            changed |= record.textures.Remove(info.baseProp);
+        if (previousColor != null && info != null && !string.IsNullOrEmpty(info.normalProp) && previousNormal != record.mayaNormal)
+            changed |= record.textures.Remove(info.normalProp);
+        if (changed)
+        {
+            Rebuild(record, true);
+            MarkDirty(record);
+            return;
+        }
+
         ApplyMaya(record, record.material, InfoOf(record));
         Validate(record.material);
+    }
+
+
+    private static bool SameColor(float[] a, float[] b)
+    {
+        if (a == null || b == null || a.Length != b.Length) return a == b;
+        for (int i = 0; i < a.Length; i++) if (Mathf.Abs(a[i] - b[i]) > 1e-4f) return false;
+        return true;
     }
 
 
@@ -574,8 +601,9 @@ public class CS_MayaPreviewMaterialLibrary : IDisposable
 
         if (record.mayaColor != null && record.mayaColor.Length >= 3)
         {
+            // Maya stores colours scene-linear (colour management on); SetColor expects sRGB.
             Color color = new Color(record.mayaColor[0], record.mayaColor[1], record.mayaColor[2],
-                record.mayaColor.Length > 3 ? record.mayaColor[3] : 1f);
+                record.mayaColor.Length > 3 ? record.mayaColor[3] : 1f).gamma;
             string colorProp = material.HasProperty("_BaseColor") ? "_BaseColor" : material.HasProperty("_Color") ? "_Color" : null;
             if (colorProp != null && !record.colors.ContainsKey(colorProp)) material.SetColor(colorProp, color);
         }

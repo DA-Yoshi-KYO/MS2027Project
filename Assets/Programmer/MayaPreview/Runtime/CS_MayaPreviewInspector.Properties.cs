@@ -93,6 +93,7 @@ public partial class CS_MayaPreviewInspector
                 CS_MayaPreviewUndo.WatchVolume(volume, "Volume", () => DrawVolume(volume));
             if (target.TryGetComponent(out AudioSource audio) && Section("Audio Source", CS_MayaPreviewIcons.Get(CS_MayaPreviewKind.Audio), CS_MayaPreviewIcons.Tint(CS_MayaPreviewKind.Audio)))
                 CS_MayaPreviewUndo.WatchAudio(audio, "Audio", () => DrawAudio(audio));
+            DrawOutlineSection(target);
         }
         DrawMaterialList();
         GUILayout.Space(4);
@@ -384,6 +385,32 @@ public partial class CS_MayaPreviewInspector
         return slots;
     }
 
+    // Japanese short name of a shader for the picker and the Material panel
+    // ("Shader Graphs/SHG_NTE_Skin" -> "トゥーン 肌"). Unknown words keep the English name.
+    private static readonly (string word, string ja)[] ShaderWords =
+    {
+        ("Skin", "肌"), ("Hair", "髪"), ("Eye", "目"), ("Cloth", "服"), ("Metal", "金属"), ("Leather", "革"),
+        ("Outline", "アウトライン"), ("Dither", "ディザ"), ("Glass", "ガラス"), ("Water", "水"), ("Hologram", "ホログラム"),
+        ("Camo", "光学迷彩"), ("Laser", "レーザー"), ("Area", "範囲"), ("Warning", "警告"), ("Debug", "デバッグ"),
+        ("Range", "範囲"), ("Mannequin", "マネキン"), ("Bill", "ビル"), ("Terrain", "地形"), ("Tessellation", "テッセレーション"),
+        ("Layered", "レイヤー"), ("Decal", "デカール"), ("Particle", "パーティクル"), ("Sample", "サンプル"), ("Texture", "テクスチャ"),
+    };
+
+    private static string JapaneseShader(string shader)
+    {
+        if (string.IsNullOrEmpty(shader)) return "";
+        if (shader == "HDRP/Lit") return "標準（ライトあり）";
+        if (shader == "HDRP/Unlit") return "ライトなし";
+        string name = shader.Substring(shader.LastIndexOf('/') + 1);
+        var parts = new List<string>();
+        if (name.IndexOf("NTE", System.StringComparison.Ordinal) >= 0 || name.IndexOf("Toon", System.StringComparison.OrdinalIgnoreCase) >= 0) parts.Add("トゥーン");
+        foreach (var (word, ja) in ShaderWords)
+            if (name.IndexOf(word, System.StringComparison.OrdinalIgnoreCase) >= 0 && !parts.Contains(ja)) parts.Add(ja);
+        if (name.IndexOf("Unlit", System.StringComparison.OrdinalIgnoreCase) >= 0) parts.Add("ライトなし");
+        else if (name.EndsWith("Lit", System.StringComparison.OrdinalIgnoreCase)) parts.Add("ライトあり");
+        return parts.Count > 0 ? string.Join(" ", parts) : ShortShader(shader);
+    }
+
     private static string ShortShader(string shader)
     {
         if (shader.Length <= 22) return shader;
@@ -432,6 +459,8 @@ public partial class CS_MayaPreviewInspector
         GUILayout.BeginVertical();
         Rect nameRect = GUILayoutUtility.GetRect(10, 22, GUILayout.ExpandWidth(true));
         GUI.Label(nameRect, Fit(active.name, _bold, nameRect.width), _bold);
+        // 2nd line: what the shader is, in Japanese (the English name is on the button / below)
+        GUILayout.Label(new GUIContent(JapaneseShader(active.material.shader.name), active.material.shader.name), _row);
         GUILayout.Label(active.maya ? "Maya material  - saved per name" : "Scene material  - this run only", _dim);
         GUILayout.Label("Used by " + active.users + (active.users == 1 ? " slot" : " slots") + " in the selection", _dim);
         GUILayout.Space(4);
@@ -509,7 +538,8 @@ public partial class CS_MayaPreviewInspector
         {
             GUILayout.BeginHorizontal();
             GUILayout.Space(4);
-            if (GUILayout.Button(new GUIContent(name), name == current ? _buttonOn : _button, GUILayout.Height(RowHeight + 2)))
+            string label = JapaneseShader(name) + "　（" + ShortShader(name) + "）";
+            if (GUILayout.Button(new GUIContent(label, name), name == current ? _buttonOn : _button, GUILayout.Height(RowHeight + 2)))
             {
                 _shaderPickerOpen = false;
                 if (name != current)

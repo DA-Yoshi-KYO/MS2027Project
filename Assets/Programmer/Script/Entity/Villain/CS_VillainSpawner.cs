@@ -44,6 +44,10 @@ using UnityEngine.AI;
  *   (待ち中の位置からは、待ちが早く終わる位置を選ぶ)
  * ・ランダムイベント(大量発生)用に、スポーン位置を使わずにグループを生成する SpawnEventGroup がある
  *   イベントのグループは通常のグループ数に数えず、犯罪も進めない(時間経過の段階の反映は通常と同じ)
+ * ・エリアの犯罪完遂ゲージ(ソロ。スポーン位置の親のCS_CrimeArea)
+ *   毎フレーム、エリアごとに「エリアで生き残っている悪人グループ数 × 特殊倍率(ランダムイベント)」× 経過時間をゲージに足す
+ *   エリアの担当のグループは、グループごとの犯罪完遂(完遂時間・スポーン位置の犯罪完遂ゲージ)を使わない
+ *   ランダムイベントで生成したグループ(スポーン位置が無い)は数えない
  * ・グループ単位の犯罪の進行は、生成したCS_VillainGroupのTickを毎フレーム呼んで進める
  *   進行度はスポーン位置の犯罪完遂ゲージ(CS_VillainCrimeGauge)にも毎フレーム渡す(付いていなければ何もしない)
  * ・スポーン位置にグループがいる間は、路地裏の入り口に煙を出す(CS_VillainAreaSmoke。付いていなければ何もしない)
@@ -97,6 +101,7 @@ public class CS_VillainSpawner : MonoBehaviour
     private int _offlinePlayerCount = 1;
 
     private CS_VillainSpawnPoint[] _spawnPoints;
+    private readonly List<CS_CrimeArea> _crimeAreas = new List<CS_CrimeArea>();   // スポーン位置の担当のエリア(ソロ)
     private readonly List<CS_VillainGroup> _groups = new List<CS_VillainGroup>();
     private readonly List<CS_VillainGroup> _eventGroups = new List<CS_VillainGroup>();   // ランダムイベントで生成したグループ
     private float _checkTimer;
@@ -130,6 +135,13 @@ public class CS_VillainSpawner : MonoBehaviour
             return;
         }
 
+        // スポーン位置の担当のエリア(ソロ。親のCS_CrimeArea)を集める
+        foreach (CS_VillainSpawnPoint point in _spawnPoints)
+        {
+            CS_CrimeArea area = point.crimeArea;
+            if (area != null && !_crimeAreas.Contains(area)) _crimeAreas.Add(area);
+        }
+
         _timer = FindAnyObjectByType<CS_TimerController>();
         _startTime = Time.time;
 
@@ -142,12 +154,14 @@ public class CS_VillainSpawner : MonoBehaviour
         if (!_isRunning) return;
 
         // 犯罪の進行は毎フレーム行う
+        TickCrimeAreas(Time.deltaTime);
         foreach (CS_VillainGroup group in _groups)
         {
             group.Tick(Time.deltaTime);
 
             // グループの進行度を、スポーン位置の犯罪完遂ゲージへ渡す(完遂したらゲージは消す)
-            SetGauge(group.spawnPoint, group.crimeProgress, !group.isCrimeCompleted);
+            // エリアの担当(ソロ)はグループごとのゲージを出さない(エリアの完遂率に置き換えたため)
+            SetGauge(group.spawnPoint, group.crimeProgress, !group.usesAreaCrime && !group.isCrimeCompleted);
         }
 
         _checkTimer += Time.deltaTime;
@@ -157,6 +171,23 @@ public class CS_VillainSpawner : MonoBehaviour
         RemoveDeadGroups();
         UpdateStage();
         FillRequiredGroups();
+    }
+
+    // エリアの犯罪完遂ゲージ(ソロ)を進める。毎秒「エリアで生き残っている悪人グループ数 × 特殊倍率」を足す
+    private void TickCrimeAreas(float deltaTime)
+    {
+        if (_crimeAreas.Count == 0) return;
+
+        float multiplier = CS_RandomEventManager.GetCrimeRateMultiplier();
+        foreach (CS_CrimeArea area in _crimeAreas)
+        {
+            int activeGroupCount = 0;
+            foreach (CS_VillainGroup group in _groups)
+            {
+                if (group.crimeArea == area && group.isAlive) activeGroupCount++;
+            }
+            area.Tick(activeGroupCount, multiplier, deltaTime);
+        }
     }
 
     // 経過時間の段階が変わったら、既にフィールドにいる悪人のステータスを新しい段階の値にする

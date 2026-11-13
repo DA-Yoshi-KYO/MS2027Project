@@ -39,20 +39,22 @@ public partial class CS_MayaPreviewInspector
     // Rows
     // =========================================================
 
-    private bool Section(string title, Texture2D icon = null, Color? tint = null)
+    // foldable = false: a plain header that is always open (no fold arrow).
+    private bool Section(string title, Texture2D icon = null, Color? tint = null, bool foldable = true)
     {
         GUILayout.Space(3);
         Rect bar = GUILayoutUtility.GetRect(10, 21, GUILayout.ExpandWidth(true));
         Fill(bar, SectionColor);
         Fill(new Rect(bar.x, bar.y, bar.width, 1), BorderColor);
-        bool open = !_foldedSections.Contains(title);
-        if (GUI.Button(bar, GUIContent.none, GUIStyle.none))
+        bool open = !foldable || !_foldedSections.Contains(title);
+        if (foldable && GUI.Button(bar, GUIContent.none, GUIStyle.none))
         {
             if (open) _foldedSections.Add(title); else _foldedSections.Remove(title);
             open = !open;
             GUI.FocusControl(null);
         }
-        DrawTinted(new Rect(bar.x + 6, bar.y + 6, 9, 9), open ? CS_MayaPreviewIcons.ArrowDown : CS_MayaPreviewIcons.ArrowRight, DimColor);
+        if (foldable)
+            DrawTinted(new Rect(bar.x + 6, bar.y + 6, 9, 9), open ? CS_MayaPreviewIcons.ArrowDown : CS_MayaPreviewIcons.ArrowRight, DimColor);
         float x = bar.x + 20;
         if (icon != null) { DrawTinted(new Rect(x, bar.y + 3, 15, 15), icon, tint ?? Color.white); x += 19; }
         GUI.Label(new Rect(x, bar.y, bar.xMax - x - 6, bar.height), Fit(title, _section, bar.xMax - x - 6), _section);

@@ -40,6 +40,8 @@ public partial class CS_MayaPreviewInspector
     private Vector2 _exportScroll;
     private ExportStep _exportStep;
     private CS_MayaPreviewExport.Saved _exportPrevious;   // the export the question is about
+    private bool _choosingProject;
+    private string _projectInput;
 
     private bool ExportDialogOpen => _exportStep != ExportStep.Closed;
 
@@ -250,46 +252,73 @@ public partial class CS_MayaPreviewInspector
 
         GUILayout.BeginArea(new Rect(content.x + 6, content.y + 4, content.width - 12, content.height - 6));
         _exportScroll = GUILayout.BeginScrollView(_exportScroll, false, false, GUIStyle.none, _skin.verticalScrollbar, GUIStyle.none);
-        // Keep everything inside the panel width (long paths must not widen the layout).
-        GUILayout.BeginVertical(GUILayout.Width(content.width - 24));
+        // Keep everything inside the panel width: every row gets an explicit width, otherwise a
+        // long text widens the layout and the right side is cut off.
+        float w = content.width - 26f;
+        GUILayout.BeginVertical(GUILayout.Width(w));
 
         GUILayout.Label("書き出すオブジェクト", _bold);
         DrawDropList();
         GUILayout.BeginHorizontal();
-        if (GUILayout.Button("選択中を追加", _button, GUILayout.Height(RowHeight + 2))) AddSelectedToExport();
-        if (GUILayout.Button("クリア", _button, GUILayout.Width(60), GUILayout.Height(RowHeight + 2))) _exportItems.Clear();
+        if (GUILayout.Button("選択中を追加", _button, GUILayout.Width(w - 58), GUILayout.Height(RowHeight + 2))) AddSelectedToExport();
+        if (GUILayout.Button("クリア", _button, GUILayout.Width(54), GUILayout.Height(RowHeight + 2))) _exportItems.Clear();
         GUILayout.EndHorizontal();
 
         GUILayout.Space(6);
         GUILayout.Label(_exportItems.Count > 0
             ? "名前: " + ObjectName + "（Inspector の名前をクリックで変更）"
-            : "名前: リストの最初のオブジェクトの名前になります", _wrapDim);
+            : "名前: リストの最初のオブジェクトの名前になります", _wrapDim, GUILayout.Width(w));
         GUILayout.Label(string.IsNullOrEmpty(CS_MayaPreviewExport.Scene)
             ? "Maya シーン: 未保存（mb を保存すると書き出しと紐付きます）"
-            : "Maya シーン: " + Path.GetFileName(CS_MayaPreviewExport.Scene), _wrapDim);
+            : "Maya シーン: " + Path.GetFileName(CS_MayaPreviewExport.Scene), _wrapDim, GUILayout.Width(w));
 
         GUILayout.Space(4);
-        if (root == null)
-            GUILayout.Label("Unity プロジェクトが見つかりません（MayaPreviewProject.txt）。プロジェクトから exe をビルドしてください。", _wrapDim);
+        if (root == null || _choosingProject)
+        {
+            // The exe could not find the Unity project: let the user point at it.
+            GUILayout.Label(root == null
+                ? "書き出し先の Unity プロジェクトが見つかりません。プロジェクトのフォルダー（Assets がある場所）を入力して「設定」を押してください。"
+                : "書き出し先の Unity プロジェクトのフォルダーを入力して「設定」を押してください。", _wrapDim, GUILayout.Width(w));
+            GUILayout.BeginHorizontal();
+            GUI.SetNextControlName("F.Export.project");
+            _projectInput = GUILayout.TextField(_projectInput ?? "", GUILayout.Width(w - 52), GUILayout.Height(RowHeight + 2));
+            if (GUILayout.Button("設定", _button, GUILayout.Width(48), GUILayout.Height(RowHeight + 2)))
+            {
+                if (CS_MayaPreviewExport.SetProjectFolder(_projectInput)) { _choosingProject = false; _exportStatus = "書き出し先を設定しました"; _nextExportScan = 0f; GUI.FocusControl(null); }
+                else _exportStatus = "Unity プロジェクトではありません（Assets と ProjectSettings があるフォルダーを指定してください）";
+            }
+            GUILayout.EndHorizontal();
+            if (root != null && GUILayout.Button("キャンセル", _button, GUILayout.Width(w), GUILayout.Height(RowHeight + 2))) _choosingProject = false;
+        }
         else
         {
-            GUI.enabled = _exportItems.Count > 0;
-            if (GUILayout.Button("書き出す…", _bigButton, GUILayout.Height(26))) OpenExportDialog(root);
+            // Export: only when something is in the list (grey and not clickable otherwise).
+            bool any = _exportItems.Count > 0;
+            GUI.enabled = any;
+            if (GUILayout.Button("Export", any ? _bigButton : _button, GUILayout.Width(w), GUILayout.Height(26))) OpenExportDialog(root);
             GUI.enabled = true;
-            if (GUILayout.Button("書き出し先（Assets/Designer）を開く", _button, GUILayout.Height(RowHeight + 2))) OpenFolder(root);
+            if (GUILayout.Button("書き出し先を開く", _button, GUILayout.Width(w), GUILayout.Height(RowHeight + 2))) OpenFolder(root);
+            GUILayout.BeginHorizontal(GUILayout.Width(w));
+            string project = Path.GetDirectoryName(Path.GetDirectoryName(root.TrimEnd('/')));
+            Rect projectLabel = GUILayoutUtility.GetRect(10, RowHeight, GUILayout.Width(Application.isEditor ? w : w - 52));
+            GUI.Label(projectLabel, Fit("プロジェクト: " + project, _dim, projectLabel.width), _dim);
+            if (projectLabel.Contains(Event.current.mousePosition)) _tooltip = project;
+            if (!Application.isEditor && GUILayout.Button("変更", _button, GUILayout.Width(48), GUILayout.Height(RowHeight)))
+            { _choosingProject = true; _projectInput = Path.GetDirectoryName(Path.GetDirectoryName(root.TrimEnd('/'))); }
+            GUILayout.EndHorizontal();
         }
-        if (!string.IsNullOrEmpty(_exportStatus)) GUILayout.Label(_exportStatus, _wrapDim);
+        if (!string.IsNullOrEmpty(_exportStatus)) GUILayout.Label(_exportStatus, _wrapDim, GUILayout.Width(w));
 
         GUILayout.Space(10);
-        Fill(GUILayoutUtility.GetRect(10, 1, GUILayout.ExpandWidth(true)), BorderColor);
+        Fill(GUILayoutUtility.GetRect(10, 1, GUILayout.Width(w)), BorderColor);
         GUILayout.Space(4);
         GUILayout.Label("書き出し履歴", _bold);
-        GUILayout.Label("読み込み: その書き出しのマテリアル設定・位置・名前・種類を戻します。", _wrapDim);
+        GUILayout.Label("読み込み: その書き出しのマテリアル設定・位置・名前・種類を戻します。", _wrapDim, GUILayout.Width(w));
         if (_savedExports.Count == 0) GUILayout.Label("まだありません", _dim);
         foreach (CS_MayaPreviewExport.Saved saved in _savedExports)
         {
-            GUILayout.BeginHorizontal(GUILayout.Height(RowHeight + 2));
-            Rect label = GUILayoutUtility.GetRect(10, RowHeight + 2, GUILayout.ExpandWidth(true));
+            GUILayout.BeginHorizontal(GUILayout.Width(w), GUILayout.Height(RowHeight + 2));
+            Rect label = GUILayoutUtility.GetRect(10, RowHeight + 2, GUILayout.Width(w - 68));
             bool mine = CS_MayaPreviewExport.SameScene(saved.scene, CS_MayaPreviewExport.Scene);
             GUI.Label(label, Fit((mine ? "● " : "") + Place(saved), _row, label.width - 70), _row);
             GUI.Label(label, saved.time.ToString("MM/dd HH:mm"), _smallRight);
@@ -297,7 +326,7 @@ public partial class CS_MayaPreviewInspector
                 LoadExport(saved.file, "読み込みました");
             GUILayout.EndHorizontal();
         }
-        if (_savedExports.Count > 0) GUILayout.Label("● = 今 Maya で開いているシーンの書き出し", _dim);
+        if (_savedExports.Count > 0) GUILayout.Label("● = 今 Maya で開いているシーンの書き出し", _wrapDim, GUILayout.Width(w));
 
         GUILayout.EndVertical();
         GUILayout.EndScrollView();

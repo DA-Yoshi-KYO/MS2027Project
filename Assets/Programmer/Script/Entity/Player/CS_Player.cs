@@ -38,7 +38,7 @@ using UnityEngine.InputSystem;
  *   (Brainが実際のカメラへ反映する。攻撃時の揺れはCS_PlayerCameraShakeがImpulseで加える)
  * ・SAモーション(CS_PlayerHide): SAで飛んでいる間(isHiding)は、Fly/Lungeの残り時間とは別の、SA専用の速度(_saVelocity)をRigidbodyに入れて動く
  *   BeginSAMotion(始める)・SetSAVelocity(毎物理フレーム速度を決める)・EndSAMotion(終える。専用の速度をクリアして、終わった時の速度を渡す)
- *   終わった時の速度の水平は空中の勢い(_airMomentum)になる。勢いがある間は、水平の速度が入力の移動速度へ_airControlAccelで近づく
+ *   終わった時の速度の水平は空中の勢い(_airMomentum)になる。勢いがある間は、水平の速度が入力の移動速度へ_airControlAccelで近づき、SAポイントごとの減速率(_airMomentumDrag。毎秒e^(-減速率)の割合)で弱まる
  *   勢いは着地・ダッシュ・踏み込み・倒れる・スタンで0になる。勢いが0の間・SAを使わない時の動きは今まで通り
  * ・死亡中(CS_PlayerHealth.isDead)は移動・攻撃を行わない(canActで判定)
  *   視点操作(カメラ)は死亡中も継続する
@@ -91,9 +91,8 @@ public class CS_Player : NetworkBehaviour
     [Header("移動")]
     [SerializeField] private float _rotationSpeed = 720f;   // 進む方向へ体が回る速さ(度/秒)
 
-    [Header("空中の勢い(SAで放した後)")]
+    [Header("空中の勢い(SAで放した後。減速率はSAポイントごと。CS_GrappleSAPointの_releaseDrag)")]
     [SerializeField][Min(0f)] private float _airControlAccel = 25f; // 勢いがある間、入力の移動速度へ近づく加速度(m/秒²)。大きいほど入力で曲げやすい
-    [SerializeField][Min(0f)] private float _airDrag = 0f;          // 勢いが弱まる割合(1秒あたり)。0なら入力が無い間は勢いがそのまま続く
 
     [Header("ジャンプ")]
     [SerializeField] private LayerMask _groundLayers = ~0;      // 地面と判定するレイヤー
@@ -168,6 +167,7 @@ public class CS_Player : NetworkBehaviour
     private bool _isLungeVertical;  // 踏み込みが高さも含めて進むか(Fly)。falseなら水平だけ進む(Lunge)
     private Vector3 _saVelocity;    // SAで飛んでいる間の専用の速度(CS_PlayerHideが毎物理フレーム決める。Fly/Lungeの残り時間は使わない)
     private Vector3 _airMomentum;   // SAで放した後に残す水平の勢い(m/秒)。入力の速度へ近づく。着地・ダッシュ・踏み込み・倒れる・スタンで0になる(EndSAMotion)
+    private float _airMomentumDrag;    // 空中の勢いの減速率(毎秒e^(-減速率)の割合で弱める)。SAで放す時に渡され、勢いが0になれば0に戻る(EndSAMotion)
 
     public bool isControlled => _isControlled;          // このプレイヤーを自分(このマシン)が操作しているか(NPCはサーバーでtrue)
     public bool canAct => _isControlled && !_health.isDead && !isStunned;   // 移動・攻撃してよいか(CS_PlayerAttackも参照)
@@ -458,12 +458,13 @@ public class CS_Player : NetworkBehaviour
     // SAの飛行を終える。専用の速度をクリアすると同時に、終わった時の速度を通常の状態に渡す(0なら速度0)
     // 垂直はRigidbodyにそのまま渡して重力に任せ、水平は空中の勢いとして残す(入力の速度へ近づき、着地で0になる)
     // 呼ぶ前に、CS_PlayerHide側でisHidingをfalseにしておくこと(通常の動きに戻るため)
-    public void EndSAMotion(Vector3 exitVelocity)
+    public void EndSAMotion(Vector3 exitVelocity, float drag = 0f)
     {
         _saVelocity = Vector3.zero;
         _lungeRemaining = 0f;   // 踏み込みの残り時間を取り残さない(残ると、その間速度が上書きされ、切れた時に速度が0になる)
         _rigidbody.linearVelocity = exitVelocity;
         _airMomentum = new Vector3(exitVelocity.x, 0f, exitVelocity.z);
+        _airMomentumDrag = Mathf.Max(0f, drag);
     }
 
     // 位置を指定した位置へ合わせ、踏み込みと速度を止める(SAでハイドポイントに着いた時に使う)
@@ -762,6 +763,7 @@ public class CS_Player : NetworkBehaviour
             MoveWithAirMomentum();
             return;
         }
+        _airMomentumDrag = 0f;   // 勢いが無い間は、減速率も0に戻す
 
         // 入力なしのときは水平方向を止める(落下は残す)
         if (_moveInput == Vector2.zero)
@@ -778,7 +780,7 @@ public class CS_Player : NetworkBehaviour
     }
 
     // SAで放した後の勢いで動く。入力がある間は、水平の速度が入力の移動速度へ_airControlAccelで近づく(曲げられる)
-    // 入力が無い間は勢いがそのまま続く(_airDragが0より大きければ弱まる)。着地(接地かつ垂直速度が0以下)で勢いを0にして、通常の動きに戻る
+    // 入力の有無にかかわらず、SAポイントごとの減速率(_airMomentumDrag。毎秒e^(-減速率)の割合)で弱まる(0なら勢いはそのまま続く)。着地(接地かつ垂直速度が0以下)で勢いを0にして、通常の動きに戻る
     private void MoveWithAirMomentum()
     {
         float verticalVelocity = _rigidbody.linearVelocity.y;
@@ -796,7 +798,8 @@ public class CS_Player : NetworkBehaviour
             _airMomentum = Vector3.MoveTowards(_airMomentum, inputVelocity, _airControlAccel * deltaTime);
         }
 
-        if (_airDrag > 0f) _airMomentum *= Mathf.Exp(-_airDrag * deltaTime);
+        if (_airMomentumDrag > 0f) _airMomentum *= Mathf.Exp(-_airMomentumDrag * deltaTime);
+        if (_airMomentum.sqrMagnitude < 0.0001f) _airMomentum = Vector3.zero;   // ほぼ止まったら、勢いを0にして通常の動きに戻る
 
         _rigidbody.linearVelocity = new Vector3(_airMomentum.x, verticalVelocity, _airMomentum.z);
     }

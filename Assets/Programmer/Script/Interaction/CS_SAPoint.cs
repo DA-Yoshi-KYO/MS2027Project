@@ -47,6 +47,7 @@ public abstract class CS_SAPoint : MonoBehaviour
 
     public virtual float pullSpeed => 0f;       // 飛ぶ速さ(m/秒)。0以下ならCS_PlayerHideの_flySpeedを使う
     public virtual float releaseDistanceRate => 0f; // 飛び始めの距離のこの割合(0〜1)まで引っ張られるか、着いたら、早い方で自動で放して自由落下する(グラップル)。0以下なら放さず、着いたら位置を合わせて速度0(信号機・ハイドポイント)
+    public virtual float releaseDrag => 0f;         // 放した後の水平の勢いの減速率(毎秒e^(-減速率)の割合で弱める)。0なら減速せず、着地まで続く
 
     // ========================================
     // 隠れられる箱(持つ種類だけ上書きする)

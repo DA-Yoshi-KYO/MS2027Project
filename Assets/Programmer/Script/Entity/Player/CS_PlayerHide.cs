@@ -368,7 +368,7 @@ public class CS_PlayerHide : NetworkBehaviour
     {
         Vector3 velocity = _flyVelocity;
 
-        EndFly(velocity);   // 重力・当たり判定を戻し、速度を通常の状態に渡す(CS_Player.EndSAMotion)。ロープを消すonFlyEndもここで呼ばれる
+        EndFly(velocity, _point.releaseDrag);   // 重力・当たり判定を戻し、速度を通常の状態に渡す(CS_Player.EndSAMotion)。ロープを消すonFlyEndもここで呼ばれる
 
         BeginGhost(velocity, remainingDistance);
     }
@@ -415,8 +415,8 @@ public class CS_PlayerHide : NetworkBehaviour
         EndFly(Vector3.zero);
     }
 
-    // 飛ぶのを終える。exitVelocityは、終わった時にCS_Playerへ渡す速度(0なら速度0)
-    private void EndFly(Vector3 exitVelocity)
+    // 飛ぶのを終える。exitVelocityは、終わった時にCS_Playerへ渡す速度(0なら速度0)。dragは、その水平の勢いの減速率(SAポイントごと。0なら減速なし)
+    private void EndFly(Vector3 exitVelocity, float drag = 0f)
     {
         CS_SAPoint endedPoint = _point;
         bool wasFlying = _isFlying;
@@ -429,7 +429,7 @@ public class CS_PlayerHide : NetworkBehaviour
 
         if (!wasFlying) return;
 
-        _player.EndSAMotion(exitVelocity);   // SA専用の速度をクリアし、終わった時の速度を渡す(水平は空中の勢いになる)
+        _player.EndSAMotion(exitVelocity, drag);   // SA専用の速度をクリアし、終わった時の速度を渡す(水平は空中の勢いになる)
         onFlyEnd?.Invoke(endedPoint);
     }
 

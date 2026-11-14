@@ -9,6 +9,7 @@
  * 2026-11-06 | 増援を、見つけた警察と挟む形の位置に、遠くから出すようにした
  * 2026-11-06 | 警察に追跡・ドローンに目撃・ライトに照射されている時間と、レーザーに当たった時に、プレイヤーを減点するようにした(見つかった瞬間の減点はやめた)
  * 2026-11-09 | 警戒状態を、タイマーではなく、警察・巡回ドローンの実際の状態から決めてCS_PlayerAlertへ渡すようにした
+ * 2026-11-13 | 復活後の無敵中のプレイヤーは、見つかっても警戒状態にせず、減点もしないようにした(仕様書「リスポーン」: この間は警察に視認されない。Issue #453)
  * ================================================ */
 
 using System.Collections.Generic;
@@ -156,6 +157,9 @@ public class CS_PoliceAlertManager : MonoBehaviour
     {
         if (player == null || CS_PoliceSquad.IsNetworkClientOnly()) return;
 
+        // 復活後の無敵中は見つからない(警戒状態にしない・警察を向かわせない・暗躍ボーナスもリセットしない)
+        if (CS_PoliceVision.IsRespawnInvincible(player)) return;
+
         if (!player.TryGetComponent(out CS_PlayerAlert alert))
         {
             WarnNoPlayerAlert(player);
@@ -180,7 +184,7 @@ public class CS_PoliceAlertManager : MonoBehaviour
     {
         Report(player, position, finderPosition);
 
-        if (player == null || _instance == null || _instance._alertData == null || CS_PoliceSquad.IsNetworkClientOnly()) return;
+        if (player == null || _instance == null || _instance._alertData == null || CS_PoliceSquad.IsNetworkClientOnly() || CS_PoliceVision.IsRespawnInvincible(player)) return;
 
         float duration = _instance._alertData.touchAlertDuration;
         if (duration > 0.0f) _instance._touchedUntil[player] = Time.time + duration;
@@ -193,7 +197,7 @@ public class CS_PoliceAlertManager : MonoBehaviour
     /// <param name="player">見られているプレイヤー</param>
     public static void ReportExposure(CS_PlayerHealth player)
     {
-        if (player == null || _instance == null || CS_PoliceSquad.IsNetworkClientOnly()) return;
+        if (player == null || _instance == null || CS_PoliceSquad.IsNetworkClientOnly() || CS_PoliceVision.IsRespawnInvincible(player)) return;
 
         _instance._lastExposedTimes[player] = Time.time;
     }
@@ -205,7 +209,7 @@ public class CS_PoliceAlertManager : MonoBehaviour
     /// <param name="player">当たったプレイヤー</param>
     public static void ReportLaserHit(CS_PlayerHealth player)
     {
-        if (player == null || _instance == null || _instance._alertData == null || CS_PoliceSquad.IsNetworkClientOnly()) return;
+        if (player == null || _instance == null || _instance._alertData == null || CS_PoliceSquad.IsNetworkClientOnly() || CS_PoliceVision.IsRespawnInvincible(player)) return;
 
         _instance.ApplyPenalty(player, _instance._alertData.laserPenaltyPoint);
     }

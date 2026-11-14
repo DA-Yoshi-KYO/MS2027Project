@@ -3,7 +3,7 @@ using UnityEngine;
 
 /*
  * SA(ステルスアクション。ハイドポイントへ飛ぶ)と、ハイドポイントの隠れられる箱に入っている間の「隠れている」状態を扱うクラス
- * ペルソナ5のカバーがリファレンス。ハイドポイント(CS_HidePoint)はフィールドに置く
+ * ペルソナ5のカバーがリファレンス。SAポイント(CS_SAPoint。ハイドポイント・信号機など)はフィールドに置く
  *
  * 制作者：　吉田京志郎
  */
@@ -14,7 +14,7 @@ using UnityEngine;
  * ・仕様は仕様書「プレイヤー」のSA(SAポイントの仕様について)と、Issue #381
  * ・SAの流れ(本人の手元で進める)
  *   1. 飛んでいない間、飛べるハイドポイント(currentCandidate)を探す
- *      条件: 足元がそのハイドポイントのSAできる範囲の箱(CS_HidePoint.IsInSAReachBox)の中にある・画面に映っている・
+ *      条件: 足元がそのハイドポイントのSAできる範囲の箱(CS_SAPoint.IsInSAReachBox)の中にある・画面に映っている・
  *            カメラから見て、そのハイドポイントの隠れられる箱が_requiredVisibleRatio(既定30%)以上見えている・カメラの正面に一番近い
  *            体の中心がそのハイドポイントの隠れられる箱の中にある(今いるハイドポイント)時は、そこへは飛ばない
  * ・見えている割合
@@ -32,7 +32,7 @@ using UnityEngine;
  *   4. 着いた: 位置(高さ込み)を合わせ、飛ぶ前に向いていた向きに戻して、すぐ普通の状態に戻る(歩ける・ジャンプできる・重力あり)
  *      以前の「張り付いて動かない」は無くした(仕様「SAポイント移動後も通常の状態と変わらないように移動できる」)
  * ・隠れている判定(isHidden)
- *   プレイヤーの体の中心(当たり判定の中心)が、どれかのハイドポイントの隠れられる箱(CS_HidePoint)の中にある間は隠れている
+ *   プレイヤーの体の中心(当たり判定の中心)が、どれかのハイドポイントの隠れられる箱(CS_HidePoint)の中にある間は隠れている(信号機など箱を持たないSAポイントは隠れ扱いにならない)
  *   SAで飛んで来た時も、歩いて入った時も同じ。飛んでいる最中も、箱の外なら見つかる
  *   判定はサーバー(またはオフライン)で毎フレーム行い、NetworkVariableで全員に伝える(警察・悪人のAIはサーバーで動くため)
  *   警察(CS_PoliceVision)・悪人(CS_VillainCombat)は、IsConcealedFromで「隠れていて、_revealDistanceより離れているか」を問い合わせる
@@ -75,16 +75,16 @@ public class CS_PlayerHide : NetworkBehaviour
 
     // 本人の手元の状態
     private bool _isFlying;
-    private CS_HidePoint _point;            // 飛んでいる先のハイドポイント
+    private CS_SAPoint _point;            // 飛んでいる先のSAポイント
     private float _yawBeforeFly;            // 飛ぶ前に向いていた向き(度。着いたらこの向きに戻す)
-    private CS_HidePoint _candidate;        // 今ダッシュボタンを押したら飛ぶハイドポイント
+    private CS_SAPoint _candidate;        // 今ダッシュボタンを押したら飛ぶSAポイント
     private float _elapsed;
     private bool _isFloating;               // 重力を切っているか(元に戻すため)
 
     public bool isHiding => _isFlying;                      // SAでハイドポイントへ飛んでいる最中か(本人の手元)
     public bool isHidden => _isHidden.Value;                // 隠れている状態か(全員で分かる。サーバーが決める)
     public bool isInHideBox => CS_HidePoint.IsInsideAny(bodyCenter);   // 体の中心が隠れられる箱の中にあるか(その場で調べる)
-    public CS_HidePoint currentCandidate => _candidate;     // 今ダッシュボタンを押したら飛ぶハイドポイント(本人の手元。アイコン表示用)
+    public CS_SAPoint currentCandidate => _candidate;     // 今ダッシュボタンを押したら飛ぶSAポイント(本人の手元。アイコン表示用)
 
     // 体の中心(当たり判定の中心)
     private Vector3 bodyCenter => _collider != null ? _collider.bounds.center : transform.position;
@@ -192,7 +192,7 @@ public class CS_PlayerHide : NetworkBehaviour
     }
 
     // 飛べるハイドポイントのうち、カメラの正面に一番近いもの(無ければnull)
-    private CS_HidePoint FindCandidate()
+    private CS_SAPoint FindCandidate()
     {
         Camera viewCamera = _player.playerCamera;
         if (viewCamera == null) return null;
@@ -200,9 +200,9 @@ public class CS_PlayerHide : NetworkBehaviour
         Vector3 cameraForward = viewCamera.transform.forward;
         Vector3 feet = GetFeetPosition();
         Vector3 sightPosition = viewCamera.transform.position;
-        CS_HidePoint best = null;
+        CS_SAPoint best = null;
         float bestAngle = float.MaxValue;
-        foreach (CS_HidePoint point in CS_HidePoint.activePoints)
+        foreach (CS_SAPoint point in CS_SAPoint.activePoints)
         {
             // SAできる範囲の箱はハイドポイントごと。足元が箱の中にある時だけ飛べる
             if (!point.IsInSAReachBox(feet)) continue;
@@ -226,7 +226,7 @@ public class CS_PlayerHide : NetworkBehaviour
     }
 
     // fromから見て、pointの隠れられる箱が_requiredVisibleRatio以上見えているか(箱が空ならfallbackの1点で調べる)
-    private bool IsVisibleEnough(Vector3 from, CS_HidePoint point, Vector3 fallback)
+    private bool IsVisibleEnough(Vector3 from, CS_SAPoint point, Vector3 fallback)
     {
         if (!point.hasHideBox) return IsSightClear(from, fallback);
 
@@ -329,7 +329,7 @@ public class CS_PlayerHide : NetworkBehaviour
     }
 
     // 体の底(足元)が立つ位置に来る時の、プレイヤーの位置(プレイヤーの位置は体の中心のため)
-    private Vector3 GetArrivePosition(CS_HidePoint point)
+    private Vector3 GetArrivePosition(CS_SAPoint point)
     {
         return point.standPosition + (transform.position - GetFeetPosition());
     }

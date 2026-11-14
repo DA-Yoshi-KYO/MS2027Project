@@ -42,6 +42,13 @@ public abstract class CS_SAPoint : MonoBehaviour
     public Vector3 standForward => Vector3.ProjectOnPlane(standTransform.forward, Vector3.up).normalized;
 
     // ========================================
+    // 飛び方(変えたい種類だけ上書きする。既定は今までのSAと同じ動き)
+    // ========================================
+
+    public virtual float pullSpeed => 0f;       // 飛ぶ速さ(m/秒)。0以下ならCS_PlayerHideの_flySpeedを使う
+    public virtual float releaseDistanceRate => 0f; // 飛び始めの距離のこの割合(0〜1)まで引っ張られるか、着いたら、早い方で自動で放して自由落下する(グラップル)。0以下なら放さず、着いたら位置を合わせて速度0(信号機・ハイドポイント)
+
+    // ========================================
     // 隠れられる箱(持つ種類だけ上書きする)
     // ========================================
 

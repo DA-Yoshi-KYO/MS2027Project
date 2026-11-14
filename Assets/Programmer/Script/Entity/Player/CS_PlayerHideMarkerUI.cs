@@ -1,8 +1,8 @@
 ﻿using UnityEngine;
 
 /*
- * 今ダッシュボタンを押したら飛べるハイドポイント(CS_PlayerHide.currentCandidate)を、ハイドマーカーUI(CS_UIHideMarkerModel)へ渡すクラス
- * CS_PlayerHideに飛べるハイドポイントを問い合わせ、UI側のModelに目印の位置を渡すだけ
+ * 今ダッシュボタンを押したら飛べるSAポイント(CS_PlayerHide.currentCandidate。ハイドポイント・信号機など)を、ハイドマーカーUI(CS_UIHideMarkerModel)へ渡すクラス
+ * CS_PlayerHideに飛べるSAポイントを問い合わせ、UI側のModelに目印の位置を渡すだけ
  * UI側(Model/Presenter/View)はこのクラス・CS_Playerの存在を一切知らない
  *
  * 制作者：　吉田京志郎
@@ -48,7 +48,7 @@ public class CS_PlayerHideMarkerUI : MonoBehaviour
 
         if (_markerModel == null) BindMarkerUI();
 
-        CS_HidePoint candidate = _hide.currentCandidate;
+        CS_SAPoint candidate = _hide.currentCandidate;
         _markerModel.SetTarget(candidate != null ? candidate.standTransform : null);
     }
 

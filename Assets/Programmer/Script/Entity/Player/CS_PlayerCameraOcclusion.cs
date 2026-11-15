@@ -23,6 +23,10 @@ using UnityEngine;
  *   当たったコライダーから親をたどり、最初に_settingsのタグが付いているオブジェクトを透過の単位にする
  *   (その子のRendererをまとめて透過する。コライダーが子に付いていても大丈夫)
  * ・透過・復帰は_fadeSpeed(1秒あたりに変わる量)で一定の速さで変える
+ * ・追加の対象(SetExtraTarget。奇襲のフィニッシュカメラが使う): 呼ばれている間だけ、カメラ→プレイヤーに加えて、カメラ→追加の対象(悪人)の線も、
+ *   太めの半径(radius)で調べる(プレイヤー側の線もこの間は同じ太さ)。透過するのは今まで通り、間をさえぎるタグ付きのオブジェクトだけ
+ *   透過の速さは_extraFadeSpeedになる。cameraPositionを渡すと、実際のカメラ(Brainの更新後に動く)ではなくその位置から調べる(切り替え直後の1フレームの遅れをなくす)
+ *   ClearExtraTargetを呼ぶと元に戻る。呼ばれていない時の動きは今までと同じ
  * ・自分の画面のプレイヤー(CS_Player.isLocalPlayer)のカメラだけで判定する
  *   (他人のプレイヤー・NPCのカメラは無効化されている)
  * ・見た目の演出用なので通信はしない
@@ -66,6 +70,7 @@ public class CS_PlayerCameraOcclusion : MonoBehaviour
 
     [Header("変わる速さ")]
     [SerializeField][Min(0.1f)] private float _fadeSpeed = 6f;    // 1秒あたりに_DitherFadeが変わる量(6なら約0.17秒で切り替わる)
+    [SerializeField][Min(0.1f)] private float _extraFadeSpeed = 20f;   // 追加の対象(SetExtraTarget)がある間の速さ。切り替えた瞬間から透過して見えるように速くする
 
     private CS_Player _player;
     private MaterialPropertyBlock _propertyBlock;
@@ -73,6 +78,13 @@ public class CS_PlayerCameraOcclusion : MonoBehaviour
     private readonly Collider[] _overlaps = new Collider[MaxHits];
     private readonly Dictionary<Transform, FadeTarget> _targets = new Dictionary<Transform, FadeTarget>();
     private readonly List<Transform> _removeList = new List<Transform>();
+
+    // 追加の対象(SetExtraTarget)。フィニッシュカメラなど、一時的にカメラ→相手の間も透過したい時に使う
+    private Transform _extraTarget;
+    private Vector3 _extraLastPosition;       // 追加の対象の最後の位置(対象が消えた後もこの位置まで調べる)
+    private float _extraRadius;
+    private bool _hasExtra;
+    private Vector3? _cameraPositionOverride;  // 判定に使うカメラの位置(nullなら実際のカメラの位置)
 
     private void Awake()
     {
@@ -91,8 +103,35 @@ public class CS_PlayerCameraOcclusion : MonoBehaviour
             fadeTarget.target = 1f;
         }
 
-        DetectOccluders(playerCamera.transform.position);
+        DetectOccluders(_cameraPositionOverride ?? playerCamera.transform.position);
         UpdateFade();
+    }
+
+    // 一時的に、カメラ→対象の間も、太さradiusで調べて透過する(カメラ→プレイヤーの線も同じ太さになる)
+    // cameraPositionに位置を渡すと、実際のカメラではなくその位置から調べる
+    // (Cinemachineが切り替えた直後は、実際のカメラの位置が1フレーム遅れるため。nullなら実際のカメラの位置)
+    // ClearExtraTargetを呼ぶまで続く。呼ばれていない時の動きは変わらない
+    public void SetExtraTarget(Transform target, float radius, Vector3? cameraPosition = null)
+    {
+        _extraTarget = target;
+        _extraLastPosition = target != null ? target.position : transform.position;
+        _extraRadius = Mathf.Max(radius, _castRadius);
+        _cameraPositionOverride = cameraPosition;
+        _hasExtra = target != null;
+    }
+
+    // 判定に使うカメラの位置だけを変える(nullなら実際のカメラの位置)。追加の対象は変わらない
+    public void SetCameraPositionOverride(Vector3? cameraPosition)
+    {
+        _cameraPositionOverride = cameraPosition;
+    }
+
+    // 追加の対象をやめて、いつもの判定に戻す
+    public void ClearExtraTarget()
+    {
+        _extraTarget = null;
+        _cameraPositionOverride = null;
+        _hasExtra = false;
     }
 
     private void OnDisable()
@@ -108,21 +147,37 @@ public class CS_PlayerCameraOcclusion : MonoBehaviour
     // カメラとプレイヤーの間にあるオブジェクトを探し、目標の_DitherFadeを設定する
     private void DetectOccluders(Vector3 cameraPosition)
     {
+        // 追加の対象がある間は、太めの半径で調べる
+        float radius = _hasExtra ? _extraRadius : _castRadius;
+
         // カメラが建物の中に入り込んでいる時
-        int overlapCount = Physics.OverlapSphereNonAlloc(cameraPosition, _castRadius, _overlaps, _layerMask, QueryTriggerInteraction.Ignore);
+        int overlapCount = Physics.OverlapSphereNonAlloc(cameraPosition, radius, _overlaps, _layerMask, QueryTriggerInteraction.Ignore);
         for (int i = 0; i < overlapCount; i++)
         {
             MarkOccluder(_overlaps[i]);
         }
 
         // カメラからプレイヤーの各高さまでの間
+        CastToTarget(cameraPosition, transform.position, radius);
+
+        // 追加の対象があれば、カメラからその各高さまでの間も(対象が消えていたら最後の位置まで)
+        if (_hasExtra)
+        {
+            if (_extraTarget != null) _extraLastPosition = _extraTarget.position;
+            CastToTarget(cameraPosition, _extraLastPosition, radius);
+        }
+    }
+
+    // カメラからbasePositionの各高さ(_targetHeights)まで調べて、間にあるものを透過の対象にする
+    private void CastToTarget(Vector3 cameraPosition, Vector3 basePosition, float radius)
+    {
         foreach (float height in _targetHeights)
         {
-            Vector3 toTarget = transform.position + Vector3.up * height - cameraPosition;
+            Vector3 toTarget = basePosition + Vector3.up * height - cameraPosition;
             float distance = toTarget.magnitude;
             if (distance <= Mathf.Epsilon) continue;
 
-            int hitCount = Physics.SphereCastNonAlloc(cameraPosition, _castRadius, toTarget / distance, _hits, distance, _layerMask, QueryTriggerInteraction.Ignore);
+            int hitCount = Physics.SphereCastNonAlloc(cameraPosition, radius, toTarget / distance, _hits, distance, _layerMask, QueryTriggerInteraction.Ignore);
             for (int i = 0; i < hitCount; i++)
             {
                 MarkOccluder(_hits[i].collider);
@@ -169,7 +224,7 @@ public class CS_PlayerCameraOcclusion : MonoBehaviour
     // 目標へ一定の速さで近づけ、元に戻りきったものは管理から外す
     private void UpdateFade()
     {
-        float step = _fadeSpeed * Time.deltaTime;
+        float step = (_hasExtra ? Mathf.Max(_fadeSpeed, _extraFadeSpeed) : _fadeSpeed) * Time.deltaTime;
         _removeList.Clear();
 
         foreach (KeyValuePair<Transform, FadeTarget> pair in _targets)

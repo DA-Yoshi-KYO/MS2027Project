@@ -194,7 +194,7 @@ public static class CSED_FieldPlacementCheck
     /// 端の点が歩ける場所の縁にある時の、端でのわずかな引っかかり(両端1m以内)は、貫通とみなさない
     /// また、歩いて行く道のりが、まっすぐの距離とほとんど変わらない(1.1倍+1m以内)なら、貫通とみなさない
     /// </summary>
-    private static bool IsBlockedSegment(Vector3 from, Vector3 to)
+    public static bool IsBlockedSegment(Vector3 from, Vector3 to)
     {
         float length = Vector3.Distance(from, to);
         if (!NavMesh.Raycast(from, to, out NavMeshHit hit, NavMesh.AllAreas)) return false;
@@ -526,6 +526,16 @@ public static class CSED_FieldPlacementCheck
             if (GetMode(spawnPoint.transform) != _targetMode) continue;
 
             total++;
+
+            // 巡回パターンがある出現点は、両端の往復ではなく、パターンのルートを調べる
+            CS_VillainPatrolRoute patrolRoute = spawnPoint.patrolRoute;
+            if (patrolRoute != null && patrolRoute.hasPattern)
+            {
+                List<string> patternProblems = FindPatternProblems(patrolRoute);
+                if (patternProblems.Count > 0) problems.Add($"  {GetPath(spawnPoint.transform)} → {string.Join(" / ", patternProblems)}");
+                continue;
+            }
+
             spawnPoint.GetPatrolEnds(out Vector3 endA, out Vector3 endB);
             List<string> found = new List<string>();
             string problemA = FindProblem(endA, true);
@@ -540,6 +550,34 @@ public static class CSED_FieldPlacementCheck
         report.AppendLine();
         report.AppendLine($"【悪人の往復ルート(マルチ用)】{total}個 / 問題あり {problems.Count}個");
         AppendProblems(report, problems);
+    }
+
+    /// <summary>
+    /// 巡回パターンのルート(ゲームと同じく、ポイントを歩ける場所に合わせた位置)に、問題(歩ける場所から外れる・埋まっている・区間が建物を貫通する)があるかを調べるメソッド
+    /// </summary>
+    /// <returns>問題の内容の一覧(無ければ空)</returns>
+    private static List<string> FindPatternProblems(CS_VillainPatrolRoute patrolRoute)
+    {
+        List<string> found = new List<string>();
+        for (int r = 0; r < patrolRoute.pattern.routes.Count; r++)
+        {
+            CSO_VillainPatrolPattern.Route route = patrolRoute.pattern.routes[r];
+            List<Vector3> points = new List<Vector3>();
+            for (int i = 0; i < route.points.Count; i++)
+            {
+                Vector3 point = patrolRoute.GetPointWorldPosition(route, i);
+                points.Add(point);
+                string problem = FindProblem(point, true);
+                if (problem != null) found.Add($"ルート{r + 1}のポイント{i + 1} {Format(point)} {problem}");
+            }
+
+            int segments = route.loopMode == CSE_VillainPatrolLoopMode.Loop ? points.Count : points.Count - 1;
+            for (int i = 0; i < segments; i++)
+            {
+                if (IsBlockedSegment(points[i], points[(i + 1) % points.Count])) found.Add($"ルート{r + 1}のポイント{i + 1}→{(i + 1) % points.Count + 1}の間が建物を貫通する");
+            }
+        }
+        return found;
     }
 
     /// <summary>

@@ -42,7 +42,7 @@ using UnityEngine.AI;
 ///   Police(警察のグループ。もとからある物と同じ親) / Villain/VillainSpawnPoints / SecurityLasers / SecurityLights / SecurityDrones / HidePoints / SAObjects
 /// 前に生成した物(警察のグループ・悪人の出現点・防犯レーザー・ドローン・SAポイント)は消して、作り直す(ストリートライトは、SecurityLightsへ移して残す)
 /// </summary>
-public static class CSED_FieldMultiLayoutGenerator
+public static partial class CSED_FieldMultiLayoutGenerator
 {
     // ---- エリアごとの悪人の特色(巡回の端までの距離(m)・端で見回す時間(秒)) ----
     private static readonly float[] _trailDistance = { 25.0f, 5.0f, 12.0f };
@@ -67,8 +67,9 @@ public static class CSED_FieldMultiLayoutGenerator
     private const float _roofSiteMaxHeight = 14.0f;
     private const int _extraSquadsPerArea = 2;   // エリアごとに足す、警察のグループの数(悪人の出現点ごとのグループとは別。空いている所に置く)
     private const int _droneStride = 3;          // ドローンを置く悪人の出現点の間隔(番号を、この数で割った余りが1の所に置く)
-    private const int _sweepGroundPerArea = 3;          // エリアごとの、地上の通路を横切って往復するレーザーの数
-    private const int _sweepRoofPerArea = 2;            // エリアごとの、屋上を横切って往復するレーザーの数
+    // エリアごとの、レーザーの数(仕様書「フィールド」のリスク・リターンに合わせる。エリア0=インフラ区域(中程度) / 1=生活区域(警備が緩い) / 2=エネルギー区域(警備が厳重))
+    private static readonly int[] _sweepGroundByArea = { 3, 1, 5 };   // 地上の通路を横切って往復するレーザーの数
+    private static readonly int[] _sweepRoofByArea = { 2, 0, 3 };     // 屋上を横切って往復するレーザーの数
     private const float _sweepSpacing = 45.0f;          // 往復するレーザー同士の、往復の線を離す距離(m)
     private const float _sweepMinLength = 10.0f;        // 往復する距離の範囲(m。上限は、CS_SecurityLaserの往復の距離の上限50mに収める)
     private const float _sweepMaxLength = 40.0f;
@@ -851,9 +852,26 @@ public static class CSED_FieldMultiLayoutGenerator
         return inMulti != null ? inMulti : Object.FindFirstObjectByType<T>(FindObjectsInactive.Include);
     }
 
+    /// <summary>
+    /// 部品の、元になるプレハブを返すメソッド
+    /// 手で置いた物が、元のプレハブとつながっていない(普通のオブジェクト)時は、配置先の Field_Solo1.prefab 自身を返してしまい、置くと「自分の中に自分を入れる」形になるので、
+    /// その時は、部品の種類ごとの、プレハブのパスから読む
+    /// </summary>
     private static GameObject Original(Component component)
     {
-        return component == null ? null : PrefabUtility.GetCorrespondingObjectFromOriginalSource(component.gameObject);
+        if (component == null) return null;
+
+        GameObject original = PrefabUtility.GetCorrespondingObjectFromOriginalSource(component.gameObject);
+        string path = original != null ? AssetDatabase.GetAssetPath(original) : "";
+        if (original != null && !path.EndsWith(_targetFile) && !path.EndsWith("/Field.prefab")) return original;
+
+        string fallback = null;
+        if (component is CS_VillainSpawnPoint) fallback = "Villain/VillainSpawnPoint.prefab";
+        else if (component is CS_SecurityDroneSpawner) fallback = "Security/SecurityDroneSpawner.prefab";
+        else if (component is CS_SecurityLaser) fallback = "Security/SecurityLaser.prefab";
+        else if (component is CS_SecurityLight) fallback = "Security/SecurityLight.prefab";
+        else if (component is CS_HidePoint) fallback = "HidePoint/HidePoint.prefab";
+        return fallback != null ? AssetDatabase.LoadAssetAtPath<GameObject>("Assets/Programmer/Prefab/Field/FieldElement/" + fallback) : original;
     }
 
     /// <summary>
@@ -879,12 +897,14 @@ public static class CSED_FieldMultiLayoutGenerator
         _ground = new List<Vector3>();
         _roofNav = new List<Vector3>();
         _roofNavAll = new List<Vector3>();
+        CollectPlayArea();
         NavMeshTriangulation triangulation = NavMesh.CalculateTriangulation();
         HashSet<Vector2Int> seen = new HashSet<Vector2Int>();
         HashSet<Vector3Int> seenRoof = new HashSet<Vector3Int>();
         HashSet<Vector3Int> seenHigh = new HashSet<Vector3Int>();
         foreach (Vector3 vertex in triangulation.vertices)
         {
+            if (!IsInsidePlayArea(vertex)) continue;     // 遊べる範囲の外(マップの端)には、置かない
             if (vertex.y >= _roofVillainMinHeight && vertex.y <= _roofVillainMaxHeight && seenHigh.Add(new Vector3Int(Mathf.RoundToInt(vertex.x / 3.0f), Mathf.RoundToInt(vertex.y / 2.0f), Mathf.RoundToInt(vertex.z / 3.0f)))) _roofNavAll.Add(vertex);
             if (vertex.y >= _roofSiteMinHeight && vertex.y <= _roofSiteMaxHeight)
             {
@@ -1593,7 +1613,7 @@ public static class CSED_FieldMultiLayoutGenerator
         {
             float pointRadius = i == 0 ? _nearRadius : radius * (i % 2 == 1 ? 1.0f : 0.65f);
             Vector3 direction = Quaternion.Euler(0.0f, angleOffset + i * (360.0f / _routePoints), 0.0f) * Vector3.forward;
-            if (!NavMesh.SamplePosition(center + direction * pointRadius, out NavMeshHit hit, 8.0f, NavMesh.AllAreas) || hit.position.y >= _groundHeight) continue;
+            if (!TrySampleWalkable(center + direction * pointRadius, 8.0f, out NavMeshHit hit)) continue;
 
             // 最初のポイント(悪人のすぐそば)以外は、近くに地上のSAObjectがあれば、その柱の横に寄せる
             Vector3 point = i == 0 ? hit.position : SnapToSaObject(hit.position);
@@ -1610,6 +1630,24 @@ public static class CSED_FieldMultiLayoutGenerator
     /// <summary>
     /// 近く(_routeSnapDistance以内)に地上のSAObjectがあれば、その根元の位置を返すメソッド(無ければ、そのままの位置)
     /// </summary>
+    /// <summary>
+    /// 位置の近くの、地上の歩ける場所を探すメソッド(NavMeshが地面の下にもぐっている所や、建物に埋まる所は、除く)
+    /// 少し上から探して、地面の上の歩ける場所を、先に見つける
+    /// </summary>
+    private static bool TrySampleWalkable(Vector3 position, float radius, out NavMeshHit result)
+    {
+        foreach (float lift in new[] { 0.6f, 0.0f, 1.5f })
+        {
+            if (!NavMesh.SamplePosition(position + Vector3.up * lift, out NavMeshHit hit, radius, NavMesh.AllAreas) || hit.position.y >= _groundHeight) continue;
+            if (CSED_FieldPlacementCheck.FindProblem(hit.position, true) != null) continue;
+
+            result = hit;
+            return true;
+        }
+        result = default;
+        return false;
+    }
+
     private static Vector3 SnapToSaObject(Vector3 position)
     {
         Vector3 nearestBase = Vector3.zero;
@@ -1710,7 +1748,7 @@ public static class CSED_FieldMultiLayoutGenerator
             for (int k = 1; k < corners.Length - 1; k++)
             {
                 Vector3 corner = PushAwayFromPole(corners[k], result[result.Count - 1]);
-                if (FlatDistance(result[result.Count - 1], corner) >= _minWaypointSpacing) result.Add(corner);
+                if (FlatDistance(result[result.Count - 1], corner) >= _minWaypointSpacing && CSED_FieldPlacementCheck.FindProblem(corner, true) == null) result.Add(corner);
             }
         }
         return result;
@@ -2749,8 +2787,8 @@ public static class CSED_FieldMultiLayoutGenerator
     /// <summary>
     /// 防犯レーザーを置くメソッド。通路(壁と壁の間・屋上の端から端まで)を端から端まで横切る棒が、通路に沿って、始点から終点まで往復する
     /// 始点・終点は、通路が続く両端(壁・柱・SAObjectの柱・歩ける場所の終わり)に当たらない範囲に合わせる
-    /// ・地上: 悪人の出現点の近く(_sweepMinFromVillain〜_sweepMaxFromVillain)の、道幅が _sweepGroundMinWidth〜_sweepGroundMaxWidth の通路を、エリアごとに _sweepGroundPerArea 本
-    /// ・屋上: 登れるビルの屋上の悪人の出現点のそばの屋上を、エリアごとに _sweepRoofPerArea 本(SAで着いた後、悪人へ向かう途中を横切る)
+    /// ・地上: 悪人の出現点の近く(_sweepMinFromVillain〜_sweepMaxFromVillain)の、道幅が _sweepGroundMinWidth〜_sweepGroundMaxWidth の通路を、エリアごとに _sweepGroundByArea 本
+    /// ・屋上: 登れるビルの屋上の悪人の出現点のそばの屋上を、エリアごとに _sweepRoofByArea 本(SAで着いた後、悪人へ向かう途中を横切る)
     /// </summary>
     private static void PlaceSweepLasers(GameObject contents, References refs, List<Site> sites)
     {
@@ -2759,10 +2797,12 @@ public static class CSED_FieldMultiLayoutGenerator
         // 道幅 _sweepGroundMaxWidth までの通路を優先し、無いエリアは、_sweepGroundWideWidth までの、広めの通路から選ぶ
         List<SweepLaser> groundCandidates = FindGroundSweeps(sites, _sweepGroundMaxWidth);
         groundCandidates.AddRange(FindGroundSweeps(sites, _sweepGroundWideWidth));
-        for (int round = 0; round < _sweepGroundPerArea; round++)
+        for (int round = 0; round < Mathf.Max(_sweepGroundByArea); round++)
         {
             for (int area = 0; area < _areaCenters.Count; area++)
             {
+                if (round >= _sweepGroundByArea[area % _sweepGroundByArea.Length]) continue;
+
                 SweepLaser best = groundCandidates.Find(candidate => candidate.area == area && !IsSweepNear(chosen, candidate));
                 if (best != null) chosen.Add(best);
             }
@@ -2775,7 +2815,7 @@ public static class CSED_FieldMultiLayoutGenerator
             int made = 0;
             foreach (Site site in roofSites)
             {
-                if (made >= _sweepRoofPerArea) break;
+                if (made >= _sweepRoofByArea[area % _sweepRoofByArea.Length]) break;
 
                 SweepLaser best = FindRoofSweeps(site).Find(candidate => !IsSweepNear(chosen, candidate));
                 if (best == null) continue;

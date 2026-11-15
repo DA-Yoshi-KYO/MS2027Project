@@ -35,6 +35,9 @@ public enum CSE_EffectId
     PlayerParry = 211,      // パリーに成功した(210はブリンク用だったが外したので空き)
     PlayerSpawn,            // ゲーム開始時などに出てきた(スポーン)
     PlayerRespawn,          // 気絶から復活した(リスポーン)
+    PlayerAmbushTrail = 214,    // 奇襲の飛び込み中に体に付いていく軌跡
+    PlayerAmbushAfterimage,     // 奇襲の飛び込み中に体の残像を置いていく
+    PlayerAmbushBurst,          // 奇襲が当たった瞬間の衝撃(衝撃波・火花・星の破片)
 
     // =========================================================
     // 警察：300番台

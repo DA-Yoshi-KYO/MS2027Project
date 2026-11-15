@@ -18,13 +18,24 @@ MonoBehaviour:
     _speed: 1.5
     _startAngle: 0
     _points:
-    - _localPosition: {x: -7.277443, y: -6.199998, z: 47.754364}
+    - _localPosition: {x: -49.46156, y: -5.847281, z: 0.58541244}
       _actions: []
-    - _localPosition: {x: -2.617569, y: -6.200001, z: -40.59372}
+    - _localPosition: {x: 41.62961, y: -5.8324385, z: 1.45163}
       _actions: []
-    - _localPosition: {x: 26.152641, y: -6.1999993, z: -41.58307}
+    - _localPosition: {x: 44.02649, y: -5.8047895, z: 29.46952}
       _actions: []
-    - _localPosition: {x: 20.508972, y: -6.2000003, z: 49.13626}
+    - _localPosition: {x: -46.46297, y: -5.798739, z: 29.872747}
+      _actions: []
+    _formation:
+      _followerCount: 0
+      _shape: 1
+      _spacing: 1.5
+  - _color: {r: 0.18431373, g: 0.43529412, b: 0.8392157, a: 1}
+    _loopMode: 0
+    _speed: 1.5
+    _startAngle: 0
+    _points:
+    - _localPosition: {x: 3.2878807, y: -5.8820724, z: 1.9433043}
       _actions: []
     _formation:
       _followerCount: 0

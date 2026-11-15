@@ -177,9 +177,13 @@ public static partial class CSED_FieldMultiLayoutGenerator
     /// </summary>
     private static bool TryReparentVillain(VillainEntry entry, string crimeAreaName, Vector3 position)
     {
-        Transform area = _repairSoloRoot != null ? _repairSoloRoot.Find("Villain/VillainSpawnPoints/" + crimeAreaName) : null;
+        Transform root = entry.inField ? _repairFieldSolo : _repairSoloRoot;
+        Transform area = root != null ? root.Find("Villain/VillainSpawnPoints/" + crimeAreaName) : null;
         Transform sceneArea = _multi.Find("Villain/VillainSpawnPoints/" + crimeAreaName);
-        if (entry.inField || area == null || sceneArea == null || (sceneArea.lossyScale - area.lossyScale).sqrMagnitude > 0.0001f || Quaternion.Angle(sceneArea.rotation, area.rotation) > 0.5f)
+
+        // Field.prefab の中の Field_Solo1 から引き継いだ物は、親を付け替えられない(Field.prefab で足した物だけ付け替えられる)
+        bool restructurable = !entry.inField || PrefabUtility.IsAddedGameObjectOverride(entry.target.gameObject) || !PrefabUtility.IsPartOfPrefabInstance(entry.target.gameObject);
+        if (area == null || sceneArea == null || !restructurable || (sceneArea.lossyScale - area.lossyScale).sqrMagnitude > 0.0001f || Quaternion.Angle(sceneArea.rotation, area.rotation) > 0.5f)
         {
             entry.target.position = position - entry.offset;
             return false;
@@ -187,6 +191,7 @@ public static partial class CSED_FieldMultiLayoutGenerator
 
         entry.target.SetParent(area, true);
         entry.target.position = position - (sceneArea.position - area.position);
+        _repairFieldChanged |= entry.inField;
         return entry.target.parent == area;
     }
 

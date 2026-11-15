@@ -216,14 +216,16 @@ public static partial class CSED_FieldMultiLayoutGenerator
             Transform parent = root == null ? null : (parentPath == "" ? root : root.Find(parentPath));
             if (parent == null) continue;
 
+            // シーンで、親の位置がずらされている(CrimeArea_01 など)時は、そのずれの分を引いて、位置を比べる
+            Vector3 parentShift = scene.parent != null ? scene.parent.position - parent.position : Vector3.zero;
             Transform best = null;
             float bestDistance = _repairSameObject;
             foreach (Transform child in parent)
             {
                 if (exclude != null && exclude.Contains(child)) continue;
 
-                float flat = FlatDistance(child.position, scene.position);
-                if (child.name != last || flat > bestDistance || Mathf.Abs(child.position.y - scene.position.y) > _repairSameHeight) continue;
+                float flat = FlatDistance(child.position + parentShift, scene.position);
+                if (child.name != last || flat > bestDistance || Mathf.Abs(child.position.y + parentShift.y - scene.position.y) > _repairSameHeight) continue;
 
                 best = child;
                 bestDistance = flat;

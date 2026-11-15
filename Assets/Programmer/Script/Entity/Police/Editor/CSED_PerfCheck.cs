@@ -24,14 +24,14 @@ using UnityEngine.AI;
 /// ・「再生中の負荷を計測する」: 再生して _warmupSeconds 秒たった後の _sampleSeconds 秒間の、1フレームの長さ・CPU/GPUの時間・処理ごとの時間・描画の数を記録する
 /// ・「警察の巡回ルートの経路計算の時間を調べる」: 警察のグループの巡回ポイント同士の、経路計算にかかる時間を測る(再生しなくてよい)
 /// 結果は Temp/PlayPerfReport.txt / Temp/PoliceRoutePerfReport.txt
-/// 使い方: メニュー Tools/Police/再生中の負荷を計測する(次の再生から) でオン・オフを切り替える(チェックが付いている間だけ、再生のたびに計測する)
+/// 使い方: メニュー Tools/計測/再生中の負荷を計測する(次の再生から) でオン・オフを切り替える(チェックが付いている間だけ、再生のたびに計測する)
 /// 初期値はオフ(設定はこのPCのエディタだけに保存され、他の人には影響しない)。オフの間は、何も計測しない
 /// </summary>
 [InitializeOnLoad]
 public static class CSED_PerfCheck
 {
     private const string _enabledKey = "CSED_PerfCheck_Enabled";
-    private const string _menuSampling = "Tools/Police/再生中の負荷を計測する(次の再生から)";
+    private const string _menuSampling = "Tools/計測/再生中の負荷を計測する(次の再生から)";
     private const float _warmupSeconds = 15.0f;       // 再生を始めてから、計測を始めるまでの時間(秒)
     private const float _sampleSeconds = 20.0f;       // 計測する時間(秒)
     private const int _topMarkerCount = 70;          // 報告に書く、処理ごとの時間の数
@@ -407,7 +407,7 @@ public static class CSED_PerfCheck
     /// シーンにある警察のグループの、巡回ポイント同士(隣り合う点)の経路計算にかかる時間を測るメソッド(再生は要らない)
     /// 経路計算が重いと、警察が巡回ポイントへ向かい直すたびに、フレームが止まる
     /// </summary>
-    [MenuItem("Tools/Police/警察の巡回ルートの経路計算の時間を調べる")]
+    [MenuItem("Tools/計測/警察の巡回ルートの経路計算の時間を調べる")]
     private static void CheckPoliceRoutePerf()
     {
         StringBuilder report = new StringBuilder();

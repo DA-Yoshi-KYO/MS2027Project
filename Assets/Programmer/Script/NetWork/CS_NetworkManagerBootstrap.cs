@@ -1,7 +1,7 @@
-using Unity.Netcode;
+ï»¿using Unity.Netcode;
 using UnityEngine;
 
-// NetworkManager‚Ì•¡»‚ğ–h‚®‚½‚ß‚ÌBootstrapƒNƒ‰ƒX
+// NetworkManagerã®è¤‡è£½ã‚’é˜²ããŸã‚ã®Bootstrapã‚¯ãƒ©ã‚¹
 
 public class CS_NetworkManagerBootstrap : MonoBehaviour
 {

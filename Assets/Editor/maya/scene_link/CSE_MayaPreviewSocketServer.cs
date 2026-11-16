@@ -1,4 +1,4 @@
-using System;
+ï»¿using System;
 using System.Collections.Concurrent;
 using System.IO;
 using System.Net;
@@ -10,10 +10,10 @@ using UnityEngine;
 
 /*
 +=====================================
- ƒtƒ@ƒCƒ‹–¼ : CSE_MayaPreviewSocketServer
- ŠT—v       : Maya Live Sync—pTCP’ÊMƒT[ƒo[
- ìÒ       : ƒˆƒVƒ‚ƒg ƒŠƒ‡ƒE
- —š—ğ       : 2026/09/14 V‹Kì¬
+ ãƒ•ã‚¡ã‚¤ãƒ«å : CSE_MayaPreviewSocketServer
+ æ¦‚è¦       : Maya Live Syncç”¨TCPé€šä¿¡ã‚µãƒ¼ãƒãƒ¼
+ ä½œè€…       : ãƒ¨ã‚·ãƒ¢ãƒˆ ãƒªãƒ§ã‚¦
+ å±¥æ­´       : 2026/09/14 æ–°è¦ä½œæˆ
 =====================================+
 */
 
@@ -21,31 +21,31 @@ using UnityEngine;
 public static class CSE_MayaPreviewSocketServer
 {
     // =========================================================
-    // ’è”
+    // å®šæ•°
     // =========================================================
 
     private const int PORT = 50001;
 
-    // Maya‘¤
+    // Mayaå´
     // 1 unit = 1cm
     //
-    // Unity‘¤
+    // Unityå´
     // 1 unit = 1m
     //
-    // 1cm ¨ 0.01m
+    // 1cm â†’ 0.01m
     private const float MAYA_TO_UNITY_SCALE = 0.01f;
 
-    // Maya‚©‚ç‘—‚ç‚ê‚½ƒ‚ƒfƒ‹‚ğ“ü‚ê‚ée
+    // Mayaã‹ã‚‰é€ã‚‰ã‚ŒãŸãƒ¢ãƒ‡ãƒ«ã‚’å…¥ã‚Œã‚‹è¦ª
     private const string MAYA_MODEL_ROOT_NAME =
         "Maya_Model_Root";
 
-    // Live PreviewƒIƒuƒWƒFƒNƒg–¼‚ÌPrefix
+    // Live Previewã‚ªãƒ–ã‚¸ã‚§ã‚¯ãƒˆåã®Prefix
     private const string LIVE_OBJECT_PREFIX =
         "MayaLive_";
 
 
     // =========================================================
-    // JSONƒf[ƒ^
+    // JSONãƒ‡ãƒ¼ã‚¿
     // =========================================================
 
     [Serializable]
@@ -86,7 +86,7 @@ public static class CSE_MayaPreviewSocketServer
 
 
     // =========================================================
-    // Thread ¨ Unity MainThread
+    // Thread â†’ Unity MainThread
     // =========================================================
 
     private static readonly ConcurrentQueue<string>
@@ -95,7 +95,7 @@ public static class CSE_MayaPreviewSocketServer
 
 
     // =========================================================
-    // ‰Šú‰»
+    // åˆæœŸåŒ–
     // =========================================================
 
     static CSE_MayaPreviewSocketServer()
@@ -103,24 +103,24 @@ public static class CSE_MayaPreviewSocketServer
         // Unity MainThread
         EditorApplication.update += Update;
 
-        // Script Reload‚ÉSocket’â~
+        // Script Reloadæ™‚ã«Socketåœæ­¢
         AssemblyReloadEvents.beforeAssemblyReload +=
             StopServer;
     }
 
 
     // =========================================================
-    // ServerŠJn
+    // Serveré–‹å§‹
     // =========================================================
 
     [MenuItem("Tools/Maya Preview/Socket/Start Server")]
     private static void StartServer()
     {
-        // ‚·‚Å‚É‹N“®’†
+        // ã™ã§ã«èµ·å‹•ä¸­
         if (s_isRunning)
         {
             Debug.LogWarning(
-                "Maya Preview Socket : Server ‚Í‚·‚Å‚É‹N“®‚µ‚Ä‚¢‚Ü‚·B"
+                "Maya Preview Socket : Server ã¯ã™ã§ã«èµ·å‹•ã—ã¦ã„ã¾ã™ã€‚"
             );
 
             return;
@@ -128,7 +128,7 @@ public static class CSE_MayaPreviewSocketServer
 
         try
         {
-            // localhost‚Ì‚İ
+            // localhostã®ã¿
             s_listener =
                 new TcpListener(
                     IPAddress.Loopback,
@@ -139,7 +139,7 @@ public static class CSE_MayaPreviewSocketServer
 
             s_isRunning = true;
 
-            // ’ÊM—pThread
+            // é€šä¿¡ç”¨Thread
             s_serverThread =
                 new Thread(
                     ServerLoop
@@ -151,14 +151,14 @@ public static class CSE_MayaPreviewSocketServer
             s_serverThread.Start();
 
             Debug.Log(
-                "Maya Preview Socket : ServerŠJn 127.0.0.1:"
+                "Maya Preview Socket : Serveré–‹å§‹ 127.0.0.1:"
                 + PORT
             );
         }
         catch (Exception exception)
         {
             Debug.LogError(
-                "Maya Preview Socket : ServerŠJn¸”s\n"
+                "Maya Preview Socket : Serveré–‹å§‹å¤±æ•—\n"
                 + exception
             );
 
@@ -168,7 +168,7 @@ public static class CSE_MayaPreviewSocketServer
 
 
     // =========================================================
-    // Server’â~
+    // Serveråœæ­¢
     // =========================================================
 
     [MenuItem("Tools/Maya Preview/Socket/Stop Server")]
@@ -182,7 +182,7 @@ public static class CSE_MayaPreviewSocketServer
         }
         catch
         {
-            // I—¹‚È‚Ì‚Å–³‹
+            // çµ‚äº†æ™‚ãªã®ã§ç„¡è¦–
         }
 
         s_listener = null;
@@ -190,7 +190,7 @@ public static class CSE_MayaPreviewSocketServer
         s_serverThread = null;
 
         Debug.Log(
-            "Maya Preview Socket : Server’â~"
+            "Maya Preview Socket : Serveråœæ­¢"
         );
     }
 
@@ -205,7 +205,7 @@ public static class CSE_MayaPreviewSocketServer
         {
             try
             {
-                // Maya‚©‚çÚ‘±
+                // Mayaã‹ã‚‰æ¥ç¶š
                 using TcpClient client =
                     s_listener.AcceptTcpClient();
 
@@ -218,7 +218,7 @@ public static class CSE_MayaPreviewSocketServer
                         Encoding.UTF8
                     );
 
-                // 1ƒƒbƒZ[ƒWóM
+                // 1ãƒ¡ãƒƒã‚»ãƒ¼ã‚¸å—ä¿¡
                 string message =
                     reader.ReadLine();
 
@@ -273,7 +273,7 @@ public static class CSE_MayaPreviewSocketServer
                 continue;
             }
 
-            // ƒf[ƒ^ˆ—
+            // ãƒ‡ãƒ¼ã‚¿å‡¦ç†
             ProcessMessage(
                 message
             );
@@ -282,18 +282,18 @@ public static class CSE_MayaPreviewSocketServer
 
 
     // =========================================================
-    // Messageˆ—
+    // Messageå‡¦ç†
     // =========================================================
 
     private static void ProcessMessage(
         string message
     )
     {
-        // JSON‚Å‚Í‚È‚¢ê‡
+        // JSONã§ã¯ãªã„å ´åˆ
         if (!message.StartsWith("{"))
         {
             Debug.Log(
-                "Maya‚©‚çóM : "
+                "Mayaã‹ã‚‰å—ä¿¡ : "
                 + message
             );
 
@@ -302,7 +302,7 @@ public static class CSE_MayaPreviewSocketServer
 
         try
         {
-            // JSON‰ğÍ
+            // JSONè§£æ
             CSST_MeshData meshData =
                 JsonUtility.FromJson<CSST_MeshData>(
                     message
@@ -311,7 +311,7 @@ public static class CSE_MayaPreviewSocketServer
             if (meshData == null)
             {
                 Debug.LogError(
-                    "Maya Preview Socket : JSON‰ğÍ¸”s"
+                    "Maya Preview Socket : JSONè§£æå¤±æ•—"
                 );
 
                 return;
@@ -328,14 +328,14 @@ public static class CSE_MayaPreviewSocketServer
             }
 
             Debug.LogWarning(
-                "Maya Preview Socket : –¢‘Î‰Type : "
+                "Maya Preview Socket : æœªå¯¾å¿œType : "
                 + meshData.type
             );
         }
         catch (Exception exception)
         {
             Debug.LogError(
-                "Maya Preview Socket : JSONˆ—¸”s\n"
+                "Maya Preview Socket : JSONå‡¦ç†å¤±æ•—\n"
                 + exception
             );
         }
@@ -343,7 +343,7 @@ public static class CSE_MayaPreviewSocketServer
 
 
     // =========================================================
-    // Mesh Dataˆ—
+    // Mesh Dataå‡¦ç†
     // =========================================================
 
     private static void ProcessMeshData(
@@ -351,7 +351,7 @@ public static class CSE_MayaPreviewSocketServer
     )
     {
         // =====================================================
-        // ƒf[ƒ^Šm”F
+        // ãƒ‡ãƒ¼ã‚¿ç¢ºèª
         // =====================================================
 
         if (
@@ -360,7 +360,7 @@ public static class CSE_MayaPreviewSocketServer
         )
         {
             Debug.LogError(
-                "Maya Preview Socket : Vertex‚ª‚ ‚è‚Ü‚¹‚ñB"
+                "Maya Preview Socket : VertexãŒã‚ã‚Šã¾ã›ã‚“ã€‚"
             );
 
             return;
@@ -373,7 +373,7 @@ public static class CSE_MayaPreviewSocketServer
         )
         {
             Debug.LogError(
-                "Maya Preview Socket : Triangle‚ª‚ ‚è‚Ü‚¹‚ñB"
+                "Maya Preview Socket : TriangleãŒã‚ã‚Šã¾ã›ã‚“ã€‚"
             );
 
             return;
@@ -381,7 +381,7 @@ public static class CSE_MayaPreviewSocketServer
 
 
         // =====================================================
-        // Maya Vertex ¨ Unity Vertex
+        // Maya Vertex â†’ Unity Vertex
         // =====================================================
 
         Vector3[] vertices =
@@ -402,10 +402,10 @@ public static class CSE_MayaPreviewSocketServer
              * Maya
              * X = Right
              * Y = Up
-             * Z•ûŒü‚ªUnity‚ÆˆÙ‚È‚é
+             * Zæ–¹å‘ãŒUnityã¨ç•°ãªã‚‹
              *
              * Maya(cm)
-             * «
+             * â†“
              * Unity(m)
              */
 
@@ -420,7 +420,7 @@ public static class CSE_MayaPreviewSocketServer
 
 
         // =====================================================
-        // Triangle•ÏŠ·
+        // Triangleå¤‰æ›
         // =====================================================
 
         int[] triangles =
@@ -429,11 +429,11 @@ public static class CSE_MayaPreviewSocketServer
             ];
 
         /*
-         * Z²‚ğ”½“]‚µ‚½‚½‚ßA
-         * Polygon‚Ì•\— ‚à”½“]‚·‚éB
+         * Zè»¸ã‚’åè»¢ã—ãŸãŸã‚ã€
+         * Polygonã®è¡¨è£ã‚‚åè»¢ã™ã‚‹ã€‚
          *
-         * ‚»‚Ì‚½‚ßTriangle‚Ì
-         * 1”Ô–Ú‚Æ2”Ô–Ú‚ğ‹t“]‚³‚¹‚éB
+         * ãã®ãŸã‚Triangleã®
+         * 1ç•ªç›®ã¨2ç•ªç›®ã‚’é€†è»¢ã•ã›ã‚‹ã€‚
          */
 
         for (
@@ -462,7 +462,7 @@ public static class CSE_MayaPreviewSocketServer
 
 
         // =====================================================
-        // Unity Mesh¶¬
+        // Unity Meshç”Ÿæˆ
         // =====================================================
 
         CreateOrUpdateMesh(
@@ -477,7 +477,7 @@ public static class CSE_MayaPreviewSocketServer
         // =====================================================
 
         Debug.Log(
-            "Maya Live MeshXV¬Œ÷"
+            "Maya Live Meshæ›´æ–°æˆåŠŸ"
             + "\nObject : "
             + meshData.name
             + "\nVertex Count : "
@@ -489,7 +489,7 @@ public static class CSE_MayaPreviewSocketServer
 
 
     // =========================================================
-    // Mesh¶¬EXV
+    // Meshç”Ÿæˆãƒ»æ›´æ–°
     // =========================================================
 
     private static void CreateOrUpdateMesh(
@@ -499,7 +499,7 @@ public static class CSE_MayaPreviewSocketServer
     )
     {
         // =====================================================
-        // Maya_Model_Rootæ“¾
+        // Maya_Model_Rootå–å¾—
         // =====================================================
 
         GameObject mayaModelRoot =
@@ -511,7 +511,7 @@ public static class CSE_MayaPreviewSocketServer
         {
             Debug.LogError(
                 MAYA_MODEL_ROOT_NAME
-                + " ‚ªŒ©‚Â‚©‚è‚Ü‚¹‚ñB"
+                + " ãŒè¦‹ã¤ã‹ã‚Šã¾ã›ã‚“ã€‚"
             );
 
             return;
@@ -519,7 +519,7 @@ public static class CSE_MayaPreviewSocketServer
 
 
         // =====================================================
-        // Live ObjectŒŸõ
+        // Live Objectæ¤œç´¢
         // =====================================================
 
         string liveObjectName =
@@ -536,7 +536,7 @@ public static class CSE_MayaPreviewSocketServer
 
 
         // =====================================================
-        // –³‚¯‚ê‚Îì¬
+        // ç„¡ã‘ã‚Œã°ä½œæˆ
         // =====================================================
 
         if (liveTransform == null)
@@ -587,7 +587,7 @@ public static class CSE_MayaPreviewSocketServer
                 material.name =
                     "MayaPreview_HDRP_Material";
 
-                // ­‚µ–¾‚é‚ß‚ÌƒOƒŒ[
+                // å°‘ã—æ˜ã‚‹ã‚ã®ã‚°ãƒ¬ãƒ¼
                 material.SetColor(
                     "_BaseColor",
                     new Color(
@@ -604,7 +604,7 @@ public static class CSE_MayaPreviewSocketServer
             else
             {
                 Debug.LogWarning(
-                    "HDRP/Lit Shader ‚ªŒ©‚Â‚©‚è‚Ü‚¹‚ñB"
+                    "HDRP/Lit Shader ãŒè¦‹ã¤ã‹ã‚Šã¾ã›ã‚“ã€‚"
                 );
             }
         }
@@ -616,7 +616,7 @@ public static class CSE_MayaPreviewSocketServer
 
 
         // =====================================================
-        // MeshFilteræ“¾
+        // MeshFilterå–å¾—
         // =====================================================
 
         MeshFilter meshFilter =
@@ -630,7 +630,7 @@ public static class CSE_MayaPreviewSocketServer
 
 
         // =====================================================
-        // ŒÃ‚¢Preview Meshíœ
+        // å¤ã„Preview Meshå‰Šé™¤
         // =====================================================
 
         Mesh oldMesh =
@@ -650,7 +650,7 @@ public static class CSE_MayaPreviewSocketServer
 
 
         // =====================================================
-        // V‚µ‚¢Meshì¬
+        // æ–°ã—ã„Meshä½œæˆ
         // =====================================================
 
         Mesh mesh =
@@ -671,21 +671,21 @@ public static class CSE_MayaPreviewSocketServer
             triangles;
 
 
-        // Normal©“®¶¬
+        // Normalè‡ªå‹•ç”Ÿæˆ
         mesh.RecalculateNormals();
 
 
-        // Bounds©“®¶¬
+        // Boundsè‡ªå‹•ç”Ÿæˆ
         mesh.RecalculateBounds();
 
 
-        // Meshİ’è
+        // Meshè¨­å®š
         meshFilter.sharedMesh =
             mesh;
 
 
         // =====================================================
-        // SceneÄ•`‰æ
+        // Sceneå†æç”»
         // =====================================================
 
         SceneView.RepaintAll();

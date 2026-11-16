@@ -10,11 +10,11 @@ using UnityEngine;
 using UnityEngine.UI;
 
 /// <summary>
-/// UICanvas上のハイドマーカー
-/// （飛べるハイドポイントの目印）を表示するView。
+/// UICanvas上のハイドマーカーを表示するView。
 ///
-/// ・入力方式に応じて画像を切り替える
-/// ・表示中は最小倍率と最大倍率の間で拡縮を繰り返す
+/// ・入力方式に応じてKeyboardとControllerを切り替える
+/// ・それぞれのKey画像だけを拡縮する
+/// ・Marker画像は拡縮しない
 /// </summary>
 public class CS_UIHideMarkerView :
     CS_BaseView<CS_UIHideMarkerPresenter>
@@ -27,37 +27,55 @@ public class CS_UIHideMarkerView :
     [SerializeField]
     private RectTransform _markerRect;
 
-    [Header("拡縮するルート")]
-    [SerializeField]
-    private RectTransform _animationRoot;
-
     [Header("キーボード＆マウス用")]
+
+    [Tooltip("Keyboard全体のルート")]
     [SerializeField]
     private GameObject _keyboardMouseMarkerRoot;
 
+    [Tooltip("Keyboard内のMarker画像")]
     [SerializeField]
     private Image _keyboardMouseMarkerImage;
 
+    [Tooltip("Keyboard内の拡縮させるKey")]
+    [SerializeField]
+    private RectTransform _keyboardMouseKeyRect;
+
+    [Tooltip("Keyboard内のKey画像")]
+    [SerializeField]
+    private Image _keyboardMouseKeyImage;
+
     [Header("コントローラー用")]
+
+    [Tooltip("Controller全体のルート")]
     [SerializeField]
     private GameObject _controllerMarkerRoot;
 
+    [Tooltip("Controller内のMarker画像")]
     [SerializeField]
     private Image _controllerMarkerImage;
 
-    [Header("拡縮アニメーション")]
+    [Tooltip("Controller内の拡縮させるKey")]
+    [SerializeField]
+    private RectTransform _controllerKeyRect;
+
+    [Tooltip("Controller内のKey画像")]
+    [SerializeField]
+    private Image _controllerKeyImage;
+
+    [Header("Key拡縮アニメーション")]
 
     [Tooltip("最小倍率から最大倍率へ変化する秒数")]
     [Min(0.01f)]
     [SerializeField]
     private float _scaleAnimationDuration = 0.5f;
 
-    [Tooltip("拡縮アニメーションの最小倍率")]
+    [Tooltip("Keyの最小倍率")]
     [Min(0.01f)]
     [SerializeField]
     private float _minimumScale = 0.7f;
 
-    [Tooltip("拡縮アニメーションの最大倍率")]
+    [Tooltip("Keyの最大倍率")]
     [Min(0.01f)]
     [SerializeField]
     private float _maximumScale = 1f;
@@ -68,6 +86,13 @@ public class CS_UIHideMarkerView :
 
     private float _animationElapsed;
     private bool _isVisible;
+    private bool _isKeyboardMouse;
+
+    private Vector3 _keyboardMouseKeyInitialScale =
+        Vector3.one;
+
+    private Vector3 _controllerKeyInitialScale =
+        Vector3.one;
 
     // =========================================================
     // 初期化
@@ -75,19 +100,40 @@ public class CS_UIHideMarkerView :
 
     private void Awake()
     {
-        if (_keyboardMouseMarkerImage != null)
+        SetRaycastTarget(
+            _keyboardMouseMarkerImage,
+            false
+        );
+
+        SetRaycastTarget(
+            _keyboardMouseKeyImage,
+            false
+        );
+
+        SetRaycastTarget(
+            _controllerMarkerImage,
+            false
+        );
+
+        SetRaycastTarget(
+            _controllerKeyImage,
+            false
+        );
+
+        if (_keyboardMouseKeyRect != null)
         {
-            _keyboardMouseMarkerImage.raycastTarget =
-                false;
+            _keyboardMouseKeyInitialScale =
+                _keyboardMouseKeyRect.localScale;
         }
 
-        if (_controllerMarkerImage != null)
+        if (_controllerKeyRect != null)
         {
-            _controllerMarkerImage.raycastTarget =
-                false;
+            _controllerKeyInitialScale =
+                _controllerKeyRect.localScale;
         }
 
         _isVisible = false;
+        _isKeyboardMouse = true;
 
         if (_markerRect != null)
         {
@@ -99,11 +145,15 @@ public class CS_UIHideMarkerView :
 
     private void OnEnable()
     {
+        if (CS_CustomInputActionManager.instance == null)
+        {
+            return;
+        }
+
         CS_CustomInputActionManager.instance
             .onInputTypeChanged +=
             HandleInputTypeChanged;
 
-        // 現在使用中の入力方式を即座に反映する。
         ApplyInputType(
             CS_CustomInputActionManager.instance
                 .currentInputType
@@ -112,9 +162,12 @@ public class CS_UIHideMarkerView :
 
     private void OnDisable()
     {
-        CS_CustomInputActionManager.instance
-            .onInputTypeChanged -=
-            HandleInputTypeChanged;
+        if (CS_CustomInputActionManager.instance != null)
+        {
+            CS_CustomInputActionManager.instance
+                .onInputTypeChanged -=
+                HandleInputTypeChanged;
+        }
 
         ResetScaleAnimation();
     }
@@ -132,7 +185,9 @@ public class CS_UIHideMarkerView :
     private void Update()
     {
         if (!_isVisible)
+        {
             return;
+        }
 
         UpdateScaleAnimation();
     }
@@ -142,19 +197,20 @@ public class CS_UIHideMarkerView :
     // =========================================================
 
     /// <summary>
-    /// 目印の表示・非表示を切り替える。
+    /// ハイドマーカー全体の表示状態を変更する。
     /// </summary>
     public void SetVisible(bool isVisible)
     {
         if (_markerRect == null)
+        {
             return;
+        }
 
         bool wasVisible =
             _markerRect.gameObject.activeSelf;
 
         _isVisible = isVisible;
 
-        // 実際のActive状態を必ず同期する
         if (wasVisible != isVisible)
         {
             _markerRect.gameObject.SetActive(
@@ -168,28 +224,31 @@ public class CS_UIHideMarkerView :
             return;
         }
 
-        // 非表示から表示になった時だけ、
-        // 拡縮を最初から開始する
+        // 非表示から表示されたときだけ、
+        // Keyの拡縮を最初から開始する。
         if (!wasVisible)
         {
             RestartScaleAnimation();
         }
     }
+
     /// <summary>
-    /// 目印の位置（Canvas上の座標）を設定する。
+    /// ハイドマーカーのCanvas上の位置を設定する。
     /// </summary>
     public void SetPosition(
         Vector2 anchoredPosition)
     {
         if (_markerRect == null)
+        {
             return;
+        }
 
         _markerRect.anchoredPosition =
             anchoredPosition;
     }
 
     // =========================================================
-    // 入力方式による画像切り替え
+    // 入力方式切り替え
     // =========================================================
 
     private void HandleInputTypeChanged(
@@ -197,8 +256,6 @@ public class CS_UIHideMarkerView :
     {
         ApplyInputType(inputType);
 
-        // 表示中に入力方式が変わった場合は、
-        // 拡縮を最初から再生する。
         if (_isVisible)
         {
             RestartScaleAnimation();
@@ -208,7 +265,7 @@ public class CS_UIHideMarkerView :
     private void ApplyInputType(
         CS_CustomInputActionManager.InputType inputType)
     {
-        bool isKeyboardMouse =
+        _isKeyboardMouse =
             inputType ==
             CS_CustomInputActionManager.InputType
                 .KeyboardMouse;
@@ -216,30 +273,42 @@ public class CS_UIHideMarkerView :
         if (_keyboardMouseMarkerRoot != null)
         {
             _keyboardMouseMarkerRoot.SetActive(
-                isKeyboardMouse
+                _isKeyboardMouse
             );
         }
 
         if (_controllerMarkerRoot != null)
         {
             _controllerMarkerRoot.SetActive(
-                !isKeyboardMouse
+                !_isKeyboardMouse
             );
         }
+
+        // 入力方式を切り替えたとき、
+        // 使用しない側のKeyを元の倍率に戻す。
+        ResetBothKeyScales();
     }
 
     // =========================================================
-    // ループ拡縮アニメーション
+    // Key拡縮アニメーション
     // =========================================================
 
     private void UpdateScaleAnimation()
     {
-        if (_animationRoot == null)
+        RectTransform currentKeyRect =
+            GetCurrentKeyRect();
+
+        if (currentKeyRect == null)
+        {
             return;
+        }
 
         if (_scaleAnimationDuration <= 0f)
         {
-            SetScale(_maximumScale);
+            SetCurrentKeyScale(
+                _maximumScale
+            );
+
             return;
         }
 
@@ -250,47 +319,129 @@ public class CS_UIHideMarkerView :
             _animationElapsed /
             _scaleAnimationDuration;
 
-        // 0 → 1 → 0 → 1を繰り返す。
-        float pingPongRate = Mathf.PingPong(
-            animationRate,
-            1f
-        );
+        // 0 → 1 → 0を繰り返す。
+        float pingPongRate =
+            Mathf.PingPong(
+                animationRate,
+                1f
+            );
 
         // 拡大・縮小の切り返しを滑らかにする。
-        float smoothRate = Mathf.SmoothStep(
-            0f,
-            1f,
-            pingPongRate
-        );
+        float smoothRate =
+            Mathf.SmoothStep(
+                0f,
+                1f,
+                pingPongRate
+            );
 
-        float scale = Mathf.Lerp(
-            _minimumScale,
-            _maximumScale,
-            smoothRate
-        );
+        float scaleMultiplier =
+            Mathf.Lerp(
+                _minimumScale,
+                _maximumScale,
+                smoothRate
+            );
 
-        SetScale(scale);
+        SetCurrentKeyScale(
+            scaleMultiplier
+        );
     }
 
     private void RestartScaleAnimation()
     {
         _animationElapsed = 0f;
-        SetScale(_minimumScale);
+
+        ResetBothKeyScales();
+
+        SetCurrentKeyScale(
+            _minimumScale
+        );
     }
 
     private void ResetScaleAnimation()
     {
         _animationElapsed = 0f;
-        SetScale(_maximumScale);
+
+        ResetBothKeyScales();
     }
 
-    private void SetScale(float scale)
+    /// <summary>
+    /// 現在使用中の入力方式に対応するKeyを取得する。
+    /// </summary>
+    private RectTransform GetCurrentKeyRect()
     {
-        if (_animationRoot == null)
-            return;
+        return _isKeyboardMouse
+            ? _keyboardMouseKeyRect
+            : _controllerKeyRect;
+    }
 
-        _animationRoot.localScale =
-            Vector3.one * scale;
+    /// <summary>
+    /// 現在使用中のKeyだけを拡縮する。
+    /// </summary>
+    private void SetCurrentKeyScale(
+        float scaleMultiplier)
+    {
+        RectTransform currentKeyRect =
+            GetCurrentKeyRect();
+
+        if (currentKeyRect == null)
+        {
+            return;
+        }
+
+        Vector3 initialScale =
+            GetCurrentKeyInitialScale();
+
+        currentKeyRect.localScale =
+            new Vector3(
+                initialScale.x * scaleMultiplier,
+                initialScale.y * scaleMultiplier,
+                initialScale.z
+            );
+    }
+
+    /// <summary>
+    /// 現在使用中のKeyの初期倍率を取得する。
+    /// </summary>
+    private Vector3 GetCurrentKeyInitialScale()
+    {
+        return _isKeyboardMouse
+            ? _keyboardMouseKeyInitialScale
+            : _controllerKeyInitialScale;
+    }
+
+    /// <summary>
+    /// 両方のKeyをInspectorで設定した初期倍率に戻す。
+    /// </summary>
+    private void ResetBothKeyScales()
+    {
+        if (_keyboardMouseKeyRect != null)
+        {
+            _keyboardMouseKeyRect.localScale =
+                _keyboardMouseKeyInitialScale;
+        }
+
+        if (_controllerKeyRect != null)
+        {
+            _controllerKeyRect.localScale =
+                _controllerKeyInitialScale;
+        }
+    }
+
+    // =========================================================
+    // 共通処理
+    // =========================================================
+
+    private static void SetRaycastTarget(
+        Graphic graphic,
+        bool isRaycastTarget)
+    {
+        if (graphic == null)
+        {
+            return;
+        }
+
+        graphic.raycastTarget =
+            isRaycastTarget;
     }
 
     // =========================================================

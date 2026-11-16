@@ -41,6 +41,9 @@ using UnityEngine.InputSystem;
  *   終わった時の速度の水平は空中の勢い(_airMomentum)になる。勢いがある間は、水平の速度が入力の移動速度へ_airControlAccelで近づき、SAポイントごとの減速率(_airMomentumDrag。毎秒e^(-減速率)の割合)で弱まる
  *   勢いは着地・ダッシュ・踏み込み・倒れる・スタンで0になる。勢いが0の間・SAを使わない時の動きは今まで通り
  * ・死亡中(CS_PlayerHealth.isDead)は移動・攻撃を行わない(canActで判定)
+ * ・スタート時のカメラの演出(CS_PlayerIntroCamera。付いていなければ演出しない): 自分のプレイヤーとして操作を始めた時に流す
+ *   演出中は動けず(canAct)、視点も操作できない。カメラの位置は演出が決める(UpdateCameraTransform)
+ *   マルチでは、全員の演出が終わってゲームが始まるまで動けない(CS_PlayerIntroCamera.isMatchHeld。視点は動かせる)
  *   視点操作(カメラ)は死亡中も継続する
  *   死亡中は水平方向の速度を毎回0にし、死亡時の勢いで滑り続けないようにしている(落下はする)
  * ・移動速度はCS_PlayerStats.currentMoveSpeed(暗躍ボーナス込み)を使う(実際の変更はCS_PlayerStats側で行う)
@@ -128,6 +131,7 @@ public class CS_Player : NetworkBehaviour
     private CS_PlayerStats _stats;
     private CS_PlayerStun _stun;    // スタン(パリーされた時など)。付いていなければスタンしない
     private CS_PlayerHide _hide;    // SA(ハイドポイントへ飛ぶ)。付いていなければSAしない
+    private CS_PlayerIntroCamera _introCamera;    // スタート時のカメラの演出。付いていなければ演出しない
     private NetworkTransform _networkTransform;
 
     private Vector3 _spawnPosition;     // 操作を始めた時の位置と向き(落ちた時に戻す先)
@@ -170,7 +174,8 @@ public class CS_Player : NetworkBehaviour
     private float _airMomentumDrag;    // 空中の勢いの減速率(毎秒e^(-減速率)の割合で弱める)。SAで放す時に渡され、勢いが0になれば0に戻る(EndSAMotion)
 
     public bool isControlled => _isControlled;          // このプレイヤーを自分(このマシン)が操作しているか(NPCはサーバーでtrue)
-    public bool canAct => _isControlled && !_health.isDead && !isStunned;   // 移動・攻撃してよいか(CS_PlayerAttackも参照)
+    public bool canAct => _isControlled && !_health.isDead && !isStunned && !isPlayingIntro && !CS_PlayerIntroCamera.isMatchHeld;   // 移動・攻撃してよいか(CS_PlayerAttackも参照)
+    public bool isPlayingIntro => _introCamera != null && _introCamera.isPlaying;   // スタート時のカメラの演出中か(自分のプレイヤーのみ。この間は動けない)
     public bool isStunned => _stun != null && _stun.isStunned;   // スタン中か(パリーされた時など。死亡中と同じく行動できない)
     public bool isHiding => _hide != null && _hide.isHiding;     // SAでハイドポイントへ飛んでいる最中か(操作しているマシンでだけ正しい)
     public bool isNpc => _isNpc.Value;                  // NPCか(全クライアントで分かる)
@@ -238,6 +243,7 @@ public class CS_Player : NetworkBehaviour
         _stats = GetComponent<CS_PlayerStats>();
         _stun = GetComponent<CS_PlayerStun>();
         _hide = GetComponent<CS_PlayerHide>();
+        _introCamera = GetComponent<CS_PlayerIntroCamera>();
         _networkTransform = GetComponent<NetworkTransform>();
 
         // 壁などとの衝突で回転しないよう、物理による回転はすべて止める
@@ -574,6 +580,9 @@ public class CS_Player : NetworkBehaviour
         // 今向いている方向を視点の初期値にする
         _yaw = transform.eulerAngles.y;
 
+        // スタート時のカメラの演出(プレイヤーの周りを下から上へ螺旋状に回る)
+        if (_introCamera != null) _introCamera.Play();
+
         RegisterAsLocalPlayer();
     }
 
@@ -695,6 +704,13 @@ public class CS_Player : NetworkBehaviour
             return;
         }
 
+        // スタート時のカメラの演出中は、移動も視点の操作も受け付けない(演出の終わりの位置がずれないように)
+        if (isPlayingIntro)
+        {
+            _moveInput = Vector2.zero;
+            return;
+        }
+
         _moveInput = _moveAction.ReadValue<Vector2>();
 
         // マウスは「1フレームの移動量」なのでdeltaTimeを掛けない
@@ -702,6 +718,9 @@ public class CS_Player : NetworkBehaviour
         Vector2 mouseLook = _mouseLookAction.ReadValue<Vector2>() * _mouseSensitivity;
         Vector2 stickLook = _stickLookAction.ReadValue<Vector2>() * _stickSensitivity * Time.deltaTime;
         Vector2 look = mouseLook + stickLook;
+
+        // マルチで全員のスタート時の演出が終わるまでは、動けない(視点は動かせる)
+        if (CS_PlayerIntroCamera.isMatchHeld) _moveInput = Vector2.zero;
 
         _yaw += look.x;
         _pitch = Mathf.Clamp(_pitch - look.y, _minPitch, _maxPitch);
@@ -882,6 +901,13 @@ public class CS_Player : NetworkBehaviour
     {
         Transform target = _virtualCameraTransform != null ? _virtualCameraTransform : _cameraTransform;
         if (target == null) return;
+
+        // スタート時のカメラの演出中は、演出の位置に置く(終わるといつもの位置にぴったり重なる)
+        if (_introCamera != null && _introCamera.TryGetPose(_yaw, _pitch, _cameraDistance, _cameraPivotHeight, out Vector3 introPosition, out Quaternion introRotation))
+        {
+            target.SetPositionAndRotation(introPosition, introRotation);
+            return;
+        }
 
         Quaternion rotation = Quaternion.Euler(_pitch, _yaw, 0f);
         Vector3 pivot = transform.position + Vector3.up * _cameraPivotHeight;

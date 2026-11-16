@@ -1,4 +1,4 @@
-using System;
+ï»¿using System;
 using System.Collections;
 using System.Net.Sockets;
 using System.Threading;
@@ -10,19 +10,19 @@ using UnityEngine.Rendering;
 
 /*
 +=====================================
- ƒtƒ@ƒCƒ‹–¼ : CS_MayaPreviewFrameSender
- ŠT—v       : Maya Preview—pHDRPƒtƒŒ[ƒ€‘—M
-              Player‚É•\¦‚³‚ê‚½ÅI‰æ–Ê‚ğ
-              •K—v‚È‚¾‚¯ƒLƒƒƒvƒ`ƒƒ‚µ‚ÄMaya‚Ö‘—‚é
- ìÒ       : ƒˆƒVƒ‚ƒg ƒŠƒ‡ƒE
- —š—ğ       : 2026/09/14 V‹Kì¬
+ ãƒ•ã‚¡ã‚¤ãƒ«å : CS_MayaPreviewFrameSender
+ æ¦‚è¦       : Maya Previewç”¨HDRPãƒ•ãƒ¬ãƒ¼ãƒ é€ä¿¡
+              Playerã«è¡¨ç¤ºã•ã‚ŒãŸæœ€çµ‚ç”»é¢ã‚’
+              å¿…è¦ãªæ™‚ã ã‘ã‚­ãƒ£ãƒ—ãƒãƒ£ã—ã¦Mayaã¸é€ã‚‹
+ ä½œè€…       : ãƒ¨ã‚·ãƒ¢ãƒˆ ãƒªãƒ§ã‚¦
+ å±¥æ­´       : 2026/09/14 æ–°è¦ä½œæˆ
 =====================================+
 */
 
 public class CS_MayaPreviewFrameSender : MonoBehaviour
 {
     // =========================================================
-    // Maya‘—Mæ
+    // Mayaé€ä¿¡å…ˆ
     // =========================================================
 
     private const string MAYA_HOST =
@@ -33,20 +33,20 @@ public class CS_MayaPreviewFrameSender : MonoBehaviour
 
 
     // =========================================================
-    // Capture—pRenderTexture
+    // Captureç”¨RenderTexture
     // =========================================================
 
     private RenderTexture _captureRenderTexture;
 
 
     // =========================================================
-    // ó‘Ô
+    // çŠ¶æ…‹
     // =========================================================
 
-    // GPU Readback’†
+    // GPU Readbackä¸­
     private bool _isReadbackRunning = false;
 
-    // ŸƒtƒŒ[ƒ€Capture—\–ñÏ‚İ
+    // æ¬¡ãƒ•ãƒ¬ãƒ¼ãƒ Captureäºˆç´„æ¸ˆã¿
     private bool _captureRequested = false;
 
 
@@ -64,7 +64,7 @@ public class CS_MayaPreviewFrameSender : MonoBehaviour
         {
             Debug.LogError(
                 "Maya Preview FrameSender : " +
-                "AsyncGPUReadback”ñ‘Î‰"
+                "AsyncGPUReadbackéå¯¾å¿œ"
             );
 
             return;
@@ -72,21 +72,21 @@ public class CS_MayaPreviewFrameSender : MonoBehaviour
 
 
         Debug.Log(
-            "Maya Preview FrameSender : ‰Šú‰»¬Œ÷\n" +
-            "Main Camera TargetTexture•s—v\n" +
-            "PlayerÅI‰æ–Ê‚ğCapture‚µ‚Ü‚·B"
+            "Maya Preview FrameSender : åˆæœŸåŒ–æˆåŠŸ\n" +
+            "Main Camera TargetTextureä¸è¦\n" +
+            "Playeræœ€çµ‚ç”»é¢ã‚’Captureã—ã¾ã™ã€‚"
         );
     }
 
 
     // =========================================================
-    // RuntimeServer‚©‚çŒÄ‚Ô
+    // RuntimeServerã‹ã‚‰å‘¼ã¶
     //
-    // MeshXV
-    // «
-    // HDRP•`‰æ
-    // «
-    // 1–‡‚¾‚¯Capture
+    // Meshæ›´æ–°
+    // â†“
+    // HDRPæç”»
+    // â†“
+    // 1æšã ã‘Capture
     // =========================================================
 
     public void RequestFrameAfterRender()
@@ -108,16 +108,16 @@ public class CS_MayaPreviewFrameSender : MonoBehaviour
 
 
     // =========================================================
-    // HDRP•`‰æŠ®—¹‘Ò‚¿
+    // HDRPæç”»å®Œäº†å¾…ã¡
     // =========================================================
 
     private IEnumerator CaptureAfterRender()
     {
         // =====================================================
-        // Œ»İ‚ÌUpdate‚ÅMesh‚ª•ÏX‚³‚ê‚Ä‚¢‚é
+        // ç¾åœ¨ã®Updateã§MeshãŒå¤‰æ›´ã•ã‚Œã¦ã„ã‚‹
         //
-        // Ÿ‚ÌƒtƒŒ[ƒ€I’[‚Ü‚Å‘Ò‚Â‚±‚Æ‚Å
-        // V‚µ‚¢Mesh‚ğHDRP‚ª•`‰æ‚µ‚½Œã‚ÉCapture‚·‚é
+        // æ¬¡ã®ãƒ•ãƒ¬ãƒ¼ãƒ çµ‚ç«¯ã¾ã§å¾…ã¤ã“ã¨ã§
+        // æ–°ã—ã„Meshã‚’HDRPãŒæç”»ã—ãŸå¾Œã«Captureã™ã‚‹
         // =====================================================
 
         yield return new WaitForEndOfFrame();
@@ -132,7 +132,7 @@ public class CS_MayaPreviewFrameSender : MonoBehaviour
 
 
     // =========================================================
-    // Œ»İ‚ÌPlayer‰æ–Ê‚ğCapture
+    // ç¾åœ¨ã®Playerç”»é¢ã‚’Capture
     // =========================================================
 
     private void CaptureCurrentFrame()
@@ -157,7 +157,7 @@ public class CS_MayaPreviewFrameSender : MonoBehaviour
         {
             Debug.LogError(
                 "Maya Preview FrameSender : " +
-                "Screen Size‚ª•s³‚Å‚·B"
+                "Screen SizeãŒä¸æ­£ã§ã™ã€‚"
             );
 
             return;
@@ -165,7 +165,7 @@ public class CS_MayaPreviewFrameSender : MonoBehaviour
 
 
         // =====================================================
-        // WindowƒTƒCƒY‚ª•Ï‚í‚Á‚½‚çRT‚ğì‚è’¼‚·
+        // Windowã‚µã‚¤ã‚ºãŒå¤‰ã‚ã£ãŸã‚‰RTã‚’ä½œã‚Šç›´ã™
         // =====================================================
 
         EnsureCaptureRenderTexture(
@@ -185,11 +185,11 @@ public class CS_MayaPreviewFrameSender : MonoBehaviour
 
 
         // =====================================================
-        // šd—v
+        // â˜…é‡è¦
         //
-        // Main Camera.targetTexture‚Å‚Í‚È‚­A
-        // ÀÛ‚ÉPlayer Window‚Ö•\¦‚³‚ê‚½
-        // ÅIƒtƒŒ[ƒ€‚ğæ“¾‚·‚é
+        // Main Camera.targetTextureã§ã¯ãªãã€
+        // å®Ÿéš›ã«Player Windowã¸è¡¨ç¤ºã•ã‚ŒãŸ
+        // æœ€çµ‚ãƒ•ãƒ¬ãƒ¼ãƒ ã‚’å–å¾—ã™ã‚‹
         //
         // HDRP
         // Lighting
@@ -197,7 +197,7 @@ public class CS_MayaPreviewFrameSender : MonoBehaviour
         // Tonemapping
         // PostProcess
         //
-        // ‚ğ’Ê‚Á‚½ÅI•\¦Œ‹‰Ê
+        // ã‚’é€šã£ãŸæœ€çµ‚è¡¨ç¤ºçµæœ
         // =====================================================
 
         ScreenCapture.CaptureScreenshotIntoRenderTexture(
@@ -206,7 +206,7 @@ public class CS_MayaPreviewFrameSender : MonoBehaviour
 
 
         // =====================================================
-        // GPU ¨ CPU
+        // GPU â†’ CPU
         // =====================================================
 
         AsyncGPUReadback.Request(
@@ -219,7 +219,7 @@ public class CS_MayaPreviewFrameSender : MonoBehaviour
 
 
     // =========================================================
-    // Capture RT€”õ
+    // Capture RTæº–å‚™
     // =========================================================
 
     private void EnsureCaptureRenderTexture(
@@ -227,7 +227,7 @@ public class CS_MayaPreviewFrameSender : MonoBehaviour
         int height
     )
     {
-        // “¯‚¶ƒTƒCƒY‚È‚ç‚»‚Ì‚Ü‚Üg—p
+        // åŒã˜ã‚µã‚¤ã‚ºãªã‚‰ãã®ã¾ã¾ä½¿ç”¨
         if (
             _captureRenderTexture != null &&
             _captureRenderTexture.width == width &&
@@ -239,16 +239,16 @@ public class CS_MayaPreviewFrameSender : MonoBehaviour
 
 
         // =====================================================
-        // ŒÃ‚¢RTíœ
+        // å¤ã„RTå‰Šé™¤
         // =====================================================
 
         ReleaseCaptureRenderTexture();
 
 
         // =====================================================
-        // V‹Kì¬
+        // æ–°è¦ä½œæˆ
         //
-        // PlayerÅI•\¦—p‚È‚Ì‚ÅsRGB
+        // Playeræœ€çµ‚è¡¨ç¤ºç”¨ãªã®ã§sRGB
         // =====================================================
 
         _captureRenderTexture =
@@ -278,7 +278,7 @@ public class CS_MayaPreviewFrameSender : MonoBehaviour
 
         Debug.Log(
             "Maya Preview FrameSender : " +
-            "Capture RTì¬\n" +
+            "Capture RTä½œæˆ\n" +
             width +
             " x " +
             height
@@ -287,7 +287,7 @@ public class CS_MayaPreviewFrameSender : MonoBehaviour
 
 
     // =========================================================
-    // ReadbackŠ®—¹
+    // Readbackå®Œäº†
     // =========================================================
 
     private void OnReadbackComplete(
@@ -302,7 +302,7 @@ public class CS_MayaPreviewFrameSender : MonoBehaviour
         {
             Debug.LogError(
                 "Maya Preview FrameSender : " +
-                "GPU Readback¸”s"
+                "GPU Readbackå¤±æ•—"
             );
 
             return;
@@ -316,7 +316,7 @@ public class CS_MayaPreviewFrameSender : MonoBehaviour
 
 
         // =====================================================
-        // RGBAæ“¾
+        // RGBAå–å¾—
         // =====================================================
 
         NativeArray<byte> rawData =
@@ -337,7 +337,7 @@ public class CS_MayaPreviewFrameSender : MonoBehaviour
 
         Debug.Log(
             "Maya Preview FrameSender : " +
-            "Player Frameæ“¾¬Œ÷\n" +
+            "Player Frameå–å¾—æˆåŠŸ\n" +
             "Resolution : " +
             width +
             " x " +
@@ -348,7 +348,7 @@ public class CS_MayaPreviewFrameSender : MonoBehaviour
 
 
         // =====================================================
-        // Maya‘—M
+        // Mayaé€ä¿¡
         // =====================================================
 
         ThreadPool.QueueUserWorkItem(
@@ -365,7 +365,7 @@ public class CS_MayaPreviewFrameSender : MonoBehaviour
 
 
     // =========================================================
-    // Maya‚ÖFrame‘—M
+    // Mayaã¸Frameé€ä¿¡
     // =========================================================
 
     private void SendFrameToMaya(
@@ -403,7 +403,7 @@ public class CS_MayaPreviewFrameSender : MonoBehaviour
             // height
             // dataSize
             //
-            // int32 ~ 3
+            // int32 Ã— 3
             // =================================================
 
             writer.Write(
@@ -435,14 +435,14 @@ public class CS_MayaPreviewFrameSender : MonoBehaviour
 
             Debug.Log(
                 "Maya Preview FrameSender : " +
-                "Maya‚ÖFrame‘—M¬Œ÷"
+                "Mayaã¸Frameé€ä¿¡æˆåŠŸ"
             );
         }
         catch (Exception exception)
         {
             Debug.LogError(
                 "Maya Preview FrameSender : " +
-                "Maya‚Ö‚ÌFrame‘—M¸”s\n" +
+                "Mayaã¸ã®Frameé€ä¿¡å¤±æ•—\n" +
                 exception
             );
         }
@@ -450,7 +450,7 @@ public class CS_MayaPreviewFrameSender : MonoBehaviour
 
 
     // =========================================================
-    // Capture RT‰ğ•ú
+    // Capture RTè§£æ”¾
     // =========================================================
 
     private void ReleaseCaptureRenderTexture()

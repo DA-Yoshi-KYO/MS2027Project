@@ -4,6 +4,7 @@
  * 制作者：元浪梨緒
  * ------------------------------------------------
  * 2026-09-27 | 初回作成
+ * 2026-11-15 | アイコンのリストを使い回し、MiniMapIconDataを構造体にした(負荷の軽減)
  * ================================================ */
 
 using System.Collections.Generic;
@@ -44,6 +45,10 @@ public class CS_UIMiniMapPresenter :
     // =========================================================
 
     private CS_UIMiniMapView _view;
+
+    // 描画のたびにnewしないよう使い回すアイコンのリスト
+    // (Viewは Render() の間しか参照しないので、毎回Clearして再利用して問題ない)
+    private readonly List<MiniMapIconData> _icons = new();
 
     public bool rotateWithPlayer =>
         _rotateWithPlayer;
@@ -140,8 +145,8 @@ public class CS_UIMiniMapPresenter :
             mapWorldSize +
             0.5f;
 
-        var icons =
-            new List<MiniMapIconData>();
+        List<MiniMapIconData> icons = _icons;
+        icons.Clear();
 
         AddEntityIcons(
             icons,
@@ -408,7 +413,7 @@ public class MiniMapViewData
 /// <summary>
 /// Viewへ渡すアイコン1件分のデータ。
 /// </summary>
-public class MiniMapIconData
+public readonly struct MiniMapIconData
 {
     private readonly string _id;
     private readonly CSE_MiniMapEntityType _type;

@@ -66,6 +66,15 @@ using UnityEngine;
  *   キャラクター(IDamageableを持つもの)は遮るものとして扱わない。飛び込みもこの線の上を進むので、壁をすり抜けて奇襲することもない
  * ・飛び込んでいる間は、_dashPassThroughLayers(悪人・プレイヤー)とぶつからない(Rigidbody.excludeLayers)
  *   間にいる他の悪人・仲間に引っかかって止まり、奇襲が中止されることがないようにするため。着いたら(攻撃に移ったら)元に戻す
+ * ・溜め(演出用): 押してから飛び込むまで、その場で悪人の方を向いて_windupTime秒(既定0.25秒。0で今まで通り、すぐ飛び込む)だけ溜める
+ *   溜めた分、飛び込みは速い(_dashSpeed既定60m/秒)。溜めている間はisWindingUpがtrue
+ *   飛び込みの1回の時間は、物理の1ステップ(Time.fixedDeltaTime)より少し長くする
+ *   (CS_Player.Lunge/Flyは、残り時間が1ステップ以下だと1歩も進まない。速くすると最後の短い距離で止まり、_maxDashTimeまで待ってしまうため)
+ *   連続奇襲の2体目以降は、溜めの時間に_chainWindupRate(既定0.5)を掛ける
+ *   溜めの間もisAmbushingはtrue。死亡・スタン・悪人が倒れた時は、飛び込みと同じく中止する
+ *   サーバーの予約・悪人を止める時間にも、溜めの分を足す(StartRpcで溜めの時間を送る。_windupTimeより長い値は受け付けない)
+ *   見た目用に、溜めが始まった時にonAmbushWindupStarted(悪人, 溜めの秒数)を本人の手元で出す(溜めが0秒の時は出さない)
+ *   onAmbushStartedは今まで通り「飛び込み開始」(溜めが終わった時)に出る。演出はCS_PlayerAmbushEffect
  * ・今奇襲できる悪人はFindAmbushTarget()で探せる(全クライアントで呼べる)。ロックオンUI(CS_PlayerLockOnUI)が使う
  * ・_rangeを広げると、遠くから奇襲できるようになる(既定はPlayer.prefabで18m)
  *   悪人に気づかれているかは、CS_VillainCombat.IsTargeting(同期された標的)で判定するので、クライアントでも分かる
@@ -86,7 +95,7 @@ public class CS_PlayerAmbush : NetworkBehaviour
     [SerializeField][Min(0f)] private float _clearRadius = 0.4f;          // 壁が無いかを調べる太さ(m。体の半径より少し小さく)
 
     [Header("奇襲攻撃")]
-    [SerializeField][Min(0.1f)] private float _dashSpeed = 30f;           // 飛び込む速さ(m/秒)
+    [SerializeField][Min(0.1f)] private float _dashSpeed = 60f;          // 飛び込む速さ(m/秒)
     [SerializeField][Min(0f)] private float _maxDashTime = 1f;            // これ以上かかっても着かなければ奇襲をやめる(秒)
     [SerializeField][Min(0f)] private float _strikeDistance = 1.2f;       // 悪人との水平距離がこれ以内になったら着いたとみなす(m)
     [SerializeField][Min(0f)] private float _verticalTolerance = 0.3f;    // 悪人との足元の高さの差がこれ以内なら、高さは合っているとみなす(m)
@@ -98,6 +107,10 @@ public class CS_PlayerAmbush : NetworkBehaviour
     [SerializeField][Min(0f)] private float _pressGraceTime = 0.3f;       // 押した瞬間に奇襲できなくても、この秒数以内にロックオン表示していた悪人なら奇襲する
     [SerializeField][Min(0f)] private float _chainSkipTime = 1f;          // 連続奇襲で、一度狙った悪人をもう狙わない時間(秒。倒れたことが届くまでの間)
 
+    [Header("溜め(押した瞬間の演出用の間)")]
+    [SerializeField][Min(0f)] private float _windupTime = 0.5f;           // 押してから飛び込むまで、その場で溜める時間(秒。0で溜めなし)
+    [SerializeField][Min(0f)] private float _chainWindupRate = 0.5f;      // 連続奇襲の2体目以降は、溜めの時間にこの倍率を掛ける
+
     [Header("巻き込み")]
     [SerializeField][Min(0f)] private float _splashRadius = 0.7f;         // 奇襲で倒した悪人から、この半径以内の悪人も一撃で倒す(m。0で巻き込まない。密着している悪人だけ)
     [SerializeField] private bool _splashIncludesRaidBoss = false;        // レイドボスも巻き込むか
@@ -105,11 +118,13 @@ public class CS_PlayerAmbush : NetworkBehaviour
     private enum Phase
     {
         None,     // 奇襲していない
+        Windup,   // 飛び込む前に、その場で溜めている
         Dash,     // 悪人へ飛び込んでいる
         Strike,   // 着いて、攻撃している
     }
 
     private const int _searchBufferSize = 32;   // 一度に調べるコライダーの上限
+    private const float _minDashStepRate = 1.01f;   // 飛び込みの1回の時間の下限(物理の1ステップの何倍か)
     private const float _landCheckDelay = 0.1f;   // 下へ飛び込み始めてから、着地を見始めるまでの時間(秒)
     private readonly Collider[] _searchBuffer = new Collider[_searchBufferSize];
     private readonly RaycastHit[] _obstacleBuffer = new RaycastHit[_searchBufferSize];
@@ -125,7 +140,8 @@ public class CS_PlayerAmbush : NetworkBehaviour
     private Phase _phase = Phase.None;
     private CS_VillainHealth _target;        // 奇襲している悪人
     private Collider _targetCollider;        // その悪人の当たり判定(足元の高さを調べる。飛び込み中に毎フレーム探さないよう控える)
-    private float _elapsed;                  // 今の段階(飛び込み・攻撃)が始まってからの時間
+    private float _elapsed;                  // 今の段階(溜め・飛び込み・攻撃)が始まってからの時間
+    private float _windupDuration;           // 今の奇襲の溜めの時間(秒。溜めなしなら0)
     private bool _hasStruck;                 // 奇襲を当てる処理を行ったか
     private CS_VillainHealth _reservedTarget;   // 奇襲すると決めた悪人(サーバー、またはオフラインのみ)
     private float _reservedUntil;               // 予約の期限(Time.time。サーバー、またはオフラインのみ)
@@ -136,11 +152,13 @@ public class CS_PlayerAmbush : NetworkBehaviour
 
     public float range => _range;                   // 奇襲できる距離(m)
     public bool isAmbushing => _phase != Phase.None;   // 奇襲中か(CS_PlayerAttackが、通常攻撃・必殺技を止めるのに使う)
+    public bool isWindingUp => _phase == Phase.Windup;   // 飛び込む前に溜めている間か(本人の手元。見た目用)
     public bool isLunging => _phase == Phase.Dash || (_phase == Phase.Strike && !_hasStruck);   // 飛び込み〜当たる瞬間か(本人の手元。見た目用)
 
     public event Action<CS_VillainHealth> onAmbush;     // 奇襲が決まった時(サーバー、またはオフラインのみ)
     public event Action<CS_VillainHealth> onAmbushSplash;      // 奇襲に巻き込んで悪人を倒した時(サーバー、またはオフラインのみ)
-    public event Action<CS_VillainHealth> onAmbushStarted;     // 飛び込みを始めた時(本人の手元のみ)。見た目用
+    public event Action<CS_VillainHealth, float> onAmbushWindupStarted;   // 溜めを始めた時(本人の手元のみ。溜めの秒数つき。溜めが0秒の時は出ない)。見た目用
+    public event Action<CS_VillainHealth> onAmbushStarted;     // 飛び込みを始めた時(本人の手元のみ。溜めがあれば溜めの後)。見た目用
     public event Action<CS_VillainHealth> onAmbushHitTiming;   // 奇襲が当たる瞬間(本人の手元のみ)。見た目・カメラの揺れ用
 
     private void Awake()
@@ -169,7 +187,8 @@ public class CS_PlayerAmbush : NetworkBehaviour
         }
 
         _elapsed += Time.deltaTime;
-        if (_phase == Phase.Dash) UpdateDash();
+        if (_phase == Phase.Windup) UpdateWindup();
+        else if (_phase == Phase.Dash) UpdateDash();
         else UpdateStrike();
     }
 
@@ -185,21 +204,37 @@ public class CS_PlayerAmbush : NetworkBehaviour
         CS_VillainHealth villain = FindAmbushTarget() ?? GetRecentTarget();
         if (villain == null) return false;
 
+        // 連続奇襲の2体目以降は、溜めを短くする(押し続けている間は_isChainHeldがtrueのまま続く)
+        _windupDuration = _windupTime * (_isChainHeld ? _chainWindupRate : 1f);
+
         _target = villain;
         _targetCollider = villain.GetComponentInChildren<Collider>();
-        _phase = Phase.Dash;
+        _phase = _windupDuration > 0f ? Phase.Windup : Phase.Dash;
         _elapsed = 0f;
         _hasStruck = false;
         FaceTarget();
-        SetPassThrough(true);
+        if (_phase == Phase.Dash) SetPassThrough(true);
 
         // オフラインではその場で奇襲になるかが決まり、ならなければここで終わる(その時は通常攻撃の1段目を出す)
-        RequestStart(villain);
+        RequestStart(villain, _windupDuration);
         if (!isAmbushing) return false;
 
         _isChainHeld = true;
-        onAmbushStarted?.Invoke(villain);
+        if (_phase == Phase.Windup) onAmbushWindupStarted?.Invoke(villain, _windupDuration);
+        else onAmbushStarted?.Invoke(villain);
         return true;
+    }
+
+    // 溜めの間は、その場で悪人の方を向く。溜め終わったら飛び込む
+    private void UpdateWindup()
+    {
+        FaceTarget();
+        if (_elapsed < _windupDuration) return;
+
+        _phase = Phase.Dash;
+        _elapsed = 0f;
+        SetPassThrough(true);
+        onAmbushStarted?.Invoke(_target);
     }
 
     // 奇襲を始めた攻撃ボタンを押し続けている間は、次に奇襲できる悪人へ続けて奇襲する(いなければ、見つかるまで待つ)
@@ -267,8 +302,10 @@ public class CS_PlayerAmbush : NetworkBehaviour
 
         // 毎フレーム向きと距離を決め直す(悪人が動いても追いかける)
         float moveDistance = move.magnitude;
-        if (Mathf.Approximately(move.y, 0f)) _player.Lunge(move, moveDistance, moveDistance / _dashSpeed);
-        else _player.Fly(move / moveDistance, moveDistance, moveDistance / _dashSpeed);
+        // 残りが短い時も1回は物理の更新で進めるよう、時間は物理の1ステップより少し長くする(短いと、踏み込みが1歩も進まず最後で止まる)
+        float duration = Mathf.Max(moveDistance / _dashSpeed, Time.fixedDeltaTime * _minDashStepRate);
+        if (Mathf.Approximately(move.y, 0f)) _player.Lunge(move, moveDistance, duration);
+        else _player.Fly(move / moveDistance, moveDistance, duration);
     }
 
     // 着くまでに進む量(水平は_strikeDistanceまで詰める分、縦は悪人の足元の高さとの差)。着いていればゼロ
@@ -342,25 +379,25 @@ public class CS_PlayerAmbush : NetworkBehaviour
     }
 
     // 奇襲を始めたことをサーバーへ伝える(サーバーで奇襲になるかを決め、悪人を止める)
-    private void RequestStart(CS_VillainHealth villain)
+    private void RequestStart(CS_VillainHealth villain, float windupDuration)
     {
         Vector3 position = transform.position;
 
         // オフライン(テストシーン)では、その場で決める
         if (!IsSpawned)
         {
-            if (!StartOnServer(villain, position)) EndAmbush();
+            if (!StartOnServer(villain, position, windupDuration)) EndAmbush();
             return;
         }
 
-        StartRpc(new NetworkObjectReference(villain.NetworkObject), position);
+        StartRpc(new NetworkObjectReference(villain.NetworkObject), position, windupDuration);
     }
 
     [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Owner)]
-    private void StartRpc(NetworkObjectReference villainReference, Vector3 position)
+    private void StartRpc(NetworkObjectReference villainReference, Vector3 position, float windupDuration)
     {
         CS_VillainHealth villain = GetVillain(villainReference);
-        if (villain != null && StartOnServer(villain, position)) return;
+        if (villain != null && StartOnServer(villain, position, windupDuration)) return;
 
         CancelRpc();   // 奇襲にならなかったので、手元の飛び込みをやめさせる
     }
@@ -375,7 +412,7 @@ public class CS_PlayerAmbush : NetworkBehaviour
     // 悪人を予約してその場に止める(サーバー、またはオフラインで実行される)
     // 「気づかれていない」「背後か上」は押した本人の手元で判定済みなので、ここでは見ない(サーバーに届くまでの間に
     // 気づかれて中止になるのを防ぐ。Issue #370)。悪人が倒れていないか・遠すぎないか・間に壁が無いかだけを見る
-    private bool StartOnServer(CS_VillainHealth villain, Vector3 position)
+    private bool StartOnServer(CS_VillainHealth villain, Vector3 position, float windupDuration)
     {
         Vector3 forward = transform.forward;
         CS_AttackHitDetector.ResolvePose(transform, ref position, ref forward);
@@ -387,7 +424,9 @@ public class CS_PlayerAmbush : NetworkBehaviour
 
         ReleaseOnServer();   // 前の予約が残っていれば解く
 
-        float duration = _maxDashTime + Mathf.Max(_strikeDelay, _strikeDuration) + _freezeMargin;
+        // 溜めの分も足す(送られてきた値は、サーバー側の溜めの時間より長くならないようにする)
+        float windup = float.IsFinite(windupDuration) ? Mathf.Clamp(windupDuration, 0f, _windupTime) : _windupTime;
+        float duration = windup + _maxDashTime + Mathf.Max(_strikeDelay, _strikeDuration) + _freezeMargin;
         _reservedTarget = ambushed;
         _reservedUntil = Time.time + duration;
         if (ambushed.TryGetComponent(out CS_VillainCombat combat)) combat.Freeze(duration);

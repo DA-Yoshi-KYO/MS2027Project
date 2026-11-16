@@ -2,8 +2,8 @@ using System.Collections.Generic;
 using UnityEngine;
 
 /*
- * 動くSAポイント(CS_PathFollowerで動くSAポイント)の軌道(道筋)を、プレイヤーが近づいた時だけ表示する(Issue #507)ために、軌道表示UI(CS_UISAPathModel)へ渡すクラス
- * シーンにある動くSAポイントの道筋を軌道表示UIのModelに登録し、近いかどうかで出す・消すを切り替えるだけ
+ * 動くSAポイント(CS_PathFollowerで動くSAポイント)の軌道(道筋)を、そのSAポイントの強調UI(ハイドマーカーUI。RT MOVE!の目印)が出ている間だけ表示する(Issue #507)ために、軌道表示UI(CS_UISAPathModel)へ渡すクラス
+ * シーンにある動くSAポイントの道筋を軌道表示UIのModelに登録し、今狙っているSAポイントに合わせて出す・消すを切り替えるだけ
  * UI側(Model/Presenter/View)はこのクラス・CS_Player・CS_PathFollowerの存在を一切知らない
  *
  * 制作者：　吉田京志郎
@@ -13,53 +13,51 @@ using UnityEngine;
 /*
  * メモ
  * ・動かないSAポイントには出さない(CS_PathFollowerが付いていない物は対象にならない)
- * ・出す条件: プレイヤーから、道筋の一番近い点までの距離が_showDistance以内。離れて_showDistance + _hideMarginを超えると消す
- *   (境目でちらつかないよう、出す距離より消す距離を少し長くしている)。ふわっと出入りするフェードはViewが行う
- *   距離は_checkInterval秒ごとに調べる(毎フレームは調べない)
+ * ・出す条件: 強調UIが出ているSAポイント(CS_PlayerHide.currentCandidate。今ダッシュボタンで飛べる1つ)が、動くSAポイントの時に、その道筋だけを出す
+ *   別のSAポイントに強調UIが移った時・強調UIが消えた時(currentCandidateがnullになった時)は、点線も消える。ふわっと出入りするフェードはViewが行う
+ *   currentCandidateから道筋は、登録した時に作る辞書(動くSAポイント → 軌道)で引く。毎フレーム探し回らない
  * ・道筋は動かないので、軌道を登録する時に1回だけ点の並び(CS_PathFollower.GetCurvePoints。ワールドの座標にして)を取って使い回す
  *   パスをこのオブジェクトごと動かした場合は、登録し直さないと反映されない(再生中に動かさない前提)
  * ・シーンにあるCS_PathFollowerは、最初と_rescanInterval秒ごとに集め直す(FindObjectsByType。毎フレームは探さない)
  *   途中で増えた物は登録し、消えた物は外す
  * ・軌道は自分の画面に出すもの全部で1つのため、自分(isLocalPlayer)のプレイヤーだけがModelを作ってBindする
  *   isLocalPlayerはスポーン後に決まるため、毎フレーム確かめて、自分のプレイヤーになった時にBindする
- * ・見た目(色・太さ・点線の間隔・フェード)はUICanvas側(SAPath)のViewで決める
- * ・CS_PathFollower・CS_SAPointのロジックはこのクラスを知らない(外してもSAは動く)
+ * ・見た目(色・太さ・フェード・ホログラムのシェーダー)はUICanvas側(SAPath)のViewとマテリアルで決める
+ * ・CS_PathFollower・CS_SAPoint・CS_PlayerHideのロジックはこのクラスを知らない(外してもSAは動く)
  * ・オフライン(NetworkManagerが動いていない)のテストシーンでも単体で動く。通信はしない
  */
 // ========================================
 
 [RequireComponent(typeof(CS_Player))]
+[RequireComponent(typeof(CS_PlayerHide))]
 public class CS_PlayerSAPathUI : MonoBehaviour
 {
     // 登録した軌道1つ分
     private class PathData
     {
         public int id;                  // Modelでの軌道の番号
-        public Vector3[] points;        // 道筋の点の並び(ワールド)
-        public bool isVisible;          // 今出しているか
+        public CS_SAPoint saPoint;      // 動かすSAポイント(強調UIが出る相手)
     }
 
-    [Header("表示")]
-    [SerializeField][Min(0f)] private float _showDistance = 50f;     // 道筋の一番近い点がこの距離以内なら出す(m)
-    [SerializeField][Min(0f)] private float _hideMargin = 5f;        // 出している軌道を消す距離に足す余裕(m。ちらつき防止)
-
-    [Header("調べる間隔")]
-    [SerializeField][Min(0.02f)] private float _checkInterval = 0.2f;     // 近いかを調べる間隔(秒)
+    [Header("集め直し")]
     [SerializeField][Min(0.5f)] private float _rescanInterval = 5f;       // 動くSAポイントを集め直す間隔(秒)
 
     [Header("道筋")]
     [SerializeField][Range(1, 32)] private int _pointsPerSegment = 12;    // 道筋の1区間あたりの分割数(多いほどなめらか)
 
     private CS_Player _player;
+    private CS_PlayerHide _hide;
     private CS_UISAPathModel _pathModel;
     private readonly Dictionary<CS_PathFollower, PathData> _paths = new Dictionary<CS_PathFollower, PathData>();
+    private readonly Dictionary<CS_SAPoint, PathData> _pathsBySaPoint = new Dictionary<CS_SAPoint, PathData>();   // 強調UIが出るSAポイントから軌道を引く
     private readonly List<CS_PathFollower> _removeList = new List<CS_PathFollower>();
-    private float _checkTimer;
+    private PathData _shownPath;        // 今出している軌道(無ければnull)
     private float _rescanTimer;
 
     private void Awake()
     {
         _player = GetComponent<CS_Player>();
+        _hide = GetComponent<CS_PlayerHide>();
     }
 
     private void OnDisable()
@@ -84,12 +82,7 @@ public class CS_PlayerSAPathUI : MonoBehaviour
             Rescan();
         }
 
-        _checkTimer -= Time.unscaledDeltaTime;
-        if (_checkTimer <= 0f)
-        {
-            _checkTimer = _checkInterval;
-            UpdateVisibility();
-        }
+        UpdateVisibility();
     }
 
     // 軌道表示UIのModelを作って公開し、今ある動くSAポイントを登録する
@@ -98,7 +91,6 @@ public class CS_PlayerSAPathUI : MonoBehaviour
         _pathModel = new CS_UISAPathModel();
         _pathModel.Bind();
         _rescanTimer = _rescanInterval;
-        _checkTimer = 0f;
         Rescan();
     }
 
@@ -107,6 +99,8 @@ public class CS_PlayerSAPathUI : MonoBehaviour
         if (_pathModel == null) return;
 
         _paths.Clear();
+        _pathsBySaPoint.Clear();
+        _shownPath = null;
         _pathModel.Dispose();
         _pathModel = null;
     }
@@ -131,7 +125,10 @@ public class CS_PlayerSAPathUI : MonoBehaviour
         }
         foreach (CS_PathFollower follower in _removeList)
         {
-            _pathModel.RemovePath(_paths[follower].id);
+            PathData path = _paths[follower];
+            if (_shownPath == path) _shownPath = null;
+            _pathModel.RemovePath(path.id);
+            _pathsBySaPoint.Remove(path.saPoint);
             _paths.Remove(follower);
         }
     }
@@ -146,34 +143,22 @@ public class CS_PlayerSAPathUI : MonoBehaviour
             worldPoints[i] = follower.transform.TransformPoint(localPoints[i]);
         }
 
-        _paths.Add(follower, new PathData { id = _pathModel.AddPath(worldPoints), points = worldPoints });
+        PathData path = new PathData { id = _pathModel.AddPath(worldPoints), saPoint = follower.saPoint };
+        _paths.Add(follower, path);
+        _pathsBySaPoint[path.saPoint] = path;
     }
 
-    // プレイヤーから道筋の一番近い点までの距離で、出す・消すを決める
+    // 強調UIが出ているSAポイント(今狙っているSAポイント)の軌道だけを出す。変わった時だけModelへ伝える
     private void UpdateVisibility()
     {
-        Vector3 position = transform.position;
-        foreach (PathData path in _paths.Values)
-        {
-            float distance = GetNearestDistance(path.points, position);
-            float limit = path.isVisible ? _showDistance + _hideMargin : _showDistance;
-            bool isVisible = distance <= limit;
-            if (isVisible == path.isVisible) continue;
+        CS_SAPoint candidate = _hide.currentCandidate;
+        PathData target = null;
+        if (candidate != null) _pathsBySaPoint.TryGetValue(candidate, out target);
 
-            path.isVisible = isVisible;
-            _pathModel.SetVisible(path.id, isVisible);
-        }
-    }
+        if (target == _shownPath) return;
 
-    // 点の並びのうち、positionに一番近い点までの距離
-    private static float GetNearestDistance(Vector3[] points, Vector3 position)
-    {
-        float nearestSqr = float.MaxValue;
-        foreach (Vector3 point in points)
-        {
-            float sqr = (point - position).sqrMagnitude;
-            if (sqr < nearestSqr) nearestSqr = sqr;
-        }
-        return Mathf.Sqrt(nearestSqr);
+        if (_shownPath != null) _pathModel.SetVisible(_shownPath.id, false);
+        if (target != null) _pathModel.SetVisible(target.id, true);
+        _shownPath = target;
     }
 }

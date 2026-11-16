@@ -4,6 +4,7 @@
  * 制作者：吉田京志郎
  * ------------------------------------------------
  * 2026-11-16 | 初回作成(Issue #507)
+ * 2026-11-16 | ホログラム風に光るシェーダー(SH_HologramLine)の仮の点線に変更(色のプロパティ名を設定できるようにした)
  * ================================================ */
 
 using System.Collections.Generic;
@@ -13,7 +14,9 @@ using UnityEngine.Rendering;
 /// <summary>
 /// 動くSAポイントの軌道(道筋)のView。描画とフェードだけを持つ。
 /// ・ワールド上の点線(LineRenderer)で描く。地形に隠れる物は隠れる(隠れても見えるようにはしない)
-/// ・点線は、点と点の間の長さ(_dashPeriod)ごとに、点線の柄を繰り返す
+/// ・点線の柄・流れ・走査線のちらつきは、マテリアルのシェーダー(今は仮の SH_HologramLine)が、シェーダーの中の時間で動かす
+///   このViewがマテリアルへ渡すのは、色(出し入れのフェードのアルファ込み)だけ。渡す先のプロパティ名は_colorPropertyで変えられる(本番のシェーダーに差し替える時用)
+///   LineRendererのTexture Modeは、UVのUが「線の始まりからの長さ(m)」になるTile・Texture Scale(1, 1)にしている(点線の長さがワールドの長さで決まる)
 /// ・出し入れはふわっとしたフェード(_fadeTime)
 /// ・線は、シーン直下の「SAPathLines」の子に実行時に作る(Canvasの子にしないので、Canvasの大きさに影響されない)
 /// ・道筋の点は軌道を登録した時に1回だけ渡す(毎フレームは渡さない)
@@ -35,17 +38,17 @@ public class CS_UISAPathView :
     // =========================================================
 
     [Header("見た目")]
-    [Tooltip("点線のマテリアル(頂点カラーを使うもの。今は Nova の MT_SAPathDash)")]
+    [Tooltip("点線のマテリアル(ホログラム風の光る点線。今は仮の MT_SAPathDash = SH_HologramLine。本番のシェーダーができたら差し替える)")]
     [SerializeField] private Material _material;
 
-    [Tooltip("線の色(アルファが一番濃い時の濃さ)")]
-    [SerializeField][ColorUsage(true, true)] private Color _color = new Color(1.6f, 1.1f, 0.3f, 0.9f);
+    [Tooltip("色を渡すマテリアルのプロパティ名(アルファは出し入れのフェードに使う)。シェーダーを差し替えて名前が違う時は、ここを合わせる")]
+    [SerializeField] private string _colorProperty = "_HologramColor";
+
+    [Tooltip("線の色(アルファが一番濃い時の濃さ。HDRの明るさはシェーダー側で掛ける)")]
+    [SerializeField][ColorUsage(true, true)] private Color _color = new Color(0.5f, 1.8f, 2.4f, 1f);
 
     [Tooltip("線の太さ(m)")]
-    [SerializeField][Min(0.001f)] private float _width = 0.2f;
-
-    [Tooltip("点線の柄が一回りする長さ(m。点と点の間隔の目安)")]
-    [SerializeField][Min(0.01f)] private float _dashPeriod = 1f;
+    [SerializeField][Min(0.001f)] private float _width = 0.35f;
 
     [Header("動き")]
     [Tooltip("出し入れのフェードの時間(秒。0ですぐ出し入れ)")]
@@ -55,7 +58,10 @@ public class CS_UISAPathView :
     // 内部フィールド
     // =========================================================
 
+    private int _colorId;                                                      // 色を渡すプロパティのID
+
     private Transform _root;                                                   // 線を置く場所(シーン直下)
+    private MaterialPropertyBlock _propertyBlock;                              // 線の色と濃さを渡す(共有マテリアルを書き換えないため)
     private readonly Dictionary<int, PathLine> _lines = new Dictionary<int, PathLine>();
     private readonly List<PathLine> _fadingLines = new List<PathLine>();      // フェード中の線(毎フレームの処理の対象)
 
@@ -66,6 +72,8 @@ public class CS_UISAPathView :
     private void Awake()
     {
         _root = new GameObject("SAPathLines").transform;
+        _propertyBlock = new MaterialPropertyBlock();
+        _colorId = Shader.PropertyToID(_colorProperty);
     }
 
     private void OnDestroy()
@@ -108,7 +116,7 @@ public class CS_UISAPathView :
         line.SetPositions(worldPoints);
         line.widthMultiplier = _width;
         line.textureMode = LineTextureMode.Tile;
-        line.textureScale = new Vector2(1f / _dashPeriod, 1f);   // 柄が_dashPeriod(m)ごとに繰り返す
+        line.textureScale = new Vector2(1f, 1f);   // UVのUが、線の始まりからの長さ(m)になる
         line.alignment = LineAlignment.View;
         line.numCapVertices = 0;
         line.shadowCastingMode = ShadowCastingMode.Off;
@@ -156,7 +164,7 @@ public class CS_UISAPathView :
     // 内部処理
     // =========================================================
 
-    // 線の色(色 × 濃さ)を頂点カラーに入れる。濃さが0の間は線を描かない
+    // 線の色(色 × 濃さ。アルファが濃さ)をMaterialPropertyBlockで渡す。流れ・ちらつきはシェーダーが動かす。濃さが0の間は線を描かない
     private void ApplyAlpha(PathLine pathLine)
     {
         LineRenderer line = pathLine.line;
@@ -164,8 +172,10 @@ public class CS_UISAPathView :
 
         Color color = _color;
         color.a *= pathLine.alpha;
-        line.startColor = color;
-        line.endColor = color;
+
+        line.GetPropertyBlock(_propertyBlock);
+        _propertyBlock.SetColor(_colorId, color);
+        line.SetPropertyBlock(_propertyBlock);
         line.enabled = pathLine.alpha > 0f;
     }
 }

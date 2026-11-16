@@ -1,9 +1,10 @@
 /* ================================================
- * グラップルの矢印(飛んでいく方向を示す矢印)のModel
+ * グラップルの矢印(飛んでいく道筋に並べる山形)のModel
  * ================================================
  * 制作者：吉田京志郎
  * ------------------------------------------------
  * 2026-11-16 | 初回作成(Issue #505)
+ * 2026-11-16 | 的の上に出す矢印から、プレイヤーから的へ向かう道筋に山形を並べる形に変更(始点・終点を持つ)
  * ================================================ */
 
 using System;
@@ -11,11 +12,11 @@ using R3;
 using UnityEngine;
 
 /// <summary>
-/// グラップルの矢印(狙っているグラップルのSAポイントの上に出す、飛んでいく方向の矢印)の Model。
+/// グラップルの矢印(狙っているグラップルのSAポイントへ飛んでいく道筋に、山形を並べて流す表示)の Model。
 ///
-/// ・矢印を出す位置(ワールド)・向き(ワールド)・表示の有無を保持する
+/// ・道筋の始点(プレイヤーの体の中心あたり)・終点(的へ引っ張られる先)・表示の有無を保持する
 /// ・矢印は自分の画面に1つだけなので、ハイドマーカーと同じく Bind() で公開する(番号なし)
-/// ・Show で位置・向きを渡すと矢印が出る(毎フレーム呼んでよい)。Hide で消える(位置・向きは残るので、消える間もそこに出る)
+/// ・Show で始点・終点を渡すと矢印が出る(毎フレーム呼んでよい。プレイヤーが動くと道筋も追従する)。Hide で消える(始点・終点は残るので、消える間もそこに出る)
 /// ・Bind / Unbind のイベントを発火して Presenter に通知する
 ///
 /// ※ ModelはUIのクラスを一切参照しない(UI → Model の一方向)
@@ -52,17 +53,17 @@ public sealed class CS_UIGrappleArrowModel : CS_BaseModel
     // ---------------- 状態 ----------------
 
     private readonly ReactiveProperty<bool> _isVisible = new(false);
-    private Vector3 _position;
-    private Vector3 _direction = Vector3.forward;
+    private Vector3 _startPosition;
+    private Vector3 _endPosition;
 
     /// <summary>矢印を出すか</summary>
     public ReadOnlyReactiveProperty<bool> isVisible => _isVisible;
 
-    /// <summary>矢印を出す位置(ワールド。矢印の中心)</summary>
-    public Vector3 position => _position;
+    /// <summary>道筋の始点(ワールド。プレイヤーの体の中心あたり)</summary>
+    public Vector3 startPosition => _startPosition;
 
-    /// <summary>矢印が指す向き(ワールド。長さ1)</summary>
-    public Vector3 direction => _direction;
+    /// <summary>道筋の終点(ワールド。的へ引っ張られる先)</summary>
+    public Vector3 endPosition => _endPosition;
 
     // ---------------- 公開 ----------------
 
@@ -85,16 +86,15 @@ public sealed class CS_UIGrappleArrowModel : CS_BaseModel
 
     // ---------------- 値の変更 ----------------
 
-    /// <summary>矢印を出す。位置と向きを渡す(向きは長さ1にそろえる。ゼロなら今の向きのまま)</summary>
-    public void Show(Vector3 worldPosition, Vector3 worldDirection)
+    /// <summary>矢印を出す。道筋の始点・終点(ワールド)を渡す</summary>
+    public void Show(Vector3 worldStart, Vector3 worldEnd)
     {
-        _position = worldPosition;
-        if (worldDirection.sqrMagnitude > 0.0001f) _direction = worldDirection.normalized;
-
+        _startPosition = worldStart;
+        _endPosition = worldEnd;
         _isVisible.Value = true;
     }
 
-    /// <summary>矢印を消す(位置・向きは残る)</summary>
+    /// <summary>矢印を消す(始点・終点は残る)</summary>
     public void Hide()
     {
         _isVisible.Value = false;

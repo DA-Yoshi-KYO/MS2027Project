@@ -2160,11 +2160,13 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::CS_UIGrappleArrowView
   _material: {fileID: 2100000, guid: 0b4c456399b949145b09946073f72d6d, type: 2}
   _color: {r: 0.5, g: 1.6, b: 2, a: 1}
-  _chevronCount: 3
-  _chevronSize: {x: 0.7, y: 0.9}
-  _spacing: 0.8
-  _flowSpeed: 1.5
-  _edgeFade: 0.3
+  _chevronSize: {x: 3.2, y: 1.2}
+  _spacing: 3.5
+  _maxChevronCount: 12
+  _startOffset: 2.5
+  _endOffset: 1
+  _flowSpeed: 6
+  _edgeFadeLength: 1.5
   _fadeTime: 0.15
 --- !u!114 &2752495448569050494
 MonoBehaviour:
@@ -2178,7 +2180,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: e2d70840c3b55e24e81fd6781d37f831, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::CS_UIGrappleArrowPresenter
-  _targetCamera: {fileID: 0}
 --- !u!1 &3190867843499923652
 GameObject:
   m_ObjectHideFlags: 0
@@ -5935,9 +5936,9 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::CS_UISAPathView
   _material: {fileID: 2100000, guid: dafdf539c609bec409ea72a0adb19a8f, type: 2}
-  _color: {r: 1.6, g: 1.1, b: 0.3, a: 0.9}
-  _width: 0.2
-  _dashPeriod: 1
+  _colorProperty: _HologramColor
+  _color: {r: 0.5, g: 1.8, b: 2.4, a: 1}
+  _width: 0.35
   _fadeTime: 0.4
 --- !u!114 &9103096097932663441
 MonoBehaviour:

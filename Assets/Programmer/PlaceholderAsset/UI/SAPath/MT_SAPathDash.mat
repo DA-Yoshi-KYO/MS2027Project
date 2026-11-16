@@ -8,25 +8,21 @@ Material:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_Name: MT_SAPathDash
-  m_Shader: {fileID: 4800000, guid: 1bc5c6a70411243779ce486a98012125, type: 3}
+  m_Shader: {fileID: 4800000, guid: a7d4f76101500814bbf437c68090cbbc, type: 3}
   m_Parent: {fileID: 0}
   m_ModifiedSerializedProperties: 0
-  m_ValidKeywords:
-  - _ALPHA_TRANSITION_MAP_MODE_2D
-  - _BASE_MAP_MODE_2D
-  - _EMISSION_COLOR_COLOR
-  - _EMISSION_MAP_MODE_2D
-  - _PARALLAX_MAP_MODE_2D
-  - _TINT_COLOR_ENABLED
-  m_InvalidKeywords: []
+  m_ValidKeywords: []
+  m_InvalidKeywords:
+  - _DOUBLESIDED_ON
+  - _SURFACE_TYPE_TRANSPARENT
   m_LightmapFlags: 4
   m_EnableInstancingVariants: 0
   m_DoubleSidedGI: 1
   m_CustomRenderQueue: 3000
-  stringTagMap:
-    RenderType: Transparent
+  stringTagMap: {}
   disabledShaderPasses:
-  - SHADOWCASTER
+  - DistortionVectors
+  - MOTIONVECTORS
   m_LockedProperties: 
   m_SavedProperties:
     serializedVersion: 3
@@ -67,6 +63,10 @@ Material:
         m_Texture: {fileID: 0}
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
+    - _DistortionVectorMap:
+        m_Texture: {fileID: 0}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
     - _EmissionColorRamp:
         m_Texture: {fileID: 0}
         m_Scale: {x: 1, y: 1}
@@ -83,12 +83,20 @@ Material:
         m_Texture: {fileID: 0}
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
+    - _EmissiveColorMap:
+        m_Texture: {fileID: 0}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
     - _FlowMap:
         m_Texture: {fileID: 0}
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
     - _GradientMap:
         m_Texture: {fileID: 0}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _MainTex:
+        m_Texture: {fileID: 2800000, guid: 3433667237f43a644a57339c09be230a, type: 3}
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
     - _ParallaxMap:
@@ -115,12 +123,24 @@ Material:
         m_Texture: {fileID: 0}
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
+    - _UnlitColorMap:
+        m_Texture: {fileID: 2800000, guid: 3433667237f43a644a57339c09be230a, type: 3}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
     - _VertexDeformationMap:
         m_Texture: {fileID: 0}
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
     m_Ints: []
     m_Floats:
+    - _AddPrecomputedVelocity: 0
+    - _AlbedoAffectEmissive: 0
+    - _AlphaCutoff: 0.5
+    - _AlphaCutoffEnable: 0
+    - _AlphaDstBlend: 10
+    - _AlphaRemapMax: 1
+    - _AlphaRemapMin: 0
+    - _AlphaSrcBlend: 1
     - _AlphaTransitionMapChannelsX: 0
     - _AlphaTransitionMapMode: 0
     - _AlphaTransitionMapOffsetXCoord: 0
@@ -177,16 +197,40 @@ Material:
     - _BaseMapToneShadows: 0.25
     - _BaseMapToneShadowsCoord: 0
     - _BlendDst: 1
+    - _BlendMode: 0
     - _BlendSrc: 5
+    - _Brightness: 2
     - _ColorCorrectionMode: 0
     - _Cull: 0
+    - _CullMode: 0
     - _Cutoff: 0.5
+    - _DashPeriod: 1
+    - _DashRatio: 0.55
     - _DepthFadeEnabled: 0
     - _DepthFadeFar: 10
     - _DepthFadeNear: 1
     - _DepthFadeWidth: 1
     - _DissolveSharpness: 0.5
     - _DissolveSharpnessSecondTexture: 0.5
+    - _DistortionBlendMode: 0
+    - _DistortionBlurBlendMode: 0
+    - _DistortionBlurDstBlend: 1
+    - _DistortionBlurRemapMax: 1
+    - _DistortionBlurRemapMin: 0
+    - _DistortionBlurScale: 1
+    - _DistortionBlurSrcBlend: 1
+    - _DistortionDepthTest: 1
+    - _DistortionDstBlend: 1
+    - _DistortionEnable: 0
+    - _DistortionOnly: 0
+    - _DistortionScale: 1
+    - _DistortionSrcBlend: 1
+    - _DistortionVectorBias: -1
+    - _DistortionVectorScale: 2
+    - _DoubleSidedEnable: 1
+    - _DoubleSidedGIMode: 0
+    - _DstBlend: 10
+    - _EdgeSoftness: 0.35
     - _EmissionAreaType: 0
     - _EmissionColorType: 0
     - _EmissionIntensity: 1
@@ -203,6 +247,11 @@ Material:
     - _EmissionMapRotationCoord: 0
     - _EmissionMapRowCount: 1
     - _EmissionMapSliceCount: 4
+    - _EmissiveExposureWeight: 1
+    - _EmissiveIntensity: 1
+    - _EmissiveIntensityUnit: 0
+    - _EnableFogOnTransparent: 0
+    - _FlickerStrength: 0.35
     - _FlowIntensity: 1
     - _FlowIntensityCoord: 0
     - _FlowMapChannelsX: 0
@@ -212,6 +261,8 @@ Material:
     - _FlowMapRotation: 0
     - _FlowMapRotationCoord: 0
     - _FlowMapTarget: 1
+    - _FlowSpeed: 2
+    - _IncludeIndirectLighting: 1
     - _InverseLuminanceTransparency: 0
     - _InverseRimTransparency: 0
     - _InverseTintRim: 0
@@ -221,6 +272,7 @@ Material:
     - _LuminanceTransparencyProgressCoord: 0
     - _LuminanceTransparencySharpness: 0.5
     - _LuminanceTransparencySharpnessCoord: 0
+    - _OpaqueCullMode: 2
     - _ParallaxMapChannel: 0
     - _ParallaxMapMode: 0
     - _ParallaxMapOffsetXCoord: 0
@@ -240,6 +292,8 @@ Material:
     - _RimTransparencyProgressCoord: 0
     - _RimTransparencySharpness: 0.5
     - _RimTransparencySharpnessCoord: 0
+    - _ScanlineFrequency: 60
+    - _ScanlineSpeed: 6
     - _ShadowCasterAlphaAffectedByAlphaTransitionMap: 0
     - _ShadowCasterAlphaAffectedByFlowMap: 0
     - _ShadowCasterAlphaAffectedByTintColor: 0
@@ -250,6 +304,16 @@ Material:
     - _ShadowCasterEnabled: 0
     - _SoftParticlesEnabled: 0
     - _SoftParticlesIntensity: 1
+    - _SrcBlend: 1
+    - _StencilRef: 0
+    - _StencilRefDepth: 1
+    - _StencilRefDistortionVec: 4
+    - _StencilRefMV: 33
+    - _StencilWriteMask: 6
+    - _StencilWriteMaskDepth: 9
+    - _StencilWriteMaskDistortionVec: 4
+    - _StencilWriteMaskMV: 43
+    - _SurfaceType: 1
     - _TintAreaMode: 0
     - _TintBlendRate: 1
     - _TintBlendRateCoord: 0
@@ -271,6 +335,10 @@ Material:
     - _TintRimSharpness: 0.5
     - _TintRimSharpnessCoord: 0
     - _TransparentBlendMode: 1
+    - _TransparentCullMode: 2
+    - _TransparentSortPriority: 0
+    - _TransparentZWrite: 0
+    - _UseEmissiveIntensity: 0
     - _VertexAlphaMode: 0
     - _VertexDeformationBaseValue: 0
     - _VertexDeformationEnabled: 0
@@ -280,6 +348,9 @@ Material:
     - _VertexDeformationMapOffsetXCoord: 0
     - _VertexDeformationMapOffsetYCoord: 0
     - _ZTest: 4
+    - _ZTestDepthEqualForOpaque: 4
+    - _ZTestModeDistortion: 4
+    - _ZTestTransparent: 4
     - _ZWrite: 0
     - _ZWriteOverride: -1
     m_Colors:
@@ -291,10 +362,31 @@ Material:
     - _BaseMapToneHighlightsColor: {r: 1, g: 1, b: 1, a: 1}
     - _BaseMapToneMidtonesColor: {r: 0.5, g: 0.5, b: 0.5, a: 1}
     - _BaseMapToneShadowsColor: {r: 0, g: 0, b: 0, a: 1}
-    - _EmissionColor: {r: 0, g: 0, b: 0, a: 1}
+    - _Color: {r: 1, g: 1, b: 1, a: 1}
+    - _EmissionColor: {r: 1, g: 1, b: 1, a: 1}
     - _EmissionMapRotationOffsets: {r: 0, g: 0, b: 0, a: 0}
+    - _EmissiveColor: {r: 0, g: 0, b: 0, a: 1}
+    - _EmissiveColorLDR: {r: 0, g: 0, b: 0, a: 1}
     - _FlowMapRotationOffsets: {r: 0, g: 0, b: 0, a: 0}
+    - _HologramColor: {r: 0.5, g: 1.8, b: 2.4, a: 1}
     - _TintColor: {r: 1, g: 1, b: 1, a: 1}
     - _TintMapRotationOffsets: {r: 0, g: 0, b: 0, a: 0}
+    - _UnlitColor: {r: 1, g: 1, b: 1, a: 1}
   m_BuildTextureStacks: []
   m_AllowLocking: 1
+--- !u!114 &9137787454772502883
+MonoBehaviour:
+  m_ObjectHideFlags: 11
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: da692e001514ec24dbc4cca1949ff7e8, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Unity.RenderPipelines.HighDefinition.Editor::UnityEditor.Rendering.HighDefinition.AssetVersion
+  version: 13
+  hdPluginSubTargetMaterialVersions:
+    m_Keys: []
+    m_Values: 

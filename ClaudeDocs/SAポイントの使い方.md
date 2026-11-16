@@ -127,62 +127,74 @@ SAの案内表示です。どちらも**自分の画面だけ**に出ます(通�
 どちらも MVP で、Presenter / View は `UICanvas.prefab`(`GrappleArrow`・`SAPath`)に付いています。表示そのものは、Canvasの子ではなく、実行時にシーン直下へ作ります(Canvasの大きさに影響されないため)。
 
 ## 🏹 グラップルの矢印(Issue #505)
-狙っているグラップルのSAポイントの上に、プレイヤーから立つ位置(`StandPoint`)へ向かう矢印を出します。
+狙っているグラップルのSAポイントへ飛んでいく**道筋(プレイヤーから立つ位置(`StandPoint`)へ向かう直線)の上**に、山形(>)を等間隔に並べて、的の方へ流します。
 
 | 場所 | 内容 |
 |:--|:--|
-| `CS_PlayerGrappleArrowUI`(Player.prefab) | `CS_PlayerHide.currentCandidate` が `CS_GrappleSAPoint` の時だけ、的(`ropeEndPosition`)の `_heightOffset` 上に出す。矢印の向きは、プレイヤーの位置から立つ位置への向き(高さも含む)。狙いを外した時・飛び始めた時(`onFlyBegin`)・飛んでいる最中は消す |
-| `CS_UIGrappleArrowModel` / `Presenter` / `View`(`Script/UI/UI_GrappleArrow/`) | 位置・向き・表示の有無を持つModel / カメラの位置が確定した後(`CS_UIAfterCameraUpdate`)にViewへ渡すPresenter / 描画するView |
+| `CS_PlayerGrappleArrowUI`(Player.prefab) | `CS_PlayerHide.currentCandidate` が `CS_GrappleSAPoint` の時だけ、道筋の始点(プレイヤーの足元から `_startHeight` 上)と終点(立つ位置)をModelへ渡す。毎フレーム今のプレイヤーの位置から決めるので、動いても追従する。狙いを外した時・飛び始めた時(`onFlyBegin`)・飛んでいる最中は消す |
+| `CS_UIGrappleArrowModel` / `Presenter` / `View`(`Script/UI/UI_GrappleArrow/`) | 始点・終点・表示の有無を持つModel / 道筋をViewへ渡すPresenter / 山形を描くView |
 
-* 画面に貼る2Dではなく、**ワールド上に置く矢印**です。的を正面から見ても、向きが奥行きになって分からなくならないよう、矢印の面は進行方向の軸まわりで、カメラの方を向きます
-* 仮の見た目は、山形(>>>)が3つ、飛ぶ方向へ流れるものです。両端で薄くなり、出し入れは短いフェードです
-* 山形は頂点カラー(色 × 濃さ)で描くので、マテリアルは頂点カラーを使うもの(今は `MT_GrappleArrow` = Nova の `Glow_Additive` の複製)にしてください
+* 画面に貼る2Dではなく、**ワールド上に置く**山形です。仮の見た目は、水色の山形が的の方へ流れるものです
+* 並べ方: 始点から `_startOffset` 先から並べ始め、終点の `_endOffset` 手前で終える。数は「区間の長さ ÷ `_spacing`」で `_maxChevronCount` まで(最初にまとめて作って使い回す。近すぎて1つも置けない時は出さない)。終点まで進んだ山形は始点側から出直し、両端 `_edgeFadeLength` は薄くなってなめらかに消える
+* **向きはカメラに左右されない**: 山形の先は、プレイヤーから的へ飛ぶ方向を向き、面は飛ぶ方向の坂に沿って寝かせる(幅は水平、長さは飛ぶ方向。道路に描いた矢印のような置き方)。カメラの位置・向きは、向きの計算に使わない(両面描画)。飛ぶ方向がほぼ真上・真下の時は、世界の右を横方向に使う
+  * 以前は「面をカメラへ向ける」作りでした。後ろから見ると山形が読める反面、カメラによって山形の向きが変わるので、今の作りにしました
+* マテリアルは **HDRP/Unlit の透過**(`MT_GrappleArrow`)です。色と濃さ(アルファ)は、View が `MaterialPropertyBlock` の `_UnlitColor` で渡します(HDRP/Unlit は頂点カラーを使いません)
 
 | 調整する場所 | 項目 | 内容 | 初期値 |
 |:--|:--|:--|:--|
-| Player.prefab > `CS_PlayerGrappleArrowUI` | `_heightOffset` | 的から矢印までの高さ(m) | 1.5 |
+| Player.prefab > `CS_PlayerGrappleArrowUI` | `_startHeight` | 道筋の始点の高さ(プレイヤーの足元から。m。体の中心あたり) | 1 |
 | UICanvas > `GrappleArrow` > `CS_UIGrappleArrowView` | `_material` | 山形のマテリアル | `MT_GrappleArrow` |
 | 同上 | `_color` | 矢印の色(アルファが一番濃い時の濃さ) | (0.5, 1.6, 2, 1) |
-| 同上 | `_chevronCount` / `_chevronSize` / `_spacing` | 山形の数 / 大きさ(m。x: 進行方向の長さ, y: 幅)/ 間隔(m) | 3 / (0.7, 0.9) / 0.8 |
-| 同上 | `_flowSpeed` | 山形が飛ぶ方向へ流れる速さ(m/秒) | 1.5 |
-| 同上 | `_edgeFade` | 矢印の両端で薄くなる範囲(矢印の長さに対する割合) | 0.3 |
+| 同上 | `_chevronSize` | 山形1つの大きさ(m。x: 飛ぶ方向の長さ, y: 幅) | (3.2, 1.2) |
+| 同上 | `_spacing` / `_maxChevronCount` | 山形どうしの間隔(m)/ 山形の数の上限 | 3.5 / 12 |
+| 同上 | `_startOffset` / `_endOffset` | 始点から並べ始めるまで(m。体に重ならないように)/ 終点の手前で終える距離(m) | 2.5 / 1 |
+| 同上 | `_flowSpeed` | 山形が的の方へ流れる速さ(m/秒) | 6 |
+| 同上 | `_edgeFadeLength` | 始点側・終点側の端で薄くなる長さ(m) | 1.5 |
 | 同上 | `_fadeTime` | 出し入れのフェード(秒) | 0.15 |
 
 ## 🛤️ 動くSAポイントの軌道(Issue #507)
-`CS_PathFollower` で動くSAポイントの道筋を、**プレイヤーが近づいた時だけ**、点線で出します。動かないSAポイントには出しません。
+`CS_PathFollower` で動くSAポイントの道筋を、**そのSAポイントの強調UI(RT MOVE! の目印)が出ている間だけ**、ホログラム風に光る点線で出します。動かないSAポイントには出しません。別のSAポイントに強調UIが移った時・強調UIが消えた時は、点線も短いフェードで消えます。
 
 | 場所 | 内容 |
 |:--|:--|
-| `CS_PlayerSAPathUI`(Player.prefab) | シーンの `CS_PathFollower` を集めて、道筋(`GetCurvePoints`)を**登録する時に1回だけ**ワールドの点の並びにしてModelへ渡す。`_checkInterval` 秒ごとに、プレイヤーから道筋の一番近い点までの距離で出す・消すを切り替える |
+| `CS_PlayerSAPathUI`(Player.prefab) | シーンの `CS_PathFollower` を集めて、道筋(`GetCurvePoints`)を**登録する時に1回だけ**ワールドの点の並びにしてModelへ渡す。強調UIが出ているSAポイント(`CS_PlayerHide.currentCandidate`)が動くSAポイントの時に、その軌道だけを出す(動くSAポイント → 軌道の辞書で引く。毎フレーム探さない) |
 | `CS_UISAPathModel` / `Presenter` / `View`(`Script/UI/UI_SAPath/`) | 軌道ごとの点の並びと表示の有無を持つModel / Viewへ渡すPresenter / LineRendererで点線を描くView |
+| `SH_HologramLine`(`Shader/Shader/`)・`MT_SAPathDash` | **仮の**ホログラム風シェーダーとマテリアル。本番のシェーダーができたら差し替える |
 
-* 出す距離は `_showDistance`。出している軌道を消すのは、`_showDistance + _hideMargin` を超えて離れた時です(境目でちらつかないように)。ふわっと出入りするフェードはViewが行います
 * 動くSAポイントは、最初と `_rescanInterval` 秒ごとに集め直します(`FindObjectsByType`。毎フレームは探しません)。途中で増えた物は登録し、消えた物は外します
-* 道筋は、登録した時に1回だけ取ります。パスをこのオブジェクトごと動かした場合は反映されません(再生中に動かさない前提。パスの点を再生中に動かしても `CS_PathFollower` 自体が反映しないのと同じです)
+* 道筋は、登録した時に1回だけ取ります。パスをこのオブジェクトごと動かした場合は反映されません(再生中に動かさない前提)
 * ワールド上の線なので、地形に隠れる所は隠れます(隠れても見えるようにはしていません)
-* 点線は、`textureScale` で、柄が `_dashPeriod`(m)ごとに繰り返します
+* **シェーダー(`SH_HologramLine`)**: HDRPのUnlit・加算。明るい発光色(HDR)・線の進む方向へ流れる点線・走査線のちらつき・線の両ふちをやわらかく消す、の4つ。点線の柄・流れ・ちらつきは、シェーダーの中の時間で動かします(Viewからは渡しません)
+  * LineRendererは、Texture ModeをTile・Texture Scaleを(1, 1)にしてあり、UVのUが「線の始まりからの長さ(m)」になります。点線の長さ(`_DashPeriod`)は、線の長さに関係なくワールドのmで決まります
+* **本番のシェーダーへの差し替え**: マテリアル(`MT_SAPathDash`)のシェーダーを替え、`CS_UISAPathView` の `_colorProperty`(Viewが色を渡すプロパティ名。今は `_HologramColor`)を、そのシェーダーの色のプロパティ名に合わせてください。Viewが渡すのは、色(出し入れのフェードのアルファ込み)だけです
+* 点線の画像 `SAPathDash.png` は、今のシェーダーでは使っていません(ファイルは残してあります)
 
 | 調整する場所 | 項目 | 内容 | 初期値 |
 |:--|:--|:--|:--|
-| Player.prefab > `CS_PlayerSAPathUI` | `_showDistance` | 道筋の一番近い点がこの距離以内なら出す(m) | 50 |
-| 同上 | `_hideMargin` | 出している軌道を消す距離に足す余裕(m) | 5 |
-| 同上 | `_checkInterval` / `_rescanInterval` | 近いかを調べる間隔 / 動くSAポイントを集め直す間隔(秒) | 0.2 / 5 |
+| Player.prefab > `CS_PlayerSAPathUI` | `_rescanInterval` | 動くSAポイントを集め直す間隔(秒) | 5 |
 | 同上 | `_pointsPerSegment` | 道筋の1区間あたりの分割数(多いほどなめらか) | 12 |
-| UICanvas > `SAPath` > `CS_UISAPathView` | `_material` | 点線のマテリアル | `MT_SAPathDash` |
-| 同上 | `_color` | 線の色(アルファが一番濃い時の濃さ) | (1.6, 1.1, 0.3, 0.9) |
-| 同上 | `_width` / `_dashPeriod` | 線の太さ(m)/ 点線の柄が一回りする長さ(m) | 0.2 / 1 |
+| UICanvas > `SAPath` > `CS_UISAPathView` | `_material` / `_colorProperty` | 点線のマテリアル / 色を渡すプロパティ名 | `MT_SAPathDash` / `_HologramColor` |
+| 同上 | `_color` | 線の色(アルファが一番濃い時の濃さ。明るさはシェーダー側で掛ける) | (0.5, 1.8, 2.4, 1) |
+| 同上 | `_width` | 線の太さ(m) | 0.35 |
 | 同上 | `_fadeTime` | 出し入れのフェード(秒) | 0.4 |
+| `MT_SAPathDash` | `_HologramColor` / `_Brightness` | 発光色(HDR)/ 明るさ(色に掛ける) | (0.5, 1.8, 2.4, 1) / 2 |
+| 同上 | `_DashPeriod` / `_DashRatio` / `_FlowSpeed` | 点線の1周期の長さ(m)/ 光る割合 / 流れる速さ(m/秒。負で逆向き) | 1 / 0.55 / 2 |
+| 同上 | `_ScanlineFrequency` / `_ScanlineSpeed` / `_FlickerStrength` | 走査線の細かさ / 流れる速さ / ちらつきの強さ | 60 / 6 / 0.35 |
+| 同上 | `_EdgeSoftness` | 線の両ふちをやわらかく消す幅(線の幅に対する割合) | 0.35 |
 
 ## 🧪 確認したこと・未確認のこと
-* 確認したこと(`SATest` で Play。コンソールのエラー・例外なし)
-  * グラップルの的の方を向くと、矢印(山形3つ)が出る。グラップルを飛び始めると、矢印が約0.15秒のフェードで消え、山形も描画されなくなる
-  * 動くSAポイント(`MovingTrafficLight`)の軌道が登録され、近い間は点線が出る。出す距離を縮めると、軌道が消える
+* 確認したこと(`SATest` で Play し、Game画面を画像に保存して見た。コンソールのエラー・例外なし)
+  * 軌道: 動く信号機(`TrafficLight`)のSAできる範囲に入り、その信号機に強調UIが出た時に、その道筋が水色に光る点線として地面に映る。点線は流れ、はっきり読める。強調UIがグラップル・ハイドポイント・別の信号機に出ている時は、点線は出ない(登録した軌道の表示数0)
+  * 矢印: 近い的(`GrapplePoint_2`。10m前後)を狙うと、プレイヤーから的の方へ向かう道筋の上に、山形が出る。カメラを横へ約70°振った画像でも、山形は空間に固定された向き(坂に沿って寝かせた形)のまま映る。別のSAポイントを狙っている時・的が画面外の時は出ない。グラップルを飛び始めて0.25秒後には消えている
+* 見え方の注意(画像で確かめた事実)
+  * **プレイヤーの真後ろ(通常のプレイ視点)からだと、山形は坂に沿って寝かせているため、平たく見え、細い点線のように見える**(山形の形としては読めない)。横から見ると、山形の形が読める
 * 未確認のこと
-  * **見た目**(山形の形・大きさ・色・流れ方、点線の柄・太さ・色・明るさ、カメラに対する矢印の向き)。画面を見ての確認はできていません。Nova のマテリアル(`Glow_Additive` の複製)が、MeshRenderer(山形)と LineRenderer(点線)で思った通りに出るかも未確認です。出ない時は `MT_GrappleArrow` / `MT_SAPathDash` を差し替えてください
-  * 点線の柄の繰り返しの長さ(`_dashPeriod`)が思った通りか(LineRenderer の `Tile`)
-  * 軌道を出す距離(50m)を実際に離れた所から確かめたか(距離の判定は、出す距離を縮めた確認のみ)
+  * 遠い的(30m前後)の見え方、山形の列がプレイヤーの動きに追従する様子(コード上は毎フレーム今の位置から決める)
+  * シェーダーのBloomでの光り方(SATestのVolumeでは、色そのものが明るく見える)
+  * 動く信号機が動いている間に、点線が道筋全体を通して光る様子(静止画で確認)
+  * 軌道の「強調UIが出ている間」が、ハイドの飛行中などで途切れる時の見え方
   * マルチ(他の人の画面に出ないこと。自分の画面のプレイヤー(`isLocalPlayer`)だけが出す作りです)
-  * `MainScene` など、`UICanvas` に `GrappleArrow`・`SAPath` が入った本番シーンでの動き(`UICanvas.prefab` に追加済みです)
+  * `MainScene` など、`UICanvas` に `GrappleArrow`・`SAPath` が入った本番シーンでの動き(`MainScene` には、グラップルの的も動くSAポイントも無いので、何も出ません)
 
 # 🆕 新しい種類を足す時
 1. `CS_SAPoint` を継承したクラスを作る(`CS_TrafficLightSAPoint` が最小の例)。

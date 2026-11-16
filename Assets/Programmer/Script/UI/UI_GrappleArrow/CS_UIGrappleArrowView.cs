@@ -1,9 +1,11 @@
 /* ================================================
- * グラップルの矢印(飛んでいく方向を示す矢印)のView
+ * グラップルの矢印(飛んでいく道筋に並べる山形)のView
  * ================================================
  * 制作者：吉田京志郎
  * ------------------------------------------------
  * 2026-11-16 | 初回作成(Issue #505)
+ * 2026-11-16 | 的の上に出す矢印から、プレイヤーから的へ向かう道筋に山形を並べて流す形に変更
+ * 2026-11-16 | 山形の向きを、カメラに左右されない形(飛ぶ方向の坂に沿って寝かせる)に変更
  * ================================================ */
 
 using UnityEngine;
@@ -11,11 +13,15 @@ using UnityEngine.Rendering;
 
 /// <summary>
 /// グラップルの矢印のView。描画とアニメーションだけを持つ。
-/// ・画面に貼る2DのUIではなく、ワールド上に置く(的を正面から見ても、矢印の向きが奥行きになって分からなくならないように)
-///   矢印は、進行方向の軸まわりで、面がカメラの方を向く
-/// ・見た目の仮: 山形(>>>)が、飛ぶ方向へ流れる。両端で薄くなる
+/// ・画面に貼る2DのUIではなく、ワールド上に置く(道の遠近感が出るように)
+/// ・道筋(始点 → 終点)の上に、山形(>)を等間隔に並べ、的の方へ一定の速さで流す
+///   始点から_startOffset先から並べ始め、終点の_endOffset手前で終える(プレイヤーの体に重ならず、的に被らないように)
+///   山形の数は「区間の長さ ÷ _spacing」で決め、_maxChevronCountまで。近すぎて1つも置けない時は出さない
+///   終点まで進んだ山形は、始点から出直す。始点側・終点側の端(_edgeFadeLength)は、薄くなってなめらかに消える
+/// ・山形の先は飛ぶ方向を向き、面は飛ぶ方向の坂に沿って寝かせる(幅は水平、長さは飛ぶ方向。道路に描いた矢印のような置き方)
+///   カメラの位置・向きは、矢印の向きの計算に使わない(どこから見ても、矢印の向きは空間に固定されている。両面描画)
 /// ・出し入れは短いフェード(_fadeTime)
-/// ・山形は、シーン直下の「GrappleArrow」の子に実行時に作る(Canvasの子にしないので、Canvasの大きさに影響されない)
+/// ・山形は、最初にまとめて作って使い回す(毎フレーム作らない・壊さない)。シーン直下の「GrappleArrowChevrons」の子(Canvasの大きさに影響されない)
 /// 時間はTime.timeScaleの影響を受けない。
 /// </summary>
 public class CS_UIGrappleArrowView :
@@ -27,7 +33,6 @@ public class CS_UIGrappleArrowView :
         public Transform transform;
         public MeshRenderer renderer;
         public Mesh mesh;
-        public Color[] colors = new Color[4];
     }
 
     // =========================================================
@@ -35,27 +40,34 @@ public class CS_UIGrappleArrowView :
     // =========================================================
 
     [Header("見た目")]
-    [Tooltip("山形のマテリアル(頂点カラーを使うもの。今は Nova の MT_GrappleArrow)")]
+    [Tooltip("山形のマテリアル(HDRP/Unlit の透過。色と濃さはMaterialPropertyBlockの _UnlitColor で渡す。今は MT_GrappleArrow)")]
     [SerializeField] private Material _material;
 
     [Tooltip("矢印の色(アルファが一番濃い時の濃さ)")]
     [SerializeField][ColorUsage(true, true)] private Color _color = new Color(0.5f, 1.6f, 2f, 1f);
 
-    [Tooltip("山形の数")]
-    [SerializeField][Min(1)] private int _chevronCount = 3;
-
     [Tooltip("山形1つの大きさ(m。x: 進行方向の長さ, y: 幅)")]
-    [SerializeField] private Vector2 _chevronSize = new Vector2(0.7f, 0.9f);
+    [SerializeField] private Vector2 _chevronSize = new Vector2(3.2f, 1.2f);
 
+    [Header("並べ方")]
     [Tooltip("山形どうしの間隔(m)")]
-    [SerializeField][Min(0.01f)] private float _spacing = 0.8f;
+    [SerializeField][Min(0.1f)] private float _spacing = 3.5f;
+
+    [Tooltip("山形の数の上限(最初にこの数だけ作って使い回す)")]
+    [SerializeField][Range(1, 64)] private int _maxChevronCount = 12;
+
+    [Tooltip("始点(プレイヤーの体の中心あたり)から、並べ始めるまでの距離(m。体に重ならないように)")]
+    [SerializeField][Min(0f)] private float _startOffset = 2.5f;
+
+    [Tooltip("終点(的へ引っ張られる先)の、どれだけ手前で終えるか(m)")]
+    [SerializeField][Min(0f)] private float _endOffset = 1f;
 
     [Header("動き")]
-    [Tooltip("山形が飛ぶ方向へ流れる速さ(m/秒。0で止まる)")]
-    [SerializeField][Min(0f)] private float _flowSpeed = 1.5f;
+    [Tooltip("山形が的の方へ流れる速さ(m/秒。0で止まる)")]
+    [SerializeField][Min(0f)] private float _flowSpeed = 6f;
 
-    [Tooltip("矢印の両端で薄くなる範囲(矢印の長さに対する割合)")]
-    [SerializeField][Range(0f, 0.5f)] private float _edgeFade = 0.3f;
+    [Tooltip("始点側・終点側の端で、薄くなってなめらかに消える長さ(m)")]
+    [SerializeField][Min(0f)] private float _edgeFadeLength = 1.5f;
 
     [Tooltip("出し入れのフェードの時間(秒。0ですぐ出し入れ)")]
     [SerializeField][Min(0f)] private float _fadeTime = 0.15f;
@@ -64,11 +76,14 @@ public class CS_UIGrappleArrowView :
     // 内部フィールド
     // =========================================================
 
+    private static readonly int _colorId = Shader.PropertyToID("_UnlitColor");   // HDRP/Unlitの色
+
     private Transform _root;                                   // 山形を置く場所(シーン直下)
+    private MaterialPropertyBlock _propertyBlock;              // 山形の色と濃さを渡す(共有マテリアルを書き換えないため)
     private Chevron[] _chevrons = new Chevron[0];
     private bool _isTargetVisible;                             // 出すか(Presenterから)
     private float _fade;                                       // 今の濃さの割合(0〜1)
-    private float _phase;                                      // 流れの進み具合(0〜1で一周)
+    private float _flowDistance;                               // 山形が流れた距離(m。足し込んだ値)
 
     /// <summary>出ている最中か(消えるフェードの間も含む)</summary>
     public bool isShown => _fade > 0f;
@@ -80,7 +95,7 @@ public class CS_UIGrappleArrowView :
     private void Awake()
     {
         CreateChevrons();
-        SetRenderersEnabled(false);
+        SetRenderersEnabled(0);
     }
 
     private void OnDestroy()
@@ -97,7 +112,7 @@ public class CS_UIGrappleArrowView :
     {
         _isTargetVisible = false;
         _fade = 0f;
-        SetRenderersEnabled(false);
+        SetRenderersEnabled(0);
     }
 
     // =========================================================
@@ -111,40 +126,39 @@ public class CS_UIGrappleArrowView :
     }
 
     /// <summary>
-    /// 矢印の位置・向き・カメラの位置を渡す。フェードと流れもここで進める(Presenterが毎フレーム、出ている間に呼ぶ)
+    /// 道筋の始点・終点を渡す。フェードと流れもここで進める(Presenterが毎フレーム、出ている間に呼ぶ)
     /// </summary>
-    public void SetPose(Vector3 position, Vector3 direction, Vector3 cameraPosition)
+    public void SetLine(Vector3 start, Vector3 end)
     {
         UpdateFade();
-        if (_fade <= 0f)
+
+        // 山形を置ける区間(始点から_startOffset先 〜 終点の_endOffset手前)
+        Vector3 line = end - start;
+        float length = line.magnitude;
+        float usable = length - _startOffset - _endOffset;
+        int count = Mathf.Min(_chevrons.Length, Mathf.FloorToInt(usable / _spacing));
+        if (_fade <= 0f || count < 1 || length < 0.0001f)
         {
-            SetRenderersEnabled(false);
+            SetRenderersEnabled(0);
             return;
         }
 
-        float length = _spacing * _chevronCount;
-        _phase = Mathf.Repeat(_phase + _flowSpeed * Time.unscaledDeltaTime / Mathf.Max(length, 0.0001f), 1f);
-        SetRenderersEnabled(true);
+        Vector3 direction = line / length;
+        float region = count * _spacing;    // 山形が流れる区間の長さ(この中で、終点まで進んだら始点から出直す)
+        _flowDistance = Mathf.Repeat(_flowDistance + _flowSpeed * Time.unscaledDeltaTime, region);
+        SetRenderersEnabled(count);
 
-        // 面をカメラの方へ向ける: 進行方向の軸まわりで回して、カメラに向ける
-        Vector3 toCamera = cameraPosition - position;
-        Vector3 facing = toCamera - direction * Vector3.Dot(toCamera, direction);
-        if (facing.sqrMagnitude < 0.0001f) facing = Vector3.Cross(direction, Vector3.up);
-        if (facing.sqrMagnitude < 0.0001f) facing = Vector3.Cross(direction, Vector3.right);
-        facing.Normalize();
-
-        // Quadは-Z側が表なので、-facingを前にする。山形の右(+X)が進行方向になるようにする
-        Vector3 forward = -facing;
-        Quaternion rotation = Quaternion.LookRotation(forward, Vector3.Cross(forward, direction));
-
-        for (int i = 0; i < _chevrons.Length; i++)
+        Quaternion rotation = GetRotation(direction);
+        for (int i = 0; i < count; i++)
         {
-            Chevron chevron = _chevrons[i];
-            float t = Mathf.Repeat(_phase + i / (float)_chevronCount, 1f);
+            // 区間の中の位置(始点側から)。終点まで進んだら、始点側へ出直す
+            float along = Mathf.Repeat(i * _spacing + _flowDistance, region);
 
-            // 両端で薄くなる
-            float edge = _edgeFade <= 0f ? 1f : Mathf.Clamp01(Mathf.Min(t, 1f - t) / _edgeFade);
-            chevron.transform.SetPositionAndRotation(position + direction * ((t - 0.5f) * length), rotation);
+            // 始点側・終点側の端で薄くなる
+            float edge = _edgeFadeLength <= 0f ? 1f : Mathf.Clamp01(Mathf.Min(along, region - along) / _edgeFadeLength);
+
+            Chevron chevron = _chevrons[i];
+            chevron.transform.SetPositionAndRotation(start + direction * (_startOffset + along), rotation);
             ApplyColor(chevron, edge * _fade);
         }
     }
@@ -152,6 +166,20 @@ public class CS_UIGrappleArrowView :
     // =========================================================
     // 内部処理
     // =========================================================
+
+    // 山形の向き: 先は飛ぶ方向を向き、面は飛ぶ方向の坂に沿って寝かせる(道路に描いた矢印のような置き方)
+    // 面の法線は「飛ぶ方向」と「水平な横方向(飛ぶ方向 × 真上)」の両方に垂直な向き。つまり幅は水平、長さは飛ぶ方向
+    // カメラの位置・向きは使わない(どこから見ても、矢印の向きは空間に固定されている)
+    private static Quaternion GetRotation(Vector3 direction)
+    {
+        // 水平な横方向。飛ぶ方向がほぼ真上・真下で決まらない時は、世界の右(X)を使う
+        Vector3 side = Vector3.Cross(direction, Vector3.up);
+        if (side.sqrMagnitude < 0.0001f) side = Vector3.Cross(direction, Vector3.right);
+        side.Normalize();
+
+        // Quadの幅(+Y)を横方向、長さ(+X)を飛ぶ方向にする。+Zは、Cross(飛ぶ方向, 横方向)
+        return Quaternion.LookRotation(Vector3.Cross(direction, side), side);
+    }
 
     // 出す・消すに合わせて、濃さを一定の速さで変える
     private void UpdateFade()
@@ -162,14 +190,14 @@ public class CS_UIGrappleArrowView :
             : target;
     }
 
-    // 山形を作る(実行時に、シーン直下へ)
+    // 山形を作る(実行時に、シーン直下へ。上限の数だけまとめて作って使い回す)
     private void CreateChevrons()
     {
         _root = new GameObject("GrappleArrowChevrons").transform;
+        _propertyBlock = new MaterialPropertyBlock();
 
-        int count = Mathf.Max(1, _chevronCount);
-        _chevrons = new Chevron[count];
-        for (int i = 0; i < count; i++)
+        _chevrons = new Chevron[Mathf.Max(1, _maxChevronCount)];
+        for (int i = 0; i < _chevrons.Length; i++)
         {
             GameObject chevronObject = new GameObject($"Chevron{i}");
             chevronObject.transform.SetParent(_root, false);
@@ -202,26 +230,28 @@ public class CS_UIGrappleArrowView :
         };
         mesh.uv = new[] { new Vector2(0f, 0f), new Vector2(0f, 1f), new Vector2(1f, 1f), new Vector2(1f, 0f) };
         mesh.triangles = new[] { 0, 1, 2, 0, 2, 3 };
-        mesh.colors = new[] { Color.white, Color.white, Color.white, Color.white };
-        mesh.MarkDynamic();
         mesh.RecalculateBounds();
         return mesh;
     }
 
-    // 頂点カラー(色 × 濃さ)を変える
+    // 色(色 × 濃さ。アルファが濃さ)をMaterialPropertyBlockで渡す
     private void ApplyColor(Chevron chevron, float strength)
     {
         Color color = _color;
         color.a *= strength;
 
-        for (int i = 0; i < chevron.colors.Length; i++) chevron.colors[i] = color;
-        chevron.mesh.SetColors(chevron.colors);
+        chevron.renderer.GetPropertyBlock(_propertyBlock);
+        _propertyBlock.SetColor(_colorId, color);
+        chevron.renderer.SetPropertyBlock(_propertyBlock);
     }
 
-    private void SetRenderersEnabled(bool isEnabled)
+    // 先頭からcount個だけ描く(残りは描かない)
+    private void SetRenderersEnabled(int count)
     {
-        foreach (Chevron chevron in _chevrons)
+        for (int i = 0; i < _chevrons.Length; i++)
         {
+            Chevron chevron = _chevrons[i];
+            bool isEnabled = i < count;
             if (chevron.renderer != null && chevron.renderer.enabled != isEnabled) chevron.renderer.enabled = isEnabled;
         }
     }

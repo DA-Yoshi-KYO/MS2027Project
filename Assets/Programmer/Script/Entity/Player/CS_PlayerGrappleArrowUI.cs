@@ -1,8 +1,8 @@
 using UnityEngine;
 
 /*
- * 今狙っているグラップルのSAポイントの上に出す、飛んでいく方向の矢印(Issue #505)を、矢印UI(CS_UIGrappleArrowModel)へ渡すクラス
- * CS_PlayerHideに狙っているSAポイントを問い合わせ、UI側のModelに矢印の位置・向きを渡すだけ
+ * 今狙っているグラップルのSAポイントへ飛んでいく道筋の矢印(Issue #505)を、矢印UI(CS_UIGrappleArrowModel)へ渡すクラス
+ * CS_PlayerHideに狙っているSAポイントを問い合わせ、UI側のModelに道筋の始点・終点を渡すだけ
  * UI側(Model/Presenter/View)はこのクラス・CS_Playerの存在を一切知らない
  *
  * 制作者：　吉田京志郎
@@ -13,8 +13,9 @@ using UnityEngine;
  * メモ
  * ・出す条件: 狙っているSAポイント(CS_PlayerHide.currentCandidate)がグラップル(CS_GrappleSAPoint)で、飛んでいない時
  *   狙いを外した時・飛び始めた時(onFlyBegin)・飛んでいる最中は出さない(矢印UI側が短いフェードで消す)
- * ・位置: 的(CS_GrappleSAPoint.ropeEndPosition)の_heightOffset上
- * ・向き: プレイヤーの位置から、立つ位置(CS_SAPoint.standPosition)へ向かう向き(高さも含む)
+ * ・道筋: 始点はプレイヤーの足元から_startHeight上(体の中心あたり)、終点は立つ位置(CS_SAPoint.standPosition。引っ張られる先)
+ *   毎フレーム今のプレイヤーの位置から決めるので、プレイヤーが動いても道筋が追従する
+ *   山形を並べる区間(始点から少し先〜終点の少し手前)や数・流れる速さは、UICanvas側(GrappleArrow)のViewで決める
  * ・矢印は自分の画面に1つだけのため、自分(isLocalPlayer)のプレイヤーだけがModelを作ってBindする
  *   isLocalPlayerはスポーン後に決まるため、毎フレーム確かめて、自分のプレイヤーになった時にBindする
  * ・CS_PlayerHideのロジックはこのクラスを知らない(外してもグラップルは動く)
@@ -26,8 +27,8 @@ using UnityEngine;
 [RequireComponent(typeof(CS_Player))]
 public class CS_PlayerGrappleArrowUI : MonoBehaviour
 {
-    [Header("矢印の位置")]
-    [SerializeField] private float _heightOffset = 1.5f;     // 的から矢印までの高さ(m)
+    [Header("道筋の始点")]
+    [SerializeField][Min(0f)] private float _startHeight = 1f;     // 道筋の始点の高さ(プレイヤーの足元から。m。体の中心あたり)
 
     private CS_Player _player;
     private CS_PlayerHide _hide;
@@ -67,14 +68,7 @@ public class CS_PlayerGrappleArrowUI : MonoBehaviour
             return;
         }
 
-        Vector3 direction = grapple.standPosition - transform.position;
-        if (direction.sqrMagnitude < 0.0001f)
-        {
-            _arrowModel.Hide();
-            return;
-        }
-
-        _arrowModel.Show(grapple.ropeEndPosition + Vector3.up * _heightOffset, direction);
+        _arrowModel.Show(transform.position + Vector3.up * _startHeight, grapple.standPosition);
     }
 
     // 飛び始めたら、すぐ消す

@@ -19,8 +19,9 @@ using UnityEngine;
 /// </summary>
 public static partial class CSED_FieldMultiLayoutGenerator
 {
-    // 区画分けの図(Game/Sceneを真上から見た画像)の、ピクセルとワールドの対応
-    // 図の中心(広場)がワールドの原点で、右が +X、上が +Z。エリアの開始地点の印(Area0〜2)から合わせた
+    // 区画分けの図(真上から見た画像)の、ピクセルとワールドの対応
+    // 図の中心(広場)がワールドの原点。今の街のモデル(env_City 1)では、図の上がワールドの -Z、図の右がワールドの -X
+    // (街の細かい格子が図の左上、大きな斜めの建物が図の左下に来る向き。NavMeshを描いた画像と、図を見比べて合わせた)
     private const float _sectorPixelCenterU = 410.5f;
     private const float _sectorPixelCenterV = 399.2f;
     private const float _sectorPixelPerMeter = 1.0685f;
@@ -311,6 +312,7 @@ public static partial class CSED_FieldMultiLayoutGenerator
     /// <param name="boundaryGap">区画の境界の角度までの差(度)</param>
     private static int ClassifySector(Vector3 world, out bool byPolygon, out int byAngle, out float angle, out float boundaryGap)
     {
+        world = ToSectorFrame(world);
         angle = Mathf.Repeat(Mathf.Atan2(world.z, world.x) * Mathf.Rad2Deg, 360.0f);
         byAngle = angle >= 90.0f && angle < _sectorAngleGreenYellow ? 1 : (angle >= _sectorAngleGreenYellow && angle < _sectorAngleYellowRed ? 3 : 2);
         boundaryGap = Mathf.Min(Mathf.Abs(Mathf.DeltaAngle(angle, 90.0f)), Mathf.Abs(Mathf.DeltaAngle(angle, _sectorAngleGreenYellow)), Mathf.Abs(Mathf.DeltaAngle(angle, _sectorAngleYellowRed)));
@@ -323,6 +325,48 @@ public static partial class CSED_FieldMultiLayoutGenerator
 
         byPolygon = false;
         return byAngle;
+    }
+
+    /// <summary>
+    /// ワールドの位置を、図の向き(図の上 = +Z、図の右 = +X)の座標に直すメソッド(今のモデルでは、図の向きがワールドと180度ずれている)
+    /// </summary>
+    private static Vector3 ToSectorFrame(Vector3 world)
+    {
+        return new Vector3(-world.x, world.y, -world.z);
+    }
+
+    /// <summary>
+    /// 区画分けの図の、3つの区画の線(ピクセルの多角形。0 = 区画1・緑 / 1 = 区画2・赤 / 2 = 区画3・黄)を返すメソッド(配置ツールが、境界線を描くのに使う)
+    /// </summary>
+    public static Vector2[][] GetSectorPolygons()
+    {
+        return new[] { _sectorGreen, _sectorRed, _sectorYellow };
+    }
+
+    /// <summary>
+    /// 区画分けの図の、ピクセルの位置を、ワールドの位置(高さは y)に直すメソッド(WorldToSectorPixel の逆)
+    /// </summary>
+    public static Vector3 SectorPixelToWorld(Vector2 pixel, float y)
+    {
+        Vector3 frame = new Vector3((pixel.x - _sectorPixelCenterU) / _sectorPixelPerMeter, y, (_sectorPixelCenterV - pixel.y) / _sectorPixelPerMeter);
+        return ToSectorFrame(frame);
+    }
+
+    /// <summary>
+    /// ワールドの位置を、区画分けの図の、ピクセルの位置に直すメソッド
+    /// </summary>
+    public static Vector2 WorldToSectorPixel(Vector3 world)
+    {
+        Vector3 frame = ToSectorFrame(world);
+        return new Vector2(_sectorPixelCenterU + frame.x * _sectorPixelPerMeter, _sectorPixelCenterV - frame.z * _sectorPixelPerMeter);
+    }
+
+    /// <summary>
+    /// ワールドの位置が、区画分けの図の、どの区画(1=緑 / 2=赤 / 3=黄)かを返すメソッド(配置ツールが、悪人を置く先の犯罪完遂エリアを決めるのに使う)
+    /// </summary>
+    public static int GetVillainSector(Vector3 world)
+    {
+        return ClassifySector(world, out _, out _, out _, out _);
     }
 
     private static bool IsInsidePolygon(Vector2 point, Vector2[] polygon)

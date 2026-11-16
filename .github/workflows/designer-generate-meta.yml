@@ -87,6 +87,8 @@ jobs:
           buildMethod: DesignerMetaGenerator.Run
           versioning: None
           allowDirtyBuild: true
+          # Programmer 側のコンパイルエラーで batchmode が中断されると meta が生成されないため、エラーを無視して取り込みまで進める
+          customParameters: -ignorecompilererrors
 
       - name: Commit generated .meta files
         if: steps.check.outputs.needed == 'true'

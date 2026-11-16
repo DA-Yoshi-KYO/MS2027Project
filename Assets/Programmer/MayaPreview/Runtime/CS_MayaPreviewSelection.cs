@@ -187,11 +187,9 @@ public class CS_MayaPreviewSelection : MonoBehaviour
         Rect viewport = camera.pixelRect;
         if (position.x >= viewport.xMax - 54 && position.y >= viewport.yMax - 54) return;
         Renderer hit = Raycast(camera, camera.ScreenPointToRay(position), out _);
-        if (hit == null)
-        {
-            if (!additive) Select(null);
-            return;
-        }
+        // Clicking empty space keeps the selection (the Inspector / Material panel stay as they are).
+        // Esc clears it (CS_MayaPreviewInspector).
+        if (hit == null) return;
 
         GameObject root = SelectionRoot(hit.gameObject);
         GameObject target = root;

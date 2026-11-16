@@ -49,6 +49,8 @@ public partial class CS_MayaPreviewInspector
         {
             _rightDown = false;
             if ((position - _rightDownPosition).magnitude > ContextClickPixels) return;
+            // Only on an object (empty space keeps the selection, so no menu there).
+            if (_selection.Raycast(_view, _view.ScreenPointToRay(position), out _) == null) { _contextOpen = false; return; }
             _selection.Pick(_view, position, false);
             if (_selection.Count == 0) { _contextOpen = false; return; }
             _contextOpen = true;

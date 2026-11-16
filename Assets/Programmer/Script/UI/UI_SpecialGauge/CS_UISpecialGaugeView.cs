@@ -13,15 +13,34 @@ using UnityEngine.UI;
 /// <summary>
 /// 必殺技ゲージのUI表示。
 ///
-/// ・円形ゲージの中央にプレイヤーアイコンを表示する
-/// ・中央アイコンの色はゲージ量によって変更しない
+/// ・キャラクターごとに中央アイコンとゲージ色を切り替える
 /// ・ゲージが満タンになるとキーガイドを表示する
-/// ・表示中のキーガイドは拡大・縮小を繰り返す
+/// ・キーガイドは拡大、縮小を繰り返す
 /// ・満タンではなくなるとキーガイドを非表示にする
 /// </summary>
 public class CS_UISpecialGaugeView :
     CS_BaseView<CS_UISpecialGaugePresenter>
 {
+    // =========================================================
+    // キャラクターごとの表示設定
+    // =========================================================
+
+    [System.Serializable]
+    private sealed class CharacterGaugeSet
+    {
+        [SerializeField]
+        private CSE_CharacterType _characterType;
+
+        [SerializeField]
+        private Sprite _iconSprite;
+
+        public CSE_CharacterType characterType =>
+            _characterType;
+
+        public Sprite iconSprite =>
+            _iconSprite;
+    }
+
     // =========================================================
     // Inspector
     // =========================================================
@@ -34,9 +53,9 @@ public class CS_UISpecialGaugeView :
     [SerializeField]
     private Image _iconImage;
 
-    [Header("アイコンデータ（ScriptableObject）")]
+    [Header("キャラクターごとの表示設定")]
     [SerializeField]
-    private CSO_PlayerIconData _playerIconData;
+    private CharacterGaugeSet[] _characterGaugeSets;
 
     [Header("キーガイド")]
 
@@ -66,7 +85,8 @@ public class CS_UISpecialGaugeView :
     // 内部フィールド
     // =========================================================
 
-    private Coroutine _keyGuideAnimationCoroutine;
+    private Coroutine
+        _keyGuideAnimationCoroutine;
 
     private bool _isGaugeFull;
 
@@ -94,56 +114,133 @@ public class CS_UISpecialGaugeView :
             _keyGuideInitialScale =
                 _keyGuideRoot.localScale;
 
-            // 初期状態は必ず非表示。
-            _keyGuideRoot.gameObject.SetActive(false);
+            _keyGuideRoot.gameObject.SetActive(
+                false
+            );
         }
 
         _isGaugeFull = false;
+
+        if (_gauge != null)
+        {
+            _gauge.fillAmount = 0f;
+        }
     }
 
+    // =========================================================
+    // キャラクター切り替え
+    // =========================================================
+
     /// <summary>
-    /// プレイヤー番号に対応したアイコンを設定する。
+    /// キャラクターに対応するアイコンとゲージ色を設定する。
     /// </summary>
-    public void SetupIcon(int playerNumber)
+    public void SetCharacter(
+        CSE_CharacterType characterType)
     {
-        if (_iconImage == null ||
-            _playerIconData == null)
+        CharacterGaugeSet gaugeSet =
+            FindCharacterGaugeSet(
+                characterType
+            );
+
+        if (gaugeSet == null)
         {
+            Debug.LogWarning(
+                $"{nameof(CS_UISpecialGaugeView)}: " +
+                $"必殺技ゲージの設定がありません: " +
+                $"{characterType}",
+                this
+            );
+
+            ClearCharacterVisual();
+
             return;
         }
 
-        Sprite icon =
-            _playerIconData.GetIcon(playerNumber);
-
-        if (icon != null)
+        if (_iconImage != null)
         {
-            _iconImage.sprite = icon;
+            _iconImage.sprite =
+                gaugeSet.iconSprite;
+
+            _iconImage.enabled =
+                gaugeSet.iconSprite != null;
+
+            // 満タン時にも色を変えない。
+            _iconImage.color =
+                Color.white;
+        }
+    }
+
+    /// <summary>
+    /// キャラクターに対応する設定を探す。
+    /// </summary>
+    private CharacterGaugeSet FindCharacterGaugeSet(
+        CSE_CharacterType characterType)
+    {
+        if (_characterGaugeSets == null)
+        {
+            return null;
         }
 
-        // ゲージ量による色変更は行わない。
-        _iconImage.color = Color.white;
+        for (int i = 0;
+             i < _characterGaugeSets.Length;
+             i++)
+        {
+            CharacterGaugeSet gaugeSet =
+                _characterGaugeSets[i];
+
+            if (gaugeSet == null)
+            {
+                continue;
+            }
+
+            if (gaugeSet.characterType ==
+                characterType)
+            {
+                return gaugeSet;
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// キャラクター設定が見つからなかった場合に
+    /// 前のキャラクターの表示が残らないようにする。
+    /// </summary>
+    private void ClearCharacterVisual()
+    {
+        if (_iconImage != null)
+        {
+            _iconImage.sprite = null;
+            _iconImage.enabled = false;
+            _iconImage.color = Color.white;
+        }
+
+        if (_gauge != null)
+        {
+            _gauge.color = Color.white;
+        }
     }
 
     // =========================================================
     // ゲージ描画
     // =========================================================
 
-    /// <summary>
-    /// ゲージ表示を更新する。
-    /// ゲージが満タンならキーガイドを表示する。
-    /// </summary>
     public void UpdateGauge(
         float current,
         float max)
     {
         float fillAmount =
             max > 0f
-                ? Mathf.Clamp01(current / max)
+                ? Mathf.Clamp01(
+                    current / max
+                )
                 : 0f;
 
         if (_gauge != null)
         {
-            _gauge.fillAmount = fillAmount;
+            _gauge.fillAmount =
+                fillAmount;
         }
 
         bool isFull =
@@ -153,16 +250,25 @@ public class CS_UISpecialGaugeView :
         SetGaugeFull(isFull);
     }
 
+    /// <summary>
+    /// Modelとの接続が外れたときにゲージをリセットする。
+    /// </summary>
+    public void ResetGauge()
+    {
+        if (_gauge != null)
+        {
+            _gauge.fillAmount = 0f;
+        }
+
+        SetGaugeFull(false);
+    }
+
     // =========================================================
     // 満タン状態
     // =========================================================
 
-    /// <summary>
-    /// ゲージ満タン状態に応じてキーガイドを切り替える。
-    /// </summary>
     private void SetGaugeFull(bool isFull)
     {
-        // 状態が変化していなければ何もしない。
         if (_isGaugeFull == isFull)
         {
             return;
@@ -184,9 +290,6 @@ public class CS_UISpecialGaugeView :
     // キーガイド表示
     // =========================================================
 
-    /// <summary>
-    /// キーガイドを表示し、拡縮アニメーションを開始する。
-    /// </summary>
     private void ShowKeyGuide()
     {
         if (_keyGuideRoot == null)
@@ -196,10 +299,14 @@ public class CS_UISpecialGaugeView :
 
         StopKeyGuideAnimation();
 
-        _keyGuideRoot.gameObject.SetActive(true);
+        _keyGuideRoot.gameObject.SetActive(
+            true
+        );
 
         _keyGuideRoot.localScale =
-            GetKeyGuideScale(_keyGuideMinScale);
+            GetKeyGuideScale(
+                _keyGuideMinScale
+            );
 
         _keyGuideAnimationCoroutine =
             StartCoroutine(
@@ -207,9 +314,6 @@ public class CS_UISpecialGaugeView :
             );
     }
 
-    /// <summary>
-    /// キーガイドを非表示にし、拡縮を停止する。
-    /// </summary>
     private void HideKeyGuide()
     {
         StopKeyGuideAnimation();
@@ -222,25 +326,24 @@ public class CS_UISpecialGaugeView :
         _keyGuideRoot.localScale =
             _keyGuideInitialScale;
 
-        _keyGuideRoot.gameObject.SetActive(false);
+        _keyGuideRoot.gameObject.SetActive(
+            false
+        );
     }
 
     // =========================================================
     // キーガイドアニメーション
     // =========================================================
 
-    /// <summary>
-    /// キーガイドを最小倍率と最大倍率の間で
-    /// 繰り返し拡大・縮小する。
-    /// </summary>
     private IEnumerator PlayKeyGuideAnimation()
     {
         while (_isGaugeFull)
         {
-            // 小さい状態から大きい状態へ変化。
             yield return ScaleKeyGuide(
-                fromScale: _keyGuideMinScale,
-                toScale: _keyGuideMaxScale
+                fromScale:
+                    _keyGuideMinScale,
+                toScale:
+                    _keyGuideMaxScale
             );
 
             if (!_isGaugeFull)
@@ -248,19 +351,17 @@ public class CS_UISpecialGaugeView :
                 break;
             }
 
-            // 大きい状態から小さい状態へ変化。
             yield return ScaleKeyGuide(
-                fromScale: _keyGuideMaxScale,
-                toScale: _keyGuideMinScale
+                fromScale:
+                    _keyGuideMaxScale,
+                toScale:
+                    _keyGuideMinScale
             );
         }
 
         _keyGuideAnimationCoroutine = null;
     }
 
-    /// <summary>
-    /// 指定倍率の間を補間する。
-    /// </summary>
     private IEnumerator ScaleKeyGuide(
         float fromScale,
         float toScale)
@@ -273,12 +374,17 @@ public class CS_UISpecialGaugeView :
         float elapsed = 0f;
 
         Vector3 from =
-            GetKeyGuideScale(fromScale);
+            GetKeyGuideScale(
+                fromScale
+            );
 
         Vector3 to =
-            GetKeyGuideScale(toScale);
+            GetKeyGuideScale(
+                toScale
+            );
 
-        while (elapsed < _keyGuideScaleDuration)
+        while (elapsed <
+               _keyGuideScaleDuration)
         {
             if (_keyGuideRoot == null ||
                 !_isGaugeFull)
@@ -286,7 +392,8 @@ public class CS_UISpecialGaugeView :
                 yield break;
             }
 
-            elapsed += Time.unscaledDeltaTime;
+            elapsed +=
+                Time.unscaledDeltaTime;
 
             float rate =
                 Mathf.Clamp01(
@@ -294,7 +401,6 @@ public class CS_UISpecialGaugeView :
                     _keyGuideScaleDuration
                 );
 
-            // 最初と最後を少し滑らかにする。
             float easedRate =
                 rate *
                 rate *
@@ -317,9 +423,6 @@ public class CS_UISpecialGaugeView :
         }
     }
 
-    /// <summary>
-    /// 初期スケールを基準にした倍率を取得する。
-    /// </summary>
     private Vector3 GetKeyGuideScale(
         float scaleMultiplier)
     {
@@ -334,12 +437,10 @@ public class CS_UISpecialGaugeView :
         );
     }
 
-    /// <summary>
-    /// 再生中のキーガイドアニメーションを停止する。
-    /// </summary>
     private void StopKeyGuideAnimation()
     {
-        if (_keyGuideAnimationCoroutine == null)
+        if (_keyGuideAnimationCoroutine ==
+            null)
         {
             return;
         }
@@ -364,14 +465,14 @@ public class CS_UISpecialGaugeView :
             _keyGuideRoot.localScale =
                 _keyGuideInitialScale;
 
-            _keyGuideRoot.gameObject.SetActive(false);
+            _keyGuideRoot.gameObject.SetActive(
+                false
+            );
         }
     }
 
     private void OnEnable()
     {
-        // 無効化前に満タンだった場合は、
-        // 再び有効になったときに表示を再開する。
         if (_isGaugeFull)
         {
             ShowKeyGuide();

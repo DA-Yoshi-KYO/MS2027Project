@@ -84,10 +84,11 @@ jobs:
           UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
         with:
           targetPlatform: StandaloneLinux64
-          buildMethod: DesignerMetaGenerator.Run
+          buildMethod: UnityEditor.AssetDatabase.SaveAssets
           versioning: None
           allowDirtyBuild: true
           # Programmer 側のコンパイルエラーで batchmode が中断されると meta が生成されないため、エラーを無視して取り込みまで進める
+          # DesignerMetaGenerator は Assets/Editor にありコンパイルエラーで見つからなくなるため、コンパイル不要の標準メソッドを呼ぶ(meta は起動時のインポートで生成される)
           customParameters: -ignorecompilererrors
 
       - name: Commit generated .meta files

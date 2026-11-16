@@ -65,6 +65,11 @@ GameObject:
   - component: {fileID: 1000004464205835075}
   - component: {fileID: 192866817224853479}
   - component: {fileID: 3150130518343412178}
+  - component: {fileID: 7667916572074837338}
+  - component: {fileID: 1927538632315227214}
+  - component: {fileID: 1153621398760505636}
+  - component: {fileID: 3618917485198117787}
+  - component: {fileID: 387243062822567825}
   m_Layer: 31
   m_Name: Player
   m_TagString: PlayerNoTransformation
@@ -182,6 +187,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::CS_Player
   ShowTopMostFoldoutHeaderGroup: 1
   _rotationSpeed: 720
+  _airControlAccel: 25
   _groundLayers:
     serializedVersion: 2
     m_Bits: 4294967295
@@ -770,6 +776,7 @@ MonoBehaviour:
     serializedVersion: 2
     m_Bits: 4294967295
   _fadeSpeed: 6
+  _extraFadeSpeed: 20
 --- !u!114 &5203948171630284711
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -864,7 +871,7 @@ MonoBehaviour:
     serializedVersion: 2
     m_Bits: 4294967295
   _clearRadius: 0.4
-  _dashSpeed: 30
+  _dashSpeed: 60
   _maxDashTime: 1
   _strikeDistance: 1.2
   _verticalTolerance: 0.3
@@ -876,6 +883,9 @@ MonoBehaviour:
     serializedVersion: 2
     m_Bits: 2147483648
   _pressGraceTime: 0.3
+  _chainSkipTime: 1
+  _windupTime: 0.5
+  _chainWindupRate: 0.5
   _splashRadius: 1.5
   _splashIncludesRaidBoss: 0
 --- !u!114 &4718293045561290871
@@ -912,6 +922,7 @@ MonoBehaviour:
   _flySpeed: 25
   _arriveDistance: 0.3
   _maxFlyTime: 1
+  _releaseGhostTime: 0.1
   _revealDistance: 2
 --- !u!114 &5684253229926721997
 MonoBehaviour:
@@ -1105,6 +1116,104 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::CS_PlayerCharacter
   ShowTopMostFoldoutHeaderGroup: 1
   _roster: {fileID: 11400000, guid: 4aca111469ac0e14091b3239ffd4a62d, type: 2}
+--- !u!114 &7667916572074837338
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1825699444668748530}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7cb6fb0829c02774fb88e87165704014, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CS_PlayerAmbushEffect
+  _windupScreenEffect: {fileID: 11400000, guid: f3c5f318dc47ba94191d6d9f4c17c9b1, type: 2}
+  _lungeScreenEffect: {fileID: 11400000, guid: cb0190860b8041f41ab2a95fcf2b32a3, type: 2}
+  _hitScreenEffect: {fileID: 11400000, guid: fa722642046d80f46a8894a14103b76f, type: 2}
+  _windupAnimatorSpeed: 0.2
+  _lungeShakeForce: 0.08
+  _lungeShakeInterval: 0.04
+  _finishHitShakeForce: 1.6
+  _hitShakeForce: 0.8
+  _hitStopTime: 0.06
+  _hitStopAnimatorSpeed: 0
+  _burstOffset: {x: 0, y: 1, z: 0}
+--- !u!114 &1927538632315227214
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1825699444668748530}
+  m_Enabled: 0
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4857a635cc99fc74bb33316821753ccd, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CS_PlayerAmbushFinishCamera
+  _includeUngrouped: 1
+  _minBehindDistance: 4
+  _maxBehindDistance: 12
+  _arrivalDistance: 1.2
+  _cameraHeight: 1.4
+  _lookHeight: 0.9
+  _fieldOfView: 40
+  _bodyMargin: 2.2
+  _fallbackBodyHeight: 1.8
+  _groundLayers:
+    serializedVersion: 2
+    m_Bits: 4294967295
+  _groundClearance: 0.5
+  _occlusionRadius: 1
+  _holdTime: 0.25
+  _returnTime: 0.25
+  _activePriority: 100
+  _idlePriority: -100
+--- !u!114 &1153621398760505636
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1825699444668748530}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e3e3dcb0b969d03479d3a24f68f52969, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CS_PlayerGrappleArrowUI
+  _startHeight: 1
+--- !u!114 &3618917485198117787
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1825699444668748530}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6984fa4fd43d4964d98492257e92b265, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CS_PlayerSAPathUI
+  _rescanInterval: 5
+  _pointsPerSegment: 12
+--- !u!114 &387243062822567825
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1825699444668748530}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e5da7a48e4a80014cb57d66424e10eaf, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CS_PlayerIntroCamera
+  _duration: 3.5
+  _skipSpeed: 4
+  _turns: 1.25
+  _startPitch: -20
+  _startDistance: 2.2
+  _startPivotHeight: 0.9
 --- !u!1 &3298430547158640491
 GameObject:
   m_ObjectHideFlags: 0

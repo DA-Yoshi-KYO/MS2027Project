@@ -5,6 +5,7 @@
  * ------------------------------------------------
  * 2026-09-28 | 初回作成
  * 2026-10-16 | マップの回転の基準を、プレイヤー本体とは別に渡せるようにした(カメラの向きで回すため。秋野)
+ * 2026-11-15 | Modelの変更通知のたびに描き直さず、LateUpdateで1フレームに最大1回だけ描き直すようにした(負荷の軽減)
  * ================================================ */
 
 using System;
@@ -74,6 +75,9 @@ public class CS_MiniMapController : MonoBehaviour
 
     private float _updateTimer;
 
+    // Modelが変更されたか(LateUpdateで1フレームに1回だけ描き直すためのフラグ)
+    private bool _isDirty;
+
     // =========================================================
     // 初期化
     // =========================================================
@@ -118,6 +122,9 @@ public class CS_MiniMapController : MonoBehaviour
         _model.OnDataChanged += OnModelDataChanged;
 
         SyncPositions();
+
+        // 初回の描画を確実に行う
+        _isDirty = true;
     }
 
     // =========================================================
@@ -196,8 +203,19 @@ public class CS_MiniMapController : MonoBehaviour
         }
     }
 
+    // Modelが変更されたらフラグを立てるだけにする(描画はLateUpdateで1回にまとめる)
     private void OnModelDataChanged()
     {
+        _isDirty = true;
+    }
+
+    // 1フレームの中で変更が何度あっても、描き直しは1回だけにする
+    private void LateUpdate()
+    {
+        if (!_isDirty)
+            return;
+
+        _isDirty = false;
         _presenter?.OnModelUpdated(_model);
     }
 

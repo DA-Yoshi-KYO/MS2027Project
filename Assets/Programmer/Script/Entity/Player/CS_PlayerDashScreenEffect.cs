@@ -16,9 +16,9 @@ using UnityEngine.Rendering;
  *   ブリンク中(CS_Player.isDashing) または スプリント中(isSprinting)で実際に動いている時
  *   (止まってダッシュボタンを押しているだけの時はかけない)
  *   SAでハイドポイントへ飛んでいる時(CS_PlayerHide.isHiding。着いたら止める)
- *   奇襲の飛び込み〜当たる瞬間(CS_PlayerAmbush.isLunging)
- *   CS_PlayerHide・CS_PlayerAmbushは付いていなければ見ない
- * ・SA・奇襲は短いので、SetHeldではなく毎フレームPlayして、すぐ最大の強さで出す
+ *   CS_PlayerHideは付いていなければ見ない
+ *   ※ 奇襲の飛び込み中の効果は、専用の演出(CS_PlayerAmbushEffect。VO_AmbushLungeScreenEffect)に移した
+ * ・SAは短いので、SetHeldではなく毎フレームPlayして、すぐ最大の強さで出す
  *   (SetHeldだとFade In Timeの途中で終わり、弱い強さから一瞬で消えたように見えるため)
  *   消える速さはCSV_ScreenEffectTimingのPlay Duration / Play Weight Curveで調整する
  * ・同じProfileを別のクラスからSetHeldすると、後に呼んだ方で上書きされてしまうので、条件はこのクラスにまとめる
@@ -46,7 +46,6 @@ public class CS_PlayerDashScreenEffect : MonoBehaviour
     private Rigidbody _rigidbody;
     private CS_PlayerScreenEffect _screenEffect;
     private CS_PlayerHide _hide;       // ハイド(付いていなければ見ない)
-    private CS_PlayerAmbush _ambush;   // 奇襲(付いていなければ見ない)
 
     private void Awake()
     {
@@ -54,7 +53,6 @@ public class CS_PlayerDashScreenEffect : MonoBehaviour
         _rigidbody = GetComponent<Rigidbody>();
         _screenEffect = GetComponent<CS_PlayerScreenEffect>();
         _hide = GetComponent<CS_PlayerHide>();
-        _ambush = GetComponent<CS_PlayerAmbush>();
     }
 
     private void LateUpdate()
@@ -62,9 +60,9 @@ public class CS_PlayerDashScreenEffect : MonoBehaviour
         bool isFast = _player.isDashing || (_player.isSprinting && IsMoving());
         _screenEffect.SetHeld(_dashEffect, isFast);
 
-        // SA・奇襲は短い(0.3〜0.6秒)ので、Fade In Timeを待たずに最大の強さで出す
+        // SAは短い(0.3〜0.6秒)ので、Fade In Timeを待たずに最大の強さで出す
         // 毎フレームPlayし直して強さ1を保ち、終わったらPlay Duration秒かけてPlay Weight Curveで消える
-        if (IsHideFlying() || IsAmbushLunging()) _screenEffect.Play(_dashEffect);
+        if (IsHideFlying()) _screenEffect.Play(_dashEffect);
     }
 
     private void OnDisable()
@@ -85,11 +83,5 @@ public class CS_PlayerDashScreenEffect : MonoBehaviour
     private bool IsHideFlying()
     {
         return _hide != null && _hide.isHiding;
-    }
-
-    // 奇襲で飛び込んでいるか(当たる瞬間まで)
-    private bool IsAmbushLunging()
-    {
-        return _ambush != null && _ambush.isLunging;
     }
 }

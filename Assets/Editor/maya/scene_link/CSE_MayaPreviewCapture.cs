@@ -1,61 +1,61 @@
-using UnityEditor;
+ï»¿using UnityEditor;
 using UnityEngine;
 using UnityEngine.Rendering;
 using System.IO;
 
 /*
 +=====================================
- ƒtƒ@ƒCƒ‹–¼ : CSE_MayaPreviewCapture
- ŠT—v       : Unity HDRP Preview‰f‘œ‚Ìæ“¾E©“®XV
- ìÒ       : ƒˆƒVƒ‚ƒg ƒŠƒ‡ƒE
- —š—ğ       : 2026/09/13 V‹Kì¬
+ ãƒ•ã‚¡ã‚¤ãƒ«å : CSE_MayaPreviewCapture
+ æ¦‚è¦       : Unity HDRP Previewæ˜ åƒã®å–å¾—ãƒ»è‡ªå‹•æ›´æ–°
+ ä½œè€…       : ãƒ¨ã‚·ãƒ¢ãƒˆ ãƒªãƒ§ã‚¦
+ å±¥æ­´       : 2026/09/13 æ–°è¦ä½œæˆ
 =====================================+
 */
 
 public static class CSE_MayaPreviewCapture
 {
     // =========================================================
-    // ’è”
+    // å®šæ•°
     // =========================================================
 
-    // PreviewXVŠÔŠu
+    // Previewæ›´æ–°é–“éš”
     private const double CAPTURE_INTERVAL = 0.2;
 
-    // RenderTexture–¼
+    // RenderTextureå
     private const string RENDER_TEXTURE_NAME =
         "RT_MayaPreview";
 
-    // Preview Camera–¼
+    // Preview Cameraå
     private const string CAMERA_NAME =
         "Main Camera";
 
-    // o—ÍPNG–¼
+    // å‡ºåŠ›PNGå
     private const string OUTPUT_FILE_NAME =
         "MayaPreview_Test.png";
 
 
     // =========================================================
-    // •Ï”
+    // å¤‰æ•°
     // =========================================================
 
-    // Preview—pRenderTexture
+    // Previewç”¨RenderTexture
     private static RenderTexture s_renderTexture;
 
-    // Preview—pCamera
+    // Previewç”¨Camera
     private static Camera s_previewCamera;
 
-    // CPU“Ç‚İæ‚è—pTexture
+    // CPUèª­ã¿å–ã‚Šç”¨Texture
     private static Texture2D s_readbackTexture;
 
-    // Ÿ‰ñCaptureŠÔ
+    // æ¬¡å›Captureæ™‚é–“
     private static double s_nextCaptureTime;
 
-    // ©“®Capture’†‚©
+    // è‡ªå‹•Captureä¸­ã‹
     private static bool s_isRunning;
 
 
     // =========================================================
-    // è“®Capture
+    // æ‰‹å‹•Capture
     // =========================================================
 
     [MenuItem("Tools/Maya Preview/Capture Test")]
@@ -69,13 +69,13 @@ public static class CSE_MayaPreviewCapture
         Capture();
 
         Debug.Log(
-            "Maya Preview : è“®ƒLƒƒƒvƒ`ƒƒŠ®—¹"
+            "Maya Preview : æ‰‹å‹•ã‚­ãƒ£ãƒ—ãƒãƒ£å®Œäº†"
         );
     }
 
 
     // =========================================================
-    // ©“®CaptureŠJn
+    // è‡ªå‹•Captureé–‹å§‹
     // =========================================================
 
     [MenuItem("Tools/Maya Preview/Start Auto Capture")]
@@ -84,7 +84,7 @@ public static class CSE_MayaPreviewCapture
         if (s_isRunning)
         {
             Debug.LogWarning(
-                "Maya Preview : Auto Capture ‚Í‚·‚Å‚ÉÀs’†‚Å‚·B"
+                "Maya Preview : Auto Capture ã¯ã™ã§ã«å®Ÿè¡Œä¸­ã§ã™ã€‚"
             );
 
             return;
@@ -97,20 +97,20 @@ public static class CSE_MayaPreviewCapture
 
         s_isRunning = true;
 
-        // ‘¦Às
+        // å³æ™‚å®Ÿè¡Œ
         s_nextCaptureTime = 0.0;
 
         EditorApplication.update -= AutoCaptureUpdate;
         EditorApplication.update += AutoCaptureUpdate;
 
         Debug.Log(
-            "Maya Preview : Auto Capture ŠJn"
+            "Maya Preview : Auto Capture é–‹å§‹"
         );
     }
 
 
     // =========================================================
-    // ©“®Capture’â~
+    // è‡ªå‹•Captureåœæ­¢
     // =========================================================
 
     [MenuItem("Tools/Maya Preview/Stop Auto Capture")]
@@ -123,7 +123,7 @@ public static class CSE_MayaPreviewCapture
         ReleaseReadbackTexture();
 
         Debug.Log(
-            "Maya Preview : Auto Capture ’â~"
+            "Maya Preview : Auto Capture åœæ­¢"
         );
     }
 
@@ -155,13 +155,13 @@ public static class CSE_MayaPreviewCapture
 
 
     // =========================================================
-    // ‰Šúİ’è
+    // åˆæœŸè¨­å®š
     // =========================================================
 
     private static bool Setup()
     {
         // -----------------------------------------
-        // RenderTextureæ“¾
+        // RenderTextureå–å¾—
         // -----------------------------------------
 
         if (s_renderTexture == null)
@@ -176,7 +176,7 @@ public static class CSE_MayaPreviewCapture
             {
                 Debug.LogError(
                     RENDER_TEXTURE_NAME +
-                    " ‚ªŒ©‚Â‚©‚è‚Ü‚¹‚ñB"
+                    " ãŒè¦‹ã¤ã‹ã‚Šã¾ã›ã‚“ã€‚"
                 );
 
                 return false;
@@ -196,7 +196,7 @@ public static class CSE_MayaPreviewCapture
         if (s_renderTexture == null)
         {
             Debug.LogError(
-                "RenderTexture ‚Ìæ“¾‚É¸”s‚µ‚Ü‚µ‚½B"
+                "RenderTexture ã®å–å¾—ã«å¤±æ•—ã—ã¾ã—ãŸã€‚"
             );
 
             return false;
@@ -209,7 +209,7 @@ public static class CSE_MayaPreviewCapture
 
 
         // -----------------------------------------
-        // Cameraæ“¾
+        // Cameraå–å¾—
         // -----------------------------------------
 
         if (s_previewCamera == null)
@@ -223,7 +223,7 @@ public static class CSE_MayaPreviewCapture
             {
                 Debug.LogError(
                     CAMERA_NAME +
-                    " ‚ªŒ©‚Â‚©‚è‚Ü‚¹‚ñB"
+                    " ãŒè¦‹ã¤ã‹ã‚Šã¾ã›ã‚“ã€‚"
                 );
 
                 return false;
@@ -236,7 +236,7 @@ public static class CSE_MayaPreviewCapture
         if (s_previewCamera == null)
         {
             Debug.LogError(
-                "Preview Camera ‚Ìæ“¾‚É¸”s‚µ‚Ü‚µ‚½B"
+                "Preview Camera ã®å–å¾—ã«å¤±æ•—ã—ã¾ã—ãŸã€‚"
             );
 
             return false;
@@ -244,13 +244,13 @@ public static class CSE_MayaPreviewCapture
 
 
         // -----------------------------------------
-        // Texture2D€”õ
+        // Texture2Dæº–å‚™
         // -----------------------------------------
 
         SetupReadbackTexture();
 
         Debug.Log(
-            "Maya Preview : Setup¬Œ÷ (" +
+            "Maya Preview : SetupæˆåŠŸ (" +
             s_renderTexture.width +
             " x " +
             s_renderTexture.height +
@@ -262,7 +262,7 @@ public static class CSE_MayaPreviewCapture
 
 
     // =========================================================
-    // Texture2D€”õ
+    // Texture2Dæº–å‚™
     // =========================================================
 
     private static void SetupReadbackTexture()
@@ -317,10 +317,10 @@ public static class CSE_MayaPreviewCapture
         }
 
         // =====================================================
-        // d—v
+        // é‡è¦
         //
-        // Unity Editor‚ª”ñƒtƒH[ƒJƒX‚Å‚à
-        // HDRP‚Ö–¾¦“I‚ÉRender—v‹‚ğo‚·
+        // Unity EditorãŒéãƒ•ã‚©ãƒ¼ã‚«ã‚¹ã§ã‚‚
+        // HDRPã¸æ˜ç¤ºçš„ã«Renderè¦æ±‚ã‚’å‡ºã™
         // =====================================================
 
         if (!RenderHDRP())
@@ -334,7 +334,7 @@ public static class CSE_MayaPreviewCapture
         try
         {
             // -----------------------------------------
-            // RenderTexture‚ğCPU‘¤‚Ö“Ç‚İ‚İ
+            // RenderTextureã‚’CPUå´ã¸èª­ã¿è¾¼ã¿
             // -----------------------------------------
 
             RenderTexture.active =
@@ -358,14 +358,14 @@ public static class CSE_MayaPreviewCapture
             );
 
             // -----------------------------------------
-            // PNG•ÏŠ·
+            // PNGå¤‰æ›
             // -----------------------------------------
 
             byte[] pngData =
                 s_readbackTexture.EncodeToPNG();
 
             // -----------------------------------------
-            // •Û‘¶
+            // ä¿å­˜
             // -----------------------------------------
 
             string outputPath =
@@ -379,7 +379,7 @@ public static class CSE_MayaPreviewCapture
         catch (System.Exception exception)
         {
             Debug.LogError(
-                "Maya Preview : Capture¸”s\n" +
+                "Maya Preview : Captureå¤±æ•—\n" +
                 exception
             );
         }
@@ -392,22 +392,22 @@ public static class CSE_MayaPreviewCapture
 
 
     // =========================================================
-    // HDRP‹­§Render
+    // HDRPå¼·åˆ¶Render
     // =========================================================
 
     private static bool RenderHDRP()
     {
         try
         {
-            // HDRP‚Ö‘—‚é•W€Render Request
+            // HDRPã¸é€ã‚‹æ¨™æº–Render Request
             RenderPipeline.StandardRequest request =
                 new RenderPipeline.StandardRequest();
 
-            // RenderŒ‹‰Ê‚Ìo—Íæ
+            // Renderçµæœã®å‡ºåŠ›å…ˆ
             request.destination =
                 s_renderTexture;
 
-            // Œ»İ‚ÌRenderPipeline‚ª‘Î‰‚µ‚Ä‚¢‚é‚©Šm”F
+            // ç¾åœ¨ã®RenderPipelineãŒå¯¾å¿œã—ã¦ã„ã‚‹ã‹ç¢ºèª
             if (
                 !RenderPipeline.SupportsRenderRequest(
                     s_previewCamera,
@@ -416,14 +416,14 @@ public static class CSE_MayaPreviewCapture
             )
             {
                 Debug.LogError(
-                    "Œ»İ‚ÌRenderPipeline‚Í " +
-                    "StandardRequest ‚É‘Î‰‚µ‚Ä‚¢‚Ü‚¹‚ñB"
+                    "ç¾åœ¨ã®RenderPipelineã¯ " +
+                    "StandardRequest ã«å¯¾å¿œã—ã¦ã„ã¾ã›ã‚“ã€‚"
                 );
 
                 return false;
             }
 
-            // HDRP‚Ö–¾¦“I‚É•`‰æ—v‹
+            // HDRPã¸æ˜ç¤ºçš„ã«æç”»è¦æ±‚
             RenderPipeline.SubmitRenderRequest(
                 s_previewCamera,
                 request
@@ -434,7 +434,7 @@ public static class CSE_MayaPreviewCapture
         catch (System.Exception exception)
         {
             Debug.LogError(
-                "Maya Preview : HDRP Render¸”s\n" +
+                "Maya Preview : HDRP Renderå¤±æ•—\n" +
                 exception
             );
 
@@ -444,7 +444,7 @@ public static class CSE_MayaPreviewCapture
 
 
     // =========================================================
-    // PNGo—Íæ
+    // PNGå‡ºåŠ›å…ˆ
     // =========================================================
 
     private static string GetOutputPath()
@@ -475,7 +475,7 @@ public static class CSE_MayaPreviewCapture
 
 
     // =========================================================
-    // Texture‰ğ•ú
+    // Textureè§£æ”¾
     // =========================================================
 
     private static void ReleaseReadbackTexture()

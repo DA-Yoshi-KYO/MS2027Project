@@ -14,9 +14,10 @@ using UnityEngine;
 
 /// <summary>
 /// HPの状態を保持
-/// ・Bind(playerNumber) で公開する
+/// ・Bind(playerNumber, characterType) で公開する
 /// ・SetLocalPlayerNumber() でローカルプレイヤーの番号を登録する
 /// ・Presenter はローカルプレイヤーの番号と一致したら表示する
+/// ・キャラの種類も保持し、View がキャラごとのハート画像を選べるようにする
 /// </summary>
 public class CS_UIPlayerHpModel : CS_BaseModel
 {
@@ -68,9 +69,13 @@ public class CS_UIPlayerHpModel : CS_BaseModel
     private readonly ReactiveProperty<int> _currentHp;
     private readonly ReactiveProperty<int> _maxHp;
     private int _playerNumber = -1;
+    private CSE_CharacterType _characterType;
 
     public ReadOnlyReactiveProperty<int> currentHp => _currentHp;
     public ReadOnlyReactiveProperty<int> maxHp => _maxHp;
+
+    /// <summary>Bind された時に渡されたキャラの種類</summary>
+    public CSE_CharacterType characterType => _characterType;
 
     public CS_UIPlayerHpModel(int maxHp) : this(maxHp, maxHp) { }
 
@@ -84,10 +89,15 @@ public class CS_UIPlayerHpModel : CS_BaseModel
     // 公開
     // =========================================================
 
-    public void Bind(int playerNumber)
+    /// <summary>
+    /// プレイヤー番号とキャラの種類を登録して公開する
+    /// キャラの種類は OnBound を通知する前にセットする（Presenter が購読時に参照するため）
+    /// </summary>
+    public void Bind(int playerNumber, CSE_CharacterType characterType)
     {
         Unbind();
         _playerNumber = playerNumber;
+        _characterType = characterType;
         _boundModels[playerNumber] = this;
         OnBound?.Invoke(playerNumber, this);
     }

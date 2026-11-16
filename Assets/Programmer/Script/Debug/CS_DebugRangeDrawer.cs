@@ -6,6 +6,7 @@
  * 2026-09-24 | 初回作成
  * 2026-10-31 | 表示する要素を細かく分け、切り替えウィンドウ(CSED_DebugRangeWindow)に対応
  * 2026-10-31 | 攻撃判定を攻撃中だけ表示するように変更
+ * 2026-11-15 | 対象の一覧を毎フレームFindせず、0.5秒ごとに取り直して使い回すように変更(負荷の軽減)
  * ================================================ */
 
 using System.Collections.Generic;
@@ -29,6 +30,8 @@ using UnityEngine.Rendering;
  *   悪人  : 攻撃判定、臨戦態勢範囲、反撃の索敵範囲、スポーン位置からの追跡限界
  *   プレイヤー : 各段の攻撃判定、必殺技の判定
  *   攻撃判定(球)は、攻撃中だけ球(3方向の円)で表示する。攻撃していない時は表示しない
+ * ・対象(警察・悪人・プレイヤー・巡回ドローン)の一覧は、0.5秒ごとにだけ探し直して使い回す
+ *   (新しく出てきたものは最大0.5秒遅れて表示される。表示がOFFの間は探さない)
  * ・判定は権威を持つマシン(サーバー/ホスト)で行われるため、
  *   クライアントでは他人の攻撃中表示や警察(ホストにしかいない)が出ないことがある
  */
@@ -41,6 +44,9 @@ public class CS_DebugRangeDrawer : MonoBehaviour
     // 地面の範囲を足元から少し浮かせる高さ(地面に埋もれないように)
     private const float _groundOffset = 0.05f;
 
+    // 対象の一覧を探し直す間隔(秒)
+    private const float _refreshInterval = 0.5f;
+
     // HDRP/Unlitの色のプロパティ
     private static readonly int _unlitColorId = Shader.PropertyToID("_UnlitColor");
 
@@ -52,6 +58,18 @@ public class CS_DebugRangeDrawer : MonoBehaviour
 
     // 線の色を変えるためのプロパティブロック
     private MaterialPropertyBlock _propertyBlock = null;
+
+    // 描画対象のキャッシュ(0.5秒ごとに探し直す)
+    private readonly List<CS_PoliceBrain> _policeCache = new List<CS_PoliceBrain>();
+    private readonly List<CS_VillainCombat> _villainCache = new List<CS_VillainCombat>();
+    private readonly List<CS_PlayerAttack> _playerCache = new List<CS_PlayerAttack>();
+    private readonly List<CS_SecurityDrone> _droneCache = new List<CS_SecurityDrone>();
+
+    // 次に探し直す時刻(unscaledTime)
+    private float _nextPoliceRefresh = 0.0f;
+    private float _nextVillainRefresh = 0.0f;
+    private float _nextPlayerRefresh = 0.0f;
+    private float _nextDroneRefresh = 0.0f;
 
     // 円や扇形の頂点を作る際に使い回すバッファ
     private readonly List<Vector3> _points = new List<Vector3>();
@@ -200,14 +218,41 @@ public class CS_DebugRangeDrawer : MonoBehaviour
     }
 
     /// <summary>
+    /// 描画対象の一覧を、一定間隔ごとにだけ探し直すメソッド(毎フレームFindしないため)
+    /// </summary>
+    /// <param name="cache">探した結果を入れる一覧</param>
+    /// <param name="nextRefreshTime">次に探し直す時刻</param>
+    private static void RefreshCache<T>(List<T> cache, ref float nextRefreshTime) where T : Object
+    {
+        if (Time.unscaledTime < nextRefreshTime) return;
+
+        nextRefreshTime = Time.unscaledTime + _refreshInterval;
+        cache.Clear();
+        cache.AddRange(FindObjectsByType<T>(FindObjectsSortMode.None));
+    }
+
+    /// <summary>
+    /// 一覧の要素がまだ描画できる状態か(破棄されていない・有効なオブジェクト上にある)を判定するメソッド
+    /// </summary>
+    /// <param name="target">対象</param>
+    /// <returns>描画できるならtrue</returns>
+    private static bool IsAlive(Component target)
+    {
+        return target != null && target.gameObject.activeInHierarchy;
+    }
+
+    /// <summary>
     /// 警察の視界と攻撃範囲を描画するメソッド
     /// </summary>
     private void DrawPolice()
     {
         if (!_showPolicePatrolView && !_showPoliceAlertView && !_showPoliceNotice && !_showPoliceAttack) return;
 
-        foreach (CS_PoliceBrain brain in FindObjectsByType<CS_PoliceBrain>(FindObjectsSortMode.None))
+        RefreshCache(_policeCache, ref _nextPoliceRefresh);
+        foreach (CS_PoliceBrain brain in _policeCache)
         {
+            if (!IsAlive(brain)) continue;
+
             Vector3 foot = GetFootPosition(brain);
 
             if (brain.TryGetComponent(out CS_PoliceVision vision) && vision.viewDistance > 0.0f)
@@ -237,8 +282,10 @@ public class CS_DebugRangeDrawer : MonoBehaviour
     {
         if (!_showSecurityAirView && !_showSecurityGroundView) return;
 
-        foreach (CS_SecurityDrone drone in FindObjectsByType<CS_SecurityDrone>(FindObjectsSortMode.None))
+        RefreshCache(_droneCache, ref _nextDroneRefresh);
+        foreach (CS_SecurityDrone drone in _droneCache)
         {
+            if (!IsAlive(drone)) continue;
             if (!drone.TryGetComponent(out CS_PoliceVision vision) || vision.viewDistance <= 0.0f) continue;
 
             Color color = GetSecurityViewColor(drone.state);
@@ -301,9 +348,10 @@ public class CS_DebugRangeDrawer : MonoBehaviour
     {
         if (!_showVillainEngage && !_showVillainCounter && !_showVillainLeash && !_showVillainHit) return;
 
-        foreach (CS_VillainCombat combat in FindObjectsByType<CS_VillainCombat>(FindObjectsSortMode.None))
+        RefreshCache(_villainCache, ref _nextVillainRefresh);
+        foreach (CS_VillainCombat combat in _villainCache)
         {
-            if (!combat.enabled) continue;
+            if (!IsAlive(combat) || !combat.enabled) continue;
 
             Vector3 foot = GetFootPosition(combat);
             float footOffset = foot.y - combat.transform.position.y;
@@ -322,8 +370,11 @@ public class CS_DebugRangeDrawer : MonoBehaviour
     {
         if (!_showPlayerAttack && !_showPlayerSpecial) return;
 
-        foreach (CS_PlayerAttack attack in FindObjectsByType<CS_PlayerAttack>(FindObjectsSortMode.None))
+        RefreshCache(_playerCache, ref _nextPlayerRefresh);
+        foreach (CS_PlayerAttack attack in _playerCache)
         {
+            if (!IsAlive(attack)) continue;
+
             // 通常攻撃は、今出している段の判定だけ描く(攻撃していなければcurrentStepは-1)
             int step = attack.currentStep;
             if (_showPlayerAttack && attack.attackSteps != null && step >= 0 && step < attack.attackSteps.Count)

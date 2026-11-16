@@ -1,51 +1,51 @@
-using System;
+ï»¿using System;
 using System.IO;
 using UnityEditor;
 using UnityEngine;
 
 /*
 +=====================================
- ƒtƒ@ƒCƒ‹–¼ : CSE_MayaPreviewImporter
- ŠT—v       : Maya‚©‚ç‘—‚ç‚ê‚½ƒ‚ƒfƒ‹‚Ì©“®“Ç‚İ‚İ
- ìÒ       : ƒˆƒVƒ‚ƒg ƒŠƒ‡ƒE
- —š—ğ       : 2026/09/13 V‹Kì¬
+ ãƒ•ã‚¡ã‚¤ãƒ«å : CSE_MayaPreviewImporter
+ æ¦‚è¦       : Mayaã‹ã‚‰é€ã‚‰ã‚ŒãŸãƒ¢ãƒ‡ãƒ«ã®è‡ªå‹•èª­ã¿è¾¼ã¿
+ ä½œè€…       : ãƒ¨ã‚·ãƒ¢ãƒˆ ãƒªãƒ§ã‚¦
+ å±¥æ­´       : 2026/09/13 æ–°è¦ä½œæˆ
 =====================================+
 */
 
 public static class CSE_MayaPreviewImporter
 {
     // =========================================================
-    // ’è”
+    // å®šæ•°
     // =========================================================
 
-    // Maya‚©‚ç‘‚«o‚³‚ê‚éFBX
+    // Mayaã‹ã‚‰æ›¸ãå‡ºã•ã‚Œã‚‹FBX
     private const string FBX_PATH =
         "Assets/Designer/MayaPreview/Incoming/MayaPreview_Test.fbx";
 
-    // Mayaƒ‚ƒfƒ‹‚ğ”z’u‚·‚ée
+    // Mayaãƒ¢ãƒ‡ãƒ«ã‚’é…ç½®ã™ã‚‹è¦ª
     private const string MAYA_MODEL_ROOT_NAME =
         "Maya_Model_Root";
 
-    // FBXXVŠm”FŠÔŠu
+    // FBXæ›´æ–°ç¢ºèªé–“éš”
     private const double CHECK_INTERVAL =
         0.2;
 
 
     // =========================================================
-    // •Ï”
+    // å¤‰æ•°
     // =========================================================
 
-    // ÅŒã‚ÉŠm”F‚µ‚½FBXXV“ú
+    // æœ€å¾Œã«ç¢ºèªã—ãŸFBXæ›´æ–°æ—¥æ™‚
     private static DateTime s_lastWriteTime;
 
-    // Ÿ‰ñŠm”FŠÔ
+    // æ¬¡å›ç¢ºèªæ™‚é–“
     private static double s_nextCheckTime;
 
-    // ‰Šú‰»Ï‚İ‚©
+    // åˆæœŸåŒ–æ¸ˆã¿ã‹
     private static bool s_initialized;
 
     // =========================================================
-    // ‰Šú‰»
+    // åˆæœŸåŒ–
     // =========================================================
 
     private static void InitializeWatcher()
@@ -53,7 +53,7 @@ public static class CSE_MayaPreviewImporter
         string fullPath =
             GetFullFBXPath();
 
-        // FBX‚ª‘¶İ‚·‚éê‡
+        // FBXãŒå­˜åœ¨ã™ã‚‹å ´åˆ
         if (File.Exists(fullPath))
         {
             s_lastWriteTime =
@@ -70,7 +70,7 @@ public static class CSE_MayaPreviewImporter
         s_initialized = true;
 
         Debug.Log(
-            "Maya Preview : FBXŠÄ‹ŠJn"
+            "Maya Preview : FBXç›£è¦–é–‹å§‹"
         );
     }
 
@@ -81,33 +81,33 @@ public static class CSE_MayaPreviewImporter
 
     private static void Update()
     {
-        // ‰Šú‰»‚³‚ê‚Ä‚¢‚È‚¢
+        // åˆæœŸåŒ–ã•ã‚Œã¦ã„ãªã„
         if (!s_initialized)
         {
             InitializeWatcher();
         }
 
-        // Œ»İ
+        // ç¾åœ¨æ™‚åˆ»
         double currentTime =
             EditorApplication.timeSinceStartup;
 
-        // ‚Ü‚¾Šm”FŠÔ‚Å‚Í‚È‚¢
+        // ã¾ã ç¢ºèªæ™‚é–“ã§ã¯ãªã„
         if (currentTime < s_nextCheckTime)
         {
             return;
         }
 
-        // Ÿ‰ñŠm”FŠÔ
+        // æ¬¡å›ç¢ºèªæ™‚é–“
         s_nextCheckTime =
             currentTime + CHECK_INTERVAL;
 
-        // FBXXVŠm”F
+        // FBXæ›´æ–°ç¢ºèª
         CheckFBXUpdate();
     }
 
 
     // =========================================================
-    // FBXXVŠm”F
+    // FBXæ›´æ–°ç¢ºèª
     // =========================================================
 
     private static void CheckFBXUpdate()
@@ -115,33 +115,33 @@ public static class CSE_MayaPreviewImporter
         string fullPath =
             GetFullFBXPath();
 
-        // ƒtƒ@ƒCƒ‹‚ª‘¶İ‚µ‚È‚¢
+        // ãƒ•ã‚¡ã‚¤ãƒ«ãŒå­˜åœ¨ã—ãªã„
         if (!File.Exists(fullPath))
         {
             return;
         }
 
-        // Œ»İ‚ÌXV“ú
+        // ç¾åœ¨ã®æ›´æ–°æ—¥æ™‚
         DateTime currentWriteTime =
             File.GetLastWriteTimeUtc(
                 fullPath
             );
 
-        // •ÏX‚È‚µ
+        // å¤‰æ›´ãªã—
         if (currentWriteTime == s_lastWriteTime)
         {
             return;
         }
 
-        // XV“ú‚ğ•Û‘¶
+        // æ›´æ–°æ—¥æ™‚ã‚’ä¿å­˜
         s_lastWriteTime =
             currentWriteTime;
 
         Debug.Log(
-            "Maya Preview : FBXXVŒŸo"
+            "Maya Preview : FBXæ›´æ–°æ¤œå‡º"
         );
 
-        // Unity‚Ö‹­§Import
+        // Unityã¸å¼·åˆ¶Import
         ImportFBX();
     }
 
@@ -154,20 +154,20 @@ public static class CSE_MayaPreviewImporter
     {
         try
         {
-            // Unity‚Ö‹­§Import
+            // Unityã¸å¼·åˆ¶Import
             AssetDatabase.ImportAsset(
                 FBX_PATH,
                 ImportAssetOptions.ForceUpdate
             );
 
             Debug.Log(
-                "Maya Preview : FBX©“®Import¬Œ÷"
+                "Maya Preview : FBXè‡ªå‹•ImportæˆåŠŸ"
             );
         }
         catch (Exception exception)
         {
             Debug.LogError(
-                "Maya Preview : FBX©“®Import¸”s\n" +
+                "Maya Preview : FBXè‡ªå‹•Importå¤±æ•—\n" +
                 exception
             );
         }
@@ -175,12 +175,12 @@ public static class CSE_MayaPreviewImporter
 
 
     // =========================================================
-    // FBXâ‘ÎƒpƒXæ“¾
+    // FBXçµ¶å¯¾ãƒ‘ã‚¹å–å¾—
     // =========================================================
 
     private static string GetFullFBXPath()
     {
-        // UnityƒvƒƒWƒFƒNƒgRoot
+        // Unityãƒ—ãƒ­ã‚¸ã‚§ã‚¯ãƒˆRoot
         string projectRoot =
             Directory
                 .GetParent(
@@ -188,8 +188,8 @@ public static class CSE_MayaPreviewImporter
                 )
                 .FullName;
 
-        // Assets‚©‚çn‚Ü‚éUnityƒpƒX‚ğ
-        // OSã‚Ìâ‘ÎƒpƒX‚Ö•ÏŠ·
+        // Assetsã‹ã‚‰å§‹ã¾ã‚‹Unityãƒ‘ã‚¹ã‚’
+        // OSä¸Šã®çµ¶å¯¾ãƒ‘ã‚¹ã¸å¤‰æ›
         string relativePath =
             FBX_PATH.Replace(
                 "/",
@@ -204,13 +204,13 @@ public static class CSE_MayaPreviewImporter
 
 
     // =========================================================
-    // è“®ƒ‚ƒfƒ‹”z’u
+    // æ‰‹å‹•ãƒ¢ãƒ‡ãƒ«é…ç½®
     // =========================================================
 
     [MenuItem("Tools/Maya Preview/Import Test Model")]
     private static void ImportTestModel()
     {
-        // Maya_Model_Rootæ“¾
+        // Maya_Model_Rootå–å¾—
         GameObject mayaModelRoot =
             GameObject.Find(
                 MAYA_MODEL_ROOT_NAME
@@ -220,13 +220,13 @@ public static class CSE_MayaPreviewImporter
         {
             Debug.LogError(
                 MAYA_MODEL_ROOT_NAME +
-                " ‚ªŒ©‚Â‚©‚è‚Ü‚¹‚ñB"
+                " ãŒè¦‹ã¤ã‹ã‚Šã¾ã›ã‚“ã€‚"
             );
 
             return;
         }
 
-        // FBXæ“¾
+        // FBXå–å¾—
         GameObject modelAsset =
             AssetDatabase.LoadAssetAtPath<GameObject>(
                 FBX_PATH
@@ -235,14 +235,14 @@ public static class CSE_MayaPreviewImporter
         if (modelAsset == null)
         {
             Debug.LogError(
-                "Maya Preview FBX ‚ªŒ©‚Â‚©‚è‚Ü‚¹‚ñB\n" +
+                "Maya Preview FBX ãŒè¦‹ã¤ã‹ã‚Šã¾ã›ã‚“ã€‚\n" +
                 FBX_PATH
             );
 
             return;
         }
 
-        // ƒV[ƒ“‚Ö¶¬
+        // ã‚·ãƒ¼ãƒ³ã¸ç”Ÿæˆ
         GameObject instance =
             PrefabUtility.InstantiatePrefab(
                 modelAsset,
@@ -252,13 +252,13 @@ public static class CSE_MayaPreviewImporter
         if (instance == null)
         {
             Debug.LogError(
-                "Maya Previewƒ‚ƒfƒ‹‚Ì¶¬‚É¸”s‚µ‚Ü‚µ‚½B"
+                "Maya Previewãƒ¢ãƒ‡ãƒ«ã®ç”Ÿæˆã«å¤±æ•—ã—ã¾ã—ãŸã€‚"
             );
 
             return;
         }
 
-        // Transform‰Šú‰»
+        // TransformåˆæœŸåŒ–
         instance.transform.localPosition =
             Vector3.zero;
 
@@ -269,7 +269,7 @@ public static class CSE_MayaPreviewImporter
             Vector3.one;
 
         Debug.Log(
-            "Maya Preview : ƒ‚ƒfƒ‹”z’u¬Œ÷"
+            "Maya Preview : ãƒ¢ãƒ‡ãƒ«é…ç½®æˆåŠŸ"
         );
     }
 }

@@ -7,6 +7,7 @@
  * 2026-11-02 | 巡回ルートの表示を、子オブジェクトからも描けるようにした(実際の巡回は配列のまま)
  * 2026-11-02 | 巡回ポイントの配列をシリアライズせず、開始時に子オブジェクトから作るようにした
  * 2026-11-02 | 巡回ルートの表示を、オン/オフの設定ではなく、選択している時だけ表示するようにした
+ * 2026-11-09 | メンバーが隊列を組まず、離れて、同じルートをそれぞれ回る「離れて巡回」を追加した
  * ================================================ */
 
 using System;
@@ -19,6 +20,7 @@ using UnityEngine.AI;
 /// 警察のグループ(1〜3人)を管理するクラス
 /// ・指定した位置に、メンバーごとのステータスで警察を出現させる
 /// ・巡回ルートと隊列(先頭がルートを進み、他の警察は先頭の通った道筋をたどる)を管理する
+///   「離れて巡回」がオンなら、隊列は組まず、メンバーがそれぞれ、同じルートを、等間隔にずれた位置から回る
 /// ・メンバーが見つけた標的をグループ内で共有する
 /// ・詰まったメンバーを出現位置から出し直す(再スポーン)
 /// 出現と判断はサーバー(またはオフライン)だけで行う
@@ -42,8 +44,11 @@ public class CS_PoliceSquad : MonoBehaviour, IPoliceGroup
     // グループ全員で合わせる巡回速度(メンバーの中で一番遅い巡回速度。隊列がばらけないように揃える)
     private float _groupPatrolSpeed = 0.0f;
 
-    // 現在目指している巡回ポイントの番号
+    // 現在目指している巡回ポイントの番号(隊列で巡回する時の、先頭の番号)
     private int _patrolIndex = 0;
+
+    // 離れて巡回する時の、メンバーごとの、現在目指している巡回ポイントの番号
+    private int[] _memberPatrolIndices = new int[0];
 
     [Header("＝＝＝ 出現 ＝＝＝")]
     [SerializeField]
@@ -71,6 +76,10 @@ public class CS_PoliceSquad : MonoBehaviour, IPoliceGroup
     [SerializeField, Min(0f)]
     [Tooltip("先頭の警察が巡回ポイントにこの距離まで近づいたら、止まらずに次のポイントへ向かう")]
     private float _patrolPointPassDistance = 1.0f;
+
+    [SerializeField]
+    [Tooltip("オンにすると、メンバーは隊列を組まず、離れて、同じ巡回ルートをそれぞれ回る(出現も、ルートの上の、等間隔にずれたポイントから。見つけた標的の共有や、見つけた時の動きは、そのまま)")]
+    private bool _spreadPatrol = false;
 
     [SerializeField, Min(0.5f)]
     [Tooltip("隊列の間隔(前の警察との距離。後ろの警察は先頭の通った道筋を一列でたどる)")]
@@ -152,6 +161,7 @@ public class CS_PoliceSquad : MonoBehaviour, IPoliceGroup
 
         _sharedTarget = new CS_PoliceSharedTarget(_shareDuration);
         _groupPatrolSpeed = CalculateGroupPatrolSpeed();
+        InitializeSpreadPatrol();
         for (int i = 0; i < _memberStatuses.Length; i++)
         {
             _members.Add(SpawnMember(i));
@@ -165,6 +175,9 @@ public class CS_PoliceSquad : MonoBehaviour, IPoliceGroup
         // 破棄された警察を触らないよう、先頭が破棄されていたら何もしない
         if (_members.Count == 0 || _members[0] == null) return;
 
+        // 離れて巡回する時は、隊列を組まないので、先頭の道筋は記録しない
+        if (IsSpreadPatrol()) return;
+
         // 一番後ろの警察がたどる距離の分だけ、先頭の道筋を記録しておく
         _formation.RecordLeaderPosition(_members[0].transform.position, _formationSpacing * (_members.Count - 1));
     }
@@ -176,7 +189,32 @@ public class CS_PoliceSquad : MonoBehaviour, IPoliceGroup
     /// <returns>先頭ならtrue</returns>
     public bool IsLeader(CS_PoliceBrain member)
     {
+        // 離れて巡回する時は、全員が、自分で巡回ルートを目指す(先頭と同じ扱い)
+        if (IsSpreadPatrol()) return true;
+
         return _members.Count > 0 && _members[0] == member;
+    }
+
+    /// <summary>
+    /// 離れて巡回するか(設定がオンで、巡回ルートがある)を判定するメソッド
+    /// </summary>
+    private bool IsSpreadPatrol()
+    {
+        return _spreadPatrol && _patrolPoints.Length > 0;
+    }
+
+    /// <summary>
+    /// 離れて巡回する時の、メンバーごとの最初の巡回ポイントを、ルートの上に等間隔に決めるメソッド
+    /// </summary>
+    private void InitializeSpreadPatrol()
+    {
+        _memberPatrolIndices = new int[_memberStatuses.Length];
+        if (!IsSpreadPatrol()) return;
+
+        for (int i = 0; i < _memberPatrolIndices.Length; i++)
+        {
+            _memberPatrolIndices[i] = Mathf.RoundToInt(i * (float)_patrolPoints.Length / _memberPatrolIndices.Length) % _patrolPoints.Length;
+        }
     }
 
     /// <summary>
@@ -187,6 +225,8 @@ public class CS_PoliceSquad : MonoBehaviour, IPoliceGroup
     /// <returns>メンバーの状態(巡回)</returns>
     public CSE_PoliceMoveState MoveIdle(CS_PoliceBrain member, CS_PoliceMove move)
     {
+        if (IsSpreadPatrol()) return MoveSpread(member, move);
+
         move.SetDestination(GetPatrolDestination(member), CSE_PoliceMoveState.Patrol);
 
         // 先頭の警察は巡回ポイントの少し手前で次のポイントへ向かい直す
@@ -197,6 +237,23 @@ public class CS_PoliceSquad : MonoBehaviour, IPoliceGroup
             move.SetDestination(GetPatrolDestination(member), CSE_PoliceMoveState.Patrol);
         }
 
+        return CSE_PoliceMoveState.Patrol;
+    }
+
+    /// <summary>
+    /// 離れて巡回する時に、メンバーを、自分の次の巡回ポイントへ移動させるメソッド(巡回ポイントの少し手前で、次のポイントへ向かい直す)
+    /// </summary>
+    private CSE_PoliceMoveState MoveSpread(CS_PoliceBrain member, CS_PoliceMove move)
+    {
+        int slot = _members.IndexOf(member);
+        if (slot < 0 || slot >= _memberPatrolIndices.Length) return CSE_PoliceMoveState.Patrol;
+
+        move.SetDestination(_patrolPoints[_memberPatrolIndices[slot]].position, CSE_PoliceMoveState.Patrol);
+        if (move.IsNearDestination(_patrolPointPassDistance))
+        {
+            _memberPatrolIndices[slot] = (_memberPatrolIndices[slot] + 1) % _patrolPoints.Length;
+            move.SetDestination(_patrolPoints[_memberPatrolIndices[slot]].position, CSE_PoliceMoveState.Patrol);
+        }
         return CSE_PoliceMoveState.Patrol;
     }
 
@@ -328,8 +385,10 @@ public class CS_PoliceSquad : MonoBehaviour, IPoliceGroup
     /// <returns>出現させたメンバー</returns>
     private CS_PoliceBrain SpawnMember(int slot)
     {
-        // 同じ位置に重ならないよう、出現位置を横にずらす
-        Vector3 position = _spawnPoint.position + _spawnPoint.right * ((slot - 1) * _formationSpacing);
+        // 同じ位置に重ならないよう、出現位置を横にずらす(離れて巡回する時は、ルートの上の、自分の最初のポイントに出現する)
+        Vector3 position = IsSpreadPatrol() && slot < _memberPatrolIndices.Length
+            ? _patrolPoints[_memberPatrolIndices[slot]].position
+            : _spawnPoint.position + _spawnPoint.right * ((slot - 1) * _formationSpacing);
         CS_PoliceBrain member = CS_PoliceSpawnUtility.Spawn(_policePrefab, position, _spawnPoint.rotation);
 
         // ぶつかった時は後ろの警察が道を譲るよう、先頭ほど回避の優先度を高くする

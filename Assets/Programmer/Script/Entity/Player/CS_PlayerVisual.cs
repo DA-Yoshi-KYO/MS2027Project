@@ -40,6 +40,7 @@ using UnityEngine;
  * ■ 差し替え
  *   ・Animatorは自動で子オブジェクトから探す(_animatorが空のとき)。Modelの子を差し替えるだけでよい
  *   ・Controller側に用意するパラメータはCS_PlayerAnimatorParamsを参照。無いパラメータは無視される
+ *   ・動く足場(CS_PathFollowerのSAポイント)に乗っている間は、座標の変化から足場の速度(CS_PlayerRideSAPoint.platformVelocity)を引いて、歩きの速さを求める
  *   ・ルートモーションは使わない(移動はRigidbodyが行うため、強制的にオフにする)
  *   ・詳しくは ClaudeUsers/プレイヤー見た目の差し替えガイド.md
  */
@@ -80,6 +81,7 @@ public class CS_PlayerVisual : NetworkBehaviour
     private Collider _collider;
     private CS_PlayerParry _parry;
     private CS_PlayerAmbush _ambush;
+    private CS_PlayerRideSAPoint _ride;     // 動く足場に乗っているか(付いていなければ何もしない)
     private Renderer[] _renderers;
     private bool _isHidden;     // 点滅で隠している最中か
 
@@ -98,6 +100,7 @@ public class CS_PlayerVisual : NetworkBehaviour
         _collider = GetComponent<Collider>();
         _parry = GetComponent<CS_PlayerParry>();
         _ambush = GetComponent<CS_PlayerAmbush>();
+        _ride = GetComponent<CS_PlayerRideSAPoint>();
         _renderers = GetComponentsInChildren<Renderer>(true);
 
         if (_animator == null)
@@ -201,6 +204,9 @@ public class CS_PlayerVisual : NetworkBehaviour
 
         Vector3 velocity = (transform.position - _lastPosition) / deltaTime;
         _lastPosition = transform.position;
+
+        // 動く足場に乗っている間は、足場が運んだ分を引く(立っているだけで歩きのモーションにならないように)
+        if (_ride != null) velocity -= _ride.platformVelocity;
         velocity.y = 0f;
 
         if (velocity.magnitude > _maxTrackedSpeed)

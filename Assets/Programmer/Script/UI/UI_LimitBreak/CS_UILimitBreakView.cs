@@ -26,10 +26,6 @@ public sealed class CS_UILimitBreakView :
     [SerializeField]
     private GameObject _displayRoot;
 
-    [Header("LIMITBREAKラベル")]
-    [SerializeField]
-    private TextMeshProUGUI _limitBreakLabelText;
-
     [Header("LIMITBREAK数値")]
     [SerializeField]
     private TextMeshProUGUI _limitBreakValueText;
@@ -56,15 +52,6 @@ public sealed class CS_UILimitBreakView :
 
     private void Awake()
     {
-        if (_limitBreakLabelText != null)
-        {
-            _limitBreakLabelText.text =
-                "LIMIT\nBREAK";
-
-            _limitBreakLabelText.raycastTarget =
-                false;
-        }
-
         if (_limitBreakValueText != null)
         {
             _limitBreakValueText.raycastTarget =
@@ -211,7 +198,7 @@ public sealed class CS_UILimitBreakView :
             return;
 
         _limitBreakValueText.text =
-            $":{percent}%";
+            $"{percent}%";
     }
 
     // =========================================================

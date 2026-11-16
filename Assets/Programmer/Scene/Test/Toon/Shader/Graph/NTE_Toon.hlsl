@@ -25,6 +25,9 @@ NTEToonInput NTE_MakeInput(float4 Tex, float4 BaseColor, float3 ShadowColor,
 {
     NTEToonInput i;
     i.albedo = Tex.rgb * BaseColor.rgb;
+    // 全体の彩度 (_NTESaturation, material property of every NTE graph; 1 = as painted)
+    float albedoLum = dot(i.albedo, float3(0.2126, 0.7152, 0.0722));
+    i.albedo = max(lerp(albedoLum.xxx, i.albedo, _NTESaturation), 0.0);
     i.N = NormalWS * rsqrt(max(dot(NormalWS, NormalWS), 1e-6));
     i.V = ViewWS * rsqrt(max(dot(ViewWS, ViewWS), 1e-6));
     i.T = TangentWS * rsqrt(max(dot(TangentWS, TangentWS), 1e-6));
@@ -51,9 +54,14 @@ float3 NTE_ShadowColor(NTEToonInput i)
     return i.albedo * i.shadowColor * lerp(1.0.xxx, i.albedo / m, i.saturation);
 }
 
+// 濃い影の色 (_DeepShadowColor / _DeepShadowStrength): the further the surface turns away from the
+// light, the more the shade takes this colour (e.g. a red-brown deep shade on skin). Strength 0 = off.
 float3 NTE_Diffuse(NTEToonInput i, float lit)
 {
-    return lerp(i.albedo, NTE_ShadowColor(i), (1.0 - lit) * i.shadowStrength);
+    float3 shade = NTE_ShadowColor(i);
+    float deep = smoothstep(0.0, 0.8, -dot(i.N, i.L)) * saturate(_DeepShadowStrength);
+    shade = lerp(shade, i.albedo * _DeepShadowColor.rgb, deep);
+    return lerp(i.albedo, shade, (1.0 - lit) * i.shadowStrength);
 }
 
 float NTE_Fresnel(NTEToonInput i) { return 1.0 - saturate(dot(i.N, i.V)); }
@@ -611,7 +619,8 @@ void NTE_EyeLit_float(float4 Tex, float4 BaseColor, float4 UV, float3 NormalWS, 
     sky = SampleSkyTexture(R, 2.0, 0).rgb * (Reflection * fresnel);             // HDRP applies the exposure
     screen *= GetInverseCurrentExposureMultiplier();                              // screen brightness -> emission
 #endif
-    Emission = (screen * HighlightGlow + sky) * (inside * Tex.a);
+    // 目のハイライト色 (_EyeHighlightColor, white = as before)
+    Emission = (screen * HighlightGlow * _EyeHighlightColor.rgb + sky) * (inside * Tex.a);
 }
 void NTE_EyeLit_half(half4 Tex, half4 BaseColor, half4 UV, half3 NormalWS, float3 PositionWS,
     half Brightness, half IrisSaturation, half IrisGradient, half HighlightGlow, half Reflection,

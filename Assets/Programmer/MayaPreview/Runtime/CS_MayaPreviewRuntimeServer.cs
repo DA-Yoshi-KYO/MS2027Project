@@ -1,4 +1,4 @@
-using System;
+ï»¿using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
@@ -13,24 +13,24 @@ using UnityEngine.Rendering;
 
 /*
 +=====================================
- ƒtƒ@ƒCƒ‹–¼ : CS_MayaPreviewRuntimeServer
- ŠT—v       : Maya‚©‚çMeshƒf[ƒ^‚ğóM‚µA
-              Runtimeã‚ÅMesh‚ğ¶¬EXV‚·‚é
- ìÒ       : ƒˆƒVƒ‚ƒg ƒŠƒ‡ƒE
- —š—ğ       : 2026/09/14 V‹Kì¬
+ ãƒ•ã‚¡ã‚¤ãƒ«å : CS_MayaPreviewRuntimeServer
+ æ¦‚è¦       : Mayaã‹ã‚‰Meshãƒ‡ãƒ¼ã‚¿ã‚’å—ä¿¡ã—ã€
+              Runtimeä¸Šã§Meshã‚’ç”Ÿæˆãƒ»æ›´æ–°ã™ã‚‹
+ ä½œè€…       : ãƒ¨ã‚·ãƒ¢ãƒˆ ãƒªãƒ§ã‚¦
+ å±¥æ­´       : 2026/09/14 æ–°è¦ä½œæˆ
 =====================================+
 */
 
 public class CS_MayaPreviewRuntimeServer : MonoBehaviour
 {
     // =========================================================
-    // ’è”
+    // å®šæ•°
     // =========================================================
 
-    // Maya ¨ Unity
+    // Maya â†’ Unity
     private const int PORT = 50001;
 
-    // Maya‚ÍcmAUnity‚ÍmBMaya‚ÌÀ¡‚Ì‚Ü‚Ü•\¦‚·‚éiMaya 170cm ¨ Unity 1.7mAFBXæ‚è‚İ‚Æ“¯‚¶j
+    // Mayaã¯cmã€Unityã¯mã€‚Mayaã®å®Ÿå¯¸ã®ã¾ã¾è¡¨ç¤ºã™ã‚‹ï¼ˆMaya 170cm â†’ Unity 1.7mã€FBXå–ã‚Šè¾¼ã¿ã¨åŒã˜ï¼‰
     private const float MAYA_TO_UNITY_SCALE = 1.0f;
 
     private const string MAYA_MODEL_ROOT_NAME =
@@ -41,7 +41,7 @@ public class CS_MayaPreviewRuntimeServer : MonoBehaviour
 
 
     // =========================================================
-    // MeshóM—pƒf[ƒ^CS_MayaPreviewFrameSender.cs ‚¾‚¯‘S•¶‚±‚ê‚É‚µ‚Ä‚­‚¾‚³‚¢B
+    // Meshå—ä¿¡ç”¨ãƒ‡ãƒ¼ã‚¿CS_MayaPreviewFrameSender.cs ã ã‘å…¨æ–‡ã“ã‚Œã«ã—ã¦ãã ã•ã„ã€‚
     // =========================================================
 
     [Serializable]
@@ -71,12 +71,12 @@ public class CS_MayaPreviewRuntimeServer : MonoBehaviour
 
 
     // =========================================================
-    // MESH_DATA_V2iUVE–@üEƒ}ƒeƒŠƒAƒ‹–¼•t‚«j
+    // MESH_DATA_V2ï¼ˆUVãƒ»æ³•ç·šãƒ»ãƒãƒ†ãƒªã‚¢ãƒ«åä»˜ãï¼‰
     //
-    // positions : x,y,z ‚Ì•À‚ÑiMayaÀ•Wj
-    // normals   : x,y,z ‚Ì•À‚Ñipositions‚Æ“¯‚¶” or ‹ój
-    // uvs       : u,v ‚Ì•À‚Ñi’¸“_”~2 or ‹ój
-    // submeshes : ƒ}ƒeƒŠƒAƒ‹‚²‚Æ‚ÌOŠpŒ`ƒŠƒXƒg
+    // positions : x,y,z ã®ä¸¦ã³ï¼ˆMayaåº§æ¨™ï¼‰
+    // normals   : x,y,z ã®ä¸¦ã³ï¼ˆpositionsã¨åŒã˜æ•° or ç©ºï¼‰
+    // uvs       : u,v ã®ä¸¦ã³ï¼ˆé ‚ç‚¹æ•°Ã—2 or ç©ºï¼‰
+    // submeshes : ãƒãƒ†ãƒªã‚¢ãƒ«ã”ã¨ã®ä¸‰è§’å½¢ãƒªã‚¹ãƒˆ
     // =========================================================
 
     [Serializable]
@@ -84,16 +84,16 @@ public class CS_MayaPreviewRuntimeServer : MonoBehaviour
     {
         public string type;
 
-        // MESH_REMOVE ‚ÅÁ‚·Object–¼
+        // MESH_REMOVE ã§æ¶ˆã™Objectå
         public string name;
 
-        // SESSION : ƒ}ƒeƒŠƒAƒ‹İ’è‚Ì•Û‘¶æiMayaƒvƒƒWƒFƒNƒg/unityPreview/materialsj
+        // SESSION : ãƒãƒ†ãƒªã‚¢ãƒ«è¨­å®šã®ä¿å­˜å…ˆï¼ˆMayaãƒ—ãƒ­ã‚¸ã‚§ã‚¯ãƒˆ/unityPreview/materialsï¼‰
         public string materialFolder;
 
-        // SESSION : Maya‚ÅŠJ‚¢‚Ä‚¢‚é .mb ‚ÌƒpƒXi‹ó = –¢•Û‘¶jB‘O‰ñ‚Ì‘‚«o‚µ‚Ì•œŒ³‚Ég‚¤
+        // SESSION : Mayaã§é–‹ã„ã¦ã„ã‚‹ .mb ã®ãƒ‘ã‚¹ï¼ˆç©º = æœªä¿å­˜ï¼‰ã€‚å‰å›ã®æ›¸ãå‡ºã—ã®å¾©å…ƒã«ä½¿ã†
         public string scene;
 
-        // SESSION : true = •Û‘¶‚µ‚½‚¾‚¯i–¼‘O‚ğ•t‚¯‚Ä•Û‘¶jBŠJ‚«’¼‚µ‚Å‚Í‚È‚¢
+        // SESSION : true = ä¿å­˜ã—ãŸã ã‘ï¼ˆåå‰ã‚’ä»˜ã‘ã¦ä¿å­˜ï¼‰ã€‚é–‹ãç›´ã—ã§ã¯ãªã„
         public bool saved;
     }
 
@@ -137,7 +137,7 @@ public class CS_MayaPreviewRuntimeServer : MonoBehaviour
 
 
     // =========================================================
-    // MainThreadˆ—Queue
+    // MainThreadå‡¦ç†Queue
     // =========================================================
 
     private readonly ConcurrentQueue<CSST_ReceivedMessage> _messageQueue =
@@ -145,22 +145,22 @@ public class CS_MayaPreviewRuntimeServer : MonoBehaviour
 
 
     // =========================================================
-    // óMƒXƒŒƒbƒh‚Å•ÏŠ·Ï‚İ‚Ìƒf[ƒ^
+    // å—ä¿¡ã‚¹ãƒ¬ãƒƒãƒ‰ã§å¤‰æ›æ¸ˆã¿ã®ãƒ‡ãƒ¼ã‚¿
     //
-    // JSON‰ğÍEÀ•W•ÏŠ·E’¸“_•ªŠ„‚Íd‚¢‚Ì‚Å
-    // MainThread‚Å‚Í‚È‚­óMƒXƒŒƒbƒh‚ÅÏ‚Ü‚¹‚Ä‚¨‚­
-    // (MainThread‚ª~‚Ü‚ç‚È‚¢ = ‰æ–Ê‚ªƒJƒN‚Â‚©‚È‚¢)
+    // JSONè§£æãƒ»åº§æ¨™å¤‰æ›ãƒ»é ‚ç‚¹åˆ†å‰²ã¯é‡ã„ã®ã§
+    // MainThreadã§ã¯ãªãå—ä¿¡ã‚¹ãƒ¬ãƒƒãƒ‰ã§æ¸ˆã¾ã›ã¦ãŠã
+    // (MainThreadãŒæ­¢ã¾ã‚‰ãªã„ = ç”»é¢ãŒã‚«ã‚¯ã¤ã‹ãªã„)
     // =========================================================
 
     private class CSST_ReceivedMessage
     {
-        public string text;          // JSONˆÈŠO‚ÌÚ‘±Šm”F—pMessage
-        public string meshName;      // MeshXV‚Ìê‡‚Ì‚İ
+        public string text;          // JSONä»¥å¤–ã®æ¥ç¶šç¢ºèªç”¨Message
+        public string meshName;      // Meshæ›´æ–°ã®å ´åˆã®ã¿
         public Vector3[] vertices;
         public int[] triangles;
 
-        // MESH_DATA_V2 / SESSION / MATERIAL_DEF / MESH_REMOVE ‚Ìê‡‚Ì‚İ
-        // (Unity‚Ìˆ—‚ª—v‚é‚Ì‚ÅMainThread‚Å‰ğÍE”½‰f‚·‚é)
+        // MESH_DATA_V2 / SESSION / MATERIAL_DEF / MESH_REMOVE ã®å ´åˆã®ã¿
+        // (Unityã®å‡¦ç†ãŒè¦ã‚‹ã®ã§MainThreadã§è§£æãƒ»åæ˜ ã™ã‚‹)
         public CSST_MessageHeader header;
         public string json;
     }
@@ -175,39 +175,39 @@ public class CS_MayaPreviewRuntimeServer : MonoBehaviour
     private Material _previewMaterial;
 
 
-    // HDRP Frame‘—M
+    // HDRP Frameé€ä¿¡
     private CS_MayaPreviewFrameSender _frameSender;
 
-    // Mayaƒc[ƒ‹‘¤‚Ì‰æ‘œ•\¦‚Í”p~‚µ‚½‚½‚ßŠù’è‚ÍOFF
-    // i–ˆ‰ñ‚ÌGPU“Ç‚İ–ß‚µ‚Æ‘—M¸”sƒƒO‚ğo‚³‚È‚¢j
+    // Mayaãƒ„ãƒ¼ãƒ«å´ã®ç”»åƒè¡¨ç¤ºã¯å»ƒæ­¢ã—ãŸãŸã‚æ—¢å®šã¯OFF
+    // ï¼ˆæ¯å›ã®GPUèª­ã¿æˆ»ã—ã¨é€ä¿¡å¤±æ•—ãƒ­ã‚°ã‚’å‡ºã•ãªã„ï¼‰
     [SerializeField]
     private bool _sendFramesToMaya = false;
 
 
     // =========================================================
-    // MaterialŠ„‚è“–‚Ä
+    // Materialå‰²ã‚Šå½“ã¦
     // =========================================================
 
-    // Maya ¨ Unity Material–¼‚Ìˆê——iResources‚©‚ç“Ç‚İ‚İj
+    // Maya â†’ Unity Materialåã®ä¸€è¦§ï¼ˆResourcesã‹ã‚‰èª­ã¿è¾¼ã¿ï¼‰
     private CS_MayaPreviewMaterialCatalog _materialCatalog;
 
-    // ˆê——‚É–³‚¢–¼‘O‚ğ–Ú—§‚½‚¹‚é—p
+    // ä¸€è¦§ã«ç„¡ã„åå‰ã‚’ç›®ç«‹ãŸã›ã‚‹ç”¨
     private Material _missingMaterial;
 
-    // Maya‚Ìƒ}ƒeƒŠƒAƒ‹–¼‚²‚Æ‚ÌMateriali©“®HDRP/LitAInspector‚Å•ÏXE•Û‘¶j
+    // Mayaã®ãƒãƒ†ãƒªã‚¢ãƒ«åã”ã¨ã®Materialï¼ˆè‡ªå‹•HDRP/Litã€Inspectorã§å¤‰æ›´ãƒ»ä¿å­˜ï¼‰
     private CS_MayaPreviewMaterialLibrary _library;
 
-    // ƒV[ƒ““à‚Å“®‚¢‚Ä‚¢‚éServerid•¡‚µ‚½Preview_System‚Í–³Œø‰»‚·‚éj
-    // 2‚Â–Ú‚ªLibrary‚ğì‚é‚ÆInspector‚ª‚»‚¿‚ç‚ğŒ©‚Ä‚µ‚Ü‚¢AShaderİ’è‚ªo‚È‚­‚È‚é‚½‚ß
+    // ã‚·ãƒ¼ãƒ³å†…ã§å‹•ã„ã¦ã„ã‚‹Serverï¼ˆé‡è¤‡ã—ãŸPreview_Systemã¯ç„¡åŠ¹åŒ–ã™ã‚‹ï¼‰
+    // 2ã¤ç›®ãŒLibraryã‚’ä½œã‚‹ã¨InspectorãŒãã¡ã‚‰ã‚’è¦‹ã¦ã—ã¾ã„ã€Shaderè¨­å®šãŒå‡ºãªããªã‚‹ãŸã‚
     private static CS_MayaPreviewRuntimeServer s_active;
     private bool _duplicate;
 
-    // “¯‚¶Œx‚ğ‰½“x‚ào‚³‚È‚¢
+    // åŒã˜è­¦å‘Šã‚’ä½•åº¦ã‚‚å‡ºã•ãªã„
     private readonly HashSet<string> _warnedMaterialNames =
         new HashSet<string>();
 
-    // Object–¼ ¨ ‘O‰ñŠ„‚è“–‚Ä‚½Material–¼‚Ì•À‚Ñ
-    // i•Ï‚í‚Á‚Ä‚¢‚È‚¯‚ê‚ÎŠ„‚è“–‚Ä’¼‚³‚¸AInspector‚Å‚Ì’²®‚ğc‚·j
+    // Objectå â†’ å‰å›å‰²ã‚Šå½“ã¦ãŸMaterialåã®ä¸¦ã³
+    // ï¼ˆå¤‰ã‚ã£ã¦ã„ãªã‘ã‚Œã°å‰²ã‚Šå½“ã¦ç›´ã•ãšã€Inspectorã§ã®èª¿æ•´ã‚’æ®‹ã™ï¼‰
     private readonly Dictionary<string, string> _appliedMaterialKeys =
         new Dictionary<string, string>();
 
@@ -225,18 +225,18 @@ public class CS_MayaPreviewRuntimeServer : MonoBehaviour
             var duplicateSender = GetComponent<CS_MayaPreviewFrameSender>();
             if (duplicateSender != null) duplicateSender.enabled = false;
             Debug.LogWarning(
-                "Maya Preview Runtime : CS_MayaPreviewRuntimeServer ‚ªd•¡‚µ‚Ä‚¢‚Ü‚·i" + name +
-                "jB‚±‚¿‚ç‚Í–³Œø‰»‚µ‚Ü‚µ‚½BƒV[ƒ“‚É1‚Â‚¾‚¯’u‚¢‚Ä‚­‚¾‚³‚¢B"
+                "Maya Preview Runtime : CS_MayaPreviewRuntimeServer ãŒé‡è¤‡ã—ã¦ã„ã¾ã™ï¼ˆ" + name +
+                "ï¼‰ã€‚ã“ã¡ã‚‰ã¯ç„¡åŠ¹åŒ–ã—ã¾ã—ãŸã€‚ã‚·ãƒ¼ãƒ³ã«1ã¤ã ã‘ç½®ã„ã¦ãã ã•ã„ã€‚"
             );
             return;
         }
 
         s_active = this;
 
-        // Standalone‚Å‚àƒoƒbƒNƒOƒ‰ƒEƒ“ƒh“®ì
+        // Standaloneã§ã‚‚ãƒãƒƒã‚¯ã‚°ãƒ©ã‚¦ãƒ³ãƒ‰å‹•ä½œ
         Application.runInBackground = true;
 
-        // ‘€ì‚µ‚Ä‚¢‚È‚¢ŠÔ‚Í•`‰æ‰ñ”‚ğ—‚Æ‚µ‚Ä PC ‚ğŒy‚­‚·‚é (Œ©‚½–Ú‚Í•Ï‚í‚ç‚È‚¢)
+        // æ“ä½œã—ã¦ã„ãªã„é–“ã¯æç”»å›æ•°ã‚’è½ã¨ã—ã¦ PC ã‚’è»½ãã™ã‚‹ (è¦‹ãŸç›®ã¯å¤‰ã‚ã‚‰ãªã„)
         if (GetComponent<CS_MayaPreviewIdleThrottle>() == null)
         {
             gameObject.AddComponent<CS_MayaPreviewIdleThrottle>();
@@ -244,7 +244,7 @@ public class CS_MayaPreviewRuntimeServer : MonoBehaviour
 
 
         // =====================================================
-        // Maya Model Rootæ“¾
+        // Maya Model Rootå–å¾—
         // =====================================================
 
         _mayaModelRoot =
@@ -253,7 +253,7 @@ public class CS_MayaPreviewRuntimeServer : MonoBehaviour
             );
 
 
-        // –œ‚ªˆê–³‚¯‚ê‚Î¶¬
+        // ä¸‡ãŒä¸€ç„¡ã‘ã‚Œã°ç”Ÿæˆ
         if (_mayaModelRoot == null)
         {
             _mayaModelRoot =
@@ -265,13 +265,13 @@ public class CS_MayaPreviewRuntimeServer : MonoBehaviour
             Debug.LogWarning(
                 "Maya Preview Runtime : " +
                 MAYA_MODEL_ROOT_NAME +
-                " ‚ª–³‚©‚Á‚½‚½‚ß¶¬‚µ‚Ü‚µ‚½B"
+                " ãŒç„¡ã‹ã£ãŸãŸã‚ç”Ÿæˆã—ã¾ã—ãŸã€‚"
             );
         }
 
 
         // =====================================================
-        // FrameSenderæ“¾
+        // FrameSenderå–å¾—
         // =====================================================
 
         _frameSender =
@@ -282,7 +282,7 @@ public class CS_MayaPreviewRuntimeServer : MonoBehaviour
         {
             Debug.LogError(
                 "Maya Preview Runtime : " +
-                "CS_MayaPreviewFrameSender ‚ªŒ©‚Â‚©‚è‚Ü‚¹‚ñB"
+                "CS_MayaPreviewFrameSender ãŒè¦‹ã¤ã‹ã‚Šã¾ã›ã‚“ã€‚"
             );
         }
 
@@ -330,13 +330,13 @@ public class CS_MayaPreviewRuntimeServer : MonoBehaviour
         {
             Debug.LogError(
                 "Maya Preview Runtime : " +
-                "HDRP/Lit Shader ‚ªŒ©‚Â‚©‚è‚Ü‚¹‚ñB"
+                "HDRP/Lit Shader ãŒè¦‹ã¤ã‹ã‚Šã¾ã›ã‚“ã€‚"
             );
         }
 
 
         // =====================================================
-        // Materialˆê——
+        // Materialä¸€è¦§
         // =====================================================
 
         _materialCatalog =
@@ -346,8 +346,8 @@ public class CS_MayaPreviewRuntimeServer : MonoBehaviour
         if (_materialCatalog == null)
         {
             Debug.LogWarning(
-                "Maya Preview Runtime : Materialˆê——‚ªŒ©‚Â‚©‚è‚Ü‚¹‚ñB" +
-                "Editor‚Å Tools/Maya Preview/Material Catalog/Rebuild ‚ğÀs‚µ‚Ä‚©‚çƒrƒ‹ƒh‚µ‚Ä‚­‚¾‚³‚¢B"
+                "Maya Preview Runtime : Materialä¸€è¦§ãŒè¦‹ã¤ã‹ã‚Šã¾ã›ã‚“ã€‚" +
+                "Editorã§ Tools/Maya Preview/Material Catalog/Rebuild ã‚’å®Ÿè¡Œã—ã¦ã‹ã‚‰ãƒ“ãƒ«ãƒ‰ã—ã¦ãã ã•ã„ã€‚"
             );
         }
 
@@ -357,7 +357,7 @@ public class CS_MayaPreviewRuntimeServer : MonoBehaviour
                 _materialCatalog
             );
 
-        // ƒVƒF[ƒ_[•ÏX‚È‚Ç‚ÅMaterial‚ªì‚è’¼‚³‚ê‚½‚çŠ„‚è“–‚Ä’¼‚·
+        // ã‚·ã‚§ãƒ¼ãƒ€ãƒ¼å¤‰æ›´ãªã©ã§MaterialãŒä½œã‚Šç›´ã•ã‚ŒãŸã‚‰å‰²ã‚Šå½“ã¦ç›´ã™
         _library.MaterialReplaced +=
             RefreshMaterial;
 
@@ -385,7 +385,7 @@ public class CS_MayaPreviewRuntimeServer : MonoBehaviour
 
 
         Debug.Log(
-            "Maya Preview Runtime : ‰Šú‰»"
+            "Maya Preview Runtime : åˆæœŸåŒ–"
         );
     }
 
@@ -411,11 +411,11 @@ public class CS_MayaPreviewRuntimeServer : MonoBehaviour
 
     private void Update()
     {
-        // Socket Thread‘¤‚©‚çóM‚µ‚½Message‚ğ
-        // Unity MainThread‚Åˆ—‚·‚é
+        // Socket Threadå´ã‹ã‚‰å—ä¿¡ã—ãŸMessageã‚’
+        // Unity MainThreadã§å‡¦ç†ã™ã‚‹
 
-        // “¯‚¶Object‚ÌXV‚ª1ƒtƒŒ[ƒ€“à‚É•¡”“Í‚¢‚½ê‡‚Í
-        // ÅŒã‚Ì1‰ñ‚¾‚¯”½‰f‚·‚é (Œ‹‰Ê‚Í“¯‚¶‚Å–³‘Ê‚ÈXV‚ğ‚µ‚È‚¢)
+        // åŒã˜Objectã®æ›´æ–°ãŒ1ãƒ•ãƒ¬ãƒ¼ãƒ å†…ã«è¤‡æ•°å±Šã„ãŸå ´åˆã¯
+        // æœ€å¾Œã®1å›ã ã‘åæ˜ ã™ã‚‹ (çµæœã¯åŒã˜ã§ç„¡é§„ãªæ›´æ–°ã‚’ã—ãªã„)
         _pendingMeshes.Clear();
         _pendingOrder.Clear();
 
@@ -429,7 +429,7 @@ public class CS_MayaPreviewRuntimeServer : MonoBehaviour
 
             if (received.header != null)
             {
-                // “Í‚¢‚½‡”Ô‚ğç‚é‚½‚ßAæ‚É‚Ü‚Æ‚ß‘Ò‚¿‚ÌMesh‚ğ”½‰f‚µ‚Ä‚©‚çˆ—‚·‚é
+                // å±Šã„ãŸé †ç•ªã‚’å®ˆã‚‹ãŸã‚ã€å…ˆã«ã¾ã¨ã‚å¾…ã¡ã®Meshã‚’åæ˜ ã—ã¦ã‹ã‚‰å‡¦ç†ã™ã‚‹
                 FlushPendingMeshes();
 
                 ProcessHeaderMessage(
@@ -443,7 +443,7 @@ public class CS_MayaPreviewRuntimeServer : MonoBehaviour
             {
                 Debug.Log(
                     "Maya Preview Runtime : " +
-                    "MessageóM : " +
+                    "Messageå—ä¿¡ : " +
                     received.text
                 );
 
@@ -461,7 +461,7 @@ public class CS_MayaPreviewRuntimeServer : MonoBehaviour
         FlushPendingMeshes();
 
 
-        // Inspector‚Å•Ï‚¦‚½ƒ}ƒeƒŠƒAƒ‹İ’è‚ğ‚Ü‚Æ‚ß‚Ä•Û‘¶
+        // Inspectorã§å¤‰ãˆãŸãƒãƒ†ãƒªã‚¢ãƒ«è¨­å®šã‚’ã¾ã¨ã‚ã¦ä¿å­˜
         _library?.Tick(
             Time.unscaledTime
         );
@@ -485,7 +485,7 @@ public class CS_MayaPreviewRuntimeServer : MonoBehaviour
     }
 
 
-    // MESH_DATA_V2 / SESSION / MATERIAL_DEF / MESH_REMOVE ‚ğMainThread‚Åˆ—‚·‚é
+    // MESH_DATA_V2 / SESSION / MATERIAL_DEF / MESH_REMOVE ã‚’MainThreadã§å‡¦ç†ã™ã‚‹
     private void ProcessHeaderMessage(
         CSST_ReceivedMessage received
     )
@@ -531,7 +531,7 @@ public class CS_MayaPreviewRuntimeServer : MonoBehaviour
         {
             Debug.LogError(
                 "Maya Preview Runtime : " +
-                "JSON‰ğÍ¸”s\n" +
+                "JSONè§£æå¤±æ•—\n" +
                 exception
             );
         }
@@ -545,7 +545,7 @@ public class CS_MayaPreviewRuntimeServer : MonoBehaviour
 
 
     // =========================================================
-    // Socket ServerŠJn
+    // Socket Serveré–‹å§‹
     // =========================================================
 
     private void StartServer()
@@ -586,7 +586,7 @@ public class CS_MayaPreviewRuntimeServer : MonoBehaviour
 
             Debug.Log(
                 "Maya Preview Runtime : " +
-                "Socket ServerŠJn 127.0.0.1:" +
+                "Socket Serveré–‹å§‹ 127.0.0.1:" +
                 PORT
             );
         }
@@ -594,7 +594,7 @@ public class CS_MayaPreviewRuntimeServer : MonoBehaviour
         {
             Debug.LogError(
                 "Maya Preview Runtime : " +
-                "Socket ServerŠJn¸”s\n" +
+                "Socket Serveré–‹å§‹å¤±æ•—\n" +
                 exception
             );
         }
@@ -633,9 +633,9 @@ public class CS_MayaPreviewRuntimeServer : MonoBehaviour
                         )
                 )
                 {
-                    // Maya‘¤‚Í
+                    // Mayaå´ã¯
                     // JSON + "\n"
-                    // ‚Å‘—M‚µ‚Ä‚¢‚é
+                    // ã§é€ä¿¡ã—ã¦ã„ã‚‹
                     string message =
                         reader.ReadLine();
 
@@ -677,7 +677,7 @@ public class CS_MayaPreviewRuntimeServer : MonoBehaviour
                 {
                     Debug.LogError(
                         "Maya Preview Runtime : " +
-                        "SocketóMƒGƒ‰[\n" +
+                        "Socketå—ä¿¡ã‚¨ãƒ©ãƒ¼\n" +
                         exception
                     );
                 }
@@ -690,7 +690,7 @@ public class CS_MayaPreviewRuntimeServer : MonoBehaviour
                 }
                 catch
                 {
-                    // –³‹
+                    // ç„¡è¦–
                 }
             }
         }
@@ -698,10 +698,10 @@ public class CS_MayaPreviewRuntimeServer : MonoBehaviour
 
 
     // =========================================================
-    // Message•ÏŠ· (óMƒXƒŒƒbƒh‚ÅÀs)
+    // Messageå¤‰æ› (å—ä¿¡ã‚¹ãƒ¬ãƒƒãƒ‰ã§å®Ÿè¡Œ)
     //
-    // JsonUtility.FromJson ‚ÍUnityŒö®‚Å
-    // ƒoƒbƒNƒOƒ‰ƒEƒ“ƒhƒXƒŒƒbƒh‚©‚çŒÄ‚ñ‚Å‚æ‚¢‚±‚Æ‚É‚È‚Á‚Ä‚¢‚é
+    // JsonUtility.FromJson ã¯Unityå…¬å¼ã§
+    // ãƒãƒƒã‚¯ã‚°ãƒ©ã‚¦ãƒ³ãƒ‰ã‚¹ãƒ¬ãƒƒãƒ‰ã‹ã‚‰å‘¼ã‚“ã§ã‚ˆã„ã“ã¨ã«ãªã£ã¦ã„ã‚‹
     // =========================================================
 
     private static CSST_ReceivedMessage PrepareMessage(
@@ -713,7 +713,7 @@ public class CS_MayaPreviewRuntimeServer : MonoBehaviour
             return null;
         }
 
-        // JSONˆÈŠO‚ÌÚ‘±Šm”F—pMessage
+        // JSONä»¥å¤–ã®æ¥ç¶šç¢ºèªç”¨Message
         if (!message.StartsWith("{"))
         {
             return new CSST_ReceivedMessage { text = message };
@@ -727,8 +727,8 @@ public class CS_MayaPreviewRuntimeServer : MonoBehaviour
                 );
 
 
-            // MESH_DATA_V2 / SESSION / MATERIAL_DEF / MESH_REMOVE ‚Í
-            // Unity‚Ìˆ—‚ª—v‚é‚Ì‚ÅA‚±‚±‚Å‚Íí—Ş‚Æ–{•¶‚¾‚¯“n‚µ‚ÄMainThread‚Åˆ—‚·‚é
+            // MESH_DATA_V2 / SESSION / MATERIAL_DEF / MESH_REMOVE ã¯
+            // Unityã®å‡¦ç†ãŒè¦ã‚‹ã®ã§ã€ã“ã“ã§ã¯ç¨®é¡ã¨æœ¬æ–‡ã ã‘æ¸¡ã—ã¦MainThreadã§å‡¦ç†ã™ã‚‹
             if (
                 header != null &&
                 (
@@ -767,22 +767,22 @@ public class CS_MayaPreviewRuntimeServer : MonoBehaviour
             {
                 Debug.LogError(
                     "Maya Preview Runtime : " +
-                    "Mesh Data‚ª•s³‚Å‚·B"
+                    "Mesh DataãŒä¸æ­£ã§ã™ã€‚"
                 );
 
                 return null;
             }
 
             // =================================================
-            // Maya X Y Z ¨ Unity X Y -Z
-            // Z”½“]‚µ‚½‚Ì‚ÅWinding‚à”½“]
+            // Maya X Y Z â†’ Unity X Y -Z
+            // Zåè»¢ã—ãŸã®ã§Windingã‚‚åè»¢
             //
-            // ‚³‚ç‚É–Ê‚²‚Æ‚É’¸“_‚ğ•ªŠ„‚·‚é
-            // (‘—Mƒf[ƒ^‚É–@ü‚ª–³‚¢‚Ì‚ÅA•ªŠ„‚µ‚È‚¢‚Æ
-            //  RecalculateNormals‚Åƒn[ƒhƒGƒbƒW‚ªŠÛ‚Ü‚é)
+            // ã•ã‚‰ã«é¢ã”ã¨ã«é ‚ç‚¹ã‚’åˆ†å‰²ã™ã‚‹
+            // (é€ä¿¡ãƒ‡ãƒ¼ã‚¿ã«æ³•ç·šãŒç„¡ã„ã®ã§ã€åˆ†å‰²ã—ãªã„ã¨
+            //  RecalculateNormalsã§ãƒãƒ¼ãƒ‰ã‚¨ãƒƒã‚¸ãŒä¸¸ã¾ã‚‹)
             //
-            // ˆÈ‘O‚ÍMainThread‚Å‚â‚Á‚Ä‚¢‚½ˆ—‚ğ
-            // ‚»‚Ì‚Ü‚Ü‚±‚±‚ÖˆÚ‚µ‚½‚¾‚¯‚È‚Ì‚ÅŒ‹‰Ê‚Í“¯‚¶
+            // ä»¥å‰ã¯MainThreadã§ã‚„ã£ã¦ã„ãŸå‡¦ç†ã‚’
+            // ãã®ã¾ã¾ã“ã“ã¸ç§»ã—ãŸã ã‘ãªã®ã§çµæœã¯åŒã˜
             // =================================================
 
             CSST_VertexData[] src = meshData.vertices;
@@ -822,7 +822,7 @@ public class CS_MayaPreviewRuntimeServer : MonoBehaviour
         {
             Debug.LogError(
                 "Maya Preview Runtime : " +
-                "JSON‰ğÍ¸”s\n" +
+                "JSONè§£æå¤±æ•—\n" +
                 exception
             );
 
@@ -832,7 +832,7 @@ public class CS_MayaPreviewRuntimeServer : MonoBehaviour
 
 
     // =========================================================
-    // Mesh¶¬ / XV
+    // Meshç”Ÿæˆ / æ›´æ–°
     // =========================================================
 
     private void CreateOrUpdateMesh(
@@ -853,7 +853,7 @@ public class CS_MayaPreviewRuntimeServer : MonoBehaviour
 
 
         // =====================================================
-        // Šù‘¶ObjectŒŸõ
+        // æ—¢å­˜Objectæ¤œç´¢
         // =====================================================
 
         Transform existingTransform =
@@ -873,7 +873,7 @@ public class CS_MayaPreviewRuntimeServer : MonoBehaviour
         else
         {
             // =================================================
-            // V‹K¶¬
+            // æ–°è¦ç”Ÿæˆ
             // =================================================
 
             targetObject =
@@ -904,7 +904,7 @@ public class CS_MayaPreviewRuntimeServer : MonoBehaviour
 
 
         // =====================================================
-        // Componentæ“¾
+        // Componentå–å¾—
         // =====================================================
 
         MeshFilter meshFilter =
@@ -927,7 +927,7 @@ public class CS_MayaPreviewRuntimeServer : MonoBehaviour
 
 
         // =====================================================
-        // Meshæ“¾ / ¶¬
+        // Meshå–å¾— / ç”Ÿæˆ
         // =====================================================
 
         Mesh mesh =
@@ -954,15 +954,15 @@ public class CS_MayaPreviewRuntimeServer : MonoBehaviour
 
 
         // =====================================================
-        // MeshXV
+        // Meshæ›´æ–°
         // =====================================================
 
-        // –Ê‚²‚Æ‚Ì’¸“_•ªŠ„‚ÍóMƒXƒŒƒbƒh (PrepareMessage) ‚ÅÏ‚Ü‚¹‚Ä‚ ‚é
+        // é¢ã”ã¨ã®é ‚ç‚¹åˆ†å‰²ã¯å—ä¿¡ã‚¹ãƒ¬ãƒƒãƒ‰ (PrepareMessage) ã§æ¸ˆã¾ã›ã¦ã‚ã‚‹
 
         mesh.Clear();
 
 
-        // 65535’¸“_‚ğ’´‚¦‚éê‡
+        // 65535é ‚ç‚¹ã‚’è¶…ãˆã‚‹å ´åˆ
         if (
             unityVertices.Length >
             65535
@@ -993,11 +993,11 @@ public class CS_MayaPreviewRuntimeServer : MonoBehaviour
 
 
         // =====================================================
-        // MeshXVŠ®—¹
+        // Meshæ›´æ–°å®Œäº†
         // =====================================================
 
         Debug.Log(
-            "Maya Preview Runtime : MeshXV\n" +
+            "Maya Preview Runtime : Meshæ›´æ–°\n" +
             "Object : " +
             mayaObjectName +
             "\nVertex : " +
@@ -1010,10 +1010,10 @@ public class CS_MayaPreviewRuntimeServer : MonoBehaviour
 
 
         // =====================================================
-        // šd—v
+        // â˜…é‡è¦
         //
-        // MeshXVŒã‚ÌHDRP‰æ‘œ‚ğ
-        // Maya‚Ö1–‡‚¾‚¯•Ô‚·
+        // Meshæ›´æ–°å¾Œã®HDRPç”»åƒã‚’
+        // Mayaã¸1æšã ã‘è¿”ã™
         // =====================================================
 
         if (_sendFramesToMaya && _frameSender != null)
@@ -1024,7 +1024,7 @@ public class CS_MayaPreviewRuntimeServer : MonoBehaviour
 
 
     // =========================================================
-    // MESH_DATA_V2ˆ—
+    // MESH_DATA_V2å‡¦ç†
     // =========================================================
 
     private void ProcessMeshDataV2(
@@ -1039,7 +1039,7 @@ public class CS_MayaPreviewRuntimeServer : MonoBehaviour
         )
         {
             Debug.LogError(
-                "Maya Preview Runtime : MESH_DATA_V2‚ª•s³‚Å‚·B"
+                "Maya Preview Runtime : MESH_DATA_V2ãŒä¸æ­£ã§ã™ã€‚"
             );
 
             return;
@@ -1061,7 +1061,7 @@ public class CS_MayaPreviewRuntimeServer : MonoBehaviour
 
 
         // =====================================================
-        // ’¸“_•ÏŠ·iMaya X Y Z ¨ Unity X Y -Zj
+        // é ‚ç‚¹å¤‰æ›ï¼ˆMaya X Y Z â†’ Unity X Y -Zï¼‰
         // =====================================================
 
         var vertices = new Vector3[vertexCount];
@@ -1105,7 +1105,7 @@ public class CS_MayaPreviewRuntimeServer : MonoBehaviour
 
 
         // =====================================================
-        // SubmeshiZ”½“]‚µ‚½‚½‚ßWinding‚à”½“]j
+        // Submeshï¼ˆZåè»¢ã—ãŸãŸã‚Windingã‚‚åè»¢ï¼‰
         // =====================================================
 
         var subMeshTriangles = new List<int[]>();
@@ -1144,7 +1144,7 @@ public class CS_MayaPreviewRuntimeServer : MonoBehaviour
                 )
                 {
                     Debug.LogError(
-                        "Maya Preview Runtime : ’¸“_”Ô†‚ª”ÍˆÍŠO‚Å‚·B " +
+                        "Maya Preview Runtime : é ‚ç‚¹ç•ªå·ãŒç¯„å›²å¤–ã§ã™ã€‚ " +
                         meshData.name
                     );
 
@@ -1166,7 +1166,7 @@ public class CS_MayaPreviewRuntimeServer : MonoBehaviour
         if (subMeshTriangles.Count == 0)
         {
             Debug.LogWarning(
-                "Maya Preview Runtime : OŠpŒ`‚ª‚ ‚è‚Ü‚¹‚ñB " +
+                "Maya Preview Runtime : ä¸‰è§’å½¢ãŒã‚ã‚Šã¾ã›ã‚“ã€‚ " +
                 meshData.name
             );
 
@@ -1175,7 +1175,7 @@ public class CS_MayaPreviewRuntimeServer : MonoBehaviour
 
 
         // =====================================================
-        // MeshXV
+        // Meshæ›´æ–°
         // =====================================================
 
         GameObject targetObject =
@@ -1249,7 +1249,7 @@ public class CS_MayaPreviewRuntimeServer : MonoBehaviour
         }
 
 
-        // ƒgƒD[ƒ“Shader‚ÍTangent‚ğg‚¤‚½‚ßAUV‚ª‚ ‚é‚ÍŒvZ‚·‚é
+        // ãƒˆã‚¥ãƒ¼ãƒ³Shaderã¯Tangentã‚’ä½¿ã†ãŸã‚ã€UVãŒã‚ã‚‹æ™‚ã¯è¨ˆç®—ã™ã‚‹
         if (hasUvs)
         {
             mesh.RecalculateTangents();
@@ -1261,7 +1261,7 @@ public class CS_MayaPreviewRuntimeServer : MonoBehaviour
 
 
         // =====================================================
-        // MaterialŠ„‚è“–‚Ä
+        // Materialå‰²ã‚Šå½“ã¦
         // =====================================================
 
         ApplyMaterials(
@@ -1271,7 +1271,7 @@ public class CS_MayaPreviewRuntimeServer : MonoBehaviour
 
 
         Debug.Log(
-            "Maya Preview Runtime : MeshXV (V2)\n" +
+            "Maya Preview Runtime : Meshæ›´æ–° (V2)\n" +
             "Object : " + meshData.name +
             "\nVertex : " + vertexCount +
             "\nMaterial : " + string.Join(", ", materialNames)
@@ -1286,7 +1286,7 @@ public class CS_MayaPreviewRuntimeServer : MonoBehaviour
 
 
     // =========================================================
-    // MATERIAL_DEFiMaya‚Åì‚Á‚½ƒ}ƒeƒŠƒAƒ‹j
+    // MATERIAL_DEFï¼ˆMayaã§ä½œã£ãŸãƒãƒ†ãƒªã‚¢ãƒ«ï¼‰
     // =========================================================
 
     private void ProcessMaterialDef(
@@ -1303,14 +1303,14 @@ public class CS_MayaPreviewRuntimeServer : MonoBehaviour
         }
 
 
-        // Maya‚ÌFEƒx[ƒXƒ}ƒbƒvEƒm[ƒ}ƒ‹‚¾‚¯”½‰fiƒVƒF[ƒ_[‚Æ’l‚ÍPreviewHost‘¤‚Ìİ’è‚ğ•Û‚Âj
+        // Mayaã®è‰²ãƒ»ãƒ™ãƒ¼ã‚¹ãƒãƒƒãƒ—ãƒ»ãƒãƒ¼ãƒãƒ«ã ã‘åæ˜ ï¼ˆã‚·ã‚§ãƒ¼ãƒ€ãƒ¼ã¨å€¤ã¯PreviewHostå´ã®è¨­å®šã‚’ä¿ã¤ï¼‰
         _library.SetMayaData(
             def
         );
     }
 
 
-    // w’è–¼‚ÌMaterial‚ğg‚Á‚Ä‚¢‚éLive Object‚ÉŠ„‚è“–‚Ä’¼‚·
+    // æŒ‡å®šåã®Materialã‚’ä½¿ã£ã¦ã„ã‚‹Live Objectã«å‰²ã‚Šå½“ã¦ç›´ã™
     private void RefreshMaterial(
         string materialName
     )
@@ -1378,7 +1378,7 @@ public class CS_MayaPreviewRuntimeServer : MonoBehaviour
 
 
     // =========================================================
-    // Live ObjectíœiMaya‚ÅíœE–¼‘O•ÏX‚³‚ê‚½ƒƒbƒVƒ…j
+    // Live Objectå‰Šé™¤ï¼ˆMayaã§å‰Šé™¤ãƒ»åå‰å¤‰æ›´ã•ã‚ŒãŸãƒ¡ãƒƒã‚·ãƒ¥ï¼‰
     // =========================================================
 
     private void RemoveLiveObject(
@@ -1437,14 +1437,14 @@ public class CS_MayaPreviewRuntimeServer : MonoBehaviour
 
 
         Debug.Log(
-            "Maya Preview Runtime : Meshíœ " +
+            "Maya Preview Runtime : Meshå‰Šé™¤ " +
             mayaObjectName
         );
     }
 
 
     // =========================================================
-    // Live Objectæ“¾ / ¶¬
+    // Live Objectå–å¾— / ç”Ÿæˆ
     // =========================================================
 
     private GameObject GetOrCreateLiveObject(
@@ -1506,11 +1506,11 @@ public class CS_MayaPreviewRuntimeServer : MonoBehaviour
 
 
     // =========================================================
-    // MaterialŠ„‚è“–‚Ä
+    // Materialå‰²ã‚Šå½“ã¦
     //
-    // –¼‘O‚ª‹ó      ¨ ŠDF‚ÌPreview Material
-    // ˆê——‚É–³‚¢    ¨ ƒ}ƒ[ƒ“ƒ^iMissingj
-    // ˆê——‚É‚ ‚é    ¨ Unity‚Åì‚Á‚½Material‚ğ‚»‚Ì‚Ü‚Üg‚¤
+    // åå‰ãŒç©º      â†’ ç°è‰²ã®Preview Material
+    // ä¸€è¦§ã«ç„¡ã„    â†’ ãƒã‚¼ãƒ³ã‚¿ï¼ˆMissingï¼‰
+    // ä¸€è¦§ã«ã‚ã‚‹    â†’ Unityã§ä½œã£ãŸMaterialã‚’ãã®ã¾ã¾ä½¿ã†
     // =========================================================
 
     private void ApplyMaterials(
@@ -1532,7 +1532,7 @@ public class CS_MayaPreviewRuntimeServer : MonoBehaviour
             string.Join("|", materialNames);
 
 
-        // “¯‚¶Š„‚è“–‚Ä‚È‚çG‚ç‚È‚¢iInspector‚Å’²®’†‚Ì’l‚ğÁ‚³‚È‚¢j
+        // åŒã˜å‰²ã‚Šå½“ã¦ãªã‚‰è§¦ã‚‰ãªã„ï¼ˆInspectorã§èª¿æ•´ä¸­ã®å€¤ã‚’æ¶ˆã•ãªã„ï¼‰
         if (
             _appliedMaterialKeys.TryGetValue(targetObject.name, out string appliedKey) &&
             appliedKey == key &&
@@ -1580,7 +1580,7 @@ public class CS_MayaPreviewRuntimeServer : MonoBehaviour
         }
 
 
-        // Maya‚Ìƒ}ƒeƒŠƒAƒ‹–¼‚²‚Æ‚É©“®¶¬i‰‰ñ‚ÍHDRP/Litj
+        // Mayaã®ãƒãƒ†ãƒªã‚¢ãƒ«åã”ã¨ã«è‡ªå‹•ç”Ÿæˆï¼ˆåˆå›ã¯HDRP/Litï¼‰
         Material material =
             _library != null
                 ? _library.GetOrCreate(normalized)
@@ -1599,7 +1599,7 @@ public class CS_MayaPreviewRuntimeServer : MonoBehaviour
         {
             Debug.LogWarning(
                 "Maya Preview Runtime : Material \"" + normalized +
-                "\" ‚ªUnity‚Ìˆê——‚É‚ ‚è‚Ü‚¹‚ñBƒ}ƒ[ƒ“ƒ^‚Å•\¦‚µ‚Ü‚·B"
+                "\" ãŒUnityã®ä¸€è¦§ã«ã‚ã‚Šã¾ã›ã‚“ã€‚ãƒã‚¼ãƒ³ã‚¿ã§è¡¨ç¤ºã—ã¾ã™ã€‚"
             );
         }
 
@@ -1611,7 +1611,7 @@ public class CS_MayaPreviewRuntimeServer : MonoBehaviour
 
 
     // =========================================================
-    // Server’â~
+    // Serveråœæ­¢
     // =========================================================
 
     private void StopServer()
@@ -1633,7 +1633,7 @@ public class CS_MayaPreviewRuntimeServer : MonoBehaviour
         }
         catch
         {
-            // –³‹
+            // ç„¡è¦–
         }
 
 
@@ -1654,7 +1654,7 @@ public class CS_MayaPreviewRuntimeServer : MonoBehaviour
         }
         catch
         {
-            // –³‹
+            // ç„¡è¦–
         }
 
 
@@ -1662,7 +1662,7 @@ public class CS_MayaPreviewRuntimeServer : MonoBehaviour
 
 
         Debug.Log(
-            "Maya Preview Runtime : Socket Server’â~"
+            "Maya Preview Runtime : Socket Serveråœæ­¢"
         );
     }
 
@@ -1714,7 +1714,7 @@ public class CS_MayaPreviewRuntimeServer : MonoBehaviour
 
 
     // =========================================================
-    // ApplicationI—¹
+    // Applicationçµ‚äº†
     // =========================================================
 
     private void OnApplicationQuit()

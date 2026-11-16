@@ -1,8 +1,8 @@
-using Unity.Netcode;
+ï»¿using Unity.Netcode;
 using UnityEngine;
 
-// ƒ}ƒbƒ`Ú‘±‚ÉŠÖ‚·‚éƒQ[ƒgƒEƒFƒCƒNƒ‰ƒX
-// §ìÒF@H–ìãÄ‘¾
+// ãƒãƒƒãƒæ¥ç¶šã«é–¢ã™ã‚‹ã‚²ãƒ¼ãƒˆã‚¦ã‚§ã‚¤ã‚¯ãƒ©ã‚¹
+// åˆ¶ä½œè€…ï¼šã€€ç§‹é‡ç¿”å¤ª
 
 public class CS_ConnectionGate : MonoBehaviour
 {
@@ -24,20 +24,20 @@ public class CS_ConnectionGate : MonoBehaviour
         if (!_acceptingConnections)
         {
             res.Approved = false;
-            res.Reason = "ƒQ[ƒ€‚ªŠù‚ÉŠJn‚³‚ê‚Ä‚¢‚Ü‚·";
+            res.Reason = "ã‚²ãƒ¼ãƒ ãŒæ—¢ã«é–‹å§‹ã•ã‚Œã¦ã„ã¾ã™";
             return;
         }
         if (nm.ConnectedClientsIds.Count >= _maxPlayers)
         {
             res.Approved = false;
-            res.Reason = "–ˆõ‚Å‚·";
+            res.Reason = "æº€å“¡ã§ã™";
             return;
         }
         res.Approved = true;
         res.CreatePlayerObject = false;
     }
 
-    // Ú‘±ó•tó‘Ô‚ğİ’è‚·‚éƒƒ\ƒbƒh
+    // æ¥ç¶šå—ä»˜çŠ¶æ…‹ã‚’è¨­å®šã™ã‚‹ãƒ¡ã‚½ãƒƒãƒ‰
     public void SetAcceptingConnections(bool value)
     {
         _acceptingConnections = value;

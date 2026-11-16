@@ -1,28 +1,28 @@
-using Unity.Netcode;
+ï»¿using Unity.Netcode;
 using Unity.Netcode.Transports.UTP;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 
 /*
- * ƒ}ƒbƒ`ƒ“ƒO‚ÌŠÇ—‚ğs‚¤ƒNƒ‰ƒX
+ * ãƒãƒƒãƒãƒ³ã‚°ã®ç®¡ç†ã‚’è¡Œã†ã‚¯ãƒ©ã‚¹
  * 
- * §ìÒF@H–ìãÄ‘¾
+ * åˆ¶ä½œè€…ï¼šã€€ç§‹é‡ç¿”å¤ª
  */
 
 
 // ========================================
 /*
- * ƒƒ‚
- * NetworkManager‚©‚çƒVƒ“ƒOƒ‹ƒgƒ“‚ğæ“¾‚µ
+ * ãƒ¡ãƒ¢
+ * NetworkManagerã‹ã‚‰ã‚·ãƒ³ã‚°ãƒ«ãƒˆãƒ³ã‚’å–å¾—ã—
  *  var nm = NetworkManager.Singleton;
- *  Ú‘±
- *  nm.OnClientConnectedCallback += ŠÖ”;
- *  Ø’f
- *  nm.OnClientDisconnectCallback += ŠÖ”;
- *  ‚Ì‚æ‚¤‚ÉƒR[ƒ‹ƒoƒbƒN‚ğ“o˜^‚·‚é‚±‚Æ‚ÅAƒNƒ‰ƒCƒAƒ“ƒg‚ÌÚ‘±EØ’f‚ğŒŸ’m‚Å‚«‚é
- *  ¦@ƒzƒXƒg‚ÆƒNƒ‰ƒCƒAƒ“ƒg‚Å‚ÍƒR[ƒ‹ƒoƒbƒN‚ÌŒÄ‚Î‚ê‚éƒ^ƒCƒ~ƒ“ƒO‚ªˆÙ‚È‚é‚Ì‚Å’ˆÓ
- *  ƒzƒXƒg‘¤‚Å‚ÍA’N‚©ˆêl‚Å‚àÚ‘±EØ’f‚ª‚ ‚Á‚½ê‡‚ÉŒÄ‚Î‚ê‚é
- *  ƒNƒ‰ƒCƒAƒ“ƒg‘¤‚Å‚ÍA©•ª‚ªÚ‘±EØ’f‚µ‚½ê‡‚ÉŒÄ‚Î‚ê‚é
+ *  æ¥ç¶šæ™‚
+ *  nm.OnClientConnectedCallback += é–¢æ•°;
+ *  åˆ‡æ–­æ™‚
+ *  nm.OnClientDisconnectCallback += é–¢æ•°;
+ *  ã®ã‚ˆã†ã«ã‚³ãƒ¼ãƒ«ãƒãƒƒã‚¯ã‚’ç™»éŒ²ã™ã‚‹ã“ã¨ã§ã€ã‚¯ãƒ©ã‚¤ã‚¢ãƒ³ãƒˆã®æ¥ç¶šãƒ»åˆ‡æ–­ã‚’æ¤œçŸ¥ã§ãã‚‹
+ *  â€»ã€€ãƒ›ã‚¹ãƒˆã¨ã‚¯ãƒ©ã‚¤ã‚¢ãƒ³ãƒˆã§ã¯ã‚³ãƒ¼ãƒ«ãƒãƒƒã‚¯ã®å‘¼ã°ã‚Œã‚‹ã‚¿ã‚¤ãƒŸãƒ³ã‚°ãŒç•°ãªã‚‹ã®ã§æ³¨æ„
+ *  ãƒ›ã‚¹ãƒˆå´ã§ã¯ã€èª°ã‹ä¸€äººã§ã‚‚æ¥ç¶šãƒ»åˆ‡æ–­ãŒã‚ã£ãŸå ´åˆã«å‘¼ã°ã‚Œã‚‹
+ *  ã‚¯ãƒ©ã‚¤ã‚¢ãƒ³ãƒˆå´ã§ã¯ã€è‡ªåˆ†ãŒæ¥ç¶šãƒ»åˆ‡æ–­ã—ãŸå ´åˆã«å‘¼ã°ã‚Œã‚‹
  */
 // ========================================
 
@@ -38,7 +38,7 @@ public class CS_Matching : MonoBehaviour
     {
     }
 
-    // ƒzƒXƒg‚Æ‚µ‚Ä•”‰®‚ğì¬‚·‚é
+    // ãƒ›ã‚¹ãƒˆã¨ã—ã¦éƒ¨å±‹ã‚’ä½œæˆã™ã‚‹
     public bool StartAsHost()
     {
         var nm = NetworkManager.Singleton;
@@ -49,15 +49,15 @@ public class CS_Matching : MonoBehaviour
         var status = nm.SceneManager.LoadScene(_matchingWaitingSceneName, LoadSceneMode.Single);
         if (status != SceneEventProgressStatus.Started)
         {
-            nm.Shutdown(); // ƒV[ƒ“‘JˆÚ‚É¸”s‚µ‚½‚ç•”‰®‚²‚Æô‚Ş
+            nm.Shutdown(); // ã‚·ãƒ¼ãƒ³é·ç§»ã«å¤±æ•—ã—ãŸã‚‰éƒ¨å±‹ã”ã¨ç•³ã‚€
             return false;
         }
         return true;
     }
 
     /*
-     * Q‰ÁÒ‚Æ‚µ‚Ä•”‰®‚ÉÚ‘±‚·‚é
-     * –ß‚è’l‚ÍÚ‘±¸”s‚Å‚Í‚È‚­AÚ‘±ˆ—‚ªŠJn‚Å‚«‚½‚©‚Ç‚¤‚©‚ğ•Ô‚·
+     * å‚åŠ è€…ã¨ã—ã¦éƒ¨å±‹ã«æ¥ç¶šã™ã‚‹
+     * æˆ»ã‚Šå€¤ã¯æ¥ç¶šå¤±æ•—ã§ã¯ãªãã€æ¥ç¶šå‡¦ç†ãŒé–‹å§‹ã§ããŸã‹ã©ã†ã‹ã‚’è¿”ã™
      */
     public bool StartAsClient(string ip)
     {

@@ -71,6 +71,18 @@
         },
         {
             "m_Id": "ca8d045c35294412ae26bd3086433db4"
+        },
+        {
+            "m_Id": "6681b6cf6c21487e81ec28875a9c9f23"
+        },
+        {
+            "m_Id": "434026a710fa42c7b875530718a2d51a"
+        },
+        {
+            "m_Id": "eb7209d4dca04638bf4e2d1208590654"
+        },
+        {
+            "m_Id": "3bd94c4bb68a4161a438f3259dbff093"
         }
     ],
     "m_Keywords": [],
@@ -7044,6 +7056,18 @@
         },
         {
             "m_Id": "6453d43a546d43808de87c782731628d"
+        },
+        {
+            "m_Id": "6681b6cf6c21487e81ec28875a9c9f23"
+        },
+        {
+            "m_Id": "434026a710fa42c7b875530718a2d51a"
+        },
+        {
+            "m_Id": "eb7209d4dca04638bf4e2d1208590654"
+        },
+        {
+            "m_Id": "3bd94c4bb68a4161a438f3259dbff093"
         }
     ]
 }
@@ -7153,3 +7177,162 @@
     ]
 }
 
+
+
+{
+    "m_SGVersion": 1,
+    "m_Type": "UnityEditor.ShaderGraph.Internal.Vector1ShaderProperty",
+    "m_ObjectId": "6681b6cf6c21487e81ec28875a9c9f23",
+    "m_Guid": {
+        "m_GuidSerialized": "420d0e2d-7cb5-417d-bf49-7265d84bf83b"
+    },
+    "promotedFromAssetID": "",
+    "promotedFromCategoryName": "",
+    "promotedOrdering": -1,
+    "m_Name": "全体の彩度 (1 = そのまま)",
+    "m_DefaultRefNameVersion": 1,
+    "m_RefNameGeneratedByDisplayName": "NTESaturation",
+    "m_DefaultReferenceName": "_NTESaturation",
+    "m_OverrideReferenceName": "_NTESaturation",
+    "m_GeneratePropertyBlock": true,
+    "m_UseCustomSlotLabel": false,
+    "m_CustomSlotLabel": "",
+    "m_DismissedVersion": 0,
+    "m_Precision": 0,
+    "overrideHLSLDeclaration": false,
+    "hlslDeclarationOverride": 0,
+    "m_Hidden": false,
+    "m_PerRendererData": false,
+    "m_customAttributes": [],
+    "m_Value": 1.0,
+    "m_FloatType": 1,
+    "m_LiteralFloatMode": false,
+    "m_RangeValues": {
+        "x": 0.0,
+        "y": 2.0
+    },
+    "m_SliderType": 0,
+    "m_SliderPower": 3.0,
+    "m_EnumType": 0,
+    "m_CSharpEnumString": "",
+    "m_EnumNames": [
+        "Default"
+    ],
+    "m_EnumValues": [
+        0
+    ]
+}
+
+{
+    "m_SGVersion": 3,
+    "m_Type": "UnityEditor.ShaderGraph.Internal.ColorShaderProperty",
+    "m_ObjectId": "434026a710fa42c7b875530718a2d51a",
+    "m_Guid": {
+        "m_GuidSerialized": "7ca9cab6-b3cd-4e8f-82a3-3c1a98783aa9"
+    },
+    "promotedFromAssetID": "",
+    "promotedFromCategoryName": "",
+    "promotedOrdering": -1,
+    "m_Name": "濃い影の色",
+    "m_DefaultRefNameVersion": 1,
+    "m_RefNameGeneratedByDisplayName": "DeepShadowColor",
+    "m_DefaultReferenceName": "_DeepShadowColor",
+    "m_OverrideReferenceName": "_DeepShadowColor",
+    "m_GeneratePropertyBlock": true,
+    "m_UseCustomSlotLabel": false,
+    "m_CustomSlotLabel": "",
+    "m_DismissedVersion": 0,
+    "m_Precision": 0,
+    "overrideHLSLDeclaration": false,
+    "hlslDeclarationOverride": 0,
+    "m_Hidden": false,
+    "m_PerRendererData": false,
+    "m_customAttributes": [],
+    "m_Value": {
+        "r": 0.55,
+        "g": 0.16,
+        "b": 0.16,
+        "a": 1.0
+    },
+    "isMainColor": false,
+    "m_ColorMode": 0
+}
+
+{
+    "m_SGVersion": 1,
+    "m_Type": "UnityEditor.ShaderGraph.Internal.Vector1ShaderProperty",
+    "m_ObjectId": "eb7209d4dca04638bf4e2d1208590654",
+    "m_Guid": {
+        "m_GuidSerialized": "4b392601-c5bb-4d60-994c-9d5dab044d98"
+    },
+    "promotedFromAssetID": "",
+    "promotedFromCategoryName": "",
+    "promotedOrdering": -1,
+    "m_Name": "濃い影の色の強さ (光から遠いほどこの色)",
+    "m_DefaultRefNameVersion": 1,
+    "m_RefNameGeneratedByDisplayName": "DeepShadowStrength",
+    "m_DefaultReferenceName": "_DeepShadowStrength",
+    "m_OverrideReferenceName": "_DeepShadowStrength",
+    "m_GeneratePropertyBlock": true,
+    "m_UseCustomSlotLabel": false,
+    "m_CustomSlotLabel": "",
+    "m_DismissedVersion": 0,
+    "m_Precision": 0,
+    "overrideHLSLDeclaration": false,
+    "hlslDeclarationOverride": 0,
+    "m_Hidden": false,
+    "m_PerRendererData": false,
+    "m_customAttributes": [],
+    "m_Value": 0.0,
+    "m_FloatType": 1,
+    "m_LiteralFloatMode": false,
+    "m_RangeValues": {
+        "x": 0.0,
+        "y": 1.0
+    },
+    "m_SliderType": 0,
+    "m_SliderPower": 3.0,
+    "m_EnumType": 0,
+    "m_CSharpEnumString": "",
+    "m_EnumNames": [
+        "Default"
+    ],
+    "m_EnumValues": [
+        0
+    ]
+}
+
+{
+    "m_SGVersion": 3,
+    "m_Type": "UnityEditor.ShaderGraph.Internal.ColorShaderProperty",
+    "m_ObjectId": "3bd94c4bb68a4161a438f3259dbff093",
+    "m_Guid": {
+        "m_GuidSerialized": "0e0fbcdf-61b0-48eb-9995-4265fa2fd5c4"
+    },
+    "promotedFromAssetID": "",
+    "promotedFromCategoryName": "",
+    "promotedOrdering": -1,
+    "m_Name": "目のハイライト色",
+    "m_DefaultRefNameVersion": 1,
+    "m_RefNameGeneratedByDisplayName": "EyeHighlightColor",
+    "m_DefaultReferenceName": "_EyeHighlightColor",
+    "m_OverrideReferenceName": "_EyeHighlightColor",
+    "m_GeneratePropertyBlock": true,
+    "m_UseCustomSlotLabel": false,
+    "m_CustomSlotLabel": "",
+    "m_DismissedVersion": 0,
+    "m_Precision": 0,
+    "overrideHLSLDeclaration": false,
+    "hlslDeclarationOverride": 0,
+    "m_Hidden": true,
+    "m_PerRendererData": false,
+    "m_customAttributes": [],
+    "m_Value": {
+        "r": 1.0,
+        "g": 1.0,
+        "b": 1.0,
+        "a": 1.0
+    },
+    "isMainColor": false,
+    "m_ColorMode": 0
+}

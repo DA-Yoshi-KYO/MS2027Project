@@ -162,6 +162,7 @@ public partial class CS_MayaPreviewInspector : MonoBehaviour
         else if (control && e.keyCode == KeyCode.Y) { Redo(); e.Use(); }
         else if (control && e.keyCode == KeyCode.D) { DuplicateSelection(); e.Use(); }
         else if (!control && !e.alt && e.keyCode == KeyCode.Delete) { DeleteSelection(); e.Use(); }
+        else if (!control && !e.alt && e.keyCode == KeyCode.Escape && !_contextOpen && _selection.Count > 0) { _selection.Select(null); e.Use(); }
     }
 
     private void Undo()

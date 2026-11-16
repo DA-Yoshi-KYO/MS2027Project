@@ -61,7 +61,7 @@ public class CS_MayaPreviewOutline : MonoBehaviour
     {
         error = null;
         if (!CanHave(target)) { error = "メッシュがないので、アウトラインを作れません。"; return null; }
-        Material template = Template();
+        Material template = Template(out float templateScale);
         Shader shader = template != null ? template.shader : Shader.Find(ShaderName);
         if (shader == null) { error = "SHG_Outline シェーダーが exe に入っていません。"; return null; }
 
@@ -87,26 +87,51 @@ public class CS_MayaPreviewOutline : MonoBehaviour
         outline._renderer.receiveShadows = false;
         outline.Sync(true);
 
-        Mesh mesh = outline.SourceMesh();
-        float size = mesh != null ? mesh.bounds.extents.magnitude : 1f;
-        outline.Width = Mathf.Max(0.0001f, size * DefaultWidthRatio);
-        outline.Color = Color.black;
+        if (template != null)
+        {
+            // Same look as the character's outline: its colour / texture blend / darkening as they are,
+            // and its width converted so the line is just as thick on screen. The width is pushed out in
+            // object space, so it scales with the object (a Maya mesh in cm under a 0.01 root, an FBX in m).
+            float scale = MaxScale(target.transform);
+            outline.Width = outline.Width * templateScale / Mathf.Max(1e-6f, scale);
+        }
+        else
+        {
+            Mesh mesh = outline.SourceMesh();
+            float size = mesh != null ? mesh.bounds.extents.magnitude : 1f;
+            outline.Width = Mathf.Max(0.0001f, size * DefaultWidthRatio);
+            outline.Color = Color.black;
+        }
         outline.UseSourceTexture();
         return outline;
     }
 
-    // An SHG_Outline material already in the scene (MT_Mutou_Outline_*), or null.
-    private static Material Template()
+    // The outline material of a character in the scene (MT_Mutou_Outline_*, preferring Skin) and the
+    // scale of the object it is on, or null.
+    private static Material Template(out float scale)
     {
         Material found = null;
-        foreach (Material material in Resources.FindObjectsOfTypeAll<Material>())
+        scale = 1f;
+        foreach (Renderer renderer in Object.FindObjectsByType<Renderer>(FindObjectsInactive.Include, FindObjectsSortMode.None))
         {
-            if (material == null || material.shader == null || material.shader.name != ShaderName) continue;
-            if (material.name.StartsWith("MT_Outline_")) continue;   // one made here
-            found = material;
-            if (material.name.IndexOf("Skin", System.StringComparison.OrdinalIgnoreCase) >= 0) break;
+            if (renderer.GetComponent<CS_MayaPreviewOutline>() != null) continue;   // one made here
+            foreach (Material material in renderer.sharedMaterials)
+            {
+                if (material == null || material.shader == null || material.shader.name != ShaderName) continue;
+                bool skin = material.name.IndexOf("Skin", System.StringComparison.OrdinalIgnoreCase) >= 0;
+                if (found != null && !skin) continue;
+                found = material;
+                scale = MaxScale(renderer.transform);
+                if (skin) return found;
+            }
         }
         return found;
+    }
+
+    private static float MaxScale(Transform t)
+    {
+        Vector3 s = t.lossyScale;
+        return Mathf.Max(Mathf.Abs(s.x), Mathf.Max(Mathf.Abs(s.y), Mathf.Abs(s.z)));
     }
 
     // SHG_Outline colours the line with the object's own texture (darkened, _OutlineTexBlend):

@@ -11,11 +11,28 @@ using UnityEngine;
 
 /// <summary>
 /// Hpの描画の処理
-/// ・満タンのハート Prefab と空のハート Prefab の2種類を使う
+/// ・キャラごとに「満タンのハート Prefab」と「空のハート Prefab」を持つ
+/// ・SetCharacter() で表示するキャラを切り替える
 /// ・maxHp が変わったら動的に生成し直す
 /// </summary>
 public class CS_UIPlayerHpView : CS_BaseView<CS_UIPlayerHpPresenter>
 {
+    // =========================================================
+    // キャラごとのハート設定
+    // =========================================================
+
+    [System.Serializable]
+    public class HeartSet
+    {
+        [SerializeField] private CSE_CharacterType _characterType;
+        [SerializeField] private GameObject _fullHeartPrefab;  // 満タンのハート
+        [SerializeField] private GameObject _emptyHeartPrefab; // 空のハート
+
+        public CSE_CharacterType characterType => _characterType;
+        public GameObject fullHeartPrefab => _fullHeartPrefab;
+        public GameObject emptyHeartPrefab => _emptyHeartPrefab;
+    }
+
     // =========================================================
     // Inspector
     // =========================================================
@@ -23,9 +40,8 @@ public class CS_UIPlayerHpView : CS_BaseView<CS_UIPlayerHpPresenter>
     [Header("ハートアイコンの親")]
     [SerializeField] private Transform _heartsRoot;
 
-    [Header("ハートアイコン Prefab")]
-    [SerializeField] private GameObject _fullHeartPrefab;  // 満タンのハート
-    [SerializeField] private GameObject _emptyHeartPrefab; // 空のハート
+    [Header("キャラごとのハート Prefab")]
+    [SerializeField] private HeartSet[] _heartSets;
 
     // =========================================================
     // 内部フィールド
@@ -35,7 +51,8 @@ public class CS_UIPlayerHpView : CS_BaseView<CS_UIPlayerHpPresenter>
     private readonly List<GameObject> _fullHearts = new();
     private readonly List<GameObject> _emptyHearts = new();
 
-    private int _currentMaxHp = -1; // 前回の maxHp（変化を検知するため）
+    private HeartSet _currentHeartSet; // 現在表示しているキャラの設定
+    private int _currentMaxHp = -1;    // 前回の maxHp（変化を検知するため）
 
     // =========================================================
     // CS_BaseView
@@ -44,6 +61,40 @@ public class CS_UIPlayerHpView : CS_BaseView<CS_UIPlayerHpPresenter>
     public override void SetPresenter(CS_UIPlayerHpPresenter presenter)
     {
         base.SetPresenter(presenter);
+    }
+
+    // =========================================================
+    // キャラの切り替え（Presenter から呼ばれる）
+    // =========================================================
+
+    /// <summary>
+    /// 表示するキャラを設定する
+    /// キャラが変わったら、次の UpdateHp でハートを生成し直す
+    /// </summary>
+    public void SetCharacter(CSE_CharacterType characterType)
+    {
+        HeartSet heartSet = FindHeartSet(characterType);
+
+        // 同じキャラなら何もしない
+        if (heartSet != null && heartSet == _currentHeartSet) return;
+
+        _currentHeartSet = heartSet;
+        ClearHearts();
+        _currentMaxHp = -1; // 次の UpdateHp で必ず生成し直す
+    }
+
+    /// <summary>キャラに対応するハート設定を探す</summary>
+    private HeartSet FindHeartSet(CSE_CharacterType characterType)
+    {
+        if (_heartSets == null) return null;
+
+        for (int i = 0; i < _heartSets.Length; i++)
+        {
+            if (_heartSets[i].characterType == characterType) return _heartSets[i];
+        }
+
+        Debug.LogWarning($"ハートの設定がありません: {characterType}");
+        return null;
     }
 
     // =========================================================
@@ -56,6 +107,9 @@ public class CS_UIPlayerHpView : CS_BaseView<CS_UIPlayerHpPresenter>
     /// </summary>
     public void UpdateHp(int hp, int max)
     {
+        // キャラが未設定なら描画できない
+        if (_currentHeartSet == null) return;
+
         // maxHp が変わったらハートを生成し直す
         if (max != _currentMaxHp)
         {
@@ -87,8 +141,8 @@ public class CS_UIPlayerHpView : CS_BaseView<CS_UIPlayerHpPresenter>
         {
             // 満タンハートと空ハートを同じ位置に重ねて生成
             // HP に応じて SetActive で切り替える
-            _fullHearts.Add(Instantiate(_fullHeartPrefab, _heartsRoot));
-            _emptyHearts.Add(Instantiate(_emptyHeartPrefab, _heartsRoot));
+            _fullHearts.Add(Instantiate(_currentHeartSet.fullHeartPrefab, _heartsRoot));
+            _emptyHearts.Add(Instantiate(_currentHeartSet.emptyHeartPrefab, _heartsRoot));
         }
     }
 

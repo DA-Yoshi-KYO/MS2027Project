@@ -526,14 +526,6 @@ PrefabInstance:
       propertyPath: m_Name
       value: UICanvas
       objectReference: {fileID: 0}
-    - target: {fileID: 3655139157716495882, guid: 29368471a063cc5408cd40d308b7515e, type: 3}
-      propertyPath: _loopDuration
-      value: 2
-      objectReference: {fileID: 0}
-    - target: {fileID: 3655139157716495882, guid: 29368471a063cc5408cd40d308b7515e, type: 3}
-      propertyPath: _uvScrollAmount
-      value: 0.5
-      objectReference: {fileID: 0}
     - target: {fileID: 7524706262289083167, guid: 29368471a063cc5408cd40d308b7515e, type: 3}
       propertyPath: m_Pivot.x
       value: 0
@@ -613,6 +605,10 @@ PrefabInstance:
     - target: {fileID: 7524706262289083167, guid: 29368471a063cc5408cd40d308b7515e, type: 3}
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 8461004216503631548, guid: 29368471a063cc5408cd40d308b7515e, type: 3}
+      propertyPath: m_Spacing
+      value: 40
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
@@ -842,7 +838,7 @@ Transform:
   m_GameObject: {fileID: 832342964}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 8.920425, y: 105.72532, z: -19.860657}
+  m_LocalPosition: {x: 8.802063, y: 113.37237, z: 4.915619}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -863,7 +859,7 @@ MonoBehaviour:
   version: 2
   globalVolume: 0
   mode: 1
-  size: {x: 698.8524, y: 222.65355, z: 743.91254}
+  size: {x: 698.61566, y: 237.94221, z: 694.36}
   overrideRendererFilters: 0
   minRendererVolumeSize: 0.1
   objectLayerMask:

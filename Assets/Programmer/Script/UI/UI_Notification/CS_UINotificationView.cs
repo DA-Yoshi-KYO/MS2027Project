@@ -8,7 +8,6 @@
 
 using TMPro;
 using UnityEngine;
-using UnityEngine.UI;
 
 /// <summary>
 /// 通知スロット1つ分の表示を担当する View
@@ -22,7 +21,6 @@ public class CS_UINotificationView : MonoBehaviour
     // =========================================================
 
     [Header("UI パーツ")]
-    [SerializeField] private Image _backImage;
     [SerializeField] private TextMeshProUGUI _text;
 
     [Header("フェードアウト設定")]

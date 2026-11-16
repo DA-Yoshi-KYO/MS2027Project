@@ -67,6 +67,8 @@ GameObject:
   - component: {fileID: 3150130518343412178}
   - component: {fileID: 7667916572074837338}
   - component: {fileID: 1927538632315227214}
+  - component: {fileID: 1153621398760505636}
+  - component: {fileID: 3618917485198117787}
   m_Layer: 31
   m_Name: Player
   m_TagString: PlayerNoTransformation
@@ -1166,6 +1168,36 @@ MonoBehaviour:
   _returnTime: 0.25
   _activePriority: 100
   _idlePriority: -100
+--- !u!114 &1153621398760505636
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1825699444668748530}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e3e3dcb0b969d03479d3a24f68f52969, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CS_PlayerGrappleArrowUI
+  _heightOffset: 1.5
+--- !u!114 &3618917485198117787
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1825699444668748530}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6984fa4fd43d4964d98492257e92b265, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CS_PlayerSAPathUI
+  _showDistance: 50
+  _hideMargin: 5
+  _checkInterval: 0.2
+  _rescanInterval: 5
+  _pointsPerSegment: 12
 --- !u!1 &3298430547158640491
 GameObject:
   m_ObjectHideFlags: 0

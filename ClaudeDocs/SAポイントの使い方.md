@@ -117,6 +117,73 @@ MovingTrafficLight   ← CS_PathFollower を付ける(このオブジェクト�
   * 歩きのアニメーション: 運ばれた分は歩きに数えません。`CS_PlayerVisual` が座標の変化から歩きの速さを求める時に、足場の速度(`CS_PlayerRideSAPoint.platformVelocity`)を引きます。立っていれば立ち、足場の上で歩けば歩きになります。他の人の画面でも同じです(足場の位置は全員が同じ時刻から計算するため)
   * **今は SATest の Player にだけ付けています。Player.prefab には付いていません**(全員に付けるかは相談)
 
+# 🧭 グラップルの矢印と、動くSAポイントの軌道の表示
+SAの案内表示です。どちらも**自分の画面だけ**に出ます(通信はしません)。ロジック側(`CS_SAPoint`・`CS_GrappleSAPoint`・`CS_PathFollower`・`CS_PlayerHide`)は表示のことを知りません。外しても動きは変わりません。
+
+```
+プレイヤー側のクラス ──Show / Hide / AddPath / SetVisible──▶ Model ──(自動で通知)──▶ Presenter ──▶ View(ワールドに置いた表示)
+```
+
+どちらも MVP で、Presenter / View は `UICanvas.prefab`(`GrappleArrow`・`SAPath`)に付いています。表示そのものは、Canvasの子ではなく、実行時にシーン直下へ作ります(Canvasの大きさに影響されないため)。
+
+## 🏹 グラップルの矢印(Issue #505)
+狙っているグラップルのSAポイントの上に、プレイヤーから立つ位置(`StandPoint`)へ向かう矢印を出します。
+
+| 場所 | 内容 |
+|:--|:--|
+| `CS_PlayerGrappleArrowUI`(Player.prefab) | `CS_PlayerHide.currentCandidate` が `CS_GrappleSAPoint` の時だけ、的(`ropeEndPosition`)の `_heightOffset` 上に出す。矢印の向きは、プレイヤーの位置から立つ位置への向き(高さも含む)。狙いを外した時・飛び始めた時(`onFlyBegin`)・飛んでいる最中は消す |
+| `CS_UIGrappleArrowModel` / `Presenter` / `View`(`Script/UI/UI_GrappleArrow/`) | 位置・向き・表示の有無を持つModel / カメラの位置が確定した後(`CS_UIAfterCameraUpdate`)にViewへ渡すPresenter / 描画するView |
+
+* 画面に貼る2Dではなく、**ワールド上に置く矢印**です。的を正面から見ても、向きが奥行きになって分からなくならないよう、矢印の面は進行方向の軸まわりで、カメラの方を向きます
+* 仮の見た目は、山形(>>>)が3つ、飛ぶ方向へ流れるものです。両端で薄くなり、出し入れは短いフェードです
+* 山形は頂点カラー(色 × 濃さ)で描くので、マテリアルは頂点カラーを使うもの(今は `MT_GrappleArrow` = Nova の `Glow_Additive` の複製)にしてください
+
+| 調整する場所 | 項目 | 内容 | 初期値 |
+|:--|:--|:--|:--|
+| Player.prefab > `CS_PlayerGrappleArrowUI` | `_heightOffset` | 的から矢印までの高さ(m) | 1.5 |
+| UICanvas > `GrappleArrow` > `CS_UIGrappleArrowView` | `_material` | 山形のマテリアル | `MT_GrappleArrow` |
+| 同上 | `_color` | 矢印の色(アルファが一番濃い時の濃さ) | (0.5, 1.6, 2, 1) |
+| 同上 | `_chevronCount` / `_chevronSize` / `_spacing` | 山形の数 / 大きさ(m。x: 進行方向の長さ, y: 幅)/ 間隔(m) | 3 / (0.7, 0.9) / 0.8 |
+| 同上 | `_flowSpeed` | 山形が飛ぶ方向へ流れる速さ(m/秒) | 1.5 |
+| 同上 | `_edgeFade` | 矢印の両端で薄くなる範囲(矢印の長さに対する割合) | 0.3 |
+| 同上 | `_fadeTime` | 出し入れのフェード(秒) | 0.15 |
+
+## 🛤️ 動くSAポイントの軌道(Issue #507)
+`CS_PathFollower` で動くSAポイントの道筋を、**プレイヤーが近づいた時だけ**、点線で出します。動かないSAポイントには出しません。
+
+| 場所 | 内容 |
+|:--|:--|
+| `CS_PlayerSAPathUI`(Player.prefab) | シーンの `CS_PathFollower` を集めて、道筋(`GetCurvePoints`)を**登録する時に1回だけ**ワールドの点の並びにしてModelへ渡す。`_checkInterval` 秒ごとに、プレイヤーから道筋の一番近い点までの距離で出す・消すを切り替える |
+| `CS_UISAPathModel` / `Presenter` / `View`(`Script/UI/UI_SAPath/`) | 軌道ごとの点の並びと表示の有無を持つModel / Viewへ渡すPresenter / LineRendererで点線を描くView |
+
+* 出す距離は `_showDistance`。出している軌道を消すのは、`_showDistance + _hideMargin` を超えて離れた時です(境目でちらつかないように)。ふわっと出入りするフェードはViewが行います
+* 動くSAポイントは、最初と `_rescanInterval` 秒ごとに集め直します(`FindObjectsByType`。毎フレームは探しません)。途中で増えた物は登録し、消えた物は外します
+* 道筋は、登録した時に1回だけ取ります。パスをこのオブジェクトごと動かした場合は反映されません(再生中に動かさない前提。パスの点を再生中に動かしても `CS_PathFollower` 自体が反映しないのと同じです)
+* ワールド上の線なので、地形に隠れる所は隠れます(隠れても見えるようにはしていません)
+* 点線は、`textureScale` で、柄が `_dashPeriod`(m)ごとに繰り返します
+
+| 調整する場所 | 項目 | 内容 | 初期値 |
+|:--|:--|:--|:--|
+| Player.prefab > `CS_PlayerSAPathUI` | `_showDistance` | 道筋の一番近い点がこの距離以内なら出す(m) | 50 |
+| 同上 | `_hideMargin` | 出している軌道を消す距離に足す余裕(m) | 5 |
+| 同上 | `_checkInterval` / `_rescanInterval` | 近いかを調べる間隔 / 動くSAポイントを集め直す間隔(秒) | 0.2 / 5 |
+| 同上 | `_pointsPerSegment` | 道筋の1区間あたりの分割数(多いほどなめらか) | 12 |
+| UICanvas > `SAPath` > `CS_UISAPathView` | `_material` | 点線のマテリアル | `MT_SAPathDash` |
+| 同上 | `_color` | 線の色(アルファが一番濃い時の濃さ) | (1.6, 1.1, 0.3, 0.9) |
+| 同上 | `_width` / `_dashPeriod` | 線の太さ(m)/ 点線の柄が一回りする長さ(m) | 0.2 / 1 |
+| 同上 | `_fadeTime` | 出し入れのフェード(秒) | 0.4 |
+
+## 🧪 確認したこと・未確認のこと
+* 確認したこと(`SATest` で Play。コンソールのエラー・例外なし)
+  * グラップルの的の方を向くと、矢印(山形3つ)が出る。グラップルを飛び始めると、矢印が約0.15秒のフェードで消え、山形も描画されなくなる
+  * 動くSAポイント(`MovingTrafficLight`)の軌道が登録され、近い間は点線が出る。出す距離を縮めると、軌道が消える
+* 未確認のこと
+  * **見た目**(山形の形・大きさ・色・流れ方、点線の柄・太さ・色・明るさ、カメラに対する矢印の向き)。画面を見ての確認はできていません。Nova のマテリアル(`Glow_Additive` の複製)が、MeshRenderer(山形)と LineRenderer(点線)で思った通りに出るかも未確認です。出ない時は `MT_GrappleArrow` / `MT_SAPathDash` を差し替えてください
+  * 点線の柄の繰り返しの長さ(`_dashPeriod`)が思った通りか(LineRenderer の `Tile`)
+  * 軌道を出す距離(50m)を実際に離れた所から確かめたか(距離の判定は、出す距離を縮めた確認のみ)
+  * マルチ(他の人の画面に出ないこと。自分の画面のプレイヤー(`isLocalPlayer`)だけが出す作りです)
+  * `MainScene` など、`UICanvas` に `GrappleArrow`・`SAPath` が入った本番シーンでの動き(`UICanvas.prefab` に追加済みです)
+
 # 🆕 新しい種類を足す時
 1. `CS_SAPoint` を継承したクラスを作る(`CS_TrafficLightSAPoint` が最小の例)。
 2. 隠れられる箱を持たせたい時だけ、`hasHideBox`・`Contains`・`GetHideBoxPoint` を上書きする(`CS_HidePoint` を参照)。

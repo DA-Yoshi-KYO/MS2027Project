@@ -53,7 +53,7 @@ UI 側（Model / Presenter / View）と UICanvas への配置は PR #373 で実�
   `CS_PlayerAlert.onAlertChanged` は全クライアントで全プレイヤー分発生します。全員が Bind すると、他人の警戒状態で自分の画面に赤帯が出てしまいます
 - `isLocalPlayer` はスポーン後に決まるので、毎フレーム確かめて、自分のプレイヤーになった時に Bind する
   （`IsOwner` ではなく `isLocalPlayer` を使う。NPC・オフラインのテストシーンにも対応するため。`CS_Player` のメモを参照）
-- 警戒中かどうかは `CSE_PlayerAlertState` が `None` 以外か（`CS_PlayerAlert.isAlerted`）で決める。発見中・捜索中のどちらでも赤帯を出す
+- 赤帯を出すかどうかは `CSE_PlayerAlertState` が `Detected`（発見中）か、で決める。捜索中（`Searching`）は赤帯を出さない（Issue #504「捜索中は警戒状態の上下の赤い幕を表示しない」）
 - 外れる時（無効化・破棄・自分のプレイヤーでなくなった時）は、イベントの購読を外して `Dispose()` する
 
 ### コード例（`Assets/Programmer/Script/Entity/Player/CS_PlayerAttentionAlertUI.cs`）
@@ -74,7 +74,7 @@ using UnityEngine;
  * メモ
  * ・赤帯は自分の画面にだけ出すため、自分(isLocalPlayer)のプレイヤーだけがModelを作ってBindする
  *   isLocalPlayerはスポーン後に決まるため、毎フレーム確かめて、自分のプレイヤーになった時にBindする
- * ・発見中・捜索中のどちらでも赤帯を出す(CS_PlayerAlert.isAlerted)
+ * ・赤帯は発見中(Detected)の時だけ出す。捜索中(Searching)・なしでは出さない
  * ・オフライン(NetworkManagerが動いていない)のテストシーンでも単体で動く
  */
 // ========================================
@@ -113,7 +113,7 @@ public class CS_PlayerAttentionAlertUI : MonoBehaviour
     private void BindAlertUI()
     {
         _alertModel = new CS_UIAttentionAlertModel();
-        _alertModel.SetAlerted(_alert.isAlerted);   // Bind前に今の状態を入れておく
+        _alertModel.SetAlerted(_alert.alertState == CSE_PlayerAlertState.Detected);   // Bind前に今の状態を入れておく
         _alertModel.Bind();
 
         _alert.onAlertChanged += HandleAlertChanged;
@@ -131,7 +131,7 @@ public class CS_PlayerAttentionAlertUI : MonoBehaviour
     // 警戒状態が変わったら、警戒中かどうかをModelに渡す
     private void HandleAlertChanged(CSE_PlayerAlertState state)
     {
-        _alertModel?.SetAlerted(state != CSE_PlayerAlertState.None);
+        _alertModel?.SetAlerted(state == CSE_PlayerAlertState.Detected);
     }
 }
 ```
@@ -151,7 +151,7 @@ UICanvas 側（`UICanvas.prefab` の `AttentionAlert`）は PR #373 で設定済
 1. インゲームのシーン（ソロでよい）を再生する
 2. 警察の視界に入る、または防犯装置（レーザーなど）に引っ掛かる
    → 画面の上下に赤帯が出て、左から右へループする
-3. 見失われて捜索中になっても、赤帯は出たまま
+3. 見失われて捜索中になると、赤帯がフェードアウトして消える（「捜索中」の文字は出る）
 4. 警戒状態が解けると（最後に見つかってから既定20秒、または警察に倒された時）赤帯が消える
 5. マルチで確認できる場合は、**他のプレイヤーが見つかっても自分の画面に赤帯が出ない** ことを見る
 
@@ -163,6 +163,7 @@ UICanvas 側（`UICanvas.prefab` の `AttentionAlert`）は PR #373 で設定済
 | 横方向の移動量 | 1 | 1 で 1周 |
 | 下画像の開始位置をずらす | 0 | 0.5 なら上下で半周ずらす |
 | 移動方向 | ON | ON で左から右（仕様どおり）、OFF で右から左 |
+| フェードアウトの秒数 | 0.3 | 赤帯が消える時にかける秒数。0 なら即消える |
 
 ---
 

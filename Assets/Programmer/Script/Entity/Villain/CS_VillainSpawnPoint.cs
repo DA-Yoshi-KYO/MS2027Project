@@ -19,7 +19,8 @@ using UnityEngine.AI;
  * ・グループがいなくなる(全滅・犯罪完遂の逃走)と、しばらくリスポーンを待つ状態(isCoolingDown)になる
  *   待ち時間の開始と、待ち中でも生成してよいかの判断はCS_VillainSpawnerが行う
  * ・エリア(crimeArea)
- *   親にCS_CrimeAreaがあれば、このスポーン位置のグループはそのエリアの担当になる(ソロ。エリアの犯罪完遂ゲージを進める)
+ *   エリア分け(CS_CrimeAreaLayout)の扇形のうち、この位置が入るエリアの担当になる(ソロ。エリアの犯罪完遂ゲージを進める)
+ *   → スポーン位置を動かすだけで担当が変わる。選ぶとSceneビューにエリア分けの扇形が出る
  * ・巡回
  *   巡回パターン(CS_VillainPatrolRoute + CSO_VillainPatrolPattern)があれば、悪人ごとにパターンのルートを回る
  *   (割り当て・動きはCS_VillainSpawner・CS_VillainPatrolが行う。CreatePatrolPathsは空を返す)
@@ -114,8 +115,16 @@ public class CS_VillainSpawnPoint : MonoBehaviour
     // 巡回パターン(CS_VillainPatrolRoute)。付いていなければnull
     public CS_VillainPatrolRoute patrolRoute => GetComponent<CS_VillainPatrolRoute>();
 
-    // 担当のエリア(親のCS_CrimeArea。エリアの下に置いていなければnull)
-    public CS_CrimeArea crimeArea => GetComponentInParent<CS_CrimeArea>();
+    // 担当のエリア(ソロ)。エリア分け(CS_CrimeAreaLayout)の扇形のうち、この位置が入るエリア
+    // エリア分けが無い(マルチ)時は、親のCS_CrimeArea(無ければnull)
+    public CS_CrimeArea crimeArea
+    {
+        get
+        {
+            CS_CrimeArea area = CS_CrimeAreaLayout.FindArea(transform.position);
+            return area != null ? area : GetComponentInParent<CS_CrimeArea>();
+        }
+    }
 
     // 全員で往復する巡回ルートの形(グループが共有する)
     // 巡回パターンがあれば空(悪人ごとにパターンのルートを回る)。無ければ、路地裏の両端を往復するルート1本
@@ -200,6 +209,15 @@ public class CS_VillainSpawnPoint : MonoBehaviour
 
     private void OnDrawGizmosSelected()
     {
+#if UNITY_EDITOR
+        // スポーン位置を選んだ時も、エリア分けの扇形を出す(複数選んでいる時は、最後に選んだ1つの分だけ描く)
+        if (UnityEditor.Selection.activeGameObject == gameObject)
+        {
+            CS_CrimeAreaLayout layout = CS_CrimeAreaLayout.FindForEditor();
+            if (layout != null) layout.DrawGizmos();
+        }
+#endif
+
         Gizmos.color = Color.red;
         Gizmos.DrawWireSphere(transform.position, _groupRadius);
 

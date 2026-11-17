@@ -1,0 +1,60 @@
+{
+    "version": 1,
+    "name": "M_Lam_Hair",
+    "shader": "Shader Graphs/SHG_NTE_Hair",
+    "floats": [
+        {
+            "prop": "_CelShadowSoftness",
+            "value": 0.10273972898721695
+        },
+        {
+            "prop": "_CelShadowThreshold",
+            "value": 0.5212330222129822
+        },
+        {
+            "prop": "_CelShadowSaturation",
+            "value": 0.36986303329467776
+        },
+        {
+            "prop": "_CelCastShadowStrength",
+            "value": 1.0
+        },
+        {
+            "prop": "_CelRimStrength",
+            "value": 0.8652049899101257
+        },
+        {
+            "prop": "_CelRimWidth",
+            "value": 0.3315078616142273
+        },
+        {
+            "prop": "_SkyLight",
+            "value": 0.6739736199378967
+        },
+        {
+            "prop": "_BottomShade",
+            "value": 0.0
+        },
+        {
+            "prop": "_BackFaceShade",
+            "value": 0.0
+        },
+        {
+            "prop": "_LightSharpness",
+            "value": 0.34246575832366946
+        }
+    ],
+    "colors": [
+        {
+            "prop": "_CelRimColor",
+            "value": {
+                "x": 0.8794508576393127,
+                "y": 0.3836972713470459,
+                "z": 0.7315071821212769,
+                "w": 1.0
+            }
+        }
+    ],
+    "vectors": [],
+    "textures": []
+}

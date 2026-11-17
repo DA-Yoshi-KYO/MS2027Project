@@ -63,12 +63,25 @@ public sealed class CS_UIAttentionAlertView :
     [SerializeField]
     private bool _moveLeftToRight = true;
 
+    [Header("フェードアウト")]
+
+    [Tooltip(
+        "警戒状態でなくなった時に、赤帯が消えるまでの秒数。"
+        + "0なら即座に消える"
+    )]
+    [Min(0f)]
+    [SerializeField]
+    private float _fadeOutDuration = 0.3f;
+
     // =========================================================
     // 内部フィールド
     // =========================================================
 
     private float _loopElapsed;
     private bool _isAlerted;
+    private bool _isFadingOut;
+    private float _fadeElapsed;
+    private CanvasGroup _canvasGroup;
 
     private Rect _topInitialUvRect;
     private Rect _bottomInitialUvRect;
@@ -102,6 +115,24 @@ public sealed class CS_UIAttentionAlertView :
         ResetUvAnimation();
     }
 
+    // 表示ルートのCanvasGroup(無ければ追加する。プレハブは編集しない)
+    private CanvasGroup GetCanvasGroup()
+    {
+        if (_canvasGroup == null && _displayRoot != null)
+        {
+            _canvasGroup =
+                _displayRoot.GetComponent<CanvasGroup>();
+
+            if (_canvasGroup == null)
+            {
+                _canvasGroup =
+                    _displayRoot.AddComponent<CanvasGroup>();
+            }
+        }
+
+        return _canvasGroup;
+    }
+
     public override void SetPresenter(
         CS_UIAttentionAlertPresenter presenter)
     {
@@ -114,10 +145,53 @@ public sealed class CS_UIAttentionAlertView :
 
     private void Update()
     {
+        if (_isFadingOut)
+        {
+            // フェード中もUVスクロールは続ける
+            UpdateUvAnimation();
+            UpdateFadeOut();
+            return;
+        }
+
         if (!_isAlerted)
             return;
 
         UpdateUvAnimation();
+    }
+
+    private void UpdateFadeOut()
+    {
+        _fadeElapsed += Time.unscaledDeltaTime;
+
+        float rate = _fadeOutDuration > 0f
+            ? Mathf.Clamp01(_fadeElapsed / _fadeOutDuration)
+            : 1f;
+
+        CanvasGroup group = GetCanvasGroup();
+        if (group != null)
+            group.alpha = 1f - rate;
+
+        if (rate >= 1f)
+            FinishFadeOut();
+    }
+
+    private void FinishFadeOut()
+    {
+        _isFadingOut = false;
+        _fadeElapsed = 0f;
+
+        if (_displayRoot != null)
+            _displayRoot.SetActive(false);
+
+        ResetUvAnimation();
+        SetAlpha(1f);
+    }
+
+    private void SetAlpha(float alpha)
+    {
+        CanvasGroup group = GetCanvasGroup();
+        if (group != null)
+            group.alpha = alpha;
     }
 
     // =========================================================
@@ -134,23 +208,47 @@ public sealed class CS_UIAttentionAlertView :
 
         _isAlerted = isAlerted;
 
-        if (_displayRoot != null &&
-            _displayRoot.activeSelf != isAlerted)
+        if (isAlerted)
         {
-            _displayRoot.SetActive(isAlerted);
+            // フェード中に再び発見された場合は、フェードを止めて表示に戻す
+            _isFadingOut = false;
+            _fadeElapsed = 0f;
+            SetAlpha(1f);
+
+            if (_displayRoot != null &&
+                !_displayRoot.activeSelf)
+            {
+                _displayRoot.SetActive(true);
+            }
+
+            if (stateChanged)
+                RestartUvAnimation();
+
+            return;
         }
 
         if (!stateChanged)
             return;
 
-        if (isAlerted)
+        // 非表示にする時はフェードアウトする
+        bool isVisible =
+            _displayRoot != null &&
+            _displayRoot.activeInHierarchy;
+
+        if (_fadeOutDuration > 0f && isVisible)
         {
-            RestartUvAnimation();
+            _isFadingOut = true;
+            _fadeElapsed = 0f;
+            return;
         }
-        else
-        {
-            ResetUvAnimation();
-        }
+
+        _isFadingOut = false;
+
+        if (_displayRoot != null)
+            _displayRoot.SetActive(false);
+
+        ResetUvAnimation();
+        SetAlpha(1f);
     }
 
     // =========================================================
@@ -258,6 +356,12 @@ public sealed class CS_UIAttentionAlertView :
             Mathf.Max(
                 0.01f,
                 _loopDuration
+            );
+
+        _fadeOutDuration =
+            Mathf.Max(
+                0f,
+                _fadeOutDuration
             );
     }
 }

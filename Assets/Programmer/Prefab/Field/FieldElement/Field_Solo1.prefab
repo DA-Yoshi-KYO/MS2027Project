@@ -6883,7 +6883,7 @@ Transform:
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 6119402281890464750}
-  m_Father: {fileID: 8892058599434241543}
+  m_Father: {fileID: 6429794400726098927}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!114 &7495248014889826546
 MonoBehaviour:
@@ -17395,7 +17395,7 @@ Transform:
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 5434893758615149113}
-  m_Father: {fileID: 8892058599434241543}
+  m_Father: {fileID: 6429794400726098927}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!114 &7662626642477896318
 MonoBehaviour:
@@ -27594,7 +27594,7 @@ Transform:
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 6839825264850114984}
-  m_Father: {fileID: 8892058599434241543}
+  m_Father: {fileID: 6429794400726098927}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!114 &4681098016223504902
 MonoBehaviour:
@@ -39410,7 +39410,7 @@ Transform:
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 7219764506827867543}
-  m_Father: {fileID: 3563957242876528419}
+  m_Father: {fileID: 6429794400726098927}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!114 &3187398250846226004
 MonoBehaviour:
@@ -51453,7 +51453,7 @@ Transform:
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 1295075196064791115}
-  m_Father: {fileID: 2416039397602607957}
+  m_Father: {fileID: 6429794400726098927}
   m_LocalEulerAnglesHint: {x: 0, y: -21.399, z: 0}
 --- !u!114 &1163227554591294201
 MonoBehaviour:
@@ -51765,7 +51765,7 @@ Transform:
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 1777939638890071280}
-  m_Father: {fileID: 2416039397602607957}
+  m_Father: {fileID: 6429794400726098927}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!114 &7558195816402383309
 MonoBehaviour:
@@ -86968,7 +86968,7 @@ GameObject:
   - component: {fileID: 2416039397602607957}
   - component: {fileID: 5589162280175328504}
   m_Layer: 0
-  m_Name: CrimeArea_02
+  m_Name: CrimeArea_インフラ区域
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -86987,10 +86987,7 @@ Transform:
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
-  - {fileID: 725170657181247817}
-  - {fileID: 6462622976128541893}
-  - {fileID: 4392593482745490045}
-  m_Father: {fileID: 6429794400726098927}
+  m_Father: {fileID: 8587708600488259709}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!114 &5589162280175328504
 MonoBehaviour:
@@ -101632,7 +101629,7 @@ Transform:
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 2910649117502675930}
-  m_Father: {fileID: 3563957242876528419}
+  m_Father: {fileID: 6429794400726098927}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!114 &8224184457493109517
 MonoBehaviour:
@@ -113991,7 +113988,7 @@ Transform:
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 3489403774522930769}
-  m_Father: {fileID: 3563957242876528419}
+  m_Father: {fileID: 6429794400726098927}
   m_LocalEulerAnglesHint: {x: 0, y: -39.527, z: 0}
 --- !u!114 &7221807562078296839
 MonoBehaviour:
@@ -126335,7 +126332,7 @@ Transform:
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 213204842751348724}
-  m_Father: {fileID: 8892058599434241543}
+  m_Father: {fileID: 6429794400726098927}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!114 &1653797742063482328
 MonoBehaviour:
@@ -134092,7 +134089,7 @@ Transform:
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 8522556072709157006}
-  m_Father: {fileID: 8892058599434241543}
+  m_Father: {fileID: 6429794400726098927}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!114 &7569919312366893592
 MonoBehaviour:
@@ -150052,6 +150049,64 @@ GameObject:
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
+--- !u!1 &4903653038645242424
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 8587708600488259709}
+  - component: {fileID: 7224711441194963105}
+  m_Layer: 0
+  m_Name: CrimeAreaLayout
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &8587708600488259709
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4903653038645242424}
+  serializedVersion: 2
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children:
+  - {fileID: 3563957242876528419}
+  - {fileID: 8892058599434241543}
+  - {fileID: 2416039397602607957}
+  m_Father: {fileID: 2615921477630228218}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &7224711441194963105
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4903653038645242424}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 93cb292924482f94a8b3f78554bf8737, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CS_CrimeAreaLayout
+  _sectors:
+  - _area: {fileID: 392648282316585673}
+    _startAngle: 243
+    _color: {r: 0.35, g: 0.9, b: 0.45, a: 1}
+  - _area: {fileID: 8385396673213872447}
+    _startAngle: 0
+    _color: {r: 0.95, g: 0.25, b: 0.25, a: 1}
+  - _area: {fileID: 5589162280175328504}
+    _startAngle: 117
+    _color: {r: 1, g: 0.85, b: 0.2, a: 1}
+  _displayRadius: 450
 --- !u!4 &2615921477630228218
 Transform:
   m_ObjectHideFlags: 0
@@ -150067,6 +150122,7 @@ Transform:
   m_Children:
   - {fileID: 2186057570168721002}
   - {fileID: 6429794400726098927}
+  - {fileID: 8587708600488259709}
   m_Father: {fileID: 2801201037319827272}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &3507243433090473800
@@ -155999,7 +156055,7 @@ Transform:
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 955586773413831278}
-  m_Father: {fileID: 8892058599434241543}
+  m_Father: {fileID: 6429794400726098927}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!114 &4625958077704092816
 MonoBehaviour:
@@ -161334,7 +161390,7 @@ Transform:
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 1000117953977422707}
-  m_Father: {fileID: 8892058599434241543}
+  m_Father: {fileID: 6429794400726098927}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!114 &6603304810867103775
 MonoBehaviour:
@@ -162861,7 +162917,7 @@ Transform:
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 2205973218419727549}
-  m_Father: {fileID: 3563957242876528419}
+  m_Father: {fileID: 6429794400726098927}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!114 &7935017378613589001
 MonoBehaviour:
@@ -172854,7 +172910,7 @@ GameObject:
   - component: {fileID: 3563957242876528419}
   - component: {fileID: 392648282316585673}
   m_Layer: 0
-  m_Name: CrimeArea_01
+  m_Name: CrimeArea_生活区域
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -172873,16 +172929,7 @@ Transform:
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
-  - {fileID: 3916475229110104667}
-  - {fileID: 8618468906952207613}
-  - {fileID: 6892813010946966287}
-  - {fileID: 8863361833907554958}
-  - {fileID: 204378297586707210}
-  - {fileID: 7606006042080472659}
-  - {fileID: 2086667527623356770}
-  - {fileID: 7382109092125705686}
-  - {fileID: 233242617082712864}
-  m_Father: {fileID: 6429794400726098927}
+  m_Father: {fileID: 8587708600488259709}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!114 &392648282316585673
 MonoBehaviour:
@@ -186013,7 +186060,7 @@ Transform:
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 6817683024672451953}
-  m_Father: {fileID: 8892058599434241543}
+  m_Father: {fileID: 6429794400726098927}
   m_LocalEulerAnglesHint: {x: 0, y: -21.399, z: 0}
 --- !u!114 &4786700037601413631
 MonoBehaviour:
@@ -212134,7 +212181,7 @@ Transform:
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 8913100726610900951}
-  m_Father: {fileID: 8892058599434241543}
+  m_Father: {fileID: 6429794400726098927}
   m_LocalEulerAnglesHint: {x: 0, y: -39.527, z: 0}
 --- !u!114 &7820885150485349715
 MonoBehaviour:
@@ -240367,7 +240414,7 @@ Transform:
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 9157324752927565029}
-  m_Father: {fileID: 8892058599434241543}
+  m_Father: {fileID: 6429794400726098927}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!114 &2080319438906019212
 MonoBehaviour:
@@ -249329,7 +249376,7 @@ Transform:
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 220379938992524033}
-  m_Father: {fileID: 8892058599434241543}
+  m_Father: {fileID: 6429794400726098927}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!114 &8944181705056832515
 MonoBehaviour:
@@ -274321,7 +274368,7 @@ Transform:
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 3694758435619433909}
-  m_Father: {fileID: 8892058599434241543}
+  m_Father: {fileID: 6429794400726098927}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!114 &4628066200293282965
 MonoBehaviour:
@@ -282507,9 +282554,32 @@ Transform:
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
-  - {fileID: 3563957242876528419}
-  - {fileID: 2416039397602607957}
-  - {fileID: 8892058599434241543}
+  - {fileID: 3916475229110104667}
+  - {fileID: 8618468906952207613}
+  - {fileID: 6892813010946966287}
+  - {fileID: 8863361833907554958}
+  - {fileID: 204378297586707210}
+  - {fileID: 7606006042080472659}
+  - {fileID: 2086667527623356770}
+  - {fileID: 7382109092125705686}
+  - {fileID: 233242617082712864}
+  - {fileID: 3701318240189835591}
+  - {fileID: 7435185801355440952}
+  - {fileID: 2136221987524458677}
+  - {fileID: 1104578162548017535}
+  - {fileID: 2543217066440602319}
+  - {fileID: 3592989740834747859}
+  - {fileID: 7173220104057312088}
+  - {fileID: 6411803835456948208}
+  - {fileID: 372475380728166610}
+  - {fileID: 4994395936548666144}
+  - {fileID: 5043676713704691346}
+  - {fileID: 7190434846678473651}
+  - {fileID: 7346941739754595246}
+  - {fileID: 4097232101718128720}
+  - {fileID: 725170657181247817}
+  - {fileID: 6462622976128541893}
+  - {fileID: 4392593482745490045}
   m_Father: {fileID: 2615921477630228218}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &6710194039009601885
@@ -289027,7 +289097,7 @@ Transform:
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 3571603780059300042}
-  m_Father: {fileID: 3563957242876528419}
+  m_Father: {fileID: 6429794400726098927}
   m_LocalEulerAnglesHint: {x: 0, y: -39.527, z: 0}
 --- !u!114 &7893819911806452803
 MonoBehaviour:
@@ -289588,7 +289658,7 @@ Transform:
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 1970854809642073659}
-  m_Father: {fileID: 2416039397602607957}
+  m_Father: {fileID: 6429794400726098927}
   m_LocalEulerAnglesHint: {x: 0, y: -39.527, z: 0}
 --- !u!114 &2671520332384083875
 MonoBehaviour:
@@ -319328,7 +319398,7 @@ Transform:
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 1815279203985291773}
-  m_Father: {fileID: 8892058599434241543}
+  m_Father: {fileID: 6429794400726098927}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!114 &9016610704286178331
 MonoBehaviour:
@@ -328848,7 +328918,7 @@ Transform:
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 9204427520697475484}
-  m_Father: {fileID: 3563957242876528419}
+  m_Father: {fileID: 6429794400726098927}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!114 &7813032355018697064
 MonoBehaviour:
@@ -331514,7 +331584,7 @@ Transform:
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 9128787267533366010}
-  m_Father: {fileID: 8892058599434241543}
+  m_Father: {fileID: 6429794400726098927}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!114 &8865904163161399740
 MonoBehaviour:
@@ -353662,7 +353732,7 @@ Transform:
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 2634891826394972684}
-  m_Father: {fileID: 3563957242876528419}
+  m_Father: {fileID: 6429794400726098927}
   m_LocalEulerAnglesHint: {x: 0, y: -39.527, z: 0}
 --- !u!114 &4127763731791246554
 MonoBehaviour:
@@ -363141,7 +363211,7 @@ Transform:
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 5766572893173017426}
-  m_Father: {fileID: 3563957242876528419}
+  m_Father: {fileID: 6429794400726098927}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!114 &4415217442028808908
 MonoBehaviour:
@@ -363688,7 +363758,7 @@ GameObject:
   - component: {fileID: 8892058599434241543}
   - component: {fileID: 8385396673213872447}
   m_Layer: 0
-  m_Name: CrimeArea_03
+  m_Name: CrimeArea_エネルギー区域
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -363707,21 +363777,7 @@ Transform:
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
-  - {fileID: 3701318240189835591}
-  - {fileID: 7435185801355440952}
-  - {fileID: 2136221987524458677}
-  - {fileID: 1104578162548017535}
-  - {fileID: 2543217066440602319}
-  - {fileID: 3592989740834747859}
-  - {fileID: 7173220104057312088}
-  - {fileID: 6411803835456948208}
-  - {fileID: 372475380728166610}
-  - {fileID: 4994395936548666144}
-  - {fileID: 5043676713704691346}
-  - {fileID: 7190434846678473651}
-  - {fileID: 7346941739754595246}
-  - {fileID: 4097232101718128720}
-  m_Father: {fileID: 6429794400726098927}
+  m_Father: {fileID: 8587708600488259709}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!114 &8385396673213872447
 MonoBehaviour:
@@ -369226,7 +369282,7 @@ Transform:
   m_ConstrainProportionsScale: 0
   m_Children:
   - {fileID: 3706304765244563303}
-  m_Father: {fileID: 3563957242876528419}
+  m_Father: {fileID: 6429794400726098927}
   m_LocalEulerAnglesHint: {x: 0, y: -39.527, z: 0}
 --- !u!114 &777712609397634845
 MonoBehaviour:

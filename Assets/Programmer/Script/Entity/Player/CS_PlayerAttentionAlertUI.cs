@@ -12,11 +12,11 @@
 // ========================================
 /*
  * メモ
- * ・仕様はUI仕様書「警戒状態時のUI」(Issue #375)。警察陣営に見つかって警戒状態の間、画面の上下に赤帯を出してループさせる
+ * ・仕様はUI仕様書「警戒状態時のUI」(Issue #375)。警察陣営に見つかって発見されている間だけ、画面の上下に赤帯を出してループさせる(捜索中は出さない。Issue #504「捜索中は警戒状態の上下の赤い幕を表示しない」)
  * ・赤帯は自分の画面にだけ出すため、自分(isLocalPlayer)のプレイヤーだけがModelを作ってBindする
  *   CS_PlayerAlert.onAlertChangedは全クライアントで全プレイヤー分発生するため、他人の警戒状態で自分の画面に出ないようにする
  *   isLocalPlayerはスポーン後に決まるため、毎フレーム確かめて、自分のプレイヤーになった時にBindする
- * ・発見中・捜索中のどちらでも赤帯を出す(CS_PlayerAlert.isAlerted)
+ * ・赤帯は発見中(Detected)の時だけ出す。捜索中(Searching)・なしでは出さない(発見中→捜索中で赤帯はViewがフェードアウトする)
  * ・「警戒状態!」「捜索中」の表示には、状態(なし・発見中・捜索中)をそのまま渡す
  * ・CS_PlayerAlertのロジックはこのクラスを知らない(外しても警戒状態は動く)
  * ・オフライン(NetworkManagerが動いていない)のテストシーンでも単体で動く
@@ -58,7 +58,7 @@ public class CS_PlayerAttentionAlertUI : MonoBehaviour
     private void BindAlertUI()
     {
         _alertModel = new CS_UIAttentionAlertModel();
-        _alertModel.SetAlerted(_alert.isAlerted);   // Bind前に今の状態を入れておく(Bind直後に違う表示にならないように)
+        _alertModel.SetAlerted(_alert.alertState == CSE_PlayerAlertState.Detected);   // Bind前に今の状態を入れておく(Bind直後に違う表示にならないように)
         _alertModel.Bind();
 
         _alertStateModel = new CS_UIPlayerAlertModel();
@@ -79,10 +79,10 @@ public class CS_PlayerAttentionAlertUI : MonoBehaviour
         _alertStateModel = null;
     }
 
-    // 警戒状態が変わったら、赤帯には警戒中(なし以外)かどうかを、表示には状態をそのまま渡す
+    // 警戒状態が変わったら、赤帯には発見中かどうかを、表示には状態をそのまま渡す
     private void HandleAlertChanged(CSE_PlayerAlertState state)
     {
-        _alertModel?.SetAlerted(state != CSE_PlayerAlertState.None);
+        _alertModel?.SetAlerted(state == CSE_PlayerAlertState.Detected);
         _alertStateModel?.SetAlertState(state);
     }
 }

@@ -108,6 +108,7 @@ public class CS_PlayerHide : NetworkBehaviour
     public bool isHiding => _isFlying;                      // SAでハイドポイントへ飛んでいる最中か(本人の手元)
     public bool isHidden => _isHidden.Value;                // 隠れている状態か(全員で分かる。サーバーが決める)
     public bool isInHideBox => CS_HidePoint.IsInsideAny(bodyCenter);   // 体の中心が隠れられる箱の中にあるか(その場で調べる)
+    public CS_SAPoint currentHidePoint => FindHidePoint(bodyCenter);   // 体の中心が入っている、隠れられる箱を持つSAポイント(無ければnull。その場で調べる。SAヒントUI用)
     public CS_SAPoint currentCandidate => _candidate;     // 今ダッシュボタンを押したら飛ぶSAポイント(本人の手元。アイコン表示用)
 
     // 体の中心(当たり判定の中心)
@@ -210,6 +211,16 @@ public class CS_PlayerHide : NetworkBehaviour
     // ========================================
     // 隠れている判定(サーバー、またはオフライン)
     // ========================================
+
+    // positionが箱の中に入っている、ハイドポイント(無ければnull)
+    private static CS_SAPoint FindHidePoint(Vector3 position)
+    {
+        foreach (CS_SAPoint point in CS_SAPoint.activePoints)
+        {
+            if (point != null && point.Contains(position)) return point;
+        }
+        return null;
+    }
 
     // 体の中心が隠れられる箱の中にある間は隠れている(倒れている間は隠れない)
     private void UpdateHidden()

@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using UnityEditor;
 using UnityEditor.Build.Reporting;
@@ -21,6 +22,8 @@ using UnityEngine.Rendering;
  History: 2026/10/11 New
           2026/10/11 Project path for the export
           2026/11/05 Built with DirectX 11 (less memory), project setting restored afterwards
+          2026/11/18 Models of the scene are built with Read/Write on (only for the build, then put
+                     back), so the player's Export can write scene objects (Chara_Test_UNLIT ...)
 =====================================+
 */
 public static class CSE_MayaPreviewHostBuild
@@ -70,6 +73,7 @@ public static class CSE_MayaPreviewHostBuild
         int previousWidth = PlayerSettings.defaultScreenWidth, previousHeight = PlayerSettings.defaultScreenHeight;
         bool previousResizable = PlayerSettings.resizableWindow;
         BuildReport report;
+        List<ModelImporter> readable = null;
         try
         {
             PlayerSettings.SetUseDefaultGraphicsAPIs(BuildTarget.StandaloneWindows64, false);
@@ -78,10 +82,12 @@ public static class CSE_MayaPreviewHostBuild
             PlayerSettings.defaultScreenWidth = 960;
             PlayerSettings.defaultScreenHeight = 540;
             PlayerSettings.resizableWindow = true;
+            readable = MakeModelsReadable(Scene);
             report = BuildPipeline.BuildPlayer(options);
         }
         finally
         {
+            RestoreModels(readable);
             PlayerSettings.SetGraphicsAPIs(BuildTarget.StandaloneWindows64, previousApis);
             PlayerSettings.SetUseDefaultGraphicsAPIs(BuildTarget.StandaloneWindows64, previousAuto);
             PlayerSettings.fullScreenMode = previousMode;
@@ -102,5 +108,33 @@ public static class CSE_MayaPreviewHostBuild
         Debug.Log("Maya Preview Host build: " + report.summary.result + "  errors " + report.summary.totalErrors +
                   "  " + options.locationPathName);
         return report;
+    }
+
+    // The player reads mesh data when it exports (CS_MayaPreviewExport): a model imported without
+    // Read/Write has no vertices in the player, so its objects could not be exported.
+    // Turned on for the models the scene uses, only while building; RestoreModels puts it back.
+    private static List<ModelImporter> MakeModelsReadable(string scene)
+    {
+        var changed = new List<ModelImporter>();
+        foreach (string path in AssetDatabase.GetDependencies(scene, true))
+        {
+            if (!(AssetImporter.GetAtPath(path) is ModelImporter importer) || importer.isReadable) continue;
+            importer.isReadable = true;
+            importer.SaveAndReimport();
+            changed.Add(importer);
+        }
+        if (changed.Count > 0) Debug.Log("Maya Preview Host build: Read/Write on for " + changed.Count + " model(s) while building");
+        return changed;
+    }
+
+    private static void RestoreModels(List<ModelImporter> changed)
+    {
+        if (changed == null) return;
+        foreach (ModelImporter importer in changed)
+        {
+            if (importer == null) continue;
+            importer.isReadable = false;
+            importer.SaveAndReimport();
+        }
     }
 }

@@ -55,7 +55,11 @@ MonoBehaviour:
   _rankText: {fileID: 5614531133611472233}
   _iconImage: {fileID: 2279517643299612352}
   _scoreText: {fileID: 2653657121698926085}
-  _playerIconData: {fileID: 11400000, guid: cc5529464bb0d3542af2d4fa0dcdefd3, type: 2}
+  _characterIconSets:
+  - _characterType: 0
+    _iconSprite: {fileID: 4651812315551059012, guid: 869b8caf4795ef51899bd043655574b1, type: 3}
+  - _characterType: 1
+    _iconSprite: {fileID: 1515908175581636556, guid: f872fd63ec5ef0f4799e3a901a8e628f, type: 3}
   _normalColor: {r: 1, g: 1, b: 1, a: 1}
   _fullColor: {r: 1, g: 0.92156863, b: 0.015686275, a: 1}
 --- !u!1 &5960561234936745027
@@ -230,7 +234,7 @@ RectTransform:
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
   m_AnchoredPosition: {x: -100, y: 0}
-  m_SizeDelta: {x: 100, y: 100}
+  m_SizeDelta: {x: 81, y: 80}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!222 &3498234505825136175
 CanvasRenderer:
@@ -260,7 +264,7 @@ MonoBehaviour:
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_Sprite: {fileID: 0}
+  m_Sprite: {fileID: 4651812315551059012, guid: 869b8caf4795ef51899bd043655574b1, type: 3}
   m_Type: 0
   m_PreserveAspect: 0
   m_FillCenter: 1

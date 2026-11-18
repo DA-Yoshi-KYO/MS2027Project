@@ -175,7 +175,7 @@ public class CS_PlayerResultDataHolder : NetworkBehaviour
 
         ReleaseScoreModel();
         _scoreModel = new CS_UIScoreModel();
-        _scoreModel.Bind(_player.playerNumber);
+        _scoreModel.Bind(_player.playerNumber, CSE_CharacterType.Giro);
 
         // 途中でSpawnしたクライアントも0から始まらないよう、同期済みの値を最初に入れる
         Apply(_score.Value);

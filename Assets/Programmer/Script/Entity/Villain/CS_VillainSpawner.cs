@@ -52,7 +52,8 @@ using UnityEngine.AI;
  *   進行度はスポーン位置の犯罪完遂ゲージ(CS_VillainCrimeGauge)にも毎フレーム渡す(付いていなければ何もしない)
  * ・スポーン位置にグループがいる間は、路地裏の入り口に煙を出す(CS_VillainAreaSmoke。付いていなければ何もしない)
  * ・スポーン位置に巡回パターン(CS_VillainPatrolRoute)があれば、湧く人数はパターンの人数(先頭 + 付いてくる人)まで
- *   先頭を全員先に、次に付いてくる人を、パターンの順(CSO_VillainPatrolPattern.GetSlot)に生成し、ルートごとの組(CS_VillainPatrolCrew)に入れる
+ *   犯罪実行役 → 先頭 → 付いてくる人の順(CSO_VillainPatrolPattern.GetSlot)に生成する
+ *   犯罪実行役は実行役の位置で犯罪モーションをし続け(CS_VillainPatrol.SetExecutor)、巡回役はルートごとの組(CS_VillainPatrolCrew)に入れる
  *   先頭はポイント1にルートの最初の向きで、付いてくる人はポイント1からルートを逆にたどった隊列の位置に、そこの進む向きで生成する
  * ・生成する悪人のプレハブはNetworkPrefabsList(DefaultNetworkPrefabs)に登録し、CS_VillainCrimeを付けておくこと
  */
@@ -388,7 +389,22 @@ public class CS_VillainSpawner : MonoBehaviour
         CS_VillainPatrolCrew[] crews = new CS_VillainPatrolCrew[pattern.routes.Count];
         for (int i = 0; i < memberCount; i++)
         {
-            if (!pattern.GetSlot(i, out int routeIndex, out int followerIndex)) break;
+            if (!pattern.GetSlot(i, out int executorIndex, out int routeIndex, out int followerIndex)) break;
+
+            // 犯罪実行役は、実行役の位置に実行役の向きで生成する
+            if (executorIndex >= 0)
+            {
+                Vector3 executorPosition = patrolRoute.GetExecutorPosition(executorIndex);
+                Quaternion executorRotation = patrolRoute.GetExecutorRotation(executorIndex);
+                NetworkObject executor = SpawnVillain(executorPosition + Vector3.up * _bodyCenterHeight, executorRotation, stage);
+                group.AddMember(executor.GetComponent<CS_VillainCrime>());
+                if (executor.TryGetComponent(out CS_VillainPatrol executorPatrol))
+                {
+                    executorPatrol.SetExecutor(executorPosition, patrolRoute.GetExecutorCarryPosition(executorIndex),
+                        executorRotation, patrolRoute.GetExecutorMotion(executorIndex));
+                }
+                continue;
+            }
 
             if (crews[routeIndex] == null) crews[routeIndex] = new CS_VillainPatrolCrew(patrolRoute, routeIndex);
 

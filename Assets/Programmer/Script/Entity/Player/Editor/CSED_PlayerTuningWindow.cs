@@ -105,6 +105,7 @@ public class CSED_PlayerTuningWindow : EditorWindow
             new FieldDef("_autoScanInterval", "自動スキャンの間隔(秒)", "自動でスキャンする間隔"),
             new FieldDef("_autoScanOnStart", "開始時にスキャン", "操作できるようになった最初に1回スキャンする"),
             new FieldDef("_resetAutoScanOnManual", "手動で使ったら数え直す", "手動で使った時も、次の自動スキャンまでの時間を数え直す"),
+            new FieldDef("_autoScanOnGroupDefeated", "悪人グループを倒しきったらスキャン", "悪人グループの最後の1人を倒した時に、倒した本人が自動でスキャンする(間隔の自動スキャンとは別に効く)"),
         }),
         new Section("ブリンク(ダッシュボタン)", typeof(CS_Player), new[]
         {

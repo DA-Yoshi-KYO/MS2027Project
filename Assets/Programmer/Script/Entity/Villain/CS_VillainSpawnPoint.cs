@@ -88,7 +88,8 @@ public class CS_VillainSpawnPoint : MonoBehaviour
     public bool isCoolingDown => Time.time < _cooldownEndTime;
     public float cooldownEndTime => _cooldownEndTime;
 
-    private NavMeshModifierVolume patrolArea
+    // 路地裏の範囲(Patrol Area。空なら自動で探したもの)。無ければnull。巡回エディタの「路地裏」基準の位置にも使う
+    public NavMeshModifierVolume patrolArea
     {
         get
         {

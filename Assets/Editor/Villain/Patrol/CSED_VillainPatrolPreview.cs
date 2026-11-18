@@ -20,6 +20,10 @@ using UnityEngine.AI;
  * ・1周が終わったら最初から繰り返す
  * ・付いてくる人は、先頭がそれまでに歩いた道(足跡)の上で、隊列の形の分だけ後ろ・横の位置に置く(ゲーム中と同じCS_VillainPatrolTrailの計算)
  *   歩き始める前は、ルートを1周してポイント1へ戻ってくる道を逆にたどった足跡を使う(ゲーム中に湧いた時と同じ並び)
+ * ・犯罪実行役(EvaluateExecutor)
+ *   蹴る・いじる: 実行役の位置で、実行役の向きのまま動かない
+ *   運ぶ: 貨物の位置で拾う → 車へ歩く → 置く → 貨物へ戻る を繰り返す(ゲーム中のCS_VillainPatrolと同じ順)
+ *   歩く速さ・拾う/置く時間は目安(ゲーム中は悪人のステータスとCS_VillainPatrolの値で決まる)
  */
 // ========================================
 
@@ -44,6 +48,8 @@ public static class CSED_VillainPatrolPreview
 
     private const float _seedTrailMargin = 2f;    // 歩き始める前の足跡を、一番後ろの人の距離よりどれだけ長くするか(m)
     private const int _keptCycles = 2;            // 足跡に入れておく、前の周の数(付いてくる人の距離に足りる分)
+    private const float _carrySpeed = 1.5f;       // プレビューで運ぶ実行役が歩く速さ(m/秒。目安)
+    private const float _carryActionTime = 1.5f;  // プレビューで拾う・置くのにかかる時間(秒。CS_VillainPatrolの初期値)
 
     private class Step
     {
@@ -259,6 +265,47 @@ public static class CSED_VillainPatrolPreview
                 pose.label = "停止";
                 break;
         }
+        return pose;
+    }
+
+    // 時刻time(秒)の犯罪実行役の様子(labelは、していること)
+    public static Pose EvaluateExecutor(CS_VillainPatrolRoute owner, int executorIndex, float time)
+    {
+        Vector3 cargo = owner.GetExecutorPosition(executorIndex);
+        float yaw = owner.GetExecutorRotation(executorIndex).eulerAngles.y;
+        CSE_VillainCrimeMotion motion = owner.GetExecutorMotion(executorIndex);
+        if (motion != CSE_VillainCrimeMotion.Carry)
+        {
+            CSE_VillainCrimeAction action = motion == CSE_VillainCrimeMotion.Tamper ? CSE_VillainCrimeAction.Tamper : CSE_VillainCrimeAction.Kick;
+            return new Pose { position = cargo, yaw = yaw, label = CSED_VillainPatrolLabels.GetCrimeActionName(action) };
+        }
+
+        Vector3 car = owner.GetExecutorCarryPosition(executorIndex);
+        Leg toCar = CalculateLeg(cargo, car);
+        Leg toCargo = CalculateLeg(car, cargo);
+        float walkToCar = toCar.length / _carrySpeed;
+        float walkToCargo = toCargo.length / _carrySpeed;
+        float cycle = _carryActionTime * 2f + walkToCar + walkToCargo;
+        if (cycle <= 0f) return new Pose { position = cargo, yaw = yaw, label = "" };
+
+        float t = time % cycle;
+        if (t < _carryActionTime) return new Pose { position = cargo, yaw = yaw, label = "拾う" };
+        t -= _carryActionTime;
+
+        if (t < walkToCar) return WalkPose(toCar, t / walkToCar, "運ぶ");
+        t -= walkToCar;
+
+        float carYaw = GetEndYaw(toCar, yaw);
+        if (t < _carryActionTime) return new Pose { position = car, yaw = carYaw, label = "置く" };
+        t -= _carryActionTime;
+
+        return walkToCargo > 0f ? WalkPose(toCargo, t / walkToCargo, "戻る") : new Pose { position = cargo, yaw = yaw, label = "" };
+    }
+
+    private static Pose WalkPose(Leg leg, float rate, string label)
+    {
+        Pose pose = EvaluateMove(new Step { leg = leg }, Mathf.Clamp01(rate));
+        pose.label = label;
         return pose;
     }
 

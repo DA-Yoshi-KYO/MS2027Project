@@ -27,6 +27,10 @@ using UnityEngine;
  *   → 完遂した時に何が起きるか(スコア・悪人の逃走など)は未定。購読する側で決める
  * ・エリアがあるスポーン位置のグループは、グループごとの犯罪完遂(完遂時間・ゲージ)を使わない(CS_VillainGroup)
  *   エリアが無いスポーン位置(マルチ)は、今までどおりグループごとに完遂する
+ * ・areaType は、犯罪完遂ゲージUI(CS_UICrimeProgressModel)のどのゲージに出すか(3エリアで重複させない)
+ *   (生活区域: Downtown / エネルギー区域: Energy / インフラ区域: Infrastructure。CS_CrimeAreaProgressFeedが使う)
+ * ・crimeMotion は、このエリアの犯罪実行役が「エリアに合わせる」の時に使う犯罪モーション
+ *   (生活区域: 蹴る / インフラ区域: 運ぶ / エネルギー区域: いじる)
  * ・ソロは通信せずに遊ぶので、ゲージはネットワークで同期しない
  */
 // ========================================
@@ -45,12 +49,22 @@ public class CS_CrimeArea : MonoBehaviour
     [Tooltip("犯罪完遂ライン(点)。ゲージがここに届いたら完遂(Lv.1: 1000 / Lv.2: 2000 / Lv.3: 3000)")]
     private float _completeLine = 1000f;
 
+    [SerializeField]
+    [Tooltip("犯罪完遂ゲージUIで、このエリアを出すゲージ(生活区域: Downtown / エネルギー区域: Energy / インフラ区域: Infrastructure)")]
+    private CSE_CrimeAreaType _areaType = CSE_CrimeAreaType.Downtown;
+
+    [SerializeField]
+    [Tooltip("犯罪実行役が「エリアに合わせる」の時に使う犯罪モーション(生活区域: 蹴る / インフラ区域: 運ぶ / エネルギー区域: いじる)")]
+    private CSE_VillainCrimeMotion _crimeMotion = CSE_VillainCrimeMotion.Kick;
+
     private float _points;
     private bool _isCompleted;
 
     public string areaName => _areaName;
     public int level => _level;
     public float completeLine => _completeLine;
+    public CSE_CrimeAreaType areaType => _areaType;
+    public CSE_VillainCrimeMotion crimeMotion => _crimeMotion;
     public float points => _points;                                  // 今のゲージ(点)
     public float progress => Mathf.Clamp01(_points / _completeLine); // 犯罪完遂率(0〜1)
     public bool isCompleted => _isCompleted;

@@ -19,6 +19,7 @@ using UnityEngine.AI;
  *   ポイント: 番号付きの丸(選んでいるポイントは塗りつぶし)。やることがあれば番号の横に書く
  *   悪人: ポイント1に丸と向きの線、隊列で付いてくる人は小さな丸。プレビュー再生中は今の位置に描く
  *   選んでいない悪人のルートは薄く描く
+ *   位置の基準が「路地裏」の時は、路地裏の枠と 縦0・縦1・横1 の目印を描く(Inspectorの数値の向きが分かるように)
  *   犯罪実行役: 黄色のひし形と向きの線、「実行役N 犯罪モーション」。運ぶ時は車の位置(四角・「車」)と点線で結ぶ
  *   プレビュー再生中は、運ぶ実行役が貨物と車を往復する(CSED_VillainPatrolPreview.EvaluateExecutor)
  * ・操作
@@ -50,6 +51,7 @@ public static class CSED_VillainPatrolSceneGUI
     private static readonly int _executorControlHash = "VillainPatrolExecutor".GetHashCode();
     private static readonly int _carControlHash = "VillainPatrolCar".GetHashCode();
     private static readonly Color _executorColor = new Color(1f, 0.78f, 0.1f);   // 犯罪実行役の色
+    private static readonly Color _alleyColor = new Color(0.35f, 0.85f, 1f, 0.9f);   // 路地裏の枠の色
     private const float _executorRadius = 0.55f;
     private const float _carRadius = 0.45f;
     private const float _unselectedExecutorAlpha = 0.6f;   // 選んでいない実行役の濃さ
@@ -75,6 +77,13 @@ public static class CSED_VillainPatrolSceneGUI
 
         _lastSpawnPoint = spawnPoint;
         CSED_VillainPatrolEditorState.Reset();
+
+        // 真上から見ている時は、新しいスポーン位置に合わせ直す(スポーン位置以外を選んだら元の視点に戻す)
+        if (CSED_VillainPatrolTopView.isActive)
+        {
+            if (spawnPoint != null) EditorApplication.delayCall += CSED_VillainPatrolTopView.Frame;
+            else CSED_VillainPatrolTopView.Exit();
+        }
     }
 
     // 再生中はSceneビューを描き直し続ける
@@ -117,6 +126,8 @@ public static class CSED_VillainPatrolSceneGUI
         {
             HandleUtility.AddDefaultControl(placeControl);
         }
+
+        DrawAlley(spawnPoint);
 
         if (pattern != null)
         {
@@ -297,6 +308,31 @@ public static class CSED_VillainPatrolSceneGUI
                 Handles.Label(lifted, GetPointLabel(pattern.routes[routeIndex].points[pointIndex], pointIndex), GetLabelStyle(color));
                 break;
         }
+    }
+
+    // ---- 路地裏 ----
+
+    // 位置の基準が「路地裏」の時、路地裏の枠と、縦・横の向きの目印を描く
+    private static void DrawAlley(CS_VillainSpawnPoint spawnPoint)
+    {
+        if (Event.current.type != EventType.Repaint) return;
+        if (CSED_VillainPatrolEditorState.positionBasis != CSED_VillainPatrolEditorState.PositionBasis.Alley) return;
+        if (!CSED_VillainPatrolAlley.TryGet(spawnPoint, out CSED_VillainPatrolAlley alley)) return;
+
+        Vector3 up = Vector3.up * _lineHeight;
+        Vector3 corner0 = alley.origin + up;
+        Vector3 cornerLength = corner0 + alley.length;
+        Vector3 cornerWidth = corner0 + alley.width;
+        Vector3 cornerFar = cornerLength + alley.width;
+
+        Handles.color = _alleyColor;
+        Handles.DrawAAPolyLine(2f, corner0, cornerLength, cornerFar, cornerWidth, corner0);
+        Handles.DrawDottedLine(corner0 + alley.width * 0.5f, cornerLength + alley.width * 0.5f, 4f);   // 縦の中心線
+
+        GUIStyle style = GetLabelStyle(_alleyColor);
+        Handles.Label(corner0, "縦0・横0", style);
+        Handles.Label(cornerLength, "縦1", style);
+        Handles.Label(cornerWidth, "横1", style);
     }
 
     // ---- 犯罪実行役 ----

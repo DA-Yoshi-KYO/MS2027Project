@@ -12,10 +12,10 @@ using UnityEngine;
 using UnityEngine.UI;
 
 /// <summary>
-/// HPの描画処理。
+/// プレイヤーHPの描画を担当するView。
 ///
-/// ・キャラごとに満タンハートと黒ハートを持つ
-/// ・HP減少時、対象ハートを左右に振動させる
+/// ・キャラクターごとに満タンハートと黒ハートを持つ
+/// ・HP減少時、対象ハートを上下に振動させる
 /// ・振動後、満タンハートをフェードアウトして黒ハートへ切り替える
 /// ・HP回復時、満タンハートを即時表示する
 /// ・HeartSlotは実行時に自動生成する
@@ -24,11 +24,11 @@ public class CS_UIPlayerHpView :
     CS_BaseView<CS_UIPlayerHpPresenter>
 {
     // =========================================================
-    // キャラごとのハート設定
+    // キャラクターごとのハート設定
     // =========================================================
 
     [System.Serializable]
-    public class HeartSet
+    public sealed class HeartSet
     {
         [SerializeField]
         private CSE_CharacterType _characterType;
@@ -57,28 +57,28 @@ public class CS_UIPlayerHpView :
     [SerializeField]
     private Transform _heartsRoot;
 
-    [Header("キャラごとのハートPrefab")]
+    [Header("キャラクターごとのハートPrefab")]
     [SerializeField]
     private HeartSet[] _heartSets;
 
     [Header("被弾アニメーション")]
 
-    [Tooltip("左右に揺れる時間")]
+    [Tooltip("上下に揺れる時間")]
     [Min(0.01f)]
     [SerializeField]
     private float _shakeDuration = 0.18f;
 
-    [Tooltip("左右に動く最大距離")]
+    [Tooltip("上下に動く最大距離")]
     [Min(0f)]
     [SerializeField]
-    private float _shakeDistance = 8f;
+    private float _shakeDistance = 10f;
 
-    [Tooltip("1秒間に左右へ振動する回数")]
+    [Tooltip("1秒間に上下へ振動する回数")]
     [Min(0f)]
     [SerializeField]
     private float _shakeFrequency = 35f;
 
-    [Tooltip("満タンハートが消えるまでの時間")]
+    [Tooltip("満タンハートが黒Verへ切り替わる時間")]
     [Min(0.01f)]
     [SerializeField]
     private float _fadeDuration = 0.25f;
@@ -90,24 +90,36 @@ public class CS_UIPlayerHpView :
     private sealed class HeartInstance
     {
         private readonly GameObject _slotObject;
+
         private readonly GameObject _fullObject;
+
         private readonly GameObject _emptyObject;
 
         private readonly RectTransform _fullRect;
+
         private readonly CanvasGroup _fullCanvasGroup;
 
         private readonly Vector2 _initialPosition;
 
         private Coroutine _damageCoroutine;
 
-        public GameObject slotObject => _slotObject;
-        public GameObject fullObject => _fullObject;
-        public GameObject emptyObject => _emptyObject;
+        public GameObject slotObject =>
+            _slotObject;
 
-        public RectTransform fullRect => _fullRect;
-        public CanvasGroup fullCanvasGroup => _fullCanvasGroup;
+        public GameObject fullObject =>
+            _fullObject;
 
-        public Vector2 initialPosition => _initialPosition;
+        public GameObject emptyObject =>
+            _emptyObject;
+
+        public RectTransform fullRect =>
+            _fullRect;
+
+        public CanvasGroup fullCanvasGroup =>
+            _fullCanvasGroup;
+
+        public Vector2 initialPosition =>
+            _initialPosition;
 
         public Coroutine damageCoroutine
         {
@@ -145,6 +157,7 @@ public class CS_UIPlayerHpView :
     private HeartSet _currentHeartSet;
 
     private int _currentMaxHp = -1;
+
     private int _previousHp = -1;
 
     // =========================================================
@@ -163,7 +176,7 @@ public class CS_UIPlayerHpView :
 
     /// <summary>
     /// 表示するキャラクターを設定する。
-    /// キャラクターが変わった場合はハートを作り直す。
+    /// キャラクターが変化した場合はハートを作り直す。
     /// </summary>
     public void SetCharacter(
         CSE_CharacterType characterType)
@@ -180,13 +193,12 @@ public class CS_UIPlayerHpView :
 
         ClearHearts();
 
-        // 次回のUpdateHpで必ず再生成する
         _currentMaxHp = -1;
         _previousHp = -1;
     }
 
     /// <summary>
-    /// キャラクターに対応したハート設定を取得する。
+    /// キャラクターに対応するハート設定を取得する。
     /// </summary>
     private HeartSet FindHeartSet(
         CSE_CharacterType characterType)
@@ -202,16 +214,20 @@ public class CS_UIPlayerHpView :
             return null;
         }
 
-        for (int i = 0; i < _heartSets.Length; i++)
+        for (int i = 0;
+             i < _heartSets.Length;
+             i++)
         {
-            HeartSet heartSet = _heartSets[i];
+            HeartSet heartSet =
+                _heartSets[i];
 
             if (heartSet == null)
             {
                 continue;
             }
 
-            if (heartSet.characterType == characterType)
+            if (heartSet.characterType ==
+                characterType)
             {
                 return heartSet;
             }
@@ -219,7 +235,7 @@ public class CS_UIPlayerHpView :
 
         Debug.LogWarning(
             $"{nameof(CS_UIPlayerHpView)}: " +
-            $"ハートの設定がありません: {characterType}",
+            $"ハート設定がありません: {characterType}",
             this
         );
 
@@ -232,9 +248,11 @@ public class CS_UIPlayerHpView :
 
     /// <summary>
     /// HP表示を更新する。
-    /// HPが減っていた場合は被弾アニメーションを再生する。
+    /// HPが減少した場合は被弾アニメーションを再生する。
     /// </summary>
-    public void UpdateHp(int hp, int max)
+    public void UpdateHp(
+        int hp,
+        int max)
     {
         if (_currentHeartSet == null)
         {
@@ -244,8 +262,7 @@ public class CS_UIPlayerHpView :
         max = Mathf.Max(0, max);
         hp = Mathf.Clamp(hp, 0, max);
 
-        // 最大HPが変化した場合はハート全体を作り直す。
-        // 初回表示もここを通る。
+        // 初回表示、または最大HPが変わった場合。
         if (max != _currentMaxHp)
         {
             RebuildHearts(max);
@@ -258,7 +275,6 @@ public class CS_UIPlayerHpView :
             return;
         }
 
-        // 念のため、前回HPが未設定なら即時反映する。
         if (_previousHp < 0)
         {
             _previousHp = hp;
@@ -270,7 +286,6 @@ public class CS_UIPlayerHpView :
 
         if (hp < _previousHp)
         {
-            // HP減少
             PlayDamageAnimations(
                 previousHp: _previousHp,
                 currentHp: hp
@@ -278,7 +293,6 @@ public class CS_UIPlayerHpView :
         }
         else if (hp > _previousHp)
         {
-            // HP回復
             ApplyRecovery(
                 previousHp: _previousHp,
                 currentHp: hp
@@ -293,46 +307,46 @@ public class CS_UIPlayerHpView :
     // =========================================================
 
     /// <summary>
-    /// 減少したHPに対応するハートをアニメーションさせる。
+    /// HP減少分のハートに被弾アニメーションを再生する。
+    ///
+    /// 5から4の場合はindex 4、
+    /// 5から3の場合はindex 4とindex 3が対象になる。
     /// </summary>
     private void PlayDamageAnimations(
         int previousHp,
         int currentHp)
     {
-        /*
-         * 例:
-         *
-         * 5 → 4
-         * index 4をアニメーション
-         *
-         * 5 → 3
-         * index 4とindex 3をアニメーション
-         */
-
         for (int i = previousHp - 1;
              i >= currentHp;
              i--)
         {
-            if (i < 0 || i >= _hearts.Count)
+            if (i < 0 ||
+                i >= _hearts.Count)
             {
                 continue;
             }
 
-            HeartInstance heart = _hearts[i];
+            HeartInstance heart =
+                _hearts[i];
 
-            // 同じハートで既にアニメーションが
-            // 動いていた場合は停止する。
             StopHeartAnimation(heart);
 
             heart.damageCoroutine =
                 StartCoroutine(
-                    PlayDamageAnimation(heart)
+                    PlayDamageAnimation(
+                        heart
+                    )
                 );
         }
     }
 
     /// <summary>
-    /// 1個のハートに対する被弾アニメーション。
+    /// ハート1個分の被弾アニメーション。
+    ///
+    /// 1. 通常ハートを上下に振動させる
+    /// 2. 振動を徐々に弱くする
+    /// 3. 通常ハートをフェードアウトする
+    /// 4. 背面の黒ハートだけを残す
     /// </summary>
     private IEnumerator PlayDamageAnimation(
         HeartInstance heart)
@@ -347,40 +361,45 @@ public class CS_UIPlayerHpView :
             yield break;
         }
 
-        // 黒ハートを背面に表示する。
+        // 黒Verを背面に表示しておく。
         heart.emptyObject.SetActive(true);
 
-        // 通常ハートを前面に表示する。
+        // 通常Verを前面に表示する。
         heart.fullObject.SetActive(true);
 
         heart.fullCanvasGroup.alpha = 1f;
+
         heart.fullRect.anchoredPosition =
             heart.initialPosition;
 
         // -----------------------------------------------------
-        // 左右振動
+        // 上下振動
         // -----------------------------------------------------
 
         float elapsed = 0f;
 
         while (elapsed < _shakeDuration)
         {
-            // オブジェクトが途中で削除された場合は終了する。
             if (!IsHeartValid(heart))
             {
                 yield break;
             }
 
-            elapsed += Time.unscaledDeltaTime;
+            elapsed +=
+                Time.unscaledDeltaTime;
 
-            float rate = Mathf.Clamp01(
-                elapsed / _shakeDuration
-            );
+            float rate =
+                Mathf.Clamp01(
+                    elapsed /
+                    _shakeDuration
+                );
 
-            // 最初は大きく、徐々に揺れを小さくする。
-            float strength = 1f - rate;
+            // 時間経過に合わせて、
+            // 振動の強さを徐々に小さくする。
+            float strength =
+                1f - rate;
 
-            float offsetX =
+            float offsetY =
                 Mathf.Sin(
                     elapsed *
                     _shakeFrequency *
@@ -390,9 +409,14 @@ public class CS_UIPlayerHpView :
                 _shakeDistance *
                 strength;
 
+            // X座標は変えず、
+            // Y座標だけを上下へ動かす。
             heart.fullRect.anchoredPosition =
                 heart.initialPosition +
-                new Vector2(offsetX, 0f);
+                new Vector2(
+                    0f,
+                    offsetY
+                );
 
             yield return null;
         }
@@ -402,12 +426,12 @@ public class CS_UIPlayerHpView :
             yield break;
         }
 
-        // 振動終了後は元の位置に戻す。
+        // 振動終了後は元の位置へ戻す。
         heart.fullRect.anchoredPosition =
             heart.initialPosition;
 
         // -----------------------------------------------------
-        // 黒ハートへのフェード
+        // 黒Verへのフェード
         // -----------------------------------------------------
 
         elapsed = 0f;
@@ -419,14 +443,17 @@ public class CS_UIPlayerHpView :
                 yield break;
             }
 
-            elapsed += Time.unscaledDeltaTime;
+            elapsed +=
+                Time.unscaledDeltaTime;
 
-            float rate = Mathf.Clamp01(
-                elapsed / _fadeDuration
-            );
+            float rate =
+                Mathf.Clamp01(
+                    elapsed /
+                    _fadeDuration
+                );
 
-            // 通常ハートだけを透明化する。
-            // 背面の黒ハートが徐々に見える。
+            // 通常Verを徐々に透明にすることで、
+            // 背面の黒Verが見えるようになる。
             heart.fullCanvasGroup.alpha =
                 1f - rate;
 
@@ -442,16 +469,17 @@ public class CS_UIPlayerHpView :
             heart.initialPosition;
 
         heart.fullCanvasGroup.alpha = 0f;
+
         heart.fullObject.SetActive(false);
 
-        // 黒ハートだけを残す。
+        // 最後は黒Verだけを残す。
         heart.emptyObject.SetActive(true);
 
         heart.damageCoroutine = null;
     }
 
     // =========================================================
-    // 回復
+    // HP回復
     // =========================================================
 
     /// <summary>
@@ -465,12 +493,14 @@ public class CS_UIPlayerHpView :
              i < currentHp;
              i++)
         {
-            if (i < 0 || i >= _hearts.Count)
+            if (i < 0 ||
+                i >= _hearts.Count)
             {
                 continue;
             }
 
-            HeartInstance heart = _hearts[i];
+            HeartInstance heart =
+                _hearts[i];
 
             if (!IsHeartValid(heart))
             {
@@ -494,14 +524,17 @@ public class CS_UIPlayerHpView :
     // =========================================================
 
     /// <summary>
-    /// アニメーションを使用せず、現在HPを即時反映する。
+    /// アニメーションを使用せず現在HPを反映する。
     /// 初回表示や最大HP変更時に使用する。
     /// </summary>
     private void ApplyHpImmediately(int hp)
     {
-        for (int i = 0; i < _hearts.Count; i++)
+        for (int i = 0;
+             i < _hearts.Count;
+             i++)
         {
-            HeartInstance heart = _hearts[i];
+            HeartInstance heart =
+                _hearts[i];
 
             if (!IsHeartValid(heart))
             {
@@ -510,7 +543,8 @@ public class CS_UIPlayerHpView :
 
             StopHeartAnimation(heart);
 
-            bool isFull = i < hp;
+            bool isFull =
+                i < hp;
 
             heart.fullRect.anchoredPosition =
                 heart.initialPosition;
@@ -518,7 +552,10 @@ public class CS_UIPlayerHpView :
             heart.fullCanvasGroup.alpha = 1f;
 
             heart.fullObject.SetActive(isFull);
-            heart.emptyObject.SetActive(!isFull);
+
+            heart.emptyObject.SetActive(
+                !isFull
+            );
         }
     }
 
@@ -527,8 +564,8 @@ public class CS_UIPlayerHpView :
     // =========================================================
 
     /// <summary>
-    /// maxHpの数だけHeartSlotを生成する。
-    /// 各スロット内に黒ハートと通常ハートを重ねて生成する。
+    /// 最大HPの数だけHeartSlotを生成する。
+    /// 各スロット内に黒ハートと通常ハートを重ねる。
     /// </summary>
     private void RebuildHearts(int max)
     {
@@ -550,79 +587,62 @@ public class CS_UIPlayerHpView :
             return;
         }
 
-        if (_currentHeartSet.fullHeartPrefab == null)
+        GameObject fullHeartPrefab =
+            _currentHeartSet.fullHeartPrefab;
+
+        GameObject emptyHeartPrefab =
+            _currentHeartSet.emptyHeartPrefab;
+
+        if (fullHeartPrefab == null ||
+            emptyHeartPrefab == null)
         {
             Debug.LogError(
                 $"{nameof(CS_UIPlayerHpView)}: " +
-                "満タンハートPrefabが設定されていません。",
+                "通常ハートまたは黒ハートPrefabが" +
+                "設定されていません。",
                 this
             );
 
             return;
         }
-
-        if (_currentHeartSet.emptyHeartPrefab == null)
-        {
-            Debug.LogError(
-                $"{nameof(CS_UIPlayerHpView)}: " +
-                "黒ハートPrefabが設定されていません。",
-                this
-            );
-
-            return;
-        }
-
-        max = Mathf.Max(0, max);
 
         RectTransform fullPrefabRect =
-            _currentHeartSet.fullHeartPrefab
+            fullHeartPrefab
                 .GetComponent<RectTransform>();
 
         RectTransform emptyPrefabRect =
-            _currentHeartSet.emptyHeartPrefab
+            emptyHeartPrefab
                 .GetComponent<RectTransform>();
 
-        if (fullPrefabRect == null)
+        if (fullPrefabRect == null ||
+            emptyPrefabRect == null)
         {
             Debug.LogError(
                 $"{nameof(CS_UIPlayerHpView)}: " +
-                "満タンハートPrefabのルートに" +
-                "RectTransformがありません。",
-                _currentHeartSet.fullHeartPrefab
+                "ハートPrefabのルートに" +
+                "RectTransformが必要です。",
+                this
             );
 
             return;
         }
 
-        if (emptyPrefabRect == null)
-        {
-            Debug.LogError(
-                $"{nameof(CS_UIPlayerHpView)}: " +
-                "黒ハートPrefabのルートに" +
-                "RectTransformがありません。",
-                _currentHeartSet.emptyHeartPrefab
-            );
-
-            return;
-        }
-
-        // スロットサイズには通常ハートPrefabのサイズを使用する。
         Vector2 slotSize =
             fullPrefabRect.rect.size;
 
-        // rect.sizeが0の場合に備えてsizeDeltaも確認する。
-        if (slotSize.x <= 0f || slotSize.y <= 0f)
+        if (slotSize.x <= 0f ||
+            slotSize.y <= 0f)
         {
             slotSize =
                 fullPrefabRect.sizeDelta;
         }
 
-        for (int i = 0; i < max; i++)
-        {
-            // -------------------------------------------------
-            // HeartSlot生成
-            // -------------------------------------------------
+        max = Mathf.Max(0, max);
 
+        for (int i = 0;
+             i < max;
+             i++)
+        {
             GameObject slotObject =
                 new GameObject(
                     $"HeartSlot_{i}",
@@ -631,10 +651,12 @@ public class CS_UIPlayerHpView :
                 );
 
             RectTransform slotRect =
-                slotObject.GetComponent<RectTransform>();
+                slotObject
+                    .GetComponent<RectTransform>();
 
             LayoutElement layoutElement =
-                slotObject.GetComponent<LayoutElement>();
+                slotObject
+                    .GetComponent<LayoutElement>();
 
             slotRect.SetParent(
                 _heartsRoot,
@@ -662,35 +684,34 @@ public class CS_UIPlayerHpView :
             layoutElement.flexibleWidth = 0f;
             layoutElement.flexibleHeight = 0f;
 
-            // -------------------------------------------------
-            // ハート生成
-            // -------------------------------------------------
-
-            // 黒ハートを先に生成することで背面に配置する。
+            // 黒Verを先に生成して背面へ置く。
             GameObject emptyObject =
                 Instantiate(
-                    _currentHeartSet.emptyHeartPrefab,
+                    emptyHeartPrefab,
                     slotRect
                 );
 
-            // 通常ハートを後に生成することで前面に配置する。
+            // 通常Verを後に生成して前面へ置く。
             GameObject fullObject =
                 Instantiate(
-                    _currentHeartSet.fullHeartPrefab,
+                    fullHeartPrefab,
                     slotRect
                 );
 
             RectTransform emptyRect =
-                emptyObject.GetComponent<RectTransform>();
+                emptyObject
+                    .GetComponent<RectTransform>();
 
             RectTransform fullRect =
-                fullObject.GetComponent<RectTransform>();
+                fullObject
+                    .GetComponent<RectTransform>();
 
-            if (emptyRect == null || fullRect == null)
+            if (emptyRect == null ||
+                fullRect == null)
             {
                 Debug.LogError(
                     $"{nameof(CS_UIPlayerHpView)}: " +
-                    "生成したハートのルートに" +
+                    "生成されたハートに" +
                     "RectTransformがありません。",
                     this
                 );
@@ -700,18 +721,18 @@ public class CS_UIPlayerHpView :
                 continue;
             }
 
-            // 同じHeartSlot内の中央に重ねる。
             SetHeartRect(emptyRect);
             SetHeartRect(fullRect);
 
-            // 通常ハートだけをフェード対象にする。
             CanvasGroup canvasGroup =
-                fullObject.GetComponent<CanvasGroup>();
+                fullObject
+                    .GetComponent<CanvasGroup>();
 
             if (canvasGroup == null)
             {
                 canvasGroup =
-                    fullObject.AddComponent<CanvasGroup>();
+                    fullObject
+                        .AddComponent<CanvasGroup>();
             }
 
             canvasGroup.alpha = 1f;
@@ -766,9 +787,6 @@ public class CS_UIPlayerHpView :
     // 有効性確認
     // =========================================================
 
-    /// <summary>
-    /// ハートのアニメーションに必要な参照が有効か確認する。
-    /// </summary>
     private static bool IsHeartValid(
         HeartInstance heart)
     {
@@ -785,9 +803,6 @@ public class CS_UIPlayerHpView :
     // アニメーション停止
     // =========================================================
 
-    /// <summary>
-    /// ハートの被弾アニメーションを停止する。
-    /// </summary>
     private void StopHeartAnimation(
         HeartInstance heart)
     {
@@ -805,7 +820,6 @@ public class CS_UIPlayerHpView :
             heart.damageCoroutine = null;
         }
 
-        // 停止時に中途半端な位置に残らないようにする。
         if (heart.fullRect != null)
         {
             heart.fullRect.anchoredPosition =
@@ -817,14 +831,14 @@ public class CS_UIPlayerHpView :
     // ハート削除
     // =========================================================
 
-    /// <summary>
-    /// 生成済みのハートをすべて削除する。
-    /// </summary>
     private void ClearHearts()
     {
-        for (int i = 0; i < _hearts.Count; i++)
+        for (int i = 0;
+             i < _hearts.Count;
+             i++)
         {
-            HeartInstance heart = _hearts[i];
+            HeartInstance heart =
+                _hearts[i];
 
             if (heart == null)
             {
@@ -835,7 +849,9 @@ public class CS_UIPlayerHpView :
 
             if (heart.slotObject != null)
             {
-                Destroy(heart.slotObject);
+                Destroy(
+                    heart.slotObject
+                );
             }
         }
 
@@ -848,17 +864,20 @@ public class CS_UIPlayerHpView :
 
     private void OnDisable()
     {
-        // Viewが無効になったときはコルーチンを停止する。
-        for (int i = 0; i < _hearts.Count; i++)
+        for (int i = 0;
+             i < _hearts.Count;
+             i++)
         {
-            StopHeartAnimation(_hearts[i]);
+            StopHeartAnimation(
+                _hearts[i]
+            );
         }
 
-        // 再表示時に中途半端な見た目にならないよう、
-        // 現在のHP状態を即時適用する。
         if (_previousHp >= 0)
         {
-            ApplyHpImmediately(_previousHp);
+            ApplyHpImmediately(
+                _previousHp
+            );
         }
     }
 

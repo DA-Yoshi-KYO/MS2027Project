@@ -556,7 +556,6 @@ public static class CSED_PlacementOverlay
 
             Handles.color = Color.white;
             Handles.DrawLine(unit.ground, unit.ground + Vector3.up * 10.0f);
-            Handles.Label(unit.ground + Vector3.up * 11.0f, $"! {unit.name} は CrimeArea_0{unit.parentArea} の下(位置は区画{unit.sector})", EditorStyles.boldLabel);
         }
     }
 

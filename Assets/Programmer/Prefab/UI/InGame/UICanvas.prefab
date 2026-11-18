@@ -2547,6 +2547,7 @@ GameObject:
   - component: {fileID: 148435714584340275}
   - component: {fileID: 356528544532918083}
   - component: {fileID: 4427648561348504020}
+  - component: {fileID: 4427648561348504021}
   m_Layer: 5
   m_Name: UICanvas
   m_TagString: Untagged
@@ -2655,6 +2656,18 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::CS_UIGameModeRootView
   _soloPanel: {fileID: 825980968166745757}
   _multiPanel: {fileID: 1888377939335457646}
+--- !u!114 &4427648561348504021
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3273705200240360011}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e6f52efa59e94b8188a4cd6bbecd74b6, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CS_UIGameModeRootPresenter
 --- !u!1 &3281847163853698724
 GameObject:
   m_ObjectHideFlags: 0

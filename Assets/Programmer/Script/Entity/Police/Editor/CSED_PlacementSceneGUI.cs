@@ -211,14 +211,21 @@ public static class CSED_PlacementSceneGUI
 
     // ---- 消す ----
 
+    // 消す対象は、マウスを動かした時・クリックした時だけ探す(毎回の描き直しで探すと、重い)
+    private static Transform _deleteTarget;
+
     private static void HandleDelete(Event e, bool clicked)
     {
-        GameObject picked = HandleUtility.PickGameObject(e.mousePosition, false);
-        Transform root = CSED_PlacementBuilder.FindPlacedRoot(picked);
-        Vector3 nearPoint = Vector3.zero;
+        if (e.type == EventType.MouseMove || e.type == EventType.MouseDrag || e.type == EventType.MouseDown)
+        {
+            GameObject picked = HandleUtility.PickGameObject(e.mousePosition, false);
+            _deleteTarget = CSED_PlacementBuilder.FindPlacedRoot(picked);
 
-        // 見えない物(警察のグループ・巡回ドローン・悪人の出現点)は、位置の近さで探す
-        if (root == null) root = CSED_PlacementBuilder.FindNearestInvisible(e.mousePosition, _pickPixels, out nearPoint);
+            // 見えない物(警察のグループ・巡回ドローン・悪人の出現点)は、位置の近さで探す
+            if (_deleteTarget == null) _deleteTarget = CSED_PlacementBuilder.FindNearestInvisible(e.mousePosition, _pickPixels, out _);
+        }
+
+        Transform root = _deleteTarget;
         if (root == null) return;
 
         if (e.type == EventType.Repaint)
@@ -232,7 +239,11 @@ public static class CSED_PlacementSceneGUI
                 if (child.GetComponent<Renderer>() == null && child.childCount == 0) Handles.SphereHandleCap(0, child.position, Quaternion.identity, 0.8f, EventType.Repaint);
             }
         }
-        if (clicked) CSED_PlacementBuilder.Delete(root);
+        if (clicked)
+        {
+            CSED_PlacementBuilder.Delete(root);
+            _deleteTarget = null;
+        }
     }
 
     private static Bounds GetBounds(Transform root)

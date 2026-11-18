@@ -657,6 +657,7 @@ public class CS_VillainCombat : NetworkBehaviour
         _targetPolice = player == null ? target.GetComponentInParent<CS_PoliceBrain>() : null;
         _targetHide = player != null ? player.GetComponent<CS_PlayerHide>() : null;
         _state = State.Chase;
+        if (_patrol != null) _patrol.StopCrimeAction();   // 犯罪実行役は、犯罪の動作をやめて戦う
 
         // 追跡を始めた時点では路地裏にいるものとして数え直す
         _isTargetInAlley = true;

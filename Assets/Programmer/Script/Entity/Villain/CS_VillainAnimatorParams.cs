@@ -32,6 +32,9 @@ public static class CS_VillainAnimatorParams
     // 撃退(常時更新)
     public const string dead = "Dead";             // bool 撃退されて倒れているか(死亡モーション)
 
+    // 犯罪(常時更新)
+    public const string crimeAction = "CrimeAction"; // int 今している犯罪の動作(CSE_VillainCrimeAction。0は何もしていない)
+
     // 単発の動作(トリガー)
     public const string hit = "Hit";               // ノックバックした瞬間
 
@@ -43,4 +46,5 @@ public static class CS_VillainAnimatorParams
     public static readonly int attackTimeHash = Animator.StringToHash(attackTime);
     public static readonly int hitHash = Animator.StringToHash(hit);
     public static readonly int deadHash = Animator.StringToHash(dead);
+    public static readonly int crimeActionHash = Animator.StringToHash(crimeAction);
 }

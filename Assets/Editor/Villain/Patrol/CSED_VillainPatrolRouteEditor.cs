@@ -4,7 +4,8 @@ using UnityEngine;
 
 /*
  * 巡回(CS_VillainPatrolRoute)のInspector
- * 巡回エディタで選んでいる悪人の設定(回り方・速さ・向き・隊列)と、選んでいるポイントでやることを編集する
+ * 巡回エディタで選んでいる悪人の設定(回り方・速さ・向き・隊列)と、選んでいるポイントでやること、
+ * 選んでいる犯罪実行役の設定(犯罪モーション・向き)を編集する
  *
  * 制作者：　中出峻輔
  */
@@ -15,6 +16,7 @@ using UnityEngine;
  * ・悪人・ポイントの選択はSceneビュー(CSED_VillainPatrolSceneGUI)と共有する(CSED_VillainPatrolEditorState)
  *   ここの悪人・ポイントのボタンを押しても選べる
  * ・やることは上から順に実行する(ドラッグで並べ替え)。何も無ければ止まらずに次へ向かう
+ * ・犯罪実行役の犯罪モーションは「エリアに合わせる」なら、スポーン位置の担当のエリア(CS_CrimeArea.crimeMotion)のモーションになる
  * ・値はパターンのアセット(CSO_VillainPatrolPattern)をSerializedObjectで書き換える(Undoできる)
  */
 // ========================================
@@ -58,11 +60,25 @@ public class CSED_VillainPatrolRouteEditor : Editor
 
         SerializedProperty routes = _patternObject.FindProperty("_routes");
         DrawRouteButtons(routes);
+        SerializedProperty executors = _patternObject.FindProperty("_executors");
+        DrawExecutorButtons(executors);
+
+        int executorIndex = CSED_VillainPatrolEditorState.selectedExecutor;
+        if (executorIndex >= 0 && executorIndex < executors.arraySize)
+        {
+            DrawExecutorSettings(route, executors, executorIndex);
+            if (_patternObject.ApplyModifiedProperties())
+            {
+                CSED_VillainPatrolEditorState.MarkPatternDirty(route);
+                SceneView.RepaintAll();
+            }
+            return;
+        }
 
         int routeIndex = CSED_VillainPatrolEditorState.selectedRoute;
         if (routeIndex < 0 || routeIndex >= routes.arraySize)
         {
-            EditorGUILayout.HelpBox("Sceneビューで悪人・ポイント・線をクリックするか、上のボタンで悪人を選ぶと設定できます。", MessageType.None);
+            EditorGUILayout.HelpBox("Sceneビューで悪人・ポイント・線・実行役をクリックするか、上のボタンで選ぶと設定できます。", MessageType.None);
             _patternObject.ApplyModifiedProperties();
             return;
         }
@@ -105,6 +121,68 @@ public class CSED_VillainPatrolRouteEditor : Editor
             GUI.backgroundColor = previous;
         }
         EditorGUILayout.EndHorizontal();
+    }
+
+    // 犯罪実行役を選ぶボタン
+    private static void DrawExecutorButtons(SerializedProperty executors)
+    {
+        EditorGUILayout.Space();
+        EditorGUILayout.LabelField("犯罪実行役", EditorStyles.boldLabel);
+        if (executors.arraySize == 0)
+        {
+            EditorGUILayout.LabelField("Sceneビューの巡回のツールバーで「実行役を置く」を押して置きます", EditorStyles.miniLabel);
+            return;
+        }
+
+        EditorGUILayout.BeginHorizontal();
+        for (int i = 0; i < executors.arraySize; i++)
+        {
+            bool isSelected = i == CSED_VillainPatrolEditorState.selectedExecutor;
+            if (GUILayout.Toggle(isSelected, CSED_VillainPatrolLabels.GetExecutorName(i), EditorStyles.miniButton) && !isSelected)
+            {
+                CSED_VillainPatrolEditorState.SelectExecutor(i);
+            }
+        }
+        EditorGUILayout.EndHorizontal();
+    }
+
+    // 犯罪実行役の設定(犯罪モーション・向き)
+    private void DrawExecutorSettings(CS_VillainPatrolRoute owner, SerializedProperty executors, int executorIndex)
+    {
+        SerializedProperty executor = executors.GetArrayElementAtIndex(executorIndex);
+
+        EditorGUILayout.Space();
+        EditorGUILayout.LabelField($"{CSED_VillainPatrolLabels.GetExecutorName(executorIndex)}の設定", EditorStyles.boldLabel);
+
+        SerializedProperty motion = executor.FindPropertyRelative("_motion");
+        motion.enumValueIndex = EditorGUILayout.Popup("犯罪モーション", motion.enumValueIndex, CSED_VillainPatrolLabels.crimeMotionNames);
+
+        CSE_VillainCrimeMotion resolved = (CSE_VillainCrimeMotion)motion.enumValueIndex;
+        if (resolved == CSE_VillainCrimeMotion.Auto)
+        {
+            CS_VillainSpawnPoint spawnPoint = owner.GetComponent<CS_VillainSpawnPoint>();
+            CS_CrimeArea area = spawnPoint != null ? spawnPoint.crimeArea : null;
+            resolved = area != null && area.crimeMotion != CSE_VillainCrimeMotion.Auto ? area.crimeMotion : CSE_VillainCrimeMotion.Kick;
+            string areaName = area != null ? area.areaName : "エリアなし";
+            EditorGUILayout.LabelField(" ", $"{areaName} → {CSED_VillainPatrolLabels.GetCrimeMotionName(resolved)}", EditorStyles.miniLabel);
+        }
+
+        EditorGUILayout.PropertyField(executor.FindPropertyRelative("_angle"), new GUIContent("向き(°)", "スポーン位置の向きからの角度(＋で右回り)"));
+
+        if (resolved == CSE_VillainCrimeMotion.Carry)
+        {
+            EditorGUILayout.HelpBox("ひし形(貨物)と四角(車)の間を、拾う → 運ぶ → 置く → 戻る と往復します。Sceneビューでそれぞれドラッグして動かせます。", MessageType.None);
+        }
+
+        EditorGUILayout.Space(4f);
+        if (GUILayout.Button($"{CSED_VillainPatrolLabels.GetExecutorName(executorIndex)}を消す"))
+        {
+            executors.DeleteArrayElementAtIndex(executorIndex);
+            _patternObject.ApplyModifiedProperties();
+            CSED_VillainPatrolEditorState.MarkPatternDirty(owner);
+            CSED_VillainPatrolEditorState.SelectExecutor(-1);
+            GUIUtility.ExitGUI();
+        }
     }
 
     // 悪人ごとの設定(回り方・速さ・最初の向き・隊列)

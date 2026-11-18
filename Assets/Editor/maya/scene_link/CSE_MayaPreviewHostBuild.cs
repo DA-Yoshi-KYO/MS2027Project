@@ -23,6 +23,8 @@ using UnityEngine.Rendering;
           2026/10/11 Project path for the export
           2026/11/05 Built with DirectX 11 (less memory), project setting restored afterwards
           2026/11/18 Default output out/maya_unity (was the Desktop)
+          2026/11/18 Version "2026_1118_02" (year_monthday_build of that day) written next to the
+                     player (StreamingAssets/MayaPreviewVersion.txt); the window title shows it
           2026/11/18 Models of the scene are built with Read/Write on (only for the build, then put
                      back), so the player's Export can write scene objects (Chara_Test_UNLIT ...)
 =====================================+
@@ -73,6 +75,7 @@ public static class CSE_MayaPreviewHostBuild
         FullScreenMode previousMode = PlayerSettings.fullScreenMode;
         int previousWidth = PlayerSettings.defaultScreenWidth, previousHeight = PlayerSettings.defaultScreenHeight;
         bool previousResizable = PlayerSettings.resizableWindow;
+        string version = NextVersion(folder);
         BuildReport report;
         List<ModelImporter> readable = null;
         try
@@ -103,12 +106,33 @@ public static class CSE_MayaPreviewHostBuild
                 string streaming = Path.Combine(folder, "MS2027_Data", "StreamingAssets");
                 Directory.CreateDirectory(streaming);
                 File.WriteAllText(Path.Combine(streaming, CS_MayaPreviewExport.ProjectFile), Application.dataPath);
+                File.WriteAllText(Path.Combine(streaming, CS_MayaPreviewWindow.VersionFile), version);
+                // The record of the last unpack (Unpack.ps1) is not about this build any more: without it
+                // Maya compares times, and this new build is newer than data.mpk, so it is not unpacked over.
+                string stamp = Path.Combine(folder, ".mpk_stamp");
+                if (File.Exists(stamp)) File.Delete(stamp);
             }
             catch (Exception exception) { Debug.LogWarning("Maya Preview Host build: could not write the project path. " + exception.Message); }
         }
         Debug.Log("Maya Preview Host build: " + report.summary.result + "  errors " + report.summary.totalErrors +
-                  "  " + options.locationPathName);
+                  "  " + options.locationPathName + "  version " + version);
         return report;
+    }
+
+    // "2026_1118_01", then _02, _03 ... for later builds of the same day into the same folder
+    // (the number is read back from the version file of the previous build there).
+    private static string NextVersion(string folder)
+    {
+        string today = DateTime.Now.ToString("yyyy_MMdd");
+        int number = 1;
+        try
+        {
+            string file = Path.Combine(folder, "MS2027_Data", "StreamingAssets", CS_MayaPreviewWindow.VersionFile);
+            string previous = File.Exists(file) ? File.ReadAllText(file).Trim() : "";
+            if (previous.StartsWith(today + "_") && int.TryParse(previous.Substring(today.Length + 1), out int last)) number = last + 1;
+        }
+        catch (Exception) { /* first build */ }
+        return today + "_" + number.ToString("00");
     }
 
     // The player reads mesh data when it exports (CS_MayaPreviewExport): a model imported without

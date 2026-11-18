@@ -13,6 +13,8 @@ using UnityEngine;
             the camera is letter / pillar boxed and the bars are drawn black.
           - Aspect presets, "reset ratio" and window-size presets for the View menu.
  History: 2026/10/10 New
+          2026/11/18 The title bar shows the build version ("MS2027   2026_1118_02"), written next to
+                     the player by the build (StreamingAssets/MayaPreviewVersion.txt)
 =====================================+
 */
 [RequireComponent(typeof(Camera))]
@@ -29,6 +31,10 @@ public class CS_MayaPreviewWindow : MonoBehaviour
     private const string PrefsKey = "MayaPreview.Aspect";
     private const string WidthPrefsKey = "MayaPreview.WindowWidth";   // the width chosen in View
     private const int DefaultWidth = 960;
+    public const string VersionFile = "MayaPreviewVersion.txt";   // written by CSE_MayaPreviewHostBuild
+
+    // "2026_1118_02" (year_monthday_build of that day), "" when unknown (editor, old build).
+    public static string Version { get; private set; } = "";
 
     public int AspectIndex { get; private set; }
     public float Aspect => AspectValues[AspectIndex];
@@ -48,9 +54,21 @@ public class CS_MayaPreviewWindow : MonoBehaviour
         AspectIndex = Mathf.Clamp(PlayerPrefs.GetInt(PrefsKey, 0), 0, AspectValues.Length - 1);
         s_aspect = Aspect;
         InstallHook();
+        ReadVersion();
+        SetTitle(Application.productName + (Version.Length > 0 ? "   " + Version : ""));
         // Every start: windowed, the width chosen last in View (960 until one is chosen).
         // Unity would otherwise reopen at its own remembered size (full screen 1920).
         if (!Application.isEditor) SetClientWidth(PlayerPrefs.GetInt(WidthPrefsKey, DefaultWidth));
+    }
+
+    private static void ReadVersion()
+    {
+        try
+        {
+            string file = System.IO.Path.Combine(Application.streamingAssetsPath, VersionFile);
+            if (System.IO.File.Exists(file)) Version = System.IO.File.ReadAllText(file).Trim();
+        }
+        catch (Exception) { Version = ""; }
     }
 
     private void OnDestroy() => RemoveHook();
@@ -177,6 +195,12 @@ public class CS_MayaPreviewWindow : MonoBehaviour
     [DllImport("user32.dll")] private static extern bool GetWindowRect(IntPtr hWnd, out RECT rect);
     [DllImport("user32.dll")] private static extern bool GetClientRect(IntPtr hWnd, out RECT rect);
     [DllImport("kernel32.dll")] private static extern uint GetCurrentProcessId();
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)] private static extern bool SetWindowTextW(IntPtr hWnd, string text);
+
+    private static void SetTitle(string title)
+    {
+        if (s_window != IntPtr.Zero) SetWindowTextW(s_window, title);
+    }
 
     private static IntPtr s_window, s_previous;
     private static WndProcDelegate s_hook;   // kept alive for the lifetime of the hook
@@ -253,5 +277,6 @@ public class CS_MayaPreviewWindow : MonoBehaviour
 #else
     private static void InstallHook() { }
     private static void RemoveHook() { }
+    private static void SetTitle(string title) { }
 #endif
 }

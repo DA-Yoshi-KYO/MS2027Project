@@ -25,6 +25,7 @@ using UnityEngine.Rendering.HighDefinition;
           2026/11/09 Folders per export type, prefab
           2026/11/18 Outline materials (SHG_Outline, from the preview's outlines): width converted
                      to the imported model's scale, no shadow casting
+          2026/11/18 A single top object is the model root (no extra file-name object above it)
 =====================================+
 */
 public class CSE_MayaPreviewExportImporter : AssetPostprocessor
@@ -129,7 +130,11 @@ public class CSE_MayaPreviewExportImporter : AssetPostprocessor
                 materials.Add(data != null ? BuildMaterial(root, materialFolder, data) : null);
         AssetDatabase.SaveAssets();
 
-        RemapModel(fbxPath, manifest.materials, materials, buildMaterials);
+        // One object at the top (Chara_Test_UNLIT): it becomes the model root itself, no extra
+        // "<file name>" object above it. Several at the top: they stay under that root.
+        int top = 0;
+        if (manifest.nodes != null) foreach (CS_MayaPreviewExportNode node in manifest.nodes) if (node != null && node.parent < 0) top++;
+        RemapModel(fbxPath, manifest.materials, materials, buildMaterials, top != 1);
         var model = AssetDatabase.LoadAssetAtPath<GameObject>(fbxPath);
         if (model != null && buildMaterials) SetupOutlines(model, manifest.materials, materials);
         UnityEngine.Object ping = model;
@@ -171,7 +176,7 @@ public class CSE_MayaPreviewExportImporter : AssetPostprocessor
     }
 
     // The FBX uses the MT_ materials (same names as its own materials).
-    private static void RemapModel(string fbxPath, CS_MayaPreviewExportMaterial[] data, List<Material> materials, bool staticModel)
+    private static void RemapModel(string fbxPath, CS_MayaPreviewExportMaterial[] data, List<Material> materials, bool staticModel, bool preserveHierarchy)
     {
         var importer = AssetImporter.GetAtPath(fbxPath) as ModelImporter;
         if (importer == null)
@@ -185,7 +190,7 @@ public class CSE_MayaPreviewExportImporter : AssetPostprocessor
         // Motion (no materials): the animation settings are left to the user.
         if (staticModel && importer.importAnimation) { importer.importAnimation = false; changed = true; }
         if (staticModel && importer.animationType != ModelImporterAnimationType.None) { importer.animationType = ModelImporterAnimationType.None; changed = true; }
-        if (!importer.preserveHierarchy) { importer.preserveHierarchy = true; changed = true; }
+        if (importer.preserveHierarchy != preserveHierarchy) { importer.preserveHierarchy = preserveHierarchy; changed = true; }
         if (importer.materialImportMode == ModelImporterMaterialImportMode.None)
         {
             importer.materialImportMode = ModelImporterMaterialImportMode.ImportViaMaterialDescription;

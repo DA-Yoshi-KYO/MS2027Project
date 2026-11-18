@@ -15,13 +15,14 @@ using UnityEngine.Rendering;
             Unity.exe -batchmode -quit -projectPath <project>
                       -executeMethod CSE_MayaPreviewHostBuild.BuildFromCommandLine
                       [-mpOutput <folder>] -logFile <log>
-          Default output: <Desktop>/Unity_Maya_PreviewHost/MS2027.exe
+          Default output: <project>/out/maya_unity/MS2027.exe (the folder Maya starts it from)
           The project's Assets path is written next to the player
           (MS2027_Data/StreamingAssets/MayaPreviewProject.txt): the player's Export writes
           into <project>/Assets/Designer by default.
  History: 2026/10/11 New
           2026/10/11 Project path for the export
           2026/11/05 Built with DirectX 11 (less memory), project setting restored afterwards
+          2026/11/18 Default output out/maya_unity (was the Desktop)
           2026/11/18 Models of the scene are built with Read/Write on (only for the build, then put
                      back), so the player's Export can write scene objects (Chara_Test_UNLIT ...)
 =====================================+
@@ -31,7 +32,7 @@ public static class CSE_MayaPreviewHostBuild
     private const string Scene = "Assets/Programmer/Scene/Test/Maya/HDRP_Maya_Toon_Scene_01.unity";
 
     public static string DefaultFolder =>
-        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory), "Unity_Maya_PreviewHost");
+        Path.GetFullPath(Path.Combine(Application.dataPath, "..", "out", "maya_unity"));
 
     [MenuItem("Tools/Maya Preview/Build Preview Host")]
     private static void BuildMenu()

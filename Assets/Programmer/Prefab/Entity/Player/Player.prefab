@@ -1209,8 +1209,12 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: e5da7a48e4a80014cb57d66424e10eaf, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::CS_PlayerIntroCamera
+  ShowTopMostFoldoutHeaderGroup: 1
   _duration: 3.5
   _skipSpeed: 4
+  _maxFrameStep: 0.033333335
+  _pauseGame: 1
+  _maxHoldTime: 15
   _turns: 1.25
   _startPitch: -20
   _startDistance: 2.2

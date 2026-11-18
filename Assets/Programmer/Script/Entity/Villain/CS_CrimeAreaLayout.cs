@@ -28,6 +28,7 @@ using UnityEditor;
  *   初期値は仕様(#503の区画分けの図): 生活 243°〜0°(北西) / エネルギー 0°〜117°(東) / インフラ 117°〜243°(南)
  * ・スポーン位置のエリアは CS_VillainSpawnPoint.crimeArea が FindArea で求める
  *   エリア分けが無い(マルチ。Field_Solo1が無効)時はnullになり、グループごとの犯罪完遂のままになる
+ * ・犯罪完遂ゲージUI: 有効な間、CS_CrimeAreaProgressFeedで各エリアの完遂率と、プレイヤーの今いるエリアをUIへ流す(プレイ中のみ)
  * ・表示: このオブジェクトかスポーン位置を選ぶと、Sceneビューの地面に扇形をエリアの色で描き、エリア名を出す
  *   スポーン位置もエリアの色の丸で描く。境目はこのオブジェクトを選んだ時につまんで回せる(CSED_CrimeAreaLayoutEditor)
  *   → フィールドはオブジェクトが多いので、スポーン位置・エリア分けは毎回探さず、Hierarchyが変わった時だけ探し直す(FindForEditor / GetSpawnPointsForEditor)
@@ -80,17 +81,27 @@ public class CS_CrimeAreaLayout : MonoBehaviour
     [Tooltip("Sceneビューで扇形を描く半径(m)。フィールドの端まで届く大きさにする")]
     private float _displayRadius = 450f;
 
+    private CS_CrimeAreaProgressFeed _progressFeed;   // 犯罪完遂ゲージUIへ値を流す(プレイ中のみ)
+
     public IReadOnlyList<Sector> sectors => _sectors;
     public float displayRadius => _displayRadius;
 
     private void OnEnable()
     {
         _layouts.Add(this);
+        if (Application.isPlaying) _progressFeed = new CS_CrimeAreaProgressFeed(this);
     }
 
     private void OnDisable()
     {
         _layouts.Remove(this);
+        _progressFeed?.Dispose();
+        _progressFeed = null;
+    }
+
+    private void Update()
+    {
+        _progressFeed?.Tick();
     }
 
     // Domain Reloadを切っている場合に、前回の再生の一覧が残らないようにする

@@ -69,6 +69,11 @@ Canvas
 
 ### 2-4. ゲーム側でModelを作って公開する
 
+> ソロでは `CS_CrimeAreaProgressFeed`(エリア分け `CS_CrimeAreaLayout` が持つ)が自動でModelを作ってBindし、
+> 各エリア(`CS_CrimeArea`)の完遂率と、プレイヤーが今いるエリアを毎フレーム流している。
+> どのゲージに出すかは `CS_CrimeArea` の **Area Type** で決める(Field_Solo1: 生活区域=Downtown / エネルギー区域=Energy / インフラ区域=Infrastructure)。
+> 以下は、独自にModelを扱う場合の書き方。
+
 ```csharp
 // 初期エリアを指定して生成
 _crimeProgressModel = new CS_UICrimeProgressModel(CSE_CrimeAreaType.Downtown);

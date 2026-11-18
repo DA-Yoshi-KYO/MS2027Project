@@ -23,6 +23,8 @@ using UnityEngine.Rendering.HighDefinition;
  History: 2026/10/11 New
           2026/10/11 FBX + Designer folders, automatic (no Import menu, no prefab)
           2026/11/09 Folders per export type, prefab
+          2026/11/18 Outline materials (SHG_Outline, from the preview's outlines): width converted
+                     to the imported model's scale, no shadow casting
 =====================================+
 */
 public class CSE_MayaPreviewExportImporter : AssetPostprocessor
@@ -129,6 +131,7 @@ public class CSE_MayaPreviewExportImporter : AssetPostprocessor
 
         RemapModel(fbxPath, manifest.materials, materials, buildMaterials);
         var model = AssetDatabase.LoadAssetAtPath<GameObject>(fbxPath);
+        if (model != null && buildMaterials) SetupOutlines(model, manifest.materials, materials);
         UnityEngine.Object ping = model;
         bool prefab = typed && !string.IsNullOrEmpty(manifest.prefab);
         if (model != null && prefab) ping = MakePrefab(model, root + "/" + manifest.prefab) ?? ping;
@@ -199,6 +202,31 @@ public class CSE_MayaPreviewExportImporter : AssetPostprocessor
             changed = true;
         }
         if (changed) importer.SaveAndReimport();
+    }
+
+    // Outline parts: the preview sends the line width in world metres; the shader pushes the hull
+    // out in object space, so it is divided by the scale of the renderer that uses it. The outline
+    // casts no shadow (a dark ring under the character otherwise).
+    private static void SetupOutlines(GameObject model, CS_MayaPreviewExportMaterial[] data, List<Material> materials)
+    {
+        if (data == null) return;
+        var widths = new Dictionary<Material, float>();
+        for (int i = 0; i < materials.Count && i < data.Length; i++)
+            if (materials[i] != null && data[i] != null && data[i].outlineWidth > 0f) widths[materials[i]] = data[i].outlineWidth;
+        if (widths.Count == 0) return;
+        foreach (Renderer renderer in model.GetComponentsInChildren<Renderer>(true))
+        {
+            Vector3 s = renderer.transform.lossyScale;
+            float scale = Mathf.Max(1e-6f, Mathf.Max(Mathf.Abs(s.x), Mathf.Max(Mathf.Abs(s.y), Mathf.Abs(s.z))));
+            foreach (Material material in renderer.sharedMaterials)
+            {
+                if (material == null || !widths.TryGetValue(material, out float width)) continue;
+                if (material.HasProperty("_OutlineWidth")) material.SetFloat("_OutlineWidth", width / scale);
+                material.SetShaderPassEnabled("ShadowCaster", false);
+                EditorUtility.SetDirty(material);
+            }
+        }
+        AssetDatabase.SaveAssets();
     }
 
     private static void SetupTexture(string path, bool normal, bool linear)

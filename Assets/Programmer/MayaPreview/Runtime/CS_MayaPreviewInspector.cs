@@ -138,6 +138,7 @@ public partial class CS_MayaPreviewInspector : MonoBehaviour
         TickLadder();
         TickExportRestore();
         TickContextMenu();
+        CS_MayaPreviewOutline.Tick();
 
         var mouse = Mouse.current;
         bool held = mouse != null && (mouse.leftButton.isPressed || mouse.rightButton.isPressed || mouse.middleButton.isPressed);

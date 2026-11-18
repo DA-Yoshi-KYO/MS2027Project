@@ -640,14 +640,19 @@ public partial class CS_MayaPreviewInspector
                 {
                     if (shader.GetPropertyTextureDimension(p) != TextureDimension.Tex2D) break;
                     Texture texture = material.GetTexture(prop);
-                    string current = maya ? library.TexturePath(slot.key, prop) : "";
+                    string current = maya ? library.TexturePath(slot.key, prop) : CS_MayaPreviewOutline.TexturePathOf(material, prop) ?? "";
                     string edited = PathField(label, current, texture, prop, prop);
                     if (edited == null) break;
                     if (maya) library.SetTexture(slot.key, prop, edited);
                     else
                     {
                         Texture2D loaded = edited.Length > 0 ? LoadTextureFile(edited, (flags & ShaderPropertyFlags.Normal) != 0) : null;
-                        if (edited.Length == 0 || loaded != null) { material.SetTexture(prop, loaded); Validate(material); }
+                        if (edited.Length == 0 || loaded != null)
+                        {
+                            material.SetTexture(prop, loaded);
+                            Validate(material);
+                            CS_MayaPreviewOutline.NoteTexture(material, prop, edited);
+                        }
                     }
                     break;
                 }

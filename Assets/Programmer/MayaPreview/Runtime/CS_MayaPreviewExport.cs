@@ -30,6 +30,7 @@ using UnityEngine.Rendering;
  History: 2026/10/11 New
           2026/10/11 FBX, written into the project (Assets/Designer), MT_ material names
           2026/11/09 Export types, folders per type, prefab, restore / overwrite per Maya scene
+          2026/11/18 Outlines made in the preview are exported as a child "<name>_Outline"
 =====================================+
 */
 
@@ -114,6 +115,7 @@ public class CS_MayaPreviewExportMaterial
     public CS_MayaPreviewExportColor[] colors;
     public CS_MayaPreviewExportVector[] vectors;
     public CS_MayaPreviewExportTexture[] textures;
+    public float outlineWidth;   // outline (SHG_Outline) part: line width in world metres; 0 = not an outline
 }
 
 [Serializable] public class CS_MayaPreviewExportFloat { public string prop; public float value; }
@@ -696,6 +698,7 @@ public static class CS_MayaPreviewExport
         int index = AddNode(w, name, parent, t.localPosition, t.localRotation, t.localScale);
         w.nodes[index].mayaPath = live ? ShapePath(o) : "";
         WriteRenderer(w, index, o);
+        WriteOutline(w, index, o);
     }
 
     // Scene object: the object (with its world transform) and the children that render something.
@@ -707,6 +710,7 @@ public static class CS_MayaPreviewExport
             ? AddNode(w, t.name, parent, t.position, t.rotation, t.lossyScale)
             : AddNode(w, t.name, parent, t.localPosition, t.localRotation, t.localScale);
         WriteRenderer(w, index, t.gameObject);
+        WriteOutline(w, index, t.gameObject);
         foreach (Transform child in t) AddScene(w, child, index, false);
     }
 
@@ -721,6 +725,24 @@ public static class CS_MayaPreviewExport
     {
         Renderer renderer = o.GetComponent<Renderer>();
         if (renderer == null || !CS_MayaPreviewSelection.Selectable(renderer)) return;
+        WriteMesh(w, index, renderer, true);
+    }
+
+    // An outline made in the preview: a child "<name>_Outline" with the outline's mesh (smoothed
+    // normals, transparent parts left out) and its SHG_Outline material per part.
+    private static void WriteOutline(Writer w, int index, GameObject o)
+    {
+        CS_MayaPreviewOutline outline = CS_MayaPreviewOutline.Of(o);
+        if (outline == null || outline.OutlineRenderer == null || !outline.OutlineRenderer.enabled) return;
+        if (string.IsNullOrEmpty(w.nodes[index].mesh)) return;   // the object itself was not written
+        Transform t = outline.transform;
+        int child = AddNode(w, w.nodes[index].name + CS_MayaPreviewOutline.Suffix, index, t.localPosition, t.localRotation, t.localScale);
+        WriteMesh(w, child, outline.OutlineRenderer, false);
+    }
+
+    private static void WriteMesh(Writer w, int index, Renderer renderer, bool warnSkinned)
+    {
+        GameObject o = renderer.gameObject;
         CS_MayaPreviewExportNode node = w.nodes[index];
         Mesh mesh = null;
         Mesh baked = null;
@@ -738,7 +760,7 @@ public static class CS_MayaPreviewExport
                 Matrix4x4 toWorld = Fit(baked, unscaled, target) <= Fit(baked, scaled, target) ? unscaled : scaled;
                 toNode = t.worldToLocalMatrix * toWorld;
                 mesh = baked;
-                w.warnings.Add("スキンメッシュは動かない形で書き出しました: " + o.name);
+                if (warnSkinned) w.warnings.Add("スキンメッシュは動かない形で書き出しました: " + o.name);
             }
             catch (Exception exception) { w.warnings.Add("形を固定できませんでした " + o.name + ": " + exception.Message); }
         }
@@ -842,7 +864,7 @@ public static class CS_MayaPreviewExport
                     {
                         prop = prop, textureName = texture.name, normal = normal, linear = linear,
                         scale = material.GetTextureScale(prop), offset = material.GetTextureOffset(prop),
-                        source = maya ? library.SourcePath(mayaName, prop) : "", file = ""
+                        source = maya ? library.SourcePath(mayaName, prop) : CS_MayaPreviewOutline.TexturePathOf(material, prop) ?? "", file = ""
                     };
                     entry.file = CopyTexture(w, entry.source, texture);
                     textures.Add(entry);
@@ -854,6 +876,7 @@ public static class CS_MayaPreviewExport
         data.colors = colors.ToArray();
         data.vectors = vectors.ToArray();
         data.textures = textures.ToArray();
+        data.outlineWidth = CS_MayaPreviewOutline.WorldWidthOf(material);
         w.materials.Add(data);
         w.materialColors.Add(material.HasProperty("_BaseColor") ? material.GetColor("_BaseColor")
             : material.HasProperty("_Color") ? material.GetColor("_Color") : Color.white);

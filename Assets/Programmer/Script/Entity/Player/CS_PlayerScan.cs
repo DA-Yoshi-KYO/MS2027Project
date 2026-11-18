@@ -32,6 +32,10 @@ using UnityEngine;
  *   _autoScanOnStartなら、操作できるようになった最初に1回スキャンする(ゲーム開始時)。手動でも今まで通り使える
  *   波が出ている間・動けない間に時間が来た時は、使えるようになった時にスキャンする
  *   _resetAutoScanOnManualなら、手動で使った時も次の自動スキャンまでの時間を数え直す(続けて2回出ないように)
+ * ・悪人グループを倒しきった時の自動スキャン(仕様変更): _autoScanOnGroupDefeatedの時、悪人グループの最後の1人を倒した本人がスキャンする
+ *   倒しきったかの判定はサーバー(CS_PlayerScoring)で行い、倒した本人へRPCで知らせてRequestGroupDefeatedScan()を呼ぶ
+ *   グループに属さない悪人(-1)は、スキャンと同じく1人で1グループとして扱う。間隔の自動スキャンのオン/オフとは別に効く
+ *   スキャンした時は、間隔の自動スキャンまでの時間も数え直す
  * ・必殺技の「全員が見える」効果(CS_PlayerCharacter。キース)の間は、全ての悪人グループ・警察・巡回ドローンを見えている状態にし続ける
  *   (効果が終わってから_revealAllLinger秒で見えなくなる)
  */
@@ -54,6 +58,7 @@ public class CS_PlayerScan : MonoBehaviour
     [SerializeField][Min(1f)] private float _autoScanInterval = 20f; // 自動でスキャンする間隔(秒)
     [SerializeField] private bool _autoScanOnStart = true;          // 操作できるようになった最初に1回スキャンするか(ゲーム開始時)
     [SerializeField] private bool _resetAutoScanOnManual = true;    // 手動で使った時も、次の自動スキャンまでの時間を数え直すか
+    [SerializeField] private bool _autoScanOnGroupDefeated = true;  // 悪人グループを倒しきった時にもスキャンするか(倒しきった本人だけ)
 
     private CS_Player _player;
     private CS_PlayerCharacter _character;   // 付いていれば、必殺技の「全員が見える」効果を見る
@@ -61,6 +66,7 @@ public class CS_PlayerScan : MonoBehaviour
     private const float _revealAllLinger = 0.5f;   // 「全員が見える」効果が終わってから、見えなくなるまでの時間(秒)
     private float _autoScanRemaining;   // 次の自動スキャンまでの時間(秒)
     private bool _hasAutoScanStarted;   // 自動スキャンの数え始めをしたか
+    private bool _isGroupDefeatedScanRequested;   // 悪人グループを倒しきったので、使えるようになったらスキャンする
 
     private float _bonusRadius;         // 暗躍ボーナスなどで足される範囲(m)
     private bool _isScanning;           // 波が出ている間か(広がる途中と、消える途中)
@@ -105,6 +111,7 @@ public class CS_PlayerScan : MonoBehaviour
 
     public bool autoScanEnabled => _autoScanEnabled;
     public float autoScanRemaining => _autoScanRemaining;   // 次の自動スキャンまでの時間(秒。UI用)
+    public bool autoScanOnGroupDefeated => _autoScanOnGroupDefeated;
 
     private void Awake()
     {
@@ -157,9 +164,24 @@ public class CS_PlayerScan : MonoBehaviour
         if (_resetAutoScanOnManual) _autoScanRemaining = _autoScanInterval;
     }
 
+    // 悪人グループを倒しきった時の自動スキャンを頼む(CS_PlayerScoringが、倒しきった本人の手元で呼ぶ)
+    // 波が出ている間・動けない間なら、使えるようになった時にスキャンする
+    public void RequestGroupDefeatedScan()
+    {
+        if (_autoScanOnGroupDefeated) _isGroupDefeatedScanRequested = true;
+    }
+
     // 自動スキャン: 間隔ごとにスキャンする(時間が来た時に使えなければ、使えるようになった時にスキャンする)
     private void UpdateAutoScan(float deltaTime)
     {
+        if (_isGroupDefeatedScanRequested && !_isScanning && _player.canAct)
+        {
+            _isGroupDefeatedScanRequested = false;
+            StartScan();
+            _autoScanRemaining = _autoScanInterval;   // 続けて2回出ないよう、間隔の自動スキャンも数え直す
+            return;
+        }
+
         if (!_autoScanEnabled) return;
 
         if (!_hasAutoScanStarted)

@@ -7,12 +7,22 @@
  * 2026-11-02 | ソロの時は順位を出さないようにする
  * ================================================ */
 
+using UnityEngine;
+
 /// <summary>
-/// スコアの変化を View に通知する
-/// ・全員分のランキング表示（リアルタイム更新）
-/// ・必殺技ゲージ満タン状態の変化も受け取る
+/// スコアランキングのPresenter。
+///
+/// ・ランキング更新通知を購読する
+/// ・キャラクター情報付きランキングをViewへ渡す
+/// ・必殺技ゲージ満タン状態をViewへ渡す
+/// ・ソロでは順位テキストを非表示にする
+///
+/// CS_UIScoreModel.Bind()は呼ばない。
+/// Modelを所有するゲーム側がBind()を呼ぶ。
 /// </summary>
-public class CS_UIScorePresenter : CS_BasePresenter
+[RequireComponent(typeof(CS_UIScoreView))]
+public sealed class CS_UIScorePresenter :
+    CS_BasePresenter
 {
     // =========================================================
     // 内部フィールド
@@ -24,46 +34,77 @@ public class CS_UIScorePresenter : CS_BasePresenter
     // 初期化
     // =========================================================
 
-    void Awake()
+    private void Awake()
     {
-        _view = GetComponent<CS_UIScoreView>();
+        _view =
+            GetComponent<CS_UIScoreView>();
+
         _view.SetPresenter(this);
 
-        // ソロは自分1人だけなので、順位は出さずにアイコンと点数だけを出す
-        _view.SetRankVisible(!CS_GameModeStore.isSolo);
+        // ソロでは順位を非表示にする。
+        // マルチでは順位を表示する。
+        _view.SetRankVisible(
+            !CS_GameModeStore.isSolo
+        );
     }
 
-    void OnEnable()
+    private void OnEnable()
     {
-        CS_UIScoreModel.OnRankingUpdated += HandleRankingUpdated;
-        CS_UISpecialGaugeModel.OnGaugeFullChanged += HandleGaugeFullChanged; // ★ 追加
+        // スコア、参加人数、キャラクター情報の
+        // 変化によるランキング更新を受け取る。
+        CS_UIScoreModel.OnRankingUpdated +=
+            HandleRankingUpdated;
 
-        // 初期表示
+        // 必殺技ゲージの満タン状態が変化したら、
+        // 対象プレイヤーのランキングアイコンを更新する。
+        CS_UISpecialGaugeModel.OnGaugeFullChanged +=
+            HandleGaugeFullChanged;
+
+        // Presenterより先にScoreModelが公開済みの場合も、
+        // 現在のランキングを即時反映する。
         HandleRankingUpdated();
     }
 
-    void OnDisable()
+    private void OnDisable()
     {
-        CS_UIScoreModel.OnRankingUpdated -= HandleRankingUpdated;
-        CS_UISpecialGaugeModel.OnGaugeFullChanged -= HandleGaugeFullChanged; // ★ 追加
+        CS_UIScoreModel.OnRankingUpdated -=
+            HandleRankingUpdated;
+
+        CS_UISpecialGaugeModel.OnGaugeFullChanged -=
+            HandleGaugeFullChanged;
     }
 
     // =========================================================
     // ランキング更新
     // =========================================================
 
+    /// <summary>
+    /// キャラクター情報付きランキングを取得して、
+    /// Viewへ反映する。
+    ///
+    /// 既存コード用のGetRanking()ではなく、
+    /// アイコン表示に必要なcharacterTypeを含む
+    /// GetRankingData()を使用する。
+    /// </summary>
     private void HandleRankingUpdated()
     {
-        _view.UpdateRanking(CS_UIScoreModel.GetRanking());
+        _view.UpdateRanking(
+            CS_UIScoreModel.GetRankingData()
+        );
     }
 
     // =========================================================
-    // ★ 必殺技ゲージ満タン状態の変化
+    // 必殺技ゲージ満タン状態
     // =========================================================
 
-    private void HandleGaugeFullChanged(int playerNumber, bool isFull)
+    private void HandleGaugeFullChanged(
+        int playerNumber,
+        bool isFull)
     {
-        _view.UpdateIconColor(playerNumber, isFull);
+        _view.UpdateIconColor(
+            playerNumber,
+            isFull
+        );
     }
 
     // =========================================================

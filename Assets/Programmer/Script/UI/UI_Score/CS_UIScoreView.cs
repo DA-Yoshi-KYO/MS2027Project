@@ -12,38 +12,52 @@ using UnityEngine;
 
 /// <summary>
 /// スコアランキングの表示を担当するView。
+///
 /// ・スコア降順で一覧表示する
 /// ・同じスコアのプレイヤーは同順位として表示する
-/// ・必殺技ゲージ満タン時にアイコンの色を変更する
+/// ・各プレイヤーのキャラクターアイコンを表示する
+/// ・ソロでは順位を非表示にする
+/// ・必殺技ゲージ満タン時にランキングアイコンの色を変更する
 /// </summary>
-public class CS_UIScoreView : CS_BaseView<CS_UIScorePresenter>
+public sealed class CS_UIScoreView :
+    CS_BaseView<CS_UIScorePresenter>
 {
     // =========================================================
     // Inspector
     // =========================================================
 
     [Header("ランキング表示")]
-    [SerializeField] private Transform _rankingRoot;
-    [SerializeField] private GameObject _rankingItemPrefab;
+
+    [SerializeField]
+    private Transform _rankingRoot;
+
+    [SerializeField]
+    private GameObject _rankingItemPrefab;
 
     // =========================================================
     // 内部フィールド
     // =========================================================
 
-    private readonly Dictionary<int, CS_UIScoreItemView>
-        _rankingItemMap = new();
+    private readonly Dictionary<
+        int,
+        CS_UIScoreItemView
+    > _rankingItemMap =
+        new Dictionary<int, CS_UIScoreItemView>();
 
-    private readonly List<CS_UIScoreItemView>
-        _rankingItems = new();
+    private readonly List<
+        CS_UIScoreItemView
+    > _rankingItems =
+        new List<CS_UIScoreItemView>();
 
-    // 順位を出すか(ソロでは出さない)
+    // ソロでは順位を表示しない。
     private bool _isRankVisible = true;
 
     // =========================================================
     // CS_BaseView
     // =========================================================
 
-    public override void SetPresenter(CS_UIScorePresenter presenter)
+    public override void SetPresenter(
+        CS_UIScorePresenter presenter)
     {
         base.SetPresenter(presenter);
     }
@@ -53,125 +67,228 @@ public class CS_UIScoreView : CS_BaseView<CS_UIScorePresenter>
     // =========================================================
 
     /// <summary>
-    /// 全員分のランキングを更新する。
-    /// rankingはスコア降順にソート済みであることを前提とする。
+    /// 全プレイヤー分のランキングを更新する。
+    ///
+    /// rankingはスコア降順に並んでいることを前提とする。
     /// 同じスコアは同順位として表示する。
     /// </summary>
     public void UpdateRanking(
-        List<(int playerNumber, int score)> ranking)
+        List<CS_UIScoreModel.RankingData> ranking)
     {
         if (ranking == null)
+        {
             return;
+        }
 
-        EnsureRankingItems(ranking.Count);
+        EnsureRankingItems(
+            ranking.Count
+        );
+
         _rankingItemMap.Clear();
 
-        for (int i = 0; i < ranking.Count; i++)
+        for (int i = 0;
+             i < ranking.Count;
+             i++)
         {
-            var (playerNumber, score) = ranking[i];
-            CS_UIScoreItemView item = _rankingItems[i];
+            if (i >= _rankingItems.Count)
+            {
+                break;
+            }
 
-            int rank = CalculateCompetitionRank(
-                ranking,
-                score
-            );
+            CS_UIScoreModel.RankingData data =
+                ranking[i];
+
+            CS_UIScoreItemView item =
+                _rankingItems[i];
+
+            if (item == null)
+            {
+                continue;
+            }
+
+            int rank =
+                CalculateCompetitionRank(
+                    ranking,
+                    data.score
+                );
 
             item.UpdateView(
                 rank: rank,
-                playerNumber: playerNumber,
-                score: score,
-                isFull: CS_UISpecialGaugeModel.IsFull(playerNumber)
+                playerNumber: data.playerNumber,
+                score: data.score,
+                characterType: data.characterType,
+                isFull:
+                    CS_UISpecialGaugeModel.IsFull(
+                        data.playerNumber
+                    )
+            );
+
+            item.SetRankVisible(
+                _isRankVisible
             );
 
             item.gameObject.SetActive(true);
-            _rankingItemMap[playerNumber] = item;
+
+            _rankingItemMap[
+                data.playerNumber
+            ] = item;
         }
 
-        // 参加人数が減った場合、余った表示枠を非表示にする。
-        for (int i = ranking.Count; i < _rankingItems.Count; i++)
-            _rankingItems[i].gameObject.SetActive(false);
+        // 参加人数が減った場合、
+        // 余った表示枠を非表示にする。
+        for (int i = ranking.Count;
+             i < _rankingItems.Count;
+             i++)
+        {
+            CS_UIScoreItemView item =
+                _rankingItems[i];
+
+            if (item != null)
+            {
+                item.gameObject.SetActive(false);
+            }
+        }
     }
 
     /// <summary>
     /// 競技順位を計算する。
-    /// 順位 = 対象スコアより高いプレイヤー数 + 1。
-    /// 例：100、100、50、20点の場合は1位、1位、3位、4位。
+    ///
+    /// 100、100、50、20点の場合:
+    /// 1位、1位、3位、4位。
     /// </summary>
-    private int CalculateCompetitionRank(
-        List<(int playerNumber, int score)> ranking,
+    private static int CalculateCompetitionRank(
+        List<CS_UIScoreModel.RankingData> ranking,
         int targetScore)
     {
         int higherScorePlayerCount = 0;
 
-        foreach (var result in ranking)
+        for (int i = 0;
+             i < ranking.Count;
+             i++)
         {
-            if (result.score > targetScore)
+            if (ranking[i].score >
+                targetScore)
+            {
                 higherScorePlayerCount++;
+            }
         }
 
         return higherScorePlayerCount + 1;
     }
 
     // =========================================================
-    // 順位の表示
+    // 順位表示
     // =========================================================
 
     /// <summary>
-    /// 順位の表示を出すかどうかを切り替える。
-    /// ソロでは自分1人だけなので順位を出さず、アイコンと点数だけにする。
+    /// 順位テキストを表示するか設定する。
+    ///
+    /// ソロ:
+    /// 順位を非表示にしてアイコンとスコアだけ表示する。
+    ///
+    /// マルチ:
+    /// 順位、アイコン、スコアを表示する。
     /// </summary>
-    public void SetRankVisible(bool isVisible)
+    public void SetRankVisible(
+        bool isVisible)
     {
         _isRankVisible = isVisible;
 
-        foreach (CS_UIScoreItemView item in _rankingItems)
-            item.SetRankVisible(isVisible);
+        for (int i = 0;
+             i < _rankingItems.Count;
+             i++)
+        {
+            CS_UIScoreItemView item =
+                _rankingItems[i];
+
+            if (item != null)
+            {
+                item.SetRankVisible(
+                    isVisible
+                );
+            }
+        }
     }
 
     // =========================================================
     // 必殺技ゲージ満タン表示
     // =========================================================
 
+    /// <summary>
+    /// 指定プレイヤーのランキングアイコン色を更新する。
+    /// </summary>
     public void UpdateIconColor(
         int playerNumber,
         bool isFull)
     {
         if (_rankingItemMap.TryGetValue(
-            playerNumber,
-            out CS_UIScoreItemView item))
+                playerNumber,
+                out CS_UIScoreItemView item))
         {
             item.SetIconFull(isFull);
         }
     }
 
     // =========================================================
-    // ランキングアイテム管理
+    // ランキングアイテム生成
     // =========================================================
 
     private void EnsureRankingItems(int count)
     {
-        while (_rankingItems.Count < count)
+        if (_rankingRoot == null)
         {
-            GameObject itemObject = Instantiate(
-                _rankingItemPrefab,
-                _rankingRoot
+            Debug.LogError(
+                $"{nameof(CS_UIScoreView)}: " +
+                "RankingRootが設定されていません。",
+                this
             );
 
+            return;
+        }
+
+        if (_rankingItemPrefab == null)
+        {
+            Debug.LogError(
+                $"{nameof(CS_UIScoreView)}: " +
+                "RankingItemPrefabが設定されていません。",
+                this
+            );
+
+            return;
+        }
+
+        while (_rankingItems.Count < count)
+        {
+            GameObject itemObject =
+                Instantiate(
+                    _rankingItemPrefab,
+                    _rankingRoot
+                );
+
             CS_UIScoreItemView item =
-                itemObject.GetComponent<CS_UIScoreItemView>();
+                itemObject.GetComponent<
+                    CS_UIScoreItemView
+                >();
 
             if (item == null)
             {
                 Debug.LogError(
-                    "[CS_UIScoreView] RankingItemPrefabに" +
-                    "CS_UIRankingItemViewがありません。"
+                    $"{nameof(CS_UIScoreView)}: " +
+                    "RankingItemPrefabに" +
+                    $"{nameof(CS_UIScoreItemView)}が" +
+                    "ありません。",
+                    itemObject
                 );
 
                 Destroy(itemObject);
+
                 return;
             }
 
-            item.SetRankVisible(_isRankVisible);
+            item.SetRankVisible(
+                _isRankVisible
+            );
+
             _rankingItems.Add(item);
         }
     }
@@ -182,10 +299,19 @@ public class CS_UIScoreView : CS_BaseView<CS_UIScorePresenter>
 
     private void OnDestroy()
     {
-        foreach (CS_UIScoreItemView item in _rankingItems)
+        for (int i = 0;
+             i < _rankingItems.Count;
+             i++)
         {
+            CS_UIScoreItemView item =
+                _rankingItems[i];
+
             if (item != null)
-                Destroy(item.gameObject);
+            {
+                Destroy(
+                    item.gameObject
+                );
+            }
         }
 
         _rankingItems.Clear();

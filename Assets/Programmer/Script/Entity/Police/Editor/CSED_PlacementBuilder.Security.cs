@@ -24,13 +24,6 @@ public static partial class CSED_PlacementBuilder
     private const string _laserPrefabPath = _prefabFolder + "Security/SecurityLaser.prefab";
     private const string _lightPrefabPath = _prefabFolder + "Security/SecurityLight.prefab";
 
-    // ---- 置く場所(親) ----
-    private const string _villainGroupPath = "Villain/VillainSpawnPoints";
-    private const string _policeGroup = "Police";
-    private const string _droneGroup = "SecurityDrones";
-    private const string _laserGroup = "SecurityLasers";
-    private const string _lightGroup = "SecurityLights";
-
     // ---- 大きさ(配置ツールと同じ値) ----
     private const float _laserHeight = 1.0f;                 // レーザーの高さ(足元から。m)
     private const float _laserThickness = 0.3f;              // レーザーの太さ(m)
@@ -73,7 +66,7 @@ public static partial class CSED_PlacementBuilder
         if (prefab == null) return null;
 
         int area = CSED_PlacementState.villainAreaAuto ? CSED_FieldMultiLayoutGenerator.GetVillainSector(ground) : CSED_PlacementState.villainArea;
-        Transform parent = GetGroup($"{_villainGroupPath}/CrimeArea_0{area}");
+        Transform parent = GetGroup(CSED_PlacementState.GetVillainKind(area));
         string spawnName = NextVillainName();
         GameObject instance = (GameObject)PrefabUtility.InstantiatePrefab(prefab, parent);
         instance.name = spawnName;
@@ -108,8 +101,7 @@ public static partial class CSED_PlacementBuilder
     /// </summary>
     public static List<T> GetInField<T>() where T : Component
     {
-        Transform root = FindFieldRoot();
-        return root != null ? new List<T>(root.GetComponentsInChildren<T>(true)) : new List<T>();
+        return FindInScope<T>();
     }
 
     /// <summary>
@@ -117,8 +109,7 @@ public static partial class CSED_PlacementBuilder
     /// </summary>
     public static List<CS_VillainSpawnPoint> GetVillains()
     {
-        Transform root = FindFieldRoot();
-        return root != null ? new List<CS_VillainSpawnPoint>(root.GetComponentsInChildren<CS_VillainSpawnPoint>(true)) : new List<CS_VillainSpawnPoint>();
+        return FindInScope<CS_VillainSpawnPoint>();
     }
 
     /// <summary>
@@ -127,14 +118,10 @@ public static partial class CSED_PlacementBuilder
     private static string NextVillainName()
     {
         int max = 0;
-        Transform root = FindFieldRoot();
-        if (root != null)
+        foreach (CS_VillainSpawnPoint spawn in FindInScope<CS_VillainSpawnPoint>())
         {
-            foreach (CS_VillainSpawnPoint spawn in root.GetComponentsInChildren<CS_VillainSpawnPoint>(true))
-            {
-                System.Text.RegularExpressions.Match match = System.Text.RegularExpressions.Regex.Match(spawn.name, @"VillainSpawnPoint_(\d+)");
-                if (match.Success && int.TryParse(match.Groups[1].Value, out int number)) max = Mathf.Max(max, number);
-            }
+            System.Text.RegularExpressions.Match match = System.Text.RegularExpressions.Regex.Match(spawn.name, @"VillainSpawnPoint_(\d+)");
+            if (match.Success && int.TryParse(match.Groups[1].Value, out int number)) max = Mathf.Max(max, number);
         }
         return $"VillainSpawnPoint_{max + 1:00}";
     }
@@ -152,7 +139,7 @@ public static partial class CSED_PlacementBuilder
         GameObject prefab = LoadPrefab<GameObject>(_squadPrefabPath);
         if (prefab == null) return null;
 
-        Transform group = GetGroup(_policeGroup);
+        Transform group = GetGroup(CSED_PlacementState.GroupKind.Police);
         string squadName = NextName(group, "PoliceSquad_M");
         CS_PoliceSquad template = FindSquadTemplate();
         GameObject instance = (GameObject)PrefabUtility.InstantiatePrefab(prefab, group);
@@ -200,8 +187,8 @@ public static partial class CSED_PlacementBuilder
 
     private static CS_PoliceSquad FindSquadTemplate()
     {
-        Transform root = FindFieldRoot();
-        return root != null ? root.GetComponentInChildren<CS_PoliceSquad>(true) : null;
+        List<CS_PoliceSquad> squads = FindInScope<CS_PoliceSquad>();
+        return squads.Count > 0 ? squads[0] : null;
     }
 
     /// <summary>
@@ -243,7 +230,7 @@ public static partial class CSED_PlacementBuilder
         GameObject prefab = LoadPrefab<GameObject>(_dronePrefabPath);
         if (prefab == null) return null;
 
-        Transform group = GetGroup(_droneGroup);
+        Transform group = GetGroup(CSED_PlacementState.GroupKind.Drone);
         string droneName = NextName(group, "SecurityDroneSpawner_M");
         GameObject instance = (GameObject)PrefabUtility.InstantiatePrefab(prefab, group);
         instance.name = droneName;
@@ -341,7 +328,7 @@ public static partial class CSED_PlacementBuilder
         Vector3 direction = delta.normalized;
         float distance = Mathf.Min(delta.magnitude, _laserMaxDistance);
         float length = GetLaserLength(start, end);
-        Transform group = GetGroup(_laserGroup);
+        Transform group = GetGroup(CSED_PlacementState.GroupKind.Laser);
         string laserName = NextName(group, "SecurityLaser");
         GameObject instance = (GameObject)PrefabUtility.InstantiatePrefab(prefab, group);
         instance.name = laserName;
@@ -366,7 +353,7 @@ public static partial class CSED_PlacementBuilder
         GameObject prefab = LoadPrefab<GameObject>(_lightPrefabPath);
         if (prefab == null) return null;
 
-        Transform group = GetGroup(_lightGroup);
+        Transform group = GetGroup(CSED_PlacementState.GroupKind.Light);
         string lightName = NextName(group, "SecurityLight");
         GameObject instance = (GameObject)PrefabUtility.InstantiatePrefab(prefab, group);
         instance.name = lightName;
@@ -455,28 +442,51 @@ public static partial class CSED_PlacementBuilder
     public static Transform FindNearestInvisible(Vector2 mousePosition, float maxPixels, out Vector3 nearPoint)
     {
         nearPoint = Vector3.zero;
-        Transform field = FindFieldRoot();
-        if (field == null) return null;
-
         Transform best = null;
         float bestDistance = maxPixels;
-        foreach (Component component in field.GetComponentsInChildren<Component>(true))
+        foreach (Transform unit in GetInvisibleUnits())
         {
-            if (!(component is CS_PoliceSquad) && !(component is CS_SecurityDroneSpawner) && !(component is CS_VillainSpawnPoint)) continue;
-
-            List<Vector3> points = new List<Vector3> { component.transform.position };
-            if (!(component is CS_VillainSpawnPoint)) foreach (Transform child in component.transform) points.Add(child.position);
+            bool isVillain = unit.GetComponent<CS_VillainSpawnPoint>() != null;
+            List<Vector3> points = new List<Vector3> { unit.position };
+            if (!isVillain) foreach (Transform child in unit) points.Add(child.position);
             foreach (Vector3 point in points)
             {
                 float distance = Vector2.Distance(HandleUtility.WorldToGUIPoint(point), mousePosition);
                 if (distance >= bestDistance) continue;
 
                 bestDistance = distance;
-                best = component.transform;
+                best = unit;
                 nearPoint = point;
             }
         }
         return best;
+    }
+
+    // 見えない物(警察のグループ・巡回ドローン・悪人の出現点)の一覧。フィールドは大きく、毎回探すと、Sceneビューが止まるほど重いので、覚えておく
+    private static readonly List<Transform> _invisibleUnits = new List<Transform>();
+    private static bool _invisibleDirty = true;
+
+    [InitializeOnLoadMethod]
+    private static void HookInvisibleCache()
+    {
+        EditorApplication.hierarchyChanged += () => _invisibleDirty = true;
+        Undo.undoRedoPerformed += () => _invisibleDirty = true;
+    }
+
+    /// <summary>
+    /// 見えない物の一覧を返すメソッド(シーンの構造が変わった時だけ、探し直す)
+    /// </summary>
+    private static List<Transform> GetInvisibleUnits()
+    {
+        _invisibleUnits.RemoveAll(unit => unit == null);
+        if (!_invisibleDirty) return _invisibleUnits;
+
+        _invisibleDirty = false;
+        _invisibleUnits.Clear();
+        foreach (CS_PoliceSquad squad in FindInScope<CS_PoliceSquad>()) _invisibleUnits.Add(squad.transform);
+        foreach (CS_SecurityDroneSpawner drone in FindInScope<CS_SecurityDroneSpawner>()) _invisibleUnits.Add(drone.transform);
+        foreach (CS_VillainSpawnPoint villain in FindInScope<CS_VillainSpawnPoint>()) _invisibleUnits.Add(villain.transform);
+        return _invisibleUnits;
     }
 
     // =====================================================================

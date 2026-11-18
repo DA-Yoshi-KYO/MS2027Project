@@ -14,7 +14,7 @@ using UnityEngine.SceneManagement;
 
 /// <summary>
 /// 配置ツールの、SAObject・ハイドポイント・信号機・グラップル・動くSAポイントを、作る・消す処理
-/// 置く場所(親)は、Field_Solo1 の中の SAObjects / HidePoints / ActionObjects(無ければ作る)。Field_Solo1 が無ければ、シーンの「配置ツール」に置く
+/// 置く場所(親)は、道具ごとに、シーンの一番上からのパス(例: Field/Field_Solo1/Police)で決める(CSED_PlacementState.GetParentPath)。無ければ、置く時に作る
 /// SAObjectとハイドポイントの作りは、配置ツール(CSED_FieldMultiLayoutGenerator)と同じ(ハイドポイントは、SAObjectの根元と同じ位置に置く)
 /// すべてUndoできる
 /// </summary>
@@ -29,12 +29,8 @@ public static partial class CSED_PlacementBuilder
     private const string _poleMaterialPath = "Assets/Programmer/PlaceholderAsset/Field/Material/Road.mat";      // SAObjectの柱のマテリアル
     public const string fieldPrefabPath = _prefabFolder + "Field_Solo1.prefab";
 
-    // ---- 置く場所(親)の名前 ----
-    private const string _fieldName = "Field_Solo1";
-    public const string saObjectGroup = "SAObjects";
-    public const string hidePointGroup = "HidePoints";
-    public const string actionGroup = "ActionObjects";
-    private const string _fallbackRootName = "配置ツール";
+    // ---- 置く場所(親) ----
+    private const string _fieldName = "Field_Solo1";            // 分布の表示・番号付けで、探す範囲にするフィールドの名前
 
     // ---- SAObjectの大きさ・SAできる範囲の決め方(配置ツールと同じ値) ----
     private const float _headSize = 2.0f;               // SAObjectの頭(箱)の大きさ(m)
@@ -91,42 +87,133 @@ public static partial class CSED_PlacementBuilder
     }
 
     /// <summary>
-    /// 置く先の親(Field_Solo1 の中の groupName。「Villain/VillainSpawnPoints」のように、/ で区切った入れ子も可。無ければ作る)を返すメソッド
+    /// 置く先の親を返すメソッド。種類ごとに設定したパス(例: Field/Field_Solo1/Police)をたどり、無い親は作る
     /// </summary>
-    public static Transform GetGroup(string groupName)
+    /// <param name="subPath">パスの後ろにつなぐ、さらに下の親(例: 悪人の CrimeArea_01)。不要なら null</param>
+    public static Transform GetGroup(CSED_PlacementState.GroupKind kind, string subPath = null)
     {
-        Transform root = FindFieldRoot();
-        if (root == null)
+        string path = CSED_PlacementState.GetParentPath(kind);
+        if (!string.IsNullOrEmpty(subPath)) path += "/" + subPath;
+        return ResolveGroup(path, true);
+    }
+
+    /// <summary>
+    /// 種類ごとの親が、すでにあれば返すメソッド(無ければ null。作らない)
+    /// </summary>
+    public static Transform FindGroup(CSED_PlacementState.GroupKind kind)
+    {
+        return ResolveGroup(CSED_PlacementState.GetParentPath(kind), false);
+    }
+
+    /// <summary>
+    /// Hierarchyのオブジェクトから、親のパス(シーンの一番上からの名前を / でつないだ物)を作るメソッド
+    /// </summary>
+    public static string GetHierarchyPath(Transform target)
+    {
+        string path = target.name;
+        for (Transform parent = target.parent; parent != null; parent = parent.parent) path = parent.name + "/" + path;
+        return path;
+    }
+
+    /// <summary>
+    /// 親のパス(/ 区切り)をたどって、一番下の親を返すメソッド
+    /// 先頭の名前は、今のステージ(シーン・編集中のプレハブ)の一番上から探し、無ければ、入れ子の中からも探す
+    /// プレハブ編集中は、プレハブの根(Field_Solo1 など)が、パスの途中にあれば、そこからたどる
+    /// 途中で無い名前は、create が true なら、空のゲームオブジェクトを作って続ける(Undoできる)
+    /// </summary>
+    private static Transform ResolveGroup(string path, bool create)
+    {
+        string[] parts = CSED_PlacementState.NormalizePath(path).Split('/');
+        PrefabStage stage = PrefabStageUtility.GetCurrentPrefabStage();
+        Scene scene = stage != null ? stage.scene : SceneManager.GetActiveScene();
+
+        Transform current = null;
+        int index = 0;
+        foreach (GameObject root in scene.GetRootGameObjects())
         {
-            // Field_Solo1 が無い時は、シーンの「配置ツール」の中に置く
-            GameObject fallback = null;
-            foreach (Transform candidate in StageUtility.GetCurrentStageHandle().FindComponentsOfType<Transform>())
-            {
-                if (candidate.name == _fallbackRootName && candidate.parent == null) fallback = candidate.gameObject;
-            }
-            if (fallback == null)
-            {
-                fallback = new GameObject(_fallbackRootName);
-                StageUtility.PlaceGameObjectInCurrentStage(fallback);
-                Undo.RegisterCreatedObjectUndo(fallback, "配置ツールの親を作る");
-            }
-            root = fallback.transform;
+            if (root.name != parts[0]) continue;
+
+            current = root.transform;
+            index = 1;
+            break;
         }
 
-        Transform group = root;
-        foreach (string part in groupName.Split('/'))
+        if (current == null && stage != null)
         {
-            Transform next = group.Find(part);
+            Transform contents = stage.prefabContentsRoot.transform;
+            current = contents;
+            for (int i = 1; i < parts.Length; i++)
+            {
+                if (contents.name != parts[i]) continue;
+
+                index = i + 1;
+                break;
+            }
+        }
+        else if (current == null)
+        {
+            // 一番上には無いが、入れ子の中にある時は、それを使う
+            foreach (GameObject root in scene.GetRootGameObjects())
+            {
+                foreach (Transform candidate in root.GetComponentsInChildren<Transform>(true))
+                {
+                    if (candidate.name != parts[0]) continue;
+
+                    current = candidate;
+                    index = 1;
+                    break;
+                }
+                if (current != null) break;
+            }
+        }
+
+        for (; index < parts.Length; index++)
+        {
+            Transform next = current != null ? current.Find(parts[index]) : null;
             if (next == null)
             {
-                GameObject created = new GameObject(part);
-                created.transform.SetParent(group, false);
-                Undo.RegisterCreatedObjectUndo(created, $"{part}を作る");
+                if (!create) return null;
+
+                GameObject created = new GameObject(parts[index]);
+                if (current != null) created.transform.SetParent(current, false);
+                else StageUtility.PlaceGameObjectInCurrentStage(created);
+                Undo.RegisterCreatedObjectUndo(created, $"{parts[index]}を作る");
                 next = created.transform;
             }
-            group = next;
+            current = next;
         }
-        return group;
+        return current;
+    }
+
+    /// <summary>
+    /// 種類の親の名前(パスの一番下の名前)と、同じ名前の親の下にある物かを判定するメソッド(消す時に、SAObjectとハイドポイントの組を見分けるのに使う)
+    /// </summary>
+    private static bool IsInGroup(Transform parent, CSED_PlacementState.GroupKind kind)
+    {
+        if (parent == null) return false;
+
+        string path = CSED_PlacementState.GetParentPath(kind);
+        return parent.name == path.Substring(path.LastIndexOf('/') + 1);
+    }
+
+    /// <summary>
+    /// 分布の表示・番号付け・消す時の探索の範囲(Field_Solo1 と、設定した親)の中の、指定した種類の部品を、すべて返すメソッド
+    /// 設定した親が Field_Solo1 の外にあっても、その中の物が、数えられる
+    /// </summary>
+    public static List<T> FindInScope<T>() where T : Component
+    {
+        List<Transform> roots = new List<Transform>();
+        Transform field = FindFieldRoot();
+        if (field != null) roots.Add(field);
+        foreach (CSED_PlacementState.GroupKind kind in System.Enum.GetValues(typeof(CSED_PlacementState.GroupKind)))
+        {
+            Transform group = FindGroup(kind);
+            if (group != null && !roots.Contains(group)) roots.Add(group);
+        }
+
+        HashSet<T> found = new HashSet<T>();
+        foreach (Transform root in roots) found.UnionWith(root.GetComponentsInChildren<T>(true));
+        return new List<T>(found);
     }
 
     /// <summary>
@@ -184,8 +271,8 @@ public static partial class CSED_PlacementBuilder
     /// <param name="basePosition">柱の根元(クリックした面の点)</param>
     public static GameObject PlaceSaObject(Vector3 basePosition)
     {
-        Transform saGroup = GetGroup(saObjectGroup);
-        Transform hideGroup = GetGroup(hidePointGroup);
+        Transform saGroup = GetGroup(CSED_PlacementState.GroupKind.SaObject);
+        Transform hideGroup = GetGroup(CSED_PlacementState.GroupKind.HidePoint);
         float poleHeight = GetPoleHeight(basePosition);
 
         // SAObject: 頭(Cube)、柱(Cube (1))の順(配置ツールと同じ)
@@ -217,7 +304,7 @@ public static partial class CSED_PlacementBuilder
     /// <param name="standPosition">クリックした面の点(着く足元の位置)</param>
     public static GameObject PlaceHidePointOnly(Vector3 standPosition)
     {
-        Transform hideGroup = GetGroup(hidePointGroup);
+        Transform hideGroup = GetGroup(CSED_PlacementState.GroupKind.HidePoint);
         GameObject hide = CreateHidePoint(hideGroup, standPosition, standPosition, standPosition.y - CSED_PlacementState.reachDown, CSED_PlacementState.keepLight);
         if (hide == null) return null;
 
@@ -369,7 +456,7 @@ public static partial class CSED_PlacementBuilder
             return null;
         }
 
-        Transform group = GetGroup(actionGroup);
+        Transform group = GetGroup(CSED_PlacementState.GroupKind.Action);
         string instanceName = NextName(group, baseName);
         GameObject instance = (GameObject)PrefabUtility.InstantiatePrefab(prefab, group);
         instance.name = instanceName;
@@ -396,7 +483,7 @@ public static partial class CSED_PlacementBuilder
             return null;
         }
 
-        Transform group = GetGroup(actionGroup);
+        Transform group = GetGroup(CSED_PlacementState.GroupKind.Action);
         GameObject root = new GameObject(NextName(group, "MovingSAPoint"));
         root.transform.SetParent(group, false);
         root.transform.position = firstPoint;
@@ -471,7 +558,7 @@ public static partial class CSED_PlacementBuilder
             if (t.GetComponent<CS_PathFollower>() != null) return t;
             if (IsSecurityRoot(t)) return t;
             if (saPoint == null && t.GetComponent<CS_SAPoint>() != null) saPoint = t;
-            if (t.parent != null && t.parent.name == saObjectGroup) return t;
+            if (IsInGroup(t.parent, CSED_PlacementState.GroupKind.SaObject)) return t;
         }
         return saPoint;
     }
@@ -486,14 +573,14 @@ public static partial class CSED_PlacementBuilder
 
         List<GameObject> targets = new List<GameObject> { root.gameObject };
         Transform parent = root.parent;
-        if (parent != null && parent.name == saObjectGroup)
+        if (IsInGroup(parent, CSED_PlacementState.GroupKind.SaObject))
         {
-            Transform paired = FindSameBase(GetGroupOrNull(hidePointGroup), root.position);
+            Transform paired = FindSameBase(FindGroup(CSED_PlacementState.GroupKind.HidePoint), root.position);
             if (paired != null) targets.Add(paired.gameObject);
         }
-        else if (root.GetComponent<CS_HidePoint>() != null && parent != null && parent.name == hidePointGroup)
+        else if (root.GetComponent<CS_HidePoint>() != null && IsInGroup(parent, CSED_PlacementState.GroupKind.HidePoint))
         {
-            Transform paired = FindSameBase(GetGroupOrNull(saObjectGroup), root.position);
+            Transform paired = FindSameBase(FindGroup(CSED_PlacementState.GroupKind.SaObject), root.position);
             if (paired != null) targets.Add(paired.gameObject);
         }
 
@@ -507,12 +594,6 @@ public static partial class CSED_PlacementBuilder
         }
         Undo.SetCurrentGroupName("置いた物を消す");
         return count;
-    }
-
-    private static Transform GetGroupOrNull(string groupName)
-    {
-        Transform root = FindFieldRoot();
-        return root != null ? root.Find(groupName) : null;
     }
 
     private static Transform FindSameBase(Transform group, Vector3 position)

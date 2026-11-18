@@ -295,6 +295,85 @@ public static class CSED_PlacementState
         set => EditorPrefs.SetFloat(_prefix + "LightDiameter", value);
     }
 
+    // ---- 置く先の親(シーンの一番上から、/ で区切ったパス。無ければ、置く時に作る) ----
+
+    // 置く先の親を決める種類(道具ごとに、別の親を設定できる)
+    public enum GroupKind
+    {
+        SaObject,       // SAObject
+        HidePoint,      // ハイドポイント
+        Action,         // 信号機・グラップル・動くSAポイント
+        VillainArea1,   // 敵(区画1。CrimeArea_01)
+        VillainArea2,   // 敵(区画2。CrimeArea_02)
+        VillainArea3,   // 敵(区画3。CrimeArea_03)
+        Police,         // 警察のグループ
+        Drone,          // 巡回ドローン
+        Laser,          // 防犯レーザー
+        Light,          // ストリートライト
+    }
+
+    private const string _fieldPath = "Field/Field_Solo1/";
+
+    /// <summary>
+    /// 種類ごとの、標準の親のパスを返すメソッド
+    /// </summary>
+    public static string GetDefaultParentPath(GroupKind kind)
+    {
+        switch (kind)
+        {
+            case GroupKind.SaObject: return _fieldPath + "SAObjects";
+            case GroupKind.HidePoint: return _fieldPath + "HidePoints";
+            case GroupKind.Action: return _fieldPath + "ActionObjects";
+            case GroupKind.VillainArea1: return _fieldPath + "Villain/VillainSpawnPoints/CrimeArea_01";
+            case GroupKind.VillainArea2: return _fieldPath + "Villain/VillainSpawnPoints/CrimeArea_02";
+            case GroupKind.VillainArea3: return _fieldPath + "Villain/VillainSpawnPoints/CrimeArea_03";
+            case GroupKind.Police: return _fieldPath + "Police";
+            case GroupKind.Drone: return _fieldPath + "SecurityDrones";
+            case GroupKind.Laser: return _fieldPath + "SecurityLasers";
+            default: return _fieldPath + "SecurityLights";
+        }
+    }
+
+    /// <summary>
+    /// 敵を置く区画(1〜3)から、置く先の親の種類を返すメソッド
+    /// </summary>
+    public static GroupKind GetVillainKind(int area)
+    {
+        return (GroupKind)((int)GroupKind.VillainArea1 + Mathf.Clamp(area, 1, 3) - 1);
+    }
+
+    /// <summary>
+    /// パスを整えるメソッド(各名前の前後の空白と、空の名前を取り除いて、/ でつなぐ)
+    /// </summary>
+    public static string NormalizePath(string path)
+    {
+        if (string.IsNullOrEmpty(path)) return string.Empty;
+
+        System.Collections.Generic.List<string> parts = new System.Collections.Generic.List<string>();
+        foreach (string part in path.Replace('\\', '/').Split('/'))
+        {
+            string trimmed = part.Trim();
+            if (trimmed.Length > 0) parts.Add(trimmed);
+        }
+        return string.Join("/", parts);
+    }
+
+    /// <summary>
+    /// 種類ごとの、置く先の親のパスを取得・設定するメソッド(空にすると、標準に戻る)
+    /// </summary>
+    public static string GetParentPath(GroupKind kind)
+    {
+        string path = NormalizePath(EditorPrefs.GetString(_prefix + "Parent" + kind, string.Empty));
+        return path.Length > 0 ? path : GetDefaultParentPath(kind);
+    }
+
+    public static void SetParentPath(GroupKind kind, string path)
+    {
+        string normalized = NormalizePath(path);
+        if (normalized.Length == 0 || normalized == GetDefaultParentPath(kind)) EditorPrefs.DeleteKey(_prefix + "Parent" + kind);
+        else EditorPrefs.SetString(_prefix + "Parent" + kind, normalized);
+    }
+
     // ---- 作業中の物 ----
 
     // 今、制御点を足している(まだ確定していない)動くSAポイント

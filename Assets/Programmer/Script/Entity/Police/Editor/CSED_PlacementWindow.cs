@@ -164,6 +164,90 @@ public class CSED_PlacementWindow : EditorWindow
                 EditorGUILayout.HelpBox("上の道具を選ぶと、Sceneビューのクリックで置けます。Field.prefab のインスタンス(MainScene)の上に置くと、シーンの上書きとして残ります。「プレハブへ反映」で Field_Solo1.prefab に入れてください", MessageType.None);
                 break;
         }
+        DrawParentPaths();
+    }
+
+    /// <summary>
+    /// 選んでいる道具が置く先の親を、Hierarchyのオブジェクトで選ぶメソッド(ドラッグ・または「◎」から選ぶ)
+    /// 親がまだ無い時は、欄が空になり、置く時に、下に出す標準のパスで作る
+    /// </summary>
+    private static void DrawParentPaths()
+    {
+        CSED_PlacementState.GroupKind[] kinds = GetParentKinds(CSED_PlacementState.tool);
+        if (kinds.Length == 0) return;
+
+        EditorGUILayout.Space();
+        EditorGUILayout.LabelField("置く先の親(Hierarchyから選ぶ)", EditorStyles.boldLabel);
+        foreach (CSED_PlacementState.GroupKind kind in kinds)
+        {
+            string path = CSED_PlacementState.GetParentPath(kind);
+            Transform existing = CSED_PlacementBuilder.FindGroup(kind);
+            GameObject current = existing != null ? existing.gameObject : null;
+
+            EditorGUILayout.BeginHorizontal();
+            Object picked = EditorGUILayout.ObjectField(new GUIContent(GetParentKindLabel(kind), "Hierarchyのオブジェクトを、ここへドラッグ(または「◎」から選ぶ)すると、そのオブジェクトの下に置く。親がまだ無い時は、置く時に、下のパスで作る"), current, typeof(GameObject), true);
+            if (picked != null && picked != current) UseHierarchyObject(kind, picked as GameObject);
+            using (new EditorGUI.DisabledScope(path == CSED_PlacementState.GetDefaultParentPath(kind)))
+            {
+                if (GUILayout.Button(new GUIContent("標準", "標準の親に戻す: " + CSED_PlacementState.GetDefaultParentPath(kind)), GUILayout.Width(44.0f))) CSED_PlacementState.SetParentPath(kind, string.Empty);
+            }
+            EditorGUILayout.EndHorizontal();
+
+            // 今のパス(親がまだ無ければ、置く時に作る旨も)
+            EditorGUILayout.LabelField(existing != null ? path : path + "  (まだ無い。置く時に作る)", EditorStyles.miniLabel);
+        }
+
+        if (CSED_PlacementState.tool == CSED_PlacementState.Tool.Villain) EditorGUILayout.HelpBox("敵は、置いた場所の区画(区画分けの図から自動。手動にもできる)に合う欄の親に置きます", MessageType.None);
+    }
+
+    /// <summary>
+    /// Hierarchyで選んだオブジェクトを、種類の親にするメソッド(プロジェクトのアセットは、シーンの物ではないので使えない)
+    /// </summary>
+    private static void UseHierarchyObject(CSED_PlacementState.GroupKind kind, GameObject picked)
+    {
+        if (picked == null) return;
+
+        if (EditorUtility.IsPersistent(picked))
+        {
+            Debug.LogWarning("CSED_PlacementWindow: 親には、Hierarchy(シーン・開いているプレハブ)のオブジェクトを選んでください(Projectのアセットは使えません)");
+            return;
+        }
+        CSED_PlacementState.SetParentPath(kind, CSED_PlacementBuilder.GetHierarchyPath(picked.transform));
+    }
+
+    private static CSED_PlacementState.GroupKind[] GetParentKinds(CSED_PlacementState.Tool tool)
+    {
+        switch (tool)
+        {
+            case CSED_PlacementState.Tool.SaObject: return new[] { CSED_PlacementState.GroupKind.SaObject, CSED_PlacementState.GroupKind.HidePoint };
+            case CSED_PlacementState.Tool.HidePoint: return new[] { CSED_PlacementState.GroupKind.HidePoint };
+            case CSED_PlacementState.Tool.TrafficLight:
+            case CSED_PlacementState.Tool.Grapple:
+            case CSED_PlacementState.Tool.Moving: return new[] { CSED_PlacementState.GroupKind.Action };
+            case CSED_PlacementState.Tool.Villain: return new[] { CSED_PlacementState.GroupKind.VillainArea1, CSED_PlacementState.GroupKind.VillainArea2, CSED_PlacementState.GroupKind.VillainArea3 };
+            case CSED_PlacementState.Tool.Police: return new[] { CSED_PlacementState.GroupKind.Police };
+            case CSED_PlacementState.Tool.Drone: return new[] { CSED_PlacementState.GroupKind.Drone };
+            case CSED_PlacementState.Tool.Laser: return new[] { CSED_PlacementState.GroupKind.Laser };
+            case CSED_PlacementState.Tool.Light: return new[] { CSED_PlacementState.GroupKind.Light };
+            default: return new CSED_PlacementState.GroupKind[0];
+        }
+    }
+
+    private static string GetParentKindLabel(CSED_PlacementState.GroupKind kind)
+    {
+        switch (kind)
+        {
+            case CSED_PlacementState.GroupKind.SaObject: return "SAObject";
+            case CSED_PlacementState.GroupKind.HidePoint: return "ハイドポイント";
+            case CSED_PlacementState.GroupKind.Action: return "アクション";
+            case CSED_PlacementState.GroupKind.VillainArea1: return "敵 区画1";
+            case CSED_PlacementState.GroupKind.VillainArea2: return "敵 区画2";
+            case CSED_PlacementState.GroupKind.VillainArea3: return "敵 区画3";
+            case CSED_PlacementState.GroupKind.Police: return "警察";
+            case CSED_PlacementState.GroupKind.Drone: return "ドローン";
+            case CSED_PlacementState.GroupKind.Laser: return "レーザー";
+            default: return "ライト";
+        }
     }
 
     private static void DrawSaObjectSettings(bool withPole)

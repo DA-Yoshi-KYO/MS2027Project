@@ -16,6 +16,9 @@ using UnityEngine;
  * ・悪人・ポイントの選択はSceneビュー(CSED_VillainPatrolSceneGUI)と共有する(CSED_VillainPatrolEditorState)
  *   ここの悪人・ポイントのボタンを押しても選べる
  * ・やることは上から順に実行する(ドラッグで並べ替え)。何も無ければ止まらずに次へ向かう
+ * ・位置は数値でも書ける(選んでいるポイント・実行役・車の位置)。基準は上の「位置の基準」で切り替える
+ *   スポーン位置: スポーン位置からの相対(m。右がX、前がZ) / 路地裏: 路地裏の中の割合(縦・横 0〜1。CSED_VillainPatrolAlley)
+ *   高さは書かない(ゲーム中にNavMeshの上に合わせる)
  * ・犯罪実行役の犯罪モーションは「エリアに合わせる」なら、スポーン位置の担当のエリア(CS_CrimeArea.crimeMotion)のモーションになる
  * ・値はパターンのアセット(CSO_VillainPatrolPattern)をSerializedObjectで書き換える(Undoできる)
  */
@@ -57,6 +60,8 @@ public class CSED_VillainPatrolRouteEditor : Editor
 
         if (_patternObject == null || _patternObject.targetObject != pattern) _patternObject = new SerializedObject(pattern);
         _patternObject.Update();
+
+        DrawPositionBasis(route);
 
         SerializedProperty routes = _patternObject.FindProperty("_routes");
         DrawRouteButtons(routes);
@@ -123,6 +128,83 @@ public class CSED_VillainPatrolRouteEditor : Editor
         EditorGUILayout.EndHorizontal();
     }
 
+    // 位置を数値で書く時の基準(スポーン位置 / 路地裏)
+    private static void DrawPositionBasis(CS_VillainPatrolRoute owner)
+    {
+        bool hasAlley = CSED_VillainPatrolAlley.TryGet(owner.GetComponent<CS_VillainSpawnPoint>(), out _);
+        CSED_VillainPatrolEditorState.PositionBasis basis = CSED_VillainPatrolEditorState.positionBasis;
+
+        EditorGUILayout.Space();
+        EditorGUILayout.BeginHorizontal();
+        EditorGUILayout.PrefixLabel("位置の基準");
+        if (GUILayout.Toggle(basis == CSED_VillainPatrolEditorState.PositionBasis.SpawnPoint, "スポーン位置(m)", EditorStyles.miniButtonLeft)
+            && basis != CSED_VillainPatrolEditorState.PositionBasis.SpawnPoint)
+        {
+            SetPositionBasis(CSED_VillainPatrolEditorState.PositionBasis.SpawnPoint);
+        }
+        if (GUILayout.Toggle(basis == CSED_VillainPatrolEditorState.PositionBasis.Alley, "路地裏(0〜1)", EditorStyles.miniButtonRight)
+            && basis != CSED_VillainPatrolEditorState.PositionBasis.Alley)
+        {
+            SetPositionBasis(CSED_VillainPatrolEditorState.PositionBasis.Alley);
+        }
+        EditorGUILayout.EndHorizontal();
+
+        if (basis == CSED_VillainPatrolEditorState.PositionBasis.Alley && !hasAlley)
+        {
+            EditorGUILayout.HelpBox("このスポーン位置の路地裏が見つからないため、スポーン位置からの相対で表示します(スポーン位置のPatrol Areaを設定するか、路地裏の上に置いてください)。", MessageType.Info);
+        }
+    }
+
+    private static void SetPositionBasis(CSED_VillainPatrolEditorState.PositionBasis basis)
+    {
+        CSED_VillainPatrolEditorState.positionBasis = basis;
+        CSED_VillainPatrolTopView.Frame();   // 真上から見ている時は、画面の上の向きを合わせ直す
+    }
+
+    // 位置(スポーン位置からの相対)を、今の基準の数値で書く欄。高さは変えない
+    private static void DrawPositionField(CS_VillainPatrolRoute owner, SerializedProperty localPosition, string label)
+    {
+        Vector3 local = localPosition.vector3Value;
+        CSED_VillainPatrolAlley alley = default;
+        bool useAlley = CSED_VillainPatrolEditorState.positionBasis == CSED_VillainPatrolEditorState.PositionBasis.Alley
+            && CSED_VillainPatrolAlley.TryGet(owner.GetComponent<CS_VillainSpawnPoint>(), out alley);
+
+        if (!useAlley)
+        {
+            Vector2 meters = DrawPair(label, new Vector2(local.x, local.z), "右(X)", "前(Z)", out bool isChanged);
+            if (isChanged) localPosition.vector3Value = new Vector3(meters.x, local.y, meters.y);
+            return;
+        }
+
+        Vector3 world = owner.ToWorld(local);
+        Vector2 ratio = DrawPair(label, alley.ToRatio(world), "縦", "横", out bool isRatioChanged);
+        if (isRatioChanged) localPosition.vector3Value = owner.ToLocal(alley.FromRatio(ratio, world.y));
+    }
+
+    // 2つの数値を1行で書く欄
+    private static Vector2 DrawPair(string label, Vector2 value, string labelX, string labelY, out bool isChanged)
+    {
+        const float unitWidth = 38f;
+        const float gap = 6f;
+
+        Rect rect = EditorGUILayout.GetControlRect();
+        rect = EditorGUI.PrefixLabel(rect, new GUIContent(label));
+        float half = (rect.width - gap) * 0.5f;
+        Rect xRect = new Rect(rect.x, rect.y, half, rect.height);
+        Rect yRect = new Rect(rect.x + half + gap, rect.y, half, rect.height);
+
+        int indent = EditorGUI.indentLevel;
+        EditorGUI.indentLevel = 0;
+        EditorGUI.BeginChangeCheck();
+        EditorGUI.LabelField(new Rect(xRect.x, xRect.y, unitWidth, xRect.height), labelX, EditorStyles.miniLabel);
+        float x = EditorGUI.FloatField(new Rect(xRect.x + unitWidth, xRect.y, xRect.width - unitWidth, xRect.height), (float)System.Math.Round(value.x, 3));
+        EditorGUI.LabelField(new Rect(yRect.x, yRect.y, unitWidth, yRect.height), labelY, EditorStyles.miniLabel);
+        float y = EditorGUI.FloatField(new Rect(yRect.x + unitWidth, yRect.y, yRect.width - unitWidth, yRect.height), (float)System.Math.Round(value.y, 3));
+        isChanged = EditorGUI.EndChangeCheck();
+        EditorGUI.indentLevel = indent;
+        return new Vector2(x, y);
+    }
+
     // 犯罪実行役を選ぶボタン
     private static void DrawExecutorButtons(SerializedProperty executors)
     {
@@ -168,9 +250,11 @@ public class CSED_VillainPatrolRouteEditor : Editor
         }
 
         EditorGUILayout.PropertyField(executor.FindPropertyRelative("_angle"), new GUIContent("向き(°)", "スポーン位置の向きからの角度(＋で右回り)"));
+        DrawPositionField(owner, executor.FindPropertyRelative("_localPosition"), resolved == CSE_VillainCrimeMotion.Carry ? "位置(貨物)" : "位置");
 
         if (resolved == CSE_VillainCrimeMotion.Carry)
         {
+            DrawPositionField(owner, executor.FindPropertyRelative("_carryLocalPosition"), "車の位置");
             EditorGUILayout.HelpBox("ひし形(貨物)と四角(車)の間を、拾う → 運ぶ → 置く → 戻る と往復します。Sceneビューでそれぞれドラッグして動かせます。", MessageType.None);
         }
 
@@ -256,6 +340,9 @@ public class CSED_VillainPatrolRouteEditor : Editor
             EditorGUILayout.HelpBox("ポイントを選ぶと、そこでやることを書けます。", MessageType.None);
             return;
         }
+
+        DrawPositionField((CS_VillainPatrolRoute)target, points.GetArrayElementAtIndex(pointIndex).FindPropertyRelative("_localPosition"),
+            pointIndex == 0 ? "位置(悪人・ポイント1)" : $"ポイント{pointIndex + 1}の位置");
 
         SerializedProperty actions = points.GetArrayElementAtIndex(pointIndex).FindPropertyRelative("_actions");
         if (_actionList == null || _listRoute != routeIndex || _listPoint != pointIndex || _actionList.serializedProperty.serializedObject != _patternObject)

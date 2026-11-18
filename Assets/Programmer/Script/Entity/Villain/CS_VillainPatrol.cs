@@ -2,6 +2,7 @@ using UnityEngine;
 
 /*
  * 悪人1人分の巡回の動き
+ * 巡回パターンの犯罪実行役なら、決めた位置で犯罪モーションをし続ける(運ぶなら貨物と車を往復する)
  * 巡回パターンの組(CS_VillainPatrolCrew)に入っていれば、先頭ならルートを回り、付いてくる人なら隊列の位置を歩く
  * 組に入っていなければ、グループ(CS_VillainGroup)が決めた、自分のルートの今の進み具合の位置を歩き、端では見回す
  * CS_VillainCombatが、犯罪中(Idle)はTick、帰還中はTickReturnを呼ぶ
@@ -12,6 +13,11 @@ using UnityEngine;
 // ========================================
 /*
  * メモ
+ * ・犯罪実行役(巡回パターンの実行役。CS_VillainSpawnerがSetExecutorで決める)
+ *   決めた位置へ歩き、着いたら決めた向きで犯罪モーションをし続ける(蹴る / いじる)
+ *   運ぶ: 貨物の位置で拾う(pickUpTime秒) → 車の位置まで運ぶ → 置く(putDownTime秒) → 貨物の位置へ戻る、を繰り返す
+ *   今している犯罪の動作は CS_VillainCrime.SetCrimeAction で全クライアントに伝える(見た目はCS_VillainVisualがAnimatorに渡す)
+ *   臨戦態勢になったら犯罪の動作をやめる(StopCrimeAction)。帰還(戦った後)は、向かっていた所へ戦闘時の速さで戻る
  * ・巡回パターン(スポーン位置にCS_VillainPatrolRouteがある時。CS_VillainSpawnerがSetCrewで組に入れる)
  *   先頭: 組の進み具合に従ってポイントを回り、ポイントでやることを実行する(CS_VillainPatrolCrew.TickLeader)
  *   付いてくる人: 先頭が通った道(足跡)の上で求めた隊列の位置へ、自分の進む向きを向いて歩く
@@ -56,10 +62,37 @@ public class CS_VillainPatrol : MonoBehaviour
     private const float _formationArriveDistance = 0.3f;   // 隊列の位置に着いたとみなす距離(m)
     private const float _formationLookAhead = 1f;          // 付いてくる人が歩いている間、隊列の位置より道の上でどれだけ先(m)を目的地にするか
     private const float _minFormationSpeedRate = 0.5f;     // 付いてくる人が隊列の位置より先に出ている時の、一番遅い速さ(ルートの速さの倍率)
+    private const float _executorArriveDistance = 0.3f;    // 犯罪実行役が、決めた位置に着いたとみなす距離(m)
+
+    [Header("犯罪実行役")]
+    [SerializeField, Min(0f)]
+    [Tooltip("運ぶ: 貨物を拾うのにかかる時間(秒)")]
+    private float _pickUpTime = 1.5f;
+
+    [SerializeField, Min(0f)]
+    [Tooltip("運ぶ: 貨物を車に置くのにかかる時間(秒)")]
+    private float _putDownTime = 1.5f;
+
+    // 運ぶ犯罪実行役の、今の段階
+    private enum CarryPhase
+    {
+        GoToCargo,   // 貨物の位置へ向かう
+        PickUp,      // 拾っている
+        GoToCar,     // 車の位置へ運んでいる
+        PutDown,     // 車に置いている
+    }
 
     private CS_VillainMove _move;
     private CS_VillainCombat _combat;
+    private CS_VillainCrime _crime;
     private CS_VillainPatrolCrew _crew;   // 巡回パターンの組(入っていなければnull)
+    private bool _isExecutor;             // 犯罪実行役か
+    private Vector3 _executorPosition;    // 実行役の位置(運ぶ時は貨物の位置)
+    private Vector3 _carryPosition;       // 運ぶ時の車の位置
+    private Quaternion _executorRotation; // 実行役の向き
+    private CSE_VillainCrimeMotion _executorMotion;
+    private CarryPhase _carryPhase;
+    private float _carryTimer;
     private bool _isLookingAround;   // 端で見回している途中か
     private float _lookTimer;
 
@@ -70,6 +103,25 @@ public class CS_VillainPatrol : MonoBehaviour
     {
         _move = GetComponent<CS_VillainMove>();
         _combat = GetComponent<CS_VillainCombat>();
+        _crime = GetComponent<CS_VillainCrime>();
+    }
+
+    // 犯罪実行役にする(生成直後にCS_VillainSpawnerから呼ばれる)
+    // motion: 実際に使う犯罪モーション(「エリアに合わせる」は決めてから渡す)
+    public void SetExecutor(Vector3 position, Vector3 carryPosition, Quaternion rotation, CSE_VillainCrimeMotion motion)
+    {
+        _isExecutor = true;
+        _executorPosition = position;
+        _carryPosition = carryPosition;
+        _executorRotation = rotation;
+        _executorMotion = motion;
+        _carryPhase = CarryPhase.GoToCargo;
+    }
+
+    // 犯罪の動作をやめる(臨戦態勢になった時に、CS_VillainCombatから呼ばれる)
+    public void StopCrimeAction()
+    {
+        SetCrimeAction(CSE_VillainCrimeAction.None);
     }
 
     // 巡回パターンの組に入れる(生成直後にCS_VillainSpawnerから呼ばれる)
@@ -83,6 +135,12 @@ public class CS_VillainPatrol : MonoBehaviour
     // catchUpSpeed: ルートから離れている時に合流する速さ(戦闘時の速さ)
     public bool Tick(CS_VillainCombat combat, CS_VillainGroup group, float catchUpSpeed, float deltaTime)
     {
+        if (_isExecutor)
+        {
+            TickExecutor(combat.patrolSpeed, catchUpSpeed, deltaTime);
+            return true;
+        }
+
         if (_crew != null)
         {
             TickCrew(catchUpSpeed, deltaTime);
@@ -112,6 +170,12 @@ public class CS_VillainPatrol : MonoBehaviour
     // 合流できたらtrue。巡回しないグループ・メンバーならfalse(isPatrolがfalseになる)
     public bool TickReturn(CS_VillainCombat combat, CS_VillainGroup group, float speed, out bool isPatrol)
     {
+        if (_isExecutor)
+        {
+            isPatrol = true;
+            return TickExecutorReturn(speed);
+        }
+
         if (_crew != null)
         {
             isPatrol = true;
@@ -124,6 +188,99 @@ public class CS_VillainPatrol : MonoBehaviour
         _isLookingAround = false;
         _move.MoveTo(position, speed);
         return GetFlatDistance(position) <= _catchUpDistance;
+    }
+
+    // ---- 犯罪実行役 ----
+
+    // 決めた位置で犯罪モーションをする(運ぶなら貨物と車を往復する)
+    // walkSpeed: 歩く速さ(巡回時の速さ) / catchUpSpeed: 遠く離れている時の速さ(戦闘時の速さ)
+    private void TickExecutor(float walkSpeed, float catchUpSpeed, float deltaTime)
+    {
+        if (_executorMotion == CSE_VillainCrimeMotion.Carry)
+        {
+            TickCarry(walkSpeed, catchUpSpeed, deltaTime);
+            return;
+        }
+
+        if (!WalkTo(_executorPosition, walkSpeed, catchUpSpeed)) return;
+
+        _move.FaceTowards(_executorRotation * Vector3.forward);
+        SetCrimeAction(_executorMotion == CSE_VillainCrimeMotion.Tamper ? CSE_VillainCrimeAction.Tamper : CSE_VillainCrimeAction.Kick);
+    }
+
+    // 運ぶ: 貨物の位置で拾う → 車の位置まで運ぶ → 置く → 貨物の位置へ戻る、を繰り返す
+    private void TickCarry(float walkSpeed, float catchUpSpeed, float deltaTime)
+    {
+        switch (_carryPhase)
+        {
+            case CarryPhase.GoToCargo:
+                if (!WalkTo(_executorPosition, walkSpeed, catchUpSpeed)) return;
+                StartCarryPhase(CarryPhase.PickUp);
+                break;
+
+            case CarryPhase.PickUp:
+                _move.Stop();
+                _move.FaceTowards(_executorRotation * Vector3.forward);
+                SetCrimeAction(CSE_VillainCrimeAction.PickUp);
+                _carryTimer += deltaTime;
+                if (_carryTimer >= _pickUpTime) StartCarryPhase(CarryPhase.GoToCar);
+                break;
+
+            case CarryPhase.GoToCar:
+                SetCrimeAction(CSE_VillainCrimeAction.Carry);
+                if (GetFlatDistance(_carryPosition) > _executorArriveDistance && !_move.IsNearDestination(_executorArriveDistance))
+                {
+                    _move.MoveTo(_carryPosition, walkSpeed);
+                    return;
+                }
+                StartCarryPhase(CarryPhase.PutDown);
+                break;
+
+            case CarryPhase.PutDown:
+                _move.Stop();
+                SetCrimeAction(CSE_VillainCrimeAction.PutDown);
+                _carryTimer += deltaTime;
+                if (_carryTimer >= _putDownTime) StartCarryPhase(CarryPhase.GoToCargo);
+                break;
+        }
+    }
+
+    private void StartCarryPhase(CarryPhase phase)
+    {
+        _carryPhase = phase;
+        _carryTimer = 0f;
+    }
+
+    // 位置へ歩く(犯罪の動作はしない)。着いていればtrue(止まる)
+    private bool WalkTo(Vector3 position, float walkSpeed, float catchUpSpeed)
+    {
+        float distance = GetFlatDistance(position);
+        if (distance > _executorArriveDistance && !_move.IsNearDestination(_executorArriveDistance))
+        {
+            SetCrimeAction(CSE_VillainCrimeAction.None);
+            _move.MoveTo(position, distance > _catchUpDistance ? catchUpSpeed : walkSpeed);
+            return false;
+        }
+
+        _move.Stop();
+        return true;
+    }
+
+    // 戦った後、向かっていた所(運んでいる途中なら車、それ以外は実行役の位置)へ戻る。合流できたらtrue
+    private bool TickExecutorReturn(float speed)
+    {
+        SetCrimeAction(CSE_VillainCrimeAction.None);
+        bool isCarrying = _executorMotion == CSE_VillainCrimeMotion.Carry
+            && (_carryPhase == CarryPhase.GoToCar || _carryPhase == CarryPhase.PutDown);
+        Vector3 position = isCarrying ? _carryPosition : _executorPosition;
+
+        _move.MoveTo(position, speed);
+        return GetFlatDistance(position) <= _catchUpDistance;
+    }
+
+    private void SetCrimeAction(CSE_VillainCrimeAction action)
+    {
+        if (_crime != null) _crime.SetCrimeAction(action);
     }
 
     // ---- 巡回パターン ----

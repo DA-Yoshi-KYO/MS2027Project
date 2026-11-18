@@ -19,12 +19,16 @@ using UnityEngine.AI;
  *   ポイント: 番号付きの丸(選んでいるポイントは塗りつぶし)。やることがあれば番号の横に書く
  *   悪人: ポイント1に丸と向きの線、隊列で付いてくる人は小さな丸。プレビュー再生中は今の位置に描く
  *   選んでいない悪人のルートは薄く描く
+ *   犯罪実行役: 黄色のひし形と向きの線、「実行役N 犯罪モーション」。運ぶ時は車の位置(四角・「車」)と点線で結ぶ
+ *   プレビュー再生中は、運ぶ実行役が貨物と車を往復する(CSED_VillainPatrolPreview.EvaluateExecutor)
  * ・操作
  *   道具(悪人を置く / ポイントを置く)が押されている時だけ、Sceneビューのクリックで置く(押されていない時は普段どおりのUnityの操作)
  *     悪人を置く: クリックした地面(NavMeshの上)にルートを作る。置いた所がポイント1。置いたら「ポイントを置く」に切り替わる
  *     ポイントを置く: 選んでいる悪人のルートの最後にポイントを足す(悪人がいなければ悪人を置く)
+ *     実行役を置く: クリックした地面に犯罪実行役を置く(スポーン位置の向きを向く。車の位置は前に5m)
  *     Escで道具を外す
  *   ポイント・悪人・線をクリックすると、その悪人(とポイント)を選ぶ。ポイントはドラッグで動かせる(地面の上を動く)
+ *   実行役・車の位置もクリックで選び、ドラッグで動かせる(向き・犯罪モーションはInspectorで変える)
  *   変更はUndo(Ctrl+Z)できる
  * ・保存: シーン・プレハブを保存した時に、使っている巡回パターンのアセットも保存する
  */
@@ -43,6 +47,13 @@ public static class CSED_VillainPatrolSceneGUI
     private static readonly int _placeControlHash = "VillainPatrolPlace".GetHashCode();
     private static readonly int _pointControlHash = "VillainPatrolPoint".GetHashCode();
     private static readonly int _lineControlHash = "VillainPatrolLine".GetHashCode();
+    private static readonly int _executorControlHash = "VillainPatrolExecutor".GetHashCode();
+    private static readonly int _carControlHash = "VillainPatrolCar".GetHashCode();
+    private static readonly Color _executorColor = new Color(1f, 0.78f, 0.1f);   // 犯罪実行役の色
+    private const float _executorRadius = 0.55f;
+    private const float _carRadius = 0.45f;
+    private const float _unselectedExecutorAlpha = 0.6f;   // 選んでいない実行役の濃さ
+    private const float _defaultCarryDistance = 5f;        // 実行役を置いた時の、車の位置までの距離(m。実行役の前)
 
     private static CS_VillainSpawnPoint _lastSpawnPoint;
 
@@ -107,7 +118,11 @@ public static class CSED_VillainPatrolSceneGUI
             HandleUtility.AddDefaultControl(placeControl);
         }
 
-        if (pattern != null) DrawAndHandleRoutes(route, pattern);
+        if (pattern != null)
+        {
+            DrawAndHandleRoutes(route, pattern);
+            DrawAndHandleExecutors(route, pattern);
+        }
 
         if (CSED_VillainPatrolEditorState.tool != CSED_VillainPatrolEditorState.Tool.None
             && e.type == EventType.MouseDown && e.button == 0 && !e.alt
@@ -125,6 +140,16 @@ public static class CSED_VillainPatrolSceneGUI
         CS_VillainPatrolRoute route = CSED_VillainPatrolEditorState.EnsurePattern(spawnPoint);
         CSO_VillainPatrolPattern pattern = route.pattern;
         Vector3 local = route.ToLocal(ground);
+
+        // 犯罪実行役を置く(スポーン位置の向きを向き、車の位置はその前)
+        if (CSED_VillainPatrolEditorState.tool == CSED_VillainPatrolEditorState.Tool.PlaceExecutor)
+        {
+            Undo.RecordObject(pattern, "犯罪実行役を置く");
+            pattern.executors.Add(new CSO_VillainPatrolPattern.Executor(local, local + Vector3.forward * _defaultCarryDistance));
+            CSED_VillainPatrolEditorState.MarkPatternDirty(route);
+            CSED_VillainPatrolEditorState.SelectExecutor(pattern.executors.Count - 1);
+            return;
+        }
 
         bool hasSelectedRoute = CSED_VillainPatrolEditorState.selectedRoute >= 0 && CSED_VillainPatrolEditorState.selectedRoute < pattern.routes.Count;
         if (CSED_VillainPatrolEditorState.tool == CSED_VillainPatrolEditorState.Tool.PlacePoint && hasSelectedRoute)
@@ -272,6 +297,125 @@ public static class CSED_VillainPatrolSceneGUI
                 Handles.Label(lifted, GetPointLabel(pattern.routes[routeIndex].points[pointIndex], pointIndex), GetLabelStyle(color));
                 break;
         }
+    }
+
+    // ---- 犯罪実行役 ----
+
+    private static void DrawAndHandleExecutors(CS_VillainPatrolRoute owner, CSO_VillainPatrolPattern pattern)
+    {
+        for (int i = 0; i < pattern.executors.Count; i++)
+        {
+            DrawAndHandleExecutor(owner, pattern, i);
+        }
+    }
+
+    // 実行役(ひし形)と、運ぶ時の車の位置(四角)。再生中は今の位置に体を描く
+    private static void DrawAndHandleExecutor(CS_VillainPatrolRoute owner, CSO_VillainPatrolPattern pattern, int executorIndex)
+    {
+        bool isSelected = executorIndex == CSED_VillainPatrolEditorState.selectedExecutor;
+        Color color = _executorColor;
+        color.a = isSelected ? 1f : _unselectedExecutorAlpha;
+
+        CSE_VillainCrimeMotion setting = pattern.executors[executorIndex].motion;
+        CSE_VillainCrimeMotion motion = owner.GetExecutorMotion(executorIndex);
+        string motionName = setting == CSE_VillainCrimeMotion.Auto
+            ? $"{CSED_VillainPatrolLabels.GetCrimeMotionName(setting)}({CSED_VillainPatrolLabels.GetCrimeMotionName(motion)})"
+            : CSED_VillainPatrolLabels.GetCrimeMotionName(motion);
+        Vector3 position = owner.GetExecutorPosition(executorIndex);
+
+        if (motion == CSE_VillainCrimeMotion.Carry)
+        {
+            Vector3 car = owner.GetExecutorCarryPosition(executorIndex);
+            if (Event.current.type == EventType.Repaint)
+            {
+                Handles.color = color;
+                Handles.DrawDottedLine(position + Vector3.up * _lineHeight, car + Vector3.up * _lineHeight, 4f);
+            }
+            HandleExecutorHandle(owner, pattern, executorIndex, true, car, _carRadius, color, isSelected, "車");
+        }
+        HandleExecutorHandle(owner, pattern, executorIndex, false, position, _executorRadius, color, isSelected,
+            $"{CSED_VillainPatrolLabels.GetExecutorName(executorIndex)} {motionName}");
+
+        if (Event.current.type != EventType.Repaint) return;
+
+        if (CSED_VillainPatrolEditorState.isPlaying)
+        {
+            CSED_VillainPatrolPreview.Pose pose = CSED_VillainPatrolPreview.EvaluateExecutor(owner, executorIndex, CSED_VillainPatrolEditorState.playTime);
+            DrawBody(pose.position, pose.yaw, _villainRadius, color, true);
+            if (!string.IsNullOrEmpty(pose.label)) Handles.Label(pose.position + Vector3.up * 1.2f, pose.label, GetLabelStyle(color));
+            return;
+        }
+
+        // 止まっている時は、向きの線を描く
+        Vector3 lifted = position + Vector3.up * (_lineHeight * 2f);
+        Vector3 forward = owner.GetExecutorRotation(executorIndex) * Vector3.forward;
+        Handles.color = new Color(1f, 1f, 1f, color.a);
+        Handles.DrawAAPolyLine(3f, lifted, lifted + forward * _executorRadius * 2.2f);
+    }
+
+    // 実行役・車の位置の印。クリックで選び、ドラッグで地面の上を動かす
+    private static void HandleExecutorHandle(CS_VillainPatrolRoute owner, CSO_VillainPatrolPattern pattern, int executorIndex, bool isCar,
+        Vector3 position, float baseRadius, Color color, bool isSelected, string label)
+    {
+        Event e = Event.current;
+        int control = GUIUtility.GetControlID(isCar ? _carControlHash : _executorControlHash, FocusType.Passive);
+        float radius = Mathf.Max(baseRadius, HandleUtility.GetHandleSize(position) * 0.1f);
+
+        switch (e.GetTypeForControl(control))
+        {
+            case EventType.Layout:
+                HandleUtility.AddControl(control, HandleUtility.DistanceToCircle(position, radius));
+                break;
+
+            case EventType.MouseDown:
+                if (e.button != 0 || e.alt || HandleUtility.nearestControl != control) break;
+                GUIUtility.hotControl = control;
+                Undo.RecordObject(pattern, isCar ? "車の位置を動かす" : "犯罪実行役を動かす");
+                CSED_VillainPatrolEditorState.SelectExecutor(executorIndex);
+                e.Use();
+                break;
+
+            case EventType.MouseDrag:
+                if (GUIUtility.hotControl != control) break;
+                if (TryGetGround(e.mousePosition, out Vector3 ground))
+                {
+                    CSO_VillainPatrolPattern.Executor executor = pattern.executors[executorIndex];
+                    if (isCar) executor.carryLocalPosition = owner.ToLocal(ground);
+                    else executor.localPosition = owner.ToLocal(ground);
+                    CSED_VillainPatrolEditorState.MarkPatternDirty(owner);
+                }
+                e.Use();
+                break;
+
+            case EventType.MouseUp:
+                if (GUIUtility.hotControl != control) break;
+                GUIUtility.hotControl = 0;
+                CSED_VillainPatrolEditorState.NotifyChanged();
+                e.Use();
+                break;
+
+            case EventType.Repaint:
+                Vector3 lifted = position + Vector3.up * _lineHeight;
+                Vector3[] shape = GetMarkerShape(lifted, radius, isCar);
+                Handles.color = isSelected ? color : new Color(0.12f, 0.12f, 0.12f, color.a);
+                Handles.DrawAAConvexPolygon(shape);
+                Handles.color = color;
+                Handles.DrawAAPolyLine(isSelected ? 3f : 2f, shape[0], shape[1], shape[2], shape[3], shape[0]);
+                Handles.Label(lifted, label, GetLabelStyle(color));
+                break;
+        }
+    }
+
+    // 実行役はひし形、車の位置は四角
+    private static Vector3[] GetMarkerShape(Vector3 center, float radius, bool isSquare)
+    {
+        Vector3[] shape = new Vector3[4];
+        for (int i = 0; i < 4; i++)
+        {
+            float angle = (isSquare ? 45f : 0f) + 90f * i;
+            shape[i] = center + Quaternion.Euler(0f, angle, 0f) * Vector3.forward * radius;
+        }
+        return shape;
     }
 
     // 悪人(ポイント1、再生中は今の位置)と、隊列で付いてくる人

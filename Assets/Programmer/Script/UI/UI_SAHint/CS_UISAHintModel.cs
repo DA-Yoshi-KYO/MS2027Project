@@ -14,10 +14,11 @@ using UnityEngine;
 /// SAヒントUIに必要な状態を保持するModel。
 ///
 /// ・ローカルプレイヤーとプレイヤーカメラを保持する
-/// ・プレイヤーがSAに隠れている間だけ対象を検索する
-/// ・CS_SAPoint.activePointsから検索する
+/// ・ハイドポイントで隠れている間、または
+///   SA移動で信号機へ到着した後にヒントを表示する
+/// ・CS_SAPoint.activePointsから候補を検索する
 /// ・距離計算にはCS_SAPoint.standPositionを使用する
-/// ・現在隠れているSAポイント自身は候補から除外する
+/// ・現在いるSAポイント自身は候補から除外する
 /// ・範囲内のSAポイントを近い順に最大指定数保持する
 /// ・UIクラスは参照しない
 ///
@@ -36,9 +37,8 @@ public sealed class CS_UISAHintModel :
     /// <summary>
     /// Modelが公開されたときの通知。
     /// </summary>
-    public static event Action<
-        CS_UISAHintModel
-    > OnBound;
+    public static event Action<CS_UISAHintModel>
+        OnBound;
 
     /// <summary>
     /// Modelの公開が解除されたときの通知。
@@ -68,6 +68,20 @@ public sealed class CS_UISAHintModel :
 
         OnBound = null;
         OnUnbound = null;
+    }
+
+    // =========================================================
+    // SAヒントを開始した種類
+    // =========================================================
+
+    /// <summary>
+    /// SAヒントがどの状態から開始されたか。
+    /// </summary>
+    private enum SAHintSource
+    {
+        None,
+        HidePoint,
+        TrafficLight
     }
 
     // =========================================================
@@ -125,13 +139,21 @@ public sealed class CS_UISAHintModel :
         _pointDistanceBuffer =
             new List<PointDistance>();
 
-    private bool _isHiding;
+    /// <summary>
+    /// SAヒントが有効か。
+    /// </summary>
+    private bool _isHintActive;
 
     /// <summary>
-    /// 現在プレイヤーが隠れているSAポイント。
-    /// このポイントは案内対象から除外する。
+    /// 現在いるSAポイント。
+    /// このポイント自身は案内対象から除外する。
     /// </summary>
-    private CS_SAPoint _currentHidingPoint;
+    private CS_SAPoint _currentSAPoint;
+
+    /// <summary>
+    /// ヒントを開始した入口。
+    /// </summary>
+    private SAHintSource _hintSource;
 
     // =========================================================
     // イベント
@@ -155,14 +177,38 @@ public sealed class CS_UISAHintModel :
     public CSO_UISAHintData data =>
         _data;
 
+    /// <summary>
+    /// Presenterが表示条件として使用する。
+    /// ハイドポイントと信号機のどちらでもtrueになる。
+    /// </summary>
     public bool isHiding =>
-        _isHiding;
+        _isHintActive;
+
+    public bool isHintActive =>
+        _isHintActive;
 
     public CS_SAPoint currentHidingPoint =>
-        _currentHidingPoint;
+        _currentSAPoint;
+
+    public CS_SAPoint currentSAPoint =>
+        _currentSAPoint;
 
     public int targetCount =>
         _nearbyPoints.Count;
+
+    /// <summary>
+    /// ハイドポイント用の入口から開始されたか。
+    /// </summary>
+    public bool isHidePointHint =>
+        _hintSource ==
+        SAHintSource.HidePoint;
+
+    /// <summary>
+    /// 信号機用の入口から開始されたか。
+    /// </summary>
+    public bool isTrafficLightHint =>
+        _hintSource ==
+        SAHintSource.TrafficLight;
 
     // =========================================================
     // コンストラクター
@@ -180,9 +226,12 @@ public sealed class CS_UISAHintModel :
 
         _data = data;
 
-        _isHiding = false;
+        _isHintActive = false;
 
-        _currentHidingPoint = null;
+        _currentSAPoint = null;
+
+        _hintSource =
+            SAHintSource.None;
     }
 
     // =========================================================
@@ -228,68 +277,49 @@ public sealed class CS_UISAHintModel :
     }
 
     // =========================================================
-    // 隠れ状態
+    // ハイドポイント用
     // =========================================================
 
     /// <summary>
-    /// プレイヤーがSAポイントに隠れ始めたことを設定する。
+    /// プレイヤーがハイドポイントで隠れ始めたときに呼ぶ。
     ///
-    /// currentHidingPointは現在隠れているSAポイント。
-    /// このポイント自身は案内対象から除外する。
+    /// 既存のCS_PlayerHide.currentHidePointとの接続用。
     /// </summary>
     public void StartHiding(
-        CS_SAPoint currentHidingPoint)
+        CS_SAPoint hidePoint)
     {
-        bool stateChanged =
-            !_isHiding;
-
-        bool pointChanged =
-            _currentHidingPoint !=
-            currentHidingPoint;
-
-        _isHiding = true;
-
-        _currentHidingPoint =
-            currentHidingPoint;
-
-        if (stateChanged ||
-            pointChanged)
-        {
-            RefreshTargets();
-        }
+        SetCurrentSAPoint(
+            currentSAPoint: hidePoint,
+            source: SAHintSource.HidePoint
+        );
     }
 
     /// <summary>
-    /// プレイヤーがSAポイントから出たことを設定する。
+    /// プレイヤーがハイドポイントから出たときに呼ぶ。
+    ///
+    /// 現在のヒントがハイドポイント由来の場合だけ終了する。
+    /// 信号機用ヒントは停止しない。
     /// </summary>
     public void StopHiding()
     {
-        if (!_isHiding &&
-            _currentHidingPoint == null)
+        if (_hintSource !=
+            SAHintSource.HidePoint)
         {
             return;
         }
 
-        _isHiding = false;
-
-        _currentHidingPoint = null;
-
-        ClearTargets();
+        StopHint();
     }
 
     /// <summary>
     /// 既存コードとの接続用。
-    ///
-    /// trueを渡した場合は現在SAが不明なため、
-    /// 現在地SAを除外できない。
-    /// 新規コードではStartHiding()を推奨する。
     /// </summary>
     public void SetHiding(bool isHiding)
     {
         if (isHiding)
         {
             StartHiding(
-                currentHidingPoint: null
+                hidePoint: null
             );
         }
         else
@@ -299,7 +329,7 @@ public sealed class CS_UISAHintModel :
     }
 
     /// <summary>
-    /// 隠れ状態と現在SAを同時に設定する。
+    /// 隠れ状態と現在のハイドポイントを同時に設定する。
     /// </summary>
     public void SetHiding(
         bool isHiding,
@@ -318,6 +348,134 @@ public sealed class CS_UISAHintModel :
     }
 
     // =========================================================
+    // 信号機用
+    // =========================================================
+
+    /// <summary>
+    /// SA移動で信号機へ到着したときに呼ぶ。
+    ///
+    /// 歩いて信号機へ近づいた場合には呼ばず、
+    /// SA移動の到着完了処理からだけ呼ぶ。
+    /// </summary>
+    public void StartTrafficLightHint(
+        CS_SAPoint trafficLightPoint)
+    {
+        SetCurrentSAPoint(
+            currentSAPoint:
+                trafficLightPoint,
+            source:
+                SAHintSource.TrafficLight
+        );
+    }
+
+    /// <summary>
+    /// 信号機から離れたとき、
+    /// または次のSA移動を開始するときに呼ぶ。
+    ///
+    /// 現在のヒントが信号機由来の場合だけ終了する。
+    /// ハイドポイント用ヒントは停止しない。
+    /// </summary>
+    public void StopTrafficLightHint()
+    {
+        if (_hintSource !=
+            SAHintSource.TrafficLight)
+        {
+            return;
+        }
+
+        StopHint();
+    }
+
+    // =========================================================
+    // 共通の表示状態
+    // =========================================================
+
+    /// <summary>
+    /// 現在いるSAポイントと、
+    /// ヒントを開始した入口を設定する。
+    /// </summary>
+    private void SetCurrentSAPoint(
+        CS_SAPoint currentSAPoint,
+        SAHintSource source)
+    {
+        if (currentSAPoint == null)
+        {
+            // StartHiding(null)などの場合は
+            // 現在の入口に対応する停止処理を行う。
+            if (source ==
+                SAHintSource.HidePoint)
+            {
+                StopHiding();
+            }
+            else if (source ==
+                     SAHintSource.TrafficLight)
+            {
+                StopTrafficLightHint();
+            }
+
+            return;
+        }
+
+        bool stateChanged =
+            !_isHintActive;
+
+        bool pointChanged =
+            _currentSAPoint !=
+            currentSAPoint;
+
+        bool sourceChanged =
+            _hintSource != source;
+
+        _isHintActive = true;
+
+        _currentSAPoint =
+            currentSAPoint;
+
+        _hintSource = source;
+
+        if (stateChanged ||
+            pointChanged ||
+            sourceChanged)
+        {
+            RefreshTargets();
+        }
+    }
+
+    /// <summary>
+    /// 現在のSAヒントを終了する共通処理。
+    /// </summary>
+    private void StopHint()
+    {
+        if (!_isHintActive &&
+            _currentSAPoint == null &&
+            _hintSource ==
+            SAHintSource.None)
+        {
+            return;
+        }
+
+        _isHintActive = false;
+
+        _currentSAPoint = null;
+
+        _hintSource =
+            SAHintSource.None;
+
+        ClearTargets();
+    }
+
+    /// <summary>
+    /// ハイドポイント・信号機の種類を問わず、
+    /// 現在のSAヒントを強制終了する。
+    ///
+    /// 死亡、プレイヤー無効化、Model破棄時などに使用する。
+    /// </summary>
+    public void StopAllHints()
+    {
+        StopHint();
+    }
+
+    // =========================================================
     // SAポイント検索
     // =========================================================
 
@@ -326,11 +484,12 @@ public sealed class CS_UISAHintModel :
     ///
     /// ・CS_SAPoint.activePointsから検索する
     /// ・距離計算にはstandPositionを使用する
-    /// ・現在隠れているSAポイントは除外する
+    /// ・現在いるSAポイントは除外する
     /// </summary>
     public void RefreshTargets()
     {
-        if (!_isHiding ||
+        if (!_isHintActive ||
+            _currentSAPoint == null ||
             _player == null ||
             _data == null)
         {
@@ -351,8 +510,9 @@ public sealed class CS_UISAHintModel :
         Vector3 playerPosition =
             _player.position;
 
-        IReadOnlyList<CS_SAPoint> activePoints =
-            CS_SAPoint.activePoints;
+        IReadOnlyList<CS_SAPoint>
+            activePoints =
+                CS_SAPoint.activePoints;
 
         if (activePoints == null)
         {
@@ -378,9 +538,9 @@ public sealed class CS_UISAHintModel :
                 continue;
             }
 
-            // 現在隠れているSA自身は案内しない。
+            // 現在いるSA自身は案内しない。
             if (saPoint ==
-                _currentHidingPoint)
+                _currentSAPoint)
             {
                 continue;
             }
@@ -522,8 +682,11 @@ public sealed class CS_UISAHintModel :
 
         _pointDistanceBuffer.Clear();
 
-        _currentHidingPoint = null;
+        _isHintActive = false;
 
-        _isHiding = false;
+        _currentSAPoint = null;
+
+        _hintSource =
+            SAHintSource.None;
     }
 }

@@ -70,6 +70,7 @@ GameObject:
   - component: {fileID: 1153621398760505636}
   - component: {fileID: 3618917485198117787}
   - component: {fileID: 387243062822567825}
+  - component: {fileID: 338409013222301893}
   - component: {fileID: 6719901807448412688}
   m_Layer: 31
   m_Name: Player
@@ -1221,6 +1222,7 @@ MonoBehaviour:
   _startPitch: -20
   _startDistance: 2.2
   _startPivotHeight: 0.9
+--- !u!114 &338409013222301893
 --- !u!114 &6719901807448412688
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1230,6 +1232,10 @@ MonoBehaviour:
   m_GameObject: {fileID: 1825699444668748530}
   m_Enabled: 1
   m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 415a85cc2d67d2e4bb9e1dfa57b5cadc, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CS_PlayerRideSAPoint
+  _rayLength: 0.4
   m_Script: {fileID: 11500000, guid: dfab308bf996e7a4cbbba144eda4911d, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::CS_PlayerSAHintUI

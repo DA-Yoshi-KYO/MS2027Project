@@ -44,6 +44,20 @@ public static partial class CSED_FieldMultiLayoutGenerator
     [MenuItem("Tools/Police/警察のグループを新しい街に合わせて直す・足す")]
     private static void RefitPolice()
     {
+        RefitPoliceCore(true);
+    }
+
+    /// <summary>
+    /// 警察のグループの、巡回ポイントの浮き・埋まり・建物の貫通だけを直すメソッド(グループは足さない)
+    /// </summary>
+    [MenuItem("Tools/Police/警察の巡回ルートの浮き・埋まりだけ直す(足さない)")]
+    private static void RefitPoliceWithoutAdding()
+    {
+        RefitPoliceCore(false);
+    }
+
+    private static void RefitPoliceCore(bool addSquads)
+    {
         _report = new StringBuilder();
         _policeFaction = new List<Vector3>();
         _squadPoints = new List<Vector3>();
@@ -134,6 +148,8 @@ public static partial class CSED_FieldMultiLayoutGenerator
             int number = 0;
             foreach (CS_VillainSpawnPoint villain in _multi.GetComponentsInChildren<CS_VillainSpawnPoint>(true))
             {
+                if (!addSquads) break;
+
                 Vector3 position = villain.transform.position;
                 if (MinDistanceToPoliceFaction(position) <= _policeCoverDistance) continue;
 
@@ -145,7 +161,7 @@ public static partial class CSED_FieldMultiLayoutGenerator
 
             // 4) 空いている所に、グループを足す
             int extra = 0;
-            for (int area = 0; area < _areaCenters.Count; area++)
+            for (int area = 0; area < _areaCenters.Count && addSquads; area++)
             {
                 for (int k = 0; k < _refitExtraPerArea; k++)
                 {

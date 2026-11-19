@@ -1,0 +1,45 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: fa4b329add8b2ab489f636ec9ceceace, type: 3}
+  m_Name: DB_VillainPatrol_VillainSpawnPoint_77
+  m_EditorClassIdentifier: Assembly-CSharp::CSO_VillainPatrolPattern
+  _routes:
+  - _color: {r: 0.8392157, g: 0.27058825, b: 0.23137255, a: 1}
+    _loopMode: 0
+    _speed: 1.5
+    _startAngle: 0
+    _points:
+    - _localPosition: {x: 4.3736725, y: -6.141403, z: -0.5094681}
+      _actions: []
+    - _localPosition: {x: 11.666824, y: -6.141403, z: -8.022919}
+      _actions: []
+    - _localPosition: {x: 15.307709, y: -6.141403, z: -3.2713394}
+      _actions: []
+    _formation:
+      _followerCount: 0
+      _shape: 1
+      _spacing: 1.5
+  - _color: {r: 0.18431373, g: 0.43529412, b: 0.8392157, a: 1}
+    _loopMode: 0
+    _speed: 1.5
+    _startAngle: 0
+    _points:
+    - _localPosition: {x: -5.3681946, y: -6.141403, z: 5.042534}
+      _actions: []
+    - _localPosition: {x: 3.2306595, y: -6.141403, z: 2.8889008}
+      _actions: []
+    - _localPosition: {x: 3.0997849, y: -6.141403, z: 8.473038}
+      _actions: []
+    _formation:
+      _followerCount: 0
+      _shape: 1
+      _spacing: 1.5

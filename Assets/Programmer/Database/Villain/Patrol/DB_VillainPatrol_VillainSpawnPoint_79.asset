@@ -1,0 +1,75 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: fa4b329add8b2ab489f636ec9ceceace, type: 3}
+  m_Name: DB_VillainPatrol_VillainSpawnPoint_79
+  m_EditorClassIdentifier: Assembly-CSharp::CSO_VillainPatrolPattern
+  _routes:
+  - _color: {r: 0.8392157, g: 0.27058825, b: 0.23137255, a: 1}
+    _loopMode: 0
+    _speed: 1.5
+    _startAngle: 0
+    _points:
+    - _localPosition: {x: 0, y: -6.2, z: 0}
+      _actions: []
+    - _localPosition: {x: -16.052021, y: -6.0676446, z: 3.6458817}
+      _actions: []
+    - _localPosition: {x: 2.2173347, y: -6.062918, z: 19.949615}
+      _actions: []
+    _formation:
+      _followerCount: 0
+      _shape: 1
+      _spacing: 1.5
+  - _color: {r: 0.18431373, g: 0.43529412, b: 0.8392157, a: 1}
+    _loopMode: 0
+    _speed: 1.5
+    _startAngle: 0
+    _points:
+    - _localPosition: {x: -3.4120674, y: -6.060382, z: 50.51024}
+      _actions: []
+    - _localPosition: {x: -1.1659584, y: -6.0689154, z: 30.623833}
+      _actions: []
+    - _localPosition: {x: -25.008419, y: -6.1234684, z: 41.12216}
+      _actions: []
+    _formation:
+      _followerCount: 0
+      _shape: 1
+      _spacing: 1.5
+  - _color: {r: 0.05882353, g: 0.6039216, b: 0.44705883, a: 1}
+    _loopMode: 0
+    _speed: 1.5
+    _startAngle: 0
+    _points:
+    - _localPosition: {x: -6.05344, y: -6.0868235, z: 23.142273}
+      _actions: []
+    - _localPosition: {x: -36.00903, y: -6.0734615, z: 4.0113983}
+      _actions: []
+    - _localPosition: {x: -33.563705, y: -6.1170835, z: 36.366272}
+      _actions: []
+    _formation:
+      _followerCount: 0
+      _shape: 1
+      _spacing: 1.5
+  - _color: {r: 0.5411765, g: 0.33333334, b: 0.8392157, a: 1}
+    _loopMode: 0
+    _speed: 1.5
+    _startAngle: 0
+    _points:
+    - _localPosition: {x: -25.905735, y: -6.1141763, z: 22.257118}
+      _actions: []
+    - _localPosition: {x: -5.343382, y: -6.05807, z: 5.8364563}
+      _actions: []
+    - _localPosition: {x: -9.401671, y: -6.085458, z: 42.44609}
+      _actions: []
+    _formation:
+      _followerCount: 0
+      _shape: 1
+      _spacing: 1.5

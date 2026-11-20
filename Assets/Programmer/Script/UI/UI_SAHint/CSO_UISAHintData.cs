@@ -34,6 +34,11 @@ public sealed class CSO_UISAHintData :
     [SerializeField]
     private float _searchDistance = 50f;
 
+    [Tooltip("プレイヤーからこの距離より近いSAポイントは案内しない(近すぎるSAを除く)")]
+    [Min(0f)]
+    [SerializeField]
+    private float _minimumDistance = 2f;
+
     [Tooltip("同時に表示する最大矢印数")]
     [Range(1, 3)]
     [SerializeField]
@@ -104,6 +109,9 @@ public sealed class CSO_UISAHintData :
     public float searchDistance =>
         _searchDistance;
 
+    public float minimumDistance =>
+        _minimumDistance;
+
     public int maximumDisplayCount =>
         _maximumDisplayCount;
 
@@ -166,6 +174,13 @@ public sealed class CSO_UISAHintData :
     {
         _searchDistance =
             Mathf.Max(
+                0f,
+                _searchDistance
+            );
+
+        _minimumDistance =
+            Mathf.Clamp(
+                _minimumDistance,
                 0f,
                 _searchDistance
             );

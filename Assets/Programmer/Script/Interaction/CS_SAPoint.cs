@@ -88,6 +88,9 @@ public abstract class CS_SAPoint : MonoBehaviour
         _activePoints.Clear();
     }
 
+    // SAできる範囲の箱(SAReachBox)が設定されているか(空ならSAできないポイント)
+    public bool hasSAReachBox => _SAReachBox != null;
+
     // positionが、SAできる範囲の箱(SAReachBox)の中にあるか
     public bool IsInSAReachBox(Vector3 position)
     {

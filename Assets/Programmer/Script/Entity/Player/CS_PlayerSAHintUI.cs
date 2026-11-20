@@ -14,8 +14,8 @@
  * ・UIの使い方はClaudeDocs/SAHintUI_使い方.md
  * ・「隠れている」は、体の中心がハイドポイントの隠れられる箱の中にある間(CS_PlayerHide.currentHidePoint。CS_PlayerHide.isHiddenと同じ条件)
  *   isHiddenはサーバーが決めて同期する値のため、クライアントだと表示が遅れる。ここでは自分の手元でその場で調べる
- *   隠れている間はStartHiding(今いるSAポイント)を呼び、そのSAポイント自身は案内しない。箱から出た時・倒れた時はStopHiding()
- *   信号機など、隠れられる箱を持たないSAポイントの上にいる時は出さない(隠れている扱いにならないため)
+ *   隠れている間(箱の中)に加え、SAで着いたSAポイント(信号機など種類を問わない。CS_PlayerHide.arrivedPoint)の上にいる間も出す
+ *   今いるSAポイントをStartHint(今いるSAポイント)で渡し、そのSAポイント自身は案内しない。箱から出た時・着いた位置から離れた時・ジャンプした時・次のSAを始めた時・倒れた時はStopHint()
  * ・SAヒントは自分の画面に1つのため、自分(isLocalPlayer)のプレイヤーだけがModelを作ってBindする
  *   isLocalPlayerはスポーン後に決まるため、毎フレーム確かめて、自分のプレイヤーになった時にBindする
  * ・調整値(探す距離・矢印の数・楕円の大きさなど)はデータ(DB_SAHint。CSO_UISAHintData)で決める。矢印の見た目はUICanvas側(SAHint)
@@ -57,9 +57,18 @@ public class CS_PlayerSAHintUI : MonoBehaviour
 
         if (_model == null && !BindHintUI()) return;
 
-        CS_SAPoint point = IsDead() ? null : _hide.currentHidePoint;
-        if (point != null) _model.StartHiding(point);   // 同じSAポイントのままなら、Model側で何もしない
-        else _model.StopHiding();
+        CS_SAPoint point = IsDead() ? null : GetCurrentPoint();
+        if (point != null) _model.StartHint(point);   // 同じSAポイントのままなら、Model側で何もしない
+        else _model.StopHint();
+    }
+
+    // 今いるSAポイント。隠れられる箱の中のSAポイントを優先し、無ければSAで着いたSAポイント(信号機など種類を問わない)
+    private CS_SAPoint GetCurrentPoint()
+    {
+        CS_SAPoint hidePoint = _hide.currentHidePoint;
+        if (hidePoint != null) return hidePoint;
+
+        return _hide.arrivedPoint;
     }
 
     // SAヒントUIのModelを作って公開する(カメラがまだ無ければ、次のフレームでやり直す)

@@ -7,6 +7,7 @@
  * ================================================ */
 
 using System.Collections.Generic;
+using UnityEngine;
 
 /// <summary>
 /// 通知の種類
@@ -30,7 +31,13 @@ public class CS_NotificationData
     private string _message;
     private readonly List<string> _killedPlayerNames = new();
 
+    // 追加: 時間通知で使う帯画像(未指定ならnull)
+    private Sprite _backSprite;
+
     public CSE_NotificationType type => _type;
+
+    /// <summary>追加: 時間通知で指定された帯画像。未指定ならnull</summary>
+    public Sprite backSprite => _backSprite;
 
     public string message
     {
@@ -55,6 +62,23 @@ public class CS_NotificationData
     public void SetMessage(string message)
     {
         _message = message;
+    }
+
+    /// <summary>
+    /// 追加: 時間通知を作る。帯画像を指定すると、その画像で表示される。
+    /// nullなら従来のTimeAlert用の画像になる。
+    /// </summary>
+    public static CS_NotificationData CreateTimeAlert(
+        string message,
+        Sprite backSprite)
+    {
+        var data = new CS_NotificationData(
+            CSE_NotificationType.TimeAlert,
+            message
+        );
+
+        data._backSprite = backSprite;
+        return data;
     }
 
     public static CS_NotificationData CreateKill(string playerName)
@@ -89,4 +113,3 @@ public class CS_NotificationData
             AddKilledPlayer(playerName);
     }
 }
-

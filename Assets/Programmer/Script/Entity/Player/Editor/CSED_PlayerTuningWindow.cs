@@ -354,27 +354,40 @@ public class CSED_PlayerTuningWindow : EditorWindow
         // 必殺技
         EditorGUILayout.Space(8f);
         DrawProperty(characterObject, new FieldDef("_specialName", "必殺技の名前", ""));
-        SerializedProperty attackProperty = characterObject.FindProperty("_specialAttack");
-        EditorGUILayout.PropertyField(attackProperty, new GUIContent("必殺技の攻撃のデータ", "未設定なら、Player.prefabの共通の必殺技の攻撃を使う"));
-        CSO_AttackData attack = attackProperty.objectReferenceValue as CSO_AttackData;
-        if (attack != null)
+        SerializedProperty hasAttackProperty = characterObject.FindProperty("_hasSpecialAttack");
+        EditorGUILayout.PropertyField(hasAttackProperty, new GUIContent("必殺技で攻撃する", "オン: 攻撃のモーションを出し、当たる瞬間に効果が始まる(アブなど)\nオフ:ボタンを押した瞬間に効果だけが始まる(ギロ・イシュなど。攻撃のモーション・ダメージは無い)"));
+        if (hasAttackProperty.boolValue)
         {
-            DrawSharedWarning(attack, c => c.specialAttack, () => attackProperty.objectReferenceValue = CopyAsset(attack, character.name + "_Special"));
-            DrawFields(GetSerialized(attack), _attackFields, "_comboWindow");
+            SerializedProperty attackProperty = characterObject.FindProperty("_specialAttack");
+            EditorGUILayout.PropertyField(attackProperty, new GUIContent("必殺技の攻撃のデータ", "未設定なら、Player.prefabの共通の必殺技の攻撃を使う"));
+            CSO_AttackData attack = attackProperty.objectReferenceValue as CSO_AttackData;
+            if (attack != null)
+            {
+                DrawSharedWarning(attack, c => c.specialAttack, () => attackProperty.objectReferenceValue = CopyAsset(attack, character.name + "_Special"));
+                DrawFields(GetSerialized(attack), _attackFields, "_comboWindow");
+            }
+            else
+            {
+                CSO_AttackData commonAttack = GetCommonSpecialAttack();
+                DrawCommonNotice("必殺技の攻撃", commonAttack, () => attackProperty.objectReferenceValue = CopyAsset(commonAttack, character.name + "_Special"));
+                if (commonAttack != null) DrawFields(GetSerialized(commonAttack), _attackFields, "_comboWindow");
+            }
         }
         else
         {
-            CSO_AttackData commonAttack = GetCommonSpecialAttack();
-            DrawCommonNotice("必殺技の攻撃", commonAttack, () => attackProperty.objectReferenceValue = CopyAsset(commonAttack, character.name + "_Special"));
-            if (commonAttack != null) DrawFields(GetSerialized(commonAttack), _attackFields, "_comboWindow");
+            EditorGUILayout.HelpBox("効果だけの必殺技: ボタンを押した瞬間にゲージを使い、下の効果が始まります(攻撃はしません)", MessageType.None);
         }
 
         // 必殺技の効果
         EditorGUILayout.Space(4f);
         SerializedProperty effect = characterObject.FindProperty("_specialEffect");
-        EditorGUILayout.PropertyField(effect, new GUIContent("使った後の効果", "必殺技が当たった瞬間から、効果時間のあいだ続く"));
+        EditorGUILayout.PropertyField(effect, new GUIContent("使った後の効果", "攻撃する必殺技は当たった瞬間から、効果だけの必殺技は使った瞬間から、効果時間のあいだ続く"));
         CSE_PlayerSpecialEffect effectType = (CSE_PlayerSpecialEffect)effect.enumValueIndex;
         EditorGUILayout.HelpBox(GetEffectDescription(effectType), MessageType.None);
+        if (!characterObject.FindProperty("_hasSpecialAttack").boolValue && effectType == CSE_PlayerSpecialEffect.None)
+        {
+            EditorGUILayout.HelpBox("攻撃せず、効果も「なし」なので、必殺技を使ってもゲージが減るだけです", MessageType.Warning);
+        }
         if (effectType != CSE_PlayerSpecialEffect.None)
         {
             DrawProperty(characterObject, new FieldDef("_effectDuration", "効果時間(秒)", ""));
@@ -614,11 +627,11 @@ public class CSED_PlayerTuningWindow : EditorWindow
     {
         switch (effect)
         {
-            case CSE_PlayerSpecialEffect.FrontalAmbush: return "正面から奇襲: 奇襲の「背後か上」の条件を見ない(気づかれていない・距離の条件は残る)";
+            case CSE_PlayerSpecialEffect.FrontalAmbush: return "正面から奇襲: 奇襲の「気づかれていない」「背後か上」の条件を見ない(見られていても奇襲できる。距離・間に壁が無いことの条件は残る)";
             case CSE_PlayerSpecialEffect.StatusBoost: return "身体能力の強化: 移動速度・スプリント速度・ジャンプ力・攻撃力・コンボの速さに倍率を掛ける";
             case CSE_PlayerSpecialEffect.RevealAll: return "全員が見える: 全ての悪人グループ・警察・巡回ドローンが、スキャンと同じ表示で見え続ける(使った本人の画面のみ)";
-            case CSE_PlayerSpecialEffect.HiddenFromPolice: return "警察に見つからない: 警察の視界に入っても見つからない";
-            default: return "効果なし: 必殺技の攻撃だけ";
+            case CSE_PlayerSpecialEffect.HiddenFromPolice: return "警察に見つからない: 警察・巡回ドローンの視界に入っても見つからない(ストリートライト・レーザーを無視するのは、警察側の対応待ち)";
+            default: return "効果なし: 必殺技の攻撃だけ(効果だけの必殺技なら、何も起きない)";
         }
     }
 
@@ -698,12 +711,12 @@ public class CSED_PlayerTuningWindow : EditorWindow
 
         EnsureFolder(_characterFolder);
 
-        (string file, string name, string special, CSE_PlayerSpecialEffect effect, Color color)[] definitions =
+        (string file, string name, string special, bool hasAttack, CSE_PlayerSpecialEffect effect, Color color)[] definitions =
         {
-            ("Giro", "ギロ", "ギロチン", CSE_PlayerSpecialEffect.FrontalAmbush, new Color(0.85f, 0.25f, 0.3f)),
-            ("Abu", "アブ", "火炙り", CSE_PlayerSpecialEffect.StatusBoost, new Color(1f, 0.55f, 0.15f)),
-            ("Keith", "キース", "電気椅子", CSE_PlayerSpecialEffect.RevealAll, new Color(0.3f, 0.75f, 1f)),
-            ("Ishu", "イシュ", "首吊り", CSE_PlayerSpecialEffect.HiddenFromPolice, new Color(0.6f, 0.4f, 0.9f)),
+            ("Giro", "ギロ", "ギロチン", false, CSE_PlayerSpecialEffect.FrontalAmbush, new Color(0.85f, 0.25f, 0.3f)),
+            ("Abu", "アブ", "火炙り", true, CSE_PlayerSpecialEffect.StatusBoost, new Color(1f, 0.55f, 0.15f)),
+            ("Keith", "キース", "電気椅子", false, CSE_PlayerSpecialEffect.RevealAll, new Color(0.3f, 0.75f, 1f)),
+            ("Ishu", "イシュ", "首吊り", false, CSE_PlayerSpecialEffect.HiddenFromPolice, new Color(0.6f, 0.4f, 0.9f)),
         };
 
         CSO_PlayableCharacterRoster roster = CreateInstance<CSO_PlayableCharacterRoster>();
@@ -711,7 +724,7 @@ public class CSED_PlayerTuningWindow : EditorWindow
         SerializedObject rosterObject = new SerializedObject(roster);
         SerializedProperty characters = rosterObject.FindProperty("_characters");
 
-        foreach ((string file, string name, string special, CSE_PlayerSpecialEffect effect, Color color) in definitions)
+        foreach ((string file, string name, string special, bool hasAttack, CSE_PlayerSpecialEffect effect, Color color) in definitions)
         {
             CSO_PlayableCharacter character = CreateInstance<CSO_PlayableCharacter>();
             AssetDatabase.CreateAsset(character, AssetDatabase.GenerateUniqueAssetPath($"{_characterFolder}/DB_Character_{file}.asset"));
@@ -720,6 +733,7 @@ public class CSED_PlayerTuningWindow : EditorWindow
             characterObject.FindProperty("_displayName").stringValue = name;
             characterObject.FindProperty("_themeColor").colorValue = color;
             characterObject.FindProperty("_specialName").stringValue = special;
+            characterObject.FindProperty("_hasSpecialAttack").boolValue = hasAttack;
             characterObject.FindProperty("_specialEffect").enumValueIndex = (int)effect;
             characterObject.FindProperty("_memo").stringValue = "仕様書「プレイヤー」の必殺技の効果一覧(予定)から作成。数値は仮";
             characterObject.ApplyModifiedPropertiesWithoutUndo();

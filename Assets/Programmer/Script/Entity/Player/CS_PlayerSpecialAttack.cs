@@ -25,6 +25,9 @@ using UnityEngine;
  * ・ダメージ倍率はCS_PlayerStats.specialAttackPowerを使う(通常攻撃のattackPowerとは別枠)
  * ・キャラクター(CS_PlayerCharacter)が付いていて、そのキャラクターに必殺技の攻撃が設定されていれば、Special Attack Dataの代わりにそれを使う
  * ・ゲージを消費した時(必殺技が決まった時)にonSpecialActivatedを出す(サーバー、またはオフラインのみ)。キャラクターごとの効果が始まる
+ * ・キャラクターの必殺技が「効果だけ」(CSO_PlayableCharacter.hasSpecialAttackがfalse。ギロ・イシュなど)の時は、攻撃のモーションを出さず、
+ *   ボタンを押した瞬間にサーバーへ頼んでゲージを消費し、onSpecialActivatedを出す(効果が始まる)。onSpecialStarted・onSpecialHitTimingは出さない
+ *   (攻撃の見た目・エイムアシストの踏み込み・カメラの揺れが出ないように)。本人の手元ではonEffectOnlyUsedを出す(カットインなどの演出用)
  */
 // ========================================
 
@@ -41,6 +44,7 @@ public class CS_PlayerSpecialAttack : NetworkBehaviour
 
     private const int _specialStepIndex = -1;   // AttackContext上で「必殺技」を表す値
     private const int _hitBufferSize = 16;
+    private const float _effectOnlyLockTime = 0.5f;   // 「効果だけ」の必殺技を使った後、もう一度使えるようになるまでの秒数(ゲージの同期待ち)
 
     private CS_Player _player;
     private CS_PlayerStats _stats;
@@ -54,6 +58,7 @@ public class CS_PlayerSpecialAttack : NetworkBehaviour
     private bool _isPerforming;
     private float _elapsed;
     private bool _hasHit;
+    private float _effectOnlyLockUntil;   // 「効果だけ」の必殺技を使ってから、ゲージが同期されるまで連打で何度も出さないための時刻
 
     public bool isPerformingSpecial => _isPerforming;   // 必殺技中か(CS_PlayerAttackが参照)
 
@@ -63,6 +68,8 @@ public class CS_PlayerSpecialAttack : NetworkBehaviour
     public event System.Action onSpecialHitTiming;
     // ゲージを消費して必殺技が決まった時(サーバー、またはオフラインのみ)。キャラクターごとの効果(CS_PlayerCharacter)が購読する
     public event System.Action onSpecialActivated;
+    // 「効果だけ」の必殺技を使った時(操作しているクライアントでだけ発生する)。カットインなどの演出用
+    public event System.Action onEffectOnlyUsed;
     // 今使う必殺技の攻撃(キャラクターに設定されていればそれ、無ければSpecial Attack Data)
     public CSO_AttackData specialAttackData
     {
@@ -73,6 +80,15 @@ public class CS_PlayerSpecialAttack : NetworkBehaviour
         }
     }
     public LayerMask targetLayers => _targetLayers;     // ダメージを与える対象のレイヤー(カメラの揺れの当たり確認にも使う)
+    // 今のキャラクターの必殺技が攻撃するか(キャラクターが無ければ攻撃する)
+    public bool usesAttack
+    {
+        get
+        {
+            CSO_PlayableCharacter character = _character != null ? _character.currentCharacter : null;
+            return character == null || character.hasSpecialAttack;
+        }
+    }
 
     private void Awake()
     {
@@ -103,7 +119,8 @@ public class CS_PlayerSpecialAttack : NetworkBehaviour
 
         if (!_isPerforming && _gauge.isFull && _player.specialAction.WasPressedThisFrame())
         {
-            StartSpecial();
+            if (usesAttack) StartSpecial();
+            else UseEffectOnly();
         }
 
         UpdateSpecial();
@@ -116,6 +133,35 @@ public class CS_PlayerSpecialAttack : NetworkBehaviour
         _elapsed = 0f;
         _hasHit = false;
         onSpecialStarted?.Invoke();
+    }
+
+    // 「効果だけ」の必殺技: 攻撃のモーションを出さず、その場でゲージの消費をサーバーへ頼む(効果はonSpecialActivatedで始まる)
+    private void UseEffectOnly()
+    {
+        if (Time.time < _effectOnlyLockUntil) return;
+        _effectOnlyLockUntil = Time.time + _effectOnlyLockTime;
+
+        onEffectOnlyUsed?.Invoke();
+
+        if (!IsSpawned) Activate();   // オフライン(テストシーン)
+        else ActivateRpc();
+    }
+
+    // Ownerからサーバーへ、「効果だけ」の必殺技の発動を依頼する
+    [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Owner)]
+    private void ActivateRpc()
+    {
+        Activate();
+    }
+
+    // ゲージが満タンかを再確認しつつ消費し、必殺技が決まったことを知らせる(サーバー、またはオフラインで実行される)
+    // 満タンでなければ(連打した時など)何もしない
+    private bool Activate()
+    {
+        if (!_gauge.TryConsumeFull()) return false;
+
+        onSpecialActivated?.Invoke();
+        return true;
     }
 
     // 経過時間を進め、判定の発生とモーション終了を管理する
@@ -165,8 +211,7 @@ public class CS_PlayerSpecialAttack : NetworkBehaviour
     // ゲージが満タンかを再確認しつつ消費し、判定を行う(サーバー、またはオフラインで実行される)
     private void ExecuteHit(Vector3 position, Vector3 forward)
     {
-        if (!_gauge.TryConsumeFull()) return;
-        onSpecialActivated?.Invoke();
+        if (!Activate()) return;
 
         CSO_AttackData attackData = specialAttackData;
 

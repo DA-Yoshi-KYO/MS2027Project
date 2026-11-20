@@ -111,10 +111,10 @@ public class CS_PlayerScoring : NetworkBehaviour
     // 警察に見つかった時に、警察側から呼んでもらう(サーバー、またはオフラインのみ)
     public void ReportFoundByPolice()
     {
-        if (!CanScore()) return;
+        if (!this.IsServerOrOffline()) return;
 
         // 前に見つかってから_foundByPoliceInterval秒経っていなければ数えない
-        double now = GetCurrentTime();
+        double now = this.GetSyncedTime();
         if (now < _nextFoundByPoliceTime) return;
         _nextFoundByPoliceTime = now + _foundByPoliceInterval;
 
@@ -125,7 +125,7 @@ public class CS_PlayerScoring : NetworkBehaviour
     // 相手を倒した時の加算
     private void HandleDefeated(IDamageable target)
     {
-        if (!CanScore()) return;
+        if (!this.IsServerOrOffline()) return;
 
         if (target is CS_VillainHealth villain)
         {
@@ -240,20 +240,9 @@ public class CS_PlayerScoring : NetworkBehaviour
     // どこかの悪人グループに犯罪を完遂されたら減点する
     private void HandleCrimeCompleted(CS_VillainGroup group)
     {
-        if (!CanScore()) return;
+        if (!this.IsServerOrOffline()) return;
 
         _holder.AddCrimeCompleted(-_crimeCompletedPenalty);
-    }
-
-    // スコアを計算してよいか(サーバー、またはオフラインのみ)
-    private bool CanScore()
-    {
-        return !IsSpawned || IsServer;
-    }
-
-    private double GetCurrentTime()
-    {
-        return IsSpawned ? NetworkManager.ServerTime.Time : Time.timeAsDouble;
     }
 
     private void OnValidate()

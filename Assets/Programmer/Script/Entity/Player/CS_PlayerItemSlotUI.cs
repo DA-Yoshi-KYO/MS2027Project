@@ -39,7 +39,7 @@ public class CS_PlayerItemSlotUI : NetworkBehaviour
     private void Start()
     {
         if (IsSpawned) return;
-        if (NetworkManager.Singleton != null && NetworkManager.Singleton.IsListening) return;
+        if (CS_PlayerNetwork.isOnline) return;
 
         if (!_player.isLocalPlayer) return;   // NPCはスロットUIに出さない
 

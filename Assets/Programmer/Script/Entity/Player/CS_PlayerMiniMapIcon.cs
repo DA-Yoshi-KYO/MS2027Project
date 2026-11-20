@@ -34,7 +34,7 @@ public class CS_PlayerMiniMapIcon : NetworkBehaviour
     private void Start()
     {
         if (IsSpawned) return;
-        if (NetworkManager.Singleton != null && NetworkManager.Singleton.IsListening) return;
+        if (CS_PlayerNetwork.isOnline) return;
 
         Register(GetComponent<CS_Player>().isLocalPlayer, $"Player_{GetInstanceID()}");
     }

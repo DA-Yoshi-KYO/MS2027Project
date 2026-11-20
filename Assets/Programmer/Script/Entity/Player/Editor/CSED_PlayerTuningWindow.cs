@@ -630,7 +630,7 @@ public class CSED_PlayerTuningWindow : EditorWindow
             case CSE_PlayerSpecialEffect.FrontalAmbush: return "正面から奇襲: 奇襲の「気づかれていない」「背後か上」の条件を見ない(見られていても奇襲できる。距離・間に壁が無いことの条件は残る)";
             case CSE_PlayerSpecialEffect.StatusBoost: return "身体能力の強化: 移動速度・スプリント速度・ジャンプ力・攻撃力・コンボの速さに倍率を掛ける";
             case CSE_PlayerSpecialEffect.RevealAll: return "全員が見える: 全ての悪人グループ・警察・巡回ドローンが、スキャンと同じ表示で見え続ける(使った本人の画面のみ)";
-            case CSE_PlayerSpecialEffect.HiddenFromPolice: return "警察に見つからない: 警察・巡回ドローンの視界に入っても見つからない(ストリートライト・レーザーを無視するのは、警察側の対応待ち)";
+            case CSE_PlayerSpecialEffect.HiddenFromPolice: return "警察に見つからない: 警察・巡回ドローン・ストリートライト・レーザーの全てに見つからない(レーザーのダメージ・ドローンのテーザーも受けない)";
             default: return "効果なし: 必殺技の攻撃だけ(効果だけの必殺技なら、何も起きない)";
         }
     }

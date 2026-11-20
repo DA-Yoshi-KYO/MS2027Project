@@ -22,8 +22,8 @@ using UnityEngine;
  *     身体能力の強化   : ここ(サーバー)でCS_PlayerStats.SetSpecialBoostRateを掛け、終わったら1に戻す
  *     全員が見える     : CS_PlayerScanが、全ての悪人グループ・警察・巡回ドローンを見えている状態にする(使った本人の画面のみ)
  *     警察に見つからない: CS_PlayerTransformationが、変身中のタグを外す(警察の視界は変身中のタグのプレイヤーだけを見つける)
- *                       仕様では警察だけでなく、ストリートライト・レーザー・ドローンも全て無視できる。警察・ドローンの視界はタグで外れるが、
- *                       ライト・レーザーはタグを見ずに直接見つける(レーザーはダメージも与える)ため、警察側でIsHiddenFromPolice()を見てもらう必要がある
+ *                       仕様では警察だけでなく、ストリートライト・レーザー・ドローンも全て無視できる。警察・ドローンの視界はタグで外れ、
+ *                       ライト・レーザー・ドローンのテーザー・警戒の報告は、警察側(CS_PoliceVision.IsHiddenFromPolice)がこの効果を見て無視する
  * ・効果の残り時間は、サーバーの時刻での終わる時刻で持つ(オフラインではTime.timeAsDouble)。番号と同じく、サーバー(とオフライン)は
  *   _serverEffectEndTimeで持ち、スポーン中はNetworkVariable(_effectEndTime)にも書いて全員に同期する
  */
@@ -89,12 +89,6 @@ public class CS_PlayerCharacter : NetworkBehaviour
         if (_transformation != null) _transformation.SetHiddenFromPolice(IsEffectActive(CSE_PlayerSpecialEffect.HiddenFromPolice));
 
         UpdateBoost();
-    }
-
-    // プレイヤーが、必殺技の「警察に見つからない」効果の間か(イシュ。警察・防犯装置の側から呼ぶ用。効果の残り時間は同期されているので、どこで呼んでもよい)
-    public static bool IsHiddenFromPolice(Component player)
-    {
-        return player != null && player.TryGetComponent(out CS_PlayerCharacter character) && character.IsEffectActive(CSE_PlayerSpecialEffect.HiddenFromPolice);
     }
 
     // この効果が今続いているか

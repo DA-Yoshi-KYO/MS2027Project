@@ -33,10 +33,15 @@ public class CS_TimerController : NetworkBehaviour
 
         [SerializeField] private string _message = "残り1分！";
 
+        // 追加: この通知で使う帯画像
+        [Tooltip("この通知で使う帯の画像。空なら従来の時間通知の画像")]
+        [SerializeField] private Sprite _backSprite;
+
         [NonSerialized] private bool _hasNotified;
 
         public float remainingSeconds => _remainingSeconds;
         public string message => _message;
+        public Sprite backSprite => _backSprite; // 追加
         public bool hasNotified => _hasNotified;
 
         public void MarkAsNotified()
@@ -258,7 +263,9 @@ public class CS_TimerController : NetworkBehaviour
                 continue;
 
             setting.MarkAsNotified();
-            _notificationController.ShowTimeAlert(setting.message);
+
+            // 変更: 帯画像も一緒に渡す
+            _notificationController.ShowTimeAlert(setting.message, setting.backSprite);
         }
     }
 

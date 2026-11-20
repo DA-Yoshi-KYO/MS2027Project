@@ -114,11 +114,18 @@ public class CSED_PlayerTuningWindow : EditorWindow
             new FieldDef("_groundDeceleration", "地上の減速(m/秒²)", "止まる・遅くなる速さ。大きいほどすぐ止まる。0で離した瞬間に止まる(以前の動き)"),
             new FieldDef("_airAcceleration", "空中の加速(m/秒²)", "空中で入力の方向へ曲がる速さ。0ですぐ入力の速さ(以前の動き)"),
             new FieldDef("_followSlope", "坂に沿って動く", "坂で地面に沿って動き、止まったらその場に止まる(下り坂で跳ねない・滑らない)"),
+            new FieldDef("_stepDownHeight", "吸い付いて下りる段差の高さ(m)", "この高さまでの段差は、下りる時に宙に浮かず、下の地面へ足を吸い付ける。0で吸い付けない(以前の動き)"),
+            new FieldDef("_suppressStepBounce", "段差を登っても跳ねない", "ジャンプしていないのに付いた上向きの勢い(段差の角で押し上げられた分)を消す。オフで以前の動き"),
             new FieldDef("_coyoteTime", "足場から出た後もジャンプできる時間(秒)", "段差の端から出た直後でも跳べる猶予。0で猶予なし"),
             new FieldDef("_jumpBufferTime", "着地前のジャンプを覚えておく時間(秒)", "着地の少し前に押したジャンプを、着地した時に跳ぶ。0で覚えない"),
             new FieldDef("_cameraVerticalSmoothTime", "カメラが上下に追う遅れ(秒)", "ジャンプ・段差でカメラがカクッと動かないよう、高さだけ少し遅れて追う。0で遅れなし"),
             new FieldDef("_mouseSensitivity", "マウスの感度", "マウスを動かした量に対するカメラの回る量"),
             new FieldDef("_stickSensitivity", "スティックの感度(度/秒)", "右スティックを倒しきった時のカメラの回る速さ"),
+        }),
+        new Section("空中のモーション", typeof(CS_PlayerVisual), new[]
+        {
+            new FieldDef("_airborneDelay", "空中のモーションになるまでの時間(秒)", "接地していない状態がこの秒数続くまでは、空中のモーションにしない(段差の角で一瞬浮いただけで切り替わらないように)。ジャンプは待たない"),
+            new FieldDef("_stepHeight", "空中のモーションにしない段差の高さ(m)", "落ちている時、足元からこの高さ以内に地面があれば、空中のモーションにしない"),
         }),
         new Section("ブリンク(ダッシュボタン)", typeof(CS_Player), new[]
         {

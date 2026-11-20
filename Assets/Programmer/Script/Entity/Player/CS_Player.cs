@@ -54,6 +54,8 @@ using UnityEngine.InputSystem;
  *     (以前は押した瞬間に最高速・離した瞬間に完全停止。ごく短い加速・減速を入れて、細かい位置合わせをしやすくした。仕様の「慣性は少なめ」は守る値にしている)
  *     動く足場(CS_PlayerRideSAPoint)が足した速度は、加速の計算から除く(除かないと増え続ける)
  *   坂(_followSlope): 地上では地面の向き(_groundNormal)に沿って動き、入力が無い時はその場に止まる(下り坂で跳ねる・摩擦0で滑るのを防ぐ)
+ *   段差を下りる(_stepDownHeight): 低い段差を下りた瞬間は、宙に浮かず下の地面へ吸い付く(1物理フレームで下りる)。高い段差は普通に落ちる
+ *   段差を登る(_suppressStepBounce): ジャンプしていないのに付いた上向きの勢い(段差の角で押し上げられた分)を消す。走って段差を登った時に跳ねない
  *   ジャンプの猶予: 足場から出て_coyoteTime秒以内なら跳べる。着地前_jumpBufferTime秒以内に押したジャンプは、着地した時に跳ぶ
  *   カメラ: 追う高さだけ_cameraVerticalSmoothTime秒遅らせる(ジャンプ・段差でカクッと動かない)。SAで飛んでいる間・3m以上離れた時はすぐ合わせる
  *   接地の状態はFixedUpdateの最初に1回だけ調べる(UpdateGrounded。_isGroundedNow)
@@ -107,6 +109,8 @@ public class CS_Player : NetworkBehaviour
     [SerializeField][Min(0f)] private float _groundDeceleration = 80f;   // 地上で、止まる・遅くなる時の減速度(m/秒²)。0ならすぐ止まる
     [SerializeField][Min(0f)] private float _airAcceleration = 40f;      // 空中で、入力の速さへ近づく加速度(m/秒²)。0ならすぐ入力の速さ
     [SerializeField] private bool _followSlope = true;                   // 坂では地面に沿って動き、止まったらその場に止まる(下り坂で跳ねない・滑らない)
+    [SerializeField][Min(0f)] private float _stepDownHeight = 0.4f;      // この高さまでの段差は、下りる時に宙に浮かず、下の地面へ足を吸い付ける(m)。0で吸い付けない
+    [SerializeField] private bool _suppressStepBounce = true;            // ジャンプしていないのに付いた上向きの勢い(段差の角で押し上げられた分)を消す(走って段差を登った時に跳ねないように)
     [SerializeField][Min(0f)] private float _coyoteTime = 0.12f;         // 足場から出た直後でも、ジャンプできる猶予(秒)
     [SerializeField][Min(0f)] private float _jumpBufferTime = 0.12f;     // 着地の少し前に押したジャンプを覚えておく時間(秒)
     [SerializeField][Min(0f)] private float _cameraVerticalSmoothTime = 0.1f;   // カメラが上下にプレイヤーを追う遅れ(秒。ジャンプ・段差でカメラがカクッと動かないように)
@@ -175,6 +179,7 @@ public class CS_Player : NetworkBehaviour
     private float _lastGroundedTime = float.NegativeInfinity;   // 最後に接地していた時刻(_coyoteTimeの判定に使う)
     private bool _hasJumpedSinceGrounded;   // 接地してから、もうジャンプしたか(猶予の間に2回跳ばないように)
     private bool _isGroundedNow;            // この物理フレームで接地しているか(FixedUpdateの最初に1回だけ調べる)
+    private bool _wasStanding;              // 前の物理フレームで地面に立っていたか(段差を下りた瞬間を見つけるため)
     private Vector3 _groundNormal = Vector3.up;   // 接地している地面の向き(坂に沿って動くのに使う)
     private float _cameraPivotY;            // カメラが追うプレイヤーの高さ(上下だけ遅れて追う)
     private float _cameraPivotYVelocity;
@@ -501,6 +506,7 @@ public class CS_Player : NetworkBehaviour
         _rigidbody.linearVelocity = exitVelocity;
         _airMomentum = new Vector3(exitVelocity.x, 0f, exitVelocity.z);
         _airMomentumDrag = Mathf.Max(0f, drag);
+        if (exitVelocity.y > 0f) _hasJumpedSinceGrounded = true;   // 上向きに放された時は跳んだ扱いにする(段差で跳ねないための、上向きの勢いを消す処理に消されないように)
     }
 
     // 位置を指定した位置へ合わせ、踏み込みと速度を止める(SAでハイドポイントに着いた時に使う)
@@ -829,10 +835,34 @@ public class CS_Player : NetworkBehaviour
             return;
         }
 
-        _rigidbody.linearVelocity = new Vector3(horizontal.x, velocity.y, horizontal.z);
+        _rigidbody.linearVelocity = new Vector3(horizontal.x, SuppressStepBounce(GetStepDownVelocity(velocity.y)), horizontal.z);
     }
 
-    // 自分で動いている分の水平の速度(動く足場に乗っている時は、前の物理フレームで足場が足した速度を除く。除かないと加速の計算で増え続ける)
+    // ジャンプしていないのに上へ動いている時(段差の角に当たって押し上げられた時)は、上向きの勢いを消す
+    // 段差の上へ登る分は当たり判定が押し上げてくれるので、残った勢いだけを消す(消さないと、登った勢いのまま段差の上へ飛び出して跳ねる)
+    private float SuppressStepBounce(float verticalVelocity)
+    {
+        if (!_suppressStepBounce || verticalVelocity <= 0f) return verticalVelocity;
+        if (_hasJumpedSinceGrounded || _jumpRequested) return verticalVelocity;   // ジャンプの上昇は消さない
+
+        return 0f;
+    }
+
+    // 低い段差を下りた瞬間(前の物理フレームでは立っていて、今は浮いている)は、下の地面まで1物理フレームで下りる速度にする
+    // (宙に浮いて落ちる間がなくなり、空中のモーションにもならない)。下の地面が_stepDownHeightより遠ければ、普通に落ちる
+    private float GetStepDownVelocity(float verticalVelocity)
+    {
+        if (_stepDownHeight <= 0f || _isGroundedNow || !_wasStanding || verticalVelocity > 0.1f || _jumpRequested) return verticalVelocity;
+
+        Vector3 origin = _collider.bounds.center;
+        float footDistance = _collider.bounds.extents.y;
+        if (!Physics.Raycast(origin, Vector3.down, out RaycastHit hit, footDistance + _stepDownHeight, _groundLayers, QueryTriggerInteraction.Ignore)) return verticalVelocity;
+
+        float gap = hit.distance - footDistance;
+        return Mathf.Min(verticalVelocity, -gap / Time.fixedDeltaTime);
+    }
+
+    // 自分で動いている分の水平の速度)(動く足場に乗っている時は、前の物理フレームで足場が足した速度を除く。除かないと加速の計算で増え続ける)
     private Vector3 GetOwnHorizontalVelocity(Vector3 velocity)
     {
         Vector3 horizontal = new Vector3(velocity.x, 0f, velocity.z);
@@ -916,6 +946,7 @@ public class CS_Player : NetworkBehaviour
     // この物理フレームの接地の状態を調べる(FixedUpdateの最初に1回)
     private void UpdateGrounded()
     {
+        _wasStanding = _isGroundedNow && _rigidbody.linearVelocity.y <= 0.1f;
         _isGroundedNow = TryGetGround(out RaycastHit hit);
         _groundNormal = _isGroundedNow ? hit.normal : Vector3.up;
         if (!_isGroundedNow || _rigidbody.linearVelocity.y > 0.1f) return;

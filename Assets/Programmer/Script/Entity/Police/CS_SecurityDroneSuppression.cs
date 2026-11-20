@@ -324,7 +324,7 @@ public class CS_SecurityDroneSuppression : NetworkBehaviour
 
     /// <summary>
     /// 光線の上にいる、一番近いプレイヤーを探すメソッド(ドローン自身は除く)
-    /// 無敵中のプレイヤーには当たらず、通り抜ける(無敵の状態はサーバーにしか無いので、サーバー・オフラインで呼ぶこと)
+    /// 無敵中・「警察に見つからない」効果の間のプレイヤーには当たらず、通り抜ける(無敵の状態はサーバーにしか無いので、サーバー・オフラインで呼ぶこと)
     /// </summary>
     private CS_PlayerHealth FindFirstPlayerOnBeam(Vector3 origin, float distance)
     {
@@ -336,7 +336,7 @@ public class CS_SecurityDroneSuppression : NetworkBehaviour
         for (int i = 0; i < count; i++)
         {
             CS_PlayerHealth player = _hitBuffer[i].collider.GetComponentInParent<CS_PlayerHealth>();
-            if (player == null || player.isDead || player.isInvincible || _hitBuffer[i].distance >= nearestDistance) continue;
+            if (player == null || player.isDead || player.isInvincible || CS_PoliceVision.IsHiddenFromPolice(player) || _hitBuffer[i].distance >= nearestDistance) continue;
 
             nearest = player;
             nearestDistance = _hitBuffer[i].distance;

@@ -12,7 +12,7 @@ using UnityEngine;
  * メモ
  * ・使い方はClaudeDocs/CrimeProgressUI_使い方.md(UIはUICanvasのCrimeProgress)
  * ・作った時にModelを作ってBindし、Dispose で破棄する(エリア分けが無効になった時)
- * ・完遂率: 各エリア(CS_CrimeArea)の progress(0〜1) × 100 を、エリアの areaType のゲージへ渡す
+ * ・完遂率: ソロのエリア制(CS_SoloAreaProgression)では、エリアの倒した率(0〜1)、無ければ各エリア(CS_CrimeArea)の progress(0〜1)。× 100 を、エリアの areaType のゲージへ渡す
  *   (値が変わらなければModelがイベントを出さないので、毎フレーム渡してよい)
  * ・現在地: 自分の画面のプレイヤー(CS_Player.localPlayer)の位置が入る扇形のエリア
  *   プレイヤーがまだいない間は「現在地なし」(全ゲージ小さく、数字なし)
@@ -40,7 +40,10 @@ public class CS_CrimeAreaProgressFeed
             CS_CrimeArea area = sector.area;
             if (area == null) continue;
 
-            _model.SetProgress(area.areaType, area.progress * 100f);
+            // ソロのエリア制では倒した率(0〜100)、それ以外は従来の犯罪完遂率
+            CS_SoloAreaProgression progression = CS_SoloAreaProgression.instance;
+            float rate = progression != null ? progression.GetDefeatedRate(area) : area.progress;
+            _model.SetProgress(area.areaType, rate * 100f);
         }
 
         CS_Player player = CS_Player.localPlayer;

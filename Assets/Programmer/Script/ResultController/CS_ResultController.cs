@@ -92,6 +92,13 @@ public class CS_ResultController : MonoBehaviour
         {
             _view.ShowSoloPanel();
             _model.SetSoloResult(results[0]);
+
+            // ソロのエリアの結果(守れたエリア数・食い止めた犯罪完遂率)。読み取ったらクリア
+            if (CS_SoloResultStore.hasData)
+            {
+                _model.SetSoloAreaResult(CS_SoloResultStore.result);
+                CS_SoloResultStore.Clear();
+            }
         }
         else
         {

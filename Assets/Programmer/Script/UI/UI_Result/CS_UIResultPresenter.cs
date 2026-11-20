@@ -49,6 +49,10 @@ public class CS_UIResultPresenter : CS_BasePresenter
             .Subscribe(_view.UpdateSoloResult)
             .AddTo(_disposables);
 
+        model.soloAreaResult
+            .Subscribe(_view.UpdateSoloAreaResult)
+            .AddTo(_disposables);
+
         // マルチ用
         model.multiResults
             .Subscribe(_view.UpdateMultiResults)

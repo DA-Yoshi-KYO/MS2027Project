@@ -23,6 +23,9 @@ public class CS_SecurityDroneSpawner : MonoBehaviour
     // 出現させたドローン
     private CS_SecurityDrone _drone = null;
 
+    // 開始時の準備(巡回ポイントなどの確認)が済んでいるか
+    private bool _isReady = false;
+
     [Header("＝＝＝ 出現 ＝＝＝")]
     [SerializeField]
     [Tooltip("出現させるドローンのプレハブ(SecurityDrone)")]
@@ -58,8 +61,41 @@ public class CS_SecurityDroneSpawner : MonoBehaviour
             return;
         }
 
-        _drone = Spawn();
-        _drone.Setting(_data, _playerBaseStats, _patrolPoints, _patrolArea);
+        _isReady = true;
+
+        // ソロ: 今のエリアのドローンだけ出す。エリアが変わるたびに出す・消すを切り替える
+        if (CS_SoloAreaProgression.instance != null) CS_SoloAreaProgression.instance.onAreaChanged += HandleAreaChanged;
+        SyncWithArea();
+    }
+
+    private void OnDestroy()
+    {
+        if (CS_SoloAreaProgression.instance != null) CS_SoloAreaProgression.instance.onAreaChanged -= HandleAreaChanged;
+    }
+
+    private void HandleAreaChanged(CS_CrimeArea area)
+    {
+        SyncWithArea();
+    }
+
+    /// <summary>
+    /// 出現位置が今のエリアならドローンを出し、違うなら消すメソッド(ソロ以外は常に出す)
+    /// </summary>
+    private void SyncWithArea()
+    {
+        if (!_isReady) return;
+
+        bool shouldExist = CS_SoloAreaProgression.IsActiveAt(transform.position);
+        if (shouldExist && _drone == null)
+        {
+            _drone = Spawn();
+            _drone.Setting(_data, _playerBaseStats, _patrolPoints, _patrolArea);
+        }
+        else if (!shouldExist && _drone != null)
+        {
+            CS_PoliceSpawnUtility.Despawn(_drone.gameObject);
+            _drone = null;
+        }
     }
 
     /// <summary>

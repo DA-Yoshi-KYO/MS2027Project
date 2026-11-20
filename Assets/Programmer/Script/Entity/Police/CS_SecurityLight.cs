@@ -192,7 +192,8 @@ public class CS_SecurityLight : MonoBehaviour
         for (int i = 0; i < count; i++)
         {
             CS_PlayerHealth player = _overlapBuffer[i].GetComponentInParent<CS_PlayerHealth>();
-            if (player == null || player.isDead || !IsInsideCircle(player.transform.position, radius)) continue;
+            // 「警察に見つからない」効果の間のプレイヤーは、照らされない(減点・警戒状態・点滅もしない)
+            if (player == null || player.isDead || CS_PoliceVision.IsHiddenFromPolice(player) || !IsInsideCircle(player.transform.position, radius)) continue;
             if (!IsStandingOnLitFloor(_overlapBuffer[i].bounds.min.y, player.transform.position)) continue;
 
             // 照らされている間は、毎回、照らされている時間として知らせる(スコアの減点。点滅の間隔とは関係なく数える)

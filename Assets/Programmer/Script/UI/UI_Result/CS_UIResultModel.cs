@@ -24,6 +24,10 @@ public class CS_UIResultModel : CS_BaseModel
     private readonly ReactiveProperty<CS_ResultData> _soloResult
         = new ReactiveProperty<CS_ResultData>(null);
 
+    // ソロ用：エリアの結果（無ければnull）
+    private readonly ReactiveProperty<CS_SoloAreaResult?> _soloAreaResult
+        = new ReactiveProperty<CS_SoloAreaResult?>(null);
+
     // =========================================================
     // マルチ用データ（スコア順に並び替えたリスト）
     // =========================================================
@@ -37,6 +41,13 @@ public class CS_UIResultModel : CS_BaseModel
 
     public ReadOnlyReactiveProperty<CS_ResultData> soloResult => _soloResult;
     public ReadOnlyReactiveProperty<List<CS_ResultData>> multiResults => _multiResults;
+    public ReadOnlyReactiveProperty<CS_SoloAreaResult?> soloAreaResult => _soloAreaResult;
+
+    /// <summary>ソロ用：エリアの結果をセットする</summary>
+    public void SetSoloAreaResult(CS_SoloAreaResult result)
+    {
+        _soloAreaResult.Value = result;
+    }
 
     // =========================================================
     // ソロ用：データをセットする
@@ -75,6 +86,7 @@ public class CS_UIResultModel : CS_BaseModel
     public override void Dispose()
     {
         _soloResult.Dispose();
+        _soloAreaResult.Dispose();
         _multiResults.Dispose();
     }
 }

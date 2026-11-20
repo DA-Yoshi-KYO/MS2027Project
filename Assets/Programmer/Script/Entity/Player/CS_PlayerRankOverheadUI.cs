@@ -54,7 +54,7 @@ public class CS_PlayerRankOverheadUI : NetworkBehaviour
     private void Start()
     {
         if (IsSpawned) return;
-        if (NetworkManager.Singleton != null && NetworkManager.Singleton.IsListening) return;
+        if (CS_PlayerNetwork.isOnline) return;
 
         if (CS_GameModeStore.isSolo)
         {

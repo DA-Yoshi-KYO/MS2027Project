@@ -42,7 +42,7 @@ public class CS_PlayerSpecialGaugeUI : NetworkBehaviour
     private void Start()
     {
         if (IsSpawned) return;
-        if (NetworkManager.Singleton != null && NetworkManager.Singleton.IsListening) return;
+        if (CS_PlayerNetwork.isOnline) return;
 
         BindGaugeUI(_player.isLocalPlayer);
     }

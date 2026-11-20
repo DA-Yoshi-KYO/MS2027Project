@@ -107,6 +107,19 @@ public class CSED_PlayerTuningWindow : EditorWindow
             new FieldDef("_resetAutoScanOnManual", "手動で使ったら数え直す", "手動で使った時も、次の自動スキャンまでの時間を数え直す"),
             new FieldDef("_autoScanOnGroupDefeated", "悪人グループを倒しきったらスキャン", "悪人グループの最後の1人を倒した時に、倒した本人が自動でスキャンする(間隔の自動スキャンとは別に効く)"),
         }),
+        new Section("移動の手触り", typeof(CS_Player), new[]
+        {
+            new FieldDef("_rotationSpeed", "体が向きを変える速さ(度/秒)", "進む方向へ体が回る速さ"),
+            new FieldDef("_groundAcceleration", "地上の加速(m/秒²)", "入力の速さへ近づく速さ。大きいほどすぐ最高速になる。0で押した瞬間に最高速(以前の動き)"),
+            new FieldDef("_groundDeceleration", "地上の減速(m/秒²)", "止まる・遅くなる速さ。大きいほどすぐ止まる。0で離した瞬間に止まる(以前の動き)"),
+            new FieldDef("_airAcceleration", "空中の加速(m/秒²)", "空中で入力の方向へ曲がる速さ。0ですぐ入力の速さ(以前の動き)"),
+            new FieldDef("_followSlope", "坂に沿って動く", "坂で地面に沿って動き、止まったらその場に止まる(下り坂で跳ねない・滑らない)"),
+            new FieldDef("_coyoteTime", "足場から出た後もジャンプできる時間(秒)", "段差の端から出た直後でも跳べる猶予。0で猶予なし"),
+            new FieldDef("_jumpBufferTime", "着地前のジャンプを覚えておく時間(秒)", "着地の少し前に押したジャンプを、着地した時に跳ぶ。0で覚えない"),
+            new FieldDef("_cameraVerticalSmoothTime", "カメラが上下に追う遅れ(秒)", "ジャンプ・段差でカメラがカクッと動かないよう、高さだけ少し遅れて追う。0で遅れなし"),
+            new FieldDef("_mouseSensitivity", "マウスの感度", "マウスを動かした量に対するカメラの回る量"),
+            new FieldDef("_stickSensitivity", "スティックの感度(度/秒)", "右スティックを倒しきった時のカメラの回る速さ"),
+        }),
         new Section("ブリンク(ダッシュボタン)", typeof(CS_Player), new[]
         {
             new FieldDef("_dashDuration", "ブリンクの時間(秒)", "ブリンクが続く時間。速さはキャラクターの基礎数値"),

@@ -41,6 +41,8 @@ using UnityEngine;
  * ・ソロではスコアを廃止した(Issue #485)。悪人を倒した時(暗躍ボーナスの倍率込み)・警察に見つかった時の点数は、
  *   CS_PlayerResultDataHolderが0にする(回数は数える)。撃退スコアのポップアップは、ここでも0点にして出さない
  *   暗躍ボーナスの連続撃破数は今まで通り数える(スキャン範囲・ステータスの強化に使うため)。マルチの動きは変えない
+ * ・悪人グループの最後の1人を倒した時は、倒した本人の手元でCS_PlayerScan.RequestGroupDefeatedScan()を呼び、自動スキャンさせる(仕様変更)
+ *   倒しきったかはサーバーで調べる(倒れたかはサーバーでしか確定しないため)。本人へはRPC(SendTo.Owner)で知らせる
  * ・スコアはサーバーだけが計算する(攻撃判定・悪人の処理がサーバーで行われるため)
  * ・オフライン(NetworkManagerが動いていない)のテストシーンでも単体で動く
  */
@@ -70,6 +72,7 @@ public class CS_PlayerScoring : NetworkBehaviour
     private CS_PlayerResultDataHolder _holder;
     private CS_PlayerHealth _health;
     private CS_PlayerStealthBonus _bonus;
+    private CS_PlayerScan _scan;
 
     private double _nextFoundByPoliceTime = double.MinValue;    // この時刻までは警察に見つかっても数えない(サーバー、またはオフラインのみ)
 
@@ -82,6 +85,7 @@ public class CS_PlayerScoring : NetworkBehaviour
         _holder = GetComponent<CS_PlayerResultDataHolder>();
         _health = GetComponent<CS_PlayerHealth>();
         _bonus = GetComponent<CS_PlayerStealthBonus>();
+        _scan = GetComponent<CS_PlayerScan>();
 
         CS_VillainGroup.onAnyCrimeCompleted += HandleCrimeCompleted;
     }
@@ -130,6 +134,7 @@ public class CS_PlayerScoring : NetworkBehaviour
             _holder.AddDefeatVillain(point);
             onVillainDefeated?.Invoke(villain);
             NotifyScorePopup(point, villain.transform.position + Vector3.up * _scorePopupHeight);
+            if (IsGroupDefeated(villain)) NotifyGroupDefeated();
             return;
         }
 
@@ -139,6 +144,38 @@ public class CS_PlayerScoring : NetworkBehaviour
             _holder.AddDefeatPlayer(_defeatPlayerScore);
             NotifyKill(player);
         }
+    }
+
+    // 倒した悪人のグループが、全員倒れたか(サーバー、またはオフラインで呼ぶ)
+    // グループはCS_VillainCrime.groupIdで見分け、場に出ている悪人(CS_NpcWorld.villains)に同じグループの生き残りがいなければ倒しきった
+    // グループに属さない悪人(-1)は、1人で1グループとして扱う(スキャンと同じ)
+    private static bool IsGroupDefeated(CS_VillainHealth villain)
+    {
+        int groupId = villain.TryGetComponent(out CS_VillainCrime crime) ? crime.groupId : -1;
+        if (groupId < 0) return true;
+
+        foreach (CS_VillainHealth other in CS_NpcWorld.villains)
+        {
+            if (other == null || other == villain || other.isDefeated) continue;
+            if (other.TryGetComponent(out CS_VillainCrime otherCrime) && otherCrime.groupId == groupId) return false;
+        }
+        return true;
+    }
+
+    // 悪人グループを倒しきった本人の手元で、自動スキャンをしてもらう(サーバー、またはオフラインで呼ぶ)
+    private void NotifyGroupDefeated()
+    {
+        if (_scan == null) return;
+        if (_player != null && _player.isNpc) return;   // NPCはスキャンを使わない
+
+        if (IsSpawned) RequestGroupDefeatedScanRpc();
+        else _scan.RequestGroupDefeatedScan();   // オフラインのテストシーン
+    }
+
+    [Rpc(SendTo.Owner)]
+    private void RequestGroupDefeatedScanRpc()
+    {
+        if (_scan != null) _scan.RequestGroupDefeatedScan();
     }
 
     // 倒した本人の画面に、点数のポップアップを出してもらう(サーバー、またはオフラインで呼ぶ)

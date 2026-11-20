@@ -20,6 +20,8 @@ using UnityEngine;
  *   ・くらい     : 同期済みのノックバック回数(CS_VillainKnockback.knockbackCount)が増えたら再生する
  *   ・死亡       : 同期済みの倒れた状態(CS_VillainHealth.isDead)の間、死亡モーションを再生する
  *                  消える(Destroy)タイミングはCS_VillainHealthのdespawnDelayで決まる
+ *   ・犯罪       : 同期済みの犯罪の動作(CS_VillainCrime.crimeAction)をCrimeAction(int)へ渡す
+ *                  (蹴る・いじる・拾う・運ぶ・置く。犯罪実行役だけが使う。Tools/Villain/犯罪モーションを追加 で仮のStateを作る)
  *
  * ■ 攻撃モーション(パンチ)の合わせ方
  *   溜めと攻撃は同じパンチのモーションを使い、再生位置(AttackTime)をこのクラスが決める(StateのMotion Time)
@@ -71,6 +73,7 @@ public class CS_VillainVisual : MonoBehaviour
     private CS_VillainCombat _combat;
     private CS_VillainKnockback _knockback;
     private CS_VillainHealth _health;
+    private CS_VillainCrime _crime;
     private readonly HashSet<int> _availableParams = new HashSet<int>();
     private Vector3 _lastPosition;
     private int _lastKnockbackCount;
@@ -84,6 +87,7 @@ public class CS_VillainVisual : MonoBehaviour
         _combat = GetComponent<CS_VillainCombat>();
         _knockback = GetComponent<CS_VillainKnockback>();
         _health = GetComponent<CS_VillainHealth>();
+        _crime = GetComponent<CS_VillainCrime>();
 
         if (_animator == null) _animator = GetComponentInChildren<Animator>();
         if (_animator != null)
@@ -112,6 +116,7 @@ public class CS_VillainVisual : MonoBehaviour
         UpdateAttack();
         UpdateHit();
         SetBool(CS_VillainAnimatorParams.deadHash, _health != null && _health.isDead);
+        UpdateCrimeAction();
     }
 
     // 座標の変化から、体から見た移動方向と速さを求める(クライアントでも同じ計算で済む)
@@ -160,6 +165,15 @@ public class CS_VillainVisual : MonoBehaviour
 
         float strikeProgress = _strikeDuration > 0f ? Mathf.Clamp01(elapsed / _strikeDuration) : 1f;
         return Mathf.Lerp(_windupTime, _strikeTime, strikeProgress);
+    }
+
+    // 犯罪の動作(戦っている間・逃走中は何もしない)
+    private void UpdateCrimeAction()
+    {
+        if (_crime == null || !Has(CS_VillainAnimatorParams.crimeActionHash)) return;
+
+        CSE_VillainCrimeAction action = _combat.enabled ? _crime.crimeAction : CSE_VillainCrimeAction.None;
+        _animator.SetInteger(CS_VillainAnimatorParams.crimeActionHash, (int)action);
     }
 
     // ノックバック回数が増えたら、くらいモーションを再生する

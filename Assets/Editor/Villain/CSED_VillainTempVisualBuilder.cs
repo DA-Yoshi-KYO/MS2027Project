@@ -35,6 +35,11 @@ using UnityEngine.Rendering.HighDefinition;
  *   今あるAnimator Controllerに、死亡モーション(Death)とDeadパラメータを追加する(作り直さない。何度実行しても同じ結果)
  *   Deadがtrueになると、どの状態からでも死亡モーションへ移り、最後の姿勢のまま止まる(消えるのはCS_VillainHealthが行う)
  *   → Controllerを作り直すとVillainBossからの参照が切れるので、追加はこのメニューで行う
+ * ・Tools/Villain/犯罪モーションを追加
+ *   今あるAnimator Controllerに、犯罪実行役の仮の犯罪モーションとCrimeActionパラメータ(int)を追加する(作り直さない。何度実行しても同じ結果)
+ *   CrimeAction(CSE_VillainCrimeAction)の値で、どの状態からでも対応するStateへ移り、値が変わったらLocomotionへ戻る
+ *     1 蹴る: Melee_Unarmed_Attack_Kick(ループ) / 2 いじる: Interact(ループ) / 3 拾う・5 置く: PickUp
+ *     4 運ぶ: Stateを作らない(歩きはLocomotionのまま)
  * ・本番アセットに差し替えるときは、このツールは不要になる(CS_VillainVisualのメモを参照)
  */
 // ========================================
@@ -73,6 +78,12 @@ public static class CSED_VillainTempVisualBuilder
     private const string _generalFile = "Rig_Medium_General";
     private const string _deathStateName = "Death";
     private static readonly string[] _loopClips = { _idle, _forward, _backward, _strafeLeft, _strafeRight };
+
+    // 犯罪モーション(犯罪実行役)
+    private const string _crimeKick = "Melee_Unarmed_Attack_Kick";   // 蹴る(CombatMelee)
+    private const string _crimeTamper = "Interact";                  // いじる(General)
+    private const string _crimePickUp = "PickUp";                    // 拾う・置く(General)
+    private const string _crimeStatePrefix = "Crime_";
 
     [MenuItem("Tools/Villain/仮の見た目を組み込む")]
     public static void Build()
@@ -211,6 +222,7 @@ public static class CSED_VillainTempVisualBuilder
         AddAttack(machine, locomotion, Clip(clips, _attack));
         AddHit(machine, locomotion, Clip(clips, _hit));
         AddDeath(controller, Clip(clips, _death));
+        AddCrime(controller, CreateLoopCopy(Clip(clips, _crimeKick)), CreateLoopCopy(Clip(clips, _crimeTamper)), Clip(clips, _crimePickUp));
 
         EditorUtility.SetDirty(controller);
         return controller;
@@ -316,6 +328,54 @@ public static class CSED_VillainTempVisualBuilder
         EditorUtility.SetDirty(controller);
     }
 
+    // 犯罪の動作(CrimeAction)ごとのStateを作り、値が一致したらどの状態からでも移り、変わったらLocomotionへ戻る
+    // 今あるControllerにも使えるよう、既にあれば消してから作り直す
+    private static void AddCrime(AnimatorController controller, AnimationClip kick, AnimationClip tamper, AnimationClip pickUp)
+    {
+        if (!HasParameter(controller, CS_VillainAnimatorParams.crimeAction))
+        {
+            controller.AddParameter(CS_VillainAnimatorParams.crimeAction, AnimatorControllerParameterType.Int);
+        }
+
+        AnimatorStateMachine machine = controller.layers[0].stateMachine;
+        AnimatorState locomotion = FindState(machine, "Locomotion");
+        if (locomotion == null) locomotion = machine.defaultState;
+
+        // 前に作った犯罪のStateを消す(Stateへの遷移も一緒に消える)
+        foreach (ChildAnimatorState child in machine.states)
+        {
+            if (child.state.name.StartsWith(_crimeStatePrefix)) machine.RemoveState(child.state);
+        }
+
+        AddCrimeState(controller, machine, locomotion, CSE_VillainCrimeAction.Kick, kick);
+        AddCrimeState(controller, machine, locomotion, CSE_VillainCrimeAction.Tamper, tamper);
+        AddCrimeState(controller, machine, locomotion, CSE_VillainCrimeAction.PickUp, pickUp);
+        AddCrimeState(controller, machine, locomotion, CSE_VillainCrimeAction.PutDown, pickUp);
+
+        EditorUtility.SetDirty(controller);
+    }
+
+    private static void AddCrimeState(AnimatorController controller, AnimatorStateMachine machine, AnimatorState locomotion,
+        CSE_VillainCrimeAction action, AnimationClip clip)
+    {
+        AnimatorState state = AddClipState(machine, _crimeStatePrefix + action, clip);
+
+        AnimatorStateTransition enter = machine.AddAnyStateTransition(state);
+        SetupTransition(enter, false, 0f);
+        enter.AddCondition(AnimatorConditionMode.Equals, (int)action, CS_VillainAnimatorParams.crimeAction);
+        if (HasParameter(controller, CS_VillainAnimatorParams.dead))
+        {
+            enter.AddCondition(AnimatorConditionMode.IfNot, 0f, CS_VillainAnimatorParams.dead);   // 倒れた後は移らない
+        }
+        enter.canTransitionToSelf = false;
+
+        if (locomotion == null) return;
+
+        AnimatorStateTransition exit = state.AddTransition(locomotion);
+        SetupTransition(exit, false, 0f);
+        exit.AddCondition(AnimatorConditionMode.NotEqual, (int)action, CS_VillainAnimatorParams.crimeAction);
+    }
+
     private static bool HasParameter(AnimatorController controller, string parameterName)
     {
         foreach (AnimatorControllerParameter parameter in controller.parameters)
@@ -413,6 +473,32 @@ public static class CSED_VillainTempVisualBuilder
         serialized.FindProperty("_animator").objectReferenceValue = animator;
         serialized.FindProperty("_playerBaseStats").objectReferenceValue = playerBaseStats;
         serialized.ApplyModifiedPropertiesWithoutUndo();
+    }
+
+    [MenuItem("Tools/Villain/犯罪モーションを追加")]
+    public static void AddCrimeMotion()
+    {
+        AnimatorController controller = AssetDatabase.LoadAssetAtPath<AnimatorController>(_controllerPath);
+        if (controller == null)
+        {
+            Debug.LogWarning("CSED_VillainTempVisualBuilder: Animator Controllerが無いため、先に 仮の見た目を組み込む を実行してください");
+            return;
+        }
+
+        AnimationClip kick = LoadFbxClip(_combatMeleeFile, _crimeKick);
+        AnimationClip tamper = LoadFbxClip(_generalFile, _crimeTamper);
+        AnimationClip pickUp = LoadFbxClip(_generalFile, _crimePickUp);
+        if (kick == null || tamper == null || pickUp == null)
+        {
+            Debug.LogError("CSED_VillainTempVisualBuilder: 犯罪モーションのアニメーションが見つかりません");
+            return;
+        }
+
+        EnsureFolder(_outputFolder);
+        EnsureFolder(_clipFolder);
+        AddCrime(controller, CreateLoopCopy(kick), CreateLoopCopy(tamper), pickUp);
+        AssetDatabase.SaveAssets();
+        Debug.Log("CSED_VillainTempVisualBuilder: 犯罪モーションを追加しました");
     }
 
     // ---- 攻撃モーションの解析 ----

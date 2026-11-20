@@ -4,7 +4,7 @@ using UnityEngine;
 
 /*
  * 悪人グループの巡回パターン(ScriptableObject)
- * 悪人(先頭)ごとのルート(ポイントの並び)と、ポイントでやること・回り方・速さ・隊列を持つ
+ * 悪人(先頭)ごとのルート(ポイントの並び)と、ポイントでやること・回り方・速さ・隊列、犯罪実行役を持つ
  * スポーン位置に付けたCS_VillainPatrolRouteから使う(同じパターンを複数のスポーン位置で使い回せる)
  *
  * 制作者：　中出峻輔
@@ -24,9 +24,13 @@ using UnityEngine;
  * ・隊列
  *   ルートごとに、先頭に付いてくる人数・形・間隔を決める。付いてくる人は先頭が通った道をなぞって並び、それぞれ自分の進む向きを向く
  *   (先頭が止まると一緒に止まるが、見回し・向きを変えるは真似しない)
+ * ・犯罪実行役(executors)
+ *   巡回せず、決めた位置(と向き)で犯罪モーションをし続ける悪人。犯罪モーションは実行役ごとに選ぶ(初期値はエリアに合わせる)
+ *   運ぶ(Carry)は、実行役の位置(貨物)と車の位置(carryLocalPosition)を往復する(拾う → 運ぶ → 置く → 戻る)
  * ・湧く人数と割り当て(CS_VillainSpawner)
- *   湧く人数は、このパターンの人数(先頭 + 付いてくる人)まで(それより多くは湧かない)
- *   先頭を上のルートから全員先に埋め、次に付いてくる人をルート1の隊列 → ルート2の隊列…の順に埋める(GetSlot)
+ *   湧く人数は、このパターンの人数(実行役 + 先頭 + 付いてくる人)まで(それより多くは湧かない)
+ *   実行役を全員先に埋め(犯罪をしている人が必ずいるように)、次に先頭を上のルートから、
+ *   最後に付いてくる人をルート1の隊列 → ルート2の隊列…の順に埋める(GetSlot)
  */
 // ========================================
 
@@ -165,16 +169,47 @@ public class CSO_VillainPatrolPattern : ScriptableObject
         }
     }
 
+    // 犯罪実行役1人分
+    [Serializable]
+    public class Executor
+    {
+        [SerializeField] private Vector3 _localPosition;        // スポーン位置からの相対位置(運ぶ時は貨物の位置)
+        [SerializeField] private float _angle;                  // 向き(スポーン位置の向きからの角度、＋で右回り)
+        [SerializeField] private CSE_VillainCrimeMotion _motion = CSE_VillainCrimeMotion.Auto;
+        [SerializeField] private Vector3 _carryLocalPosition;   // 運ぶ時の、車の位置(スポーン位置からの相対)
+
+        public Vector3 localPosition
+        {
+            get => _localPosition;
+            set => _localPosition = value;
+        }
+        public float angle => _angle;
+        public CSE_VillainCrimeMotion motion => _motion;
+        public Vector3 carryLocalPosition
+        {
+            get => _carryLocalPosition;
+            set => _carryLocalPosition = value;
+        }
+
+        public Executor(Vector3 localPosition, Vector3 carryLocalPosition)
+        {
+            _localPosition = localPosition;
+            _carryLocalPosition = carryLocalPosition;
+        }
+    }
+
     [SerializeField] private List<Route> _routes = new List<Route>();
+    [SerializeField] private List<Executor> _executors = new List<Executor>();
 
     public List<Route> routes => _routes;
+    public List<Executor> executors => _executors;
 
-    // このパターンで湧く人数の上限(先頭 + 付いてくる人)
+    // このパターンで湧く人数の上限(実行役 + 先頭 + 付いてくる人)
     public int slotCount
     {
         get
         {
-            int count = 0;
+            int count = _executors.Count;
             foreach (Route route in _routes)
             {
                 if (route.points.Count == 0) continue;
@@ -184,15 +219,23 @@ public class CSO_VillainPatrolPattern : ScriptableObject
         }
     }
 
-    // index番目(0始まり)に湧いた人の役割。先頭を全員先に、次に付いてくる人をルートの順に埋める
-    // followerIndex: 隊列の何番目か(0始まり)。先頭なら-1。範囲外(slotCount以上)ならfalse
-    public bool GetSlot(int index, out int routeIndex, out int followerIndex)
+    // index番目(0始まり)に湧いた人の役割。実行役を全員先に、次に先頭を、最後に付いてくる人をルートの順に埋める
+    // executorIndex: 実行役なら何番目か(実行役でなければ-1)
+    // routeIndex / followerIndex: 巡回役ならルートの番号と、隊列の何番目か(先頭なら-1)
+    // 範囲外(slotCount以上)ならfalse
+    public bool GetSlot(int index, out int executorIndex, out int routeIndex, out int followerIndex)
     {
+        executorIndex = -1;
         routeIndex = -1;
         followerIndex = -1;
         if (index < 0) return false;
+        if (index < _executors.Count)
+        {
+            executorIndex = index;
+            return true;
+        }
 
-        int remaining = index;
+        int remaining = index - _executors.Count;
         for (int i = 0; i < _routes.Count; i++)
         {
             if (_routes[i].points.Count == 0) continue;

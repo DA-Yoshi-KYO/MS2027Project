@@ -1,6 +1,7 @@
 name: Sync Designer Assets to Output
 
-# designer_develop の Assets/Designer 以下の実体ファイルだけを designer_output へミラーする。
+# designer_develop の Assets/Designer 以下の実体ファイルのうち、push で追加・変更・削除されたものだけを designer_output へ反映する。
+# (develop 側にだけあるファイルを消さないため、全体ミラー(rsync --delete)はしない)
 # .meta は designer_output 側で一元管理する(Generate Designer Meta Files が生成)ため同期しない。
 # 詳細: ClaudeUsers/meta自動生成フローガイド.md
 
@@ -37,12 +38,29 @@ jobs:
         with:
           ref: designer_develop
           path: .dev-src
+          fetch-depth: 0  # push 前後の差分(before..after)を取るため
 
-      - name: Mirror Assets/Designer (実体ファイルのみ、.metaは触らない)
+      - name: Apply Assets/Designer changes (実体ファイルのみ、.metaは触らない)
+        env:
+          BEFORE: ${{ github.event.before }}
+          AFTER: ${{ github.sha }}
         run: |
           mkdir -p Assets/Designer
-          rsync -a --delete --exclude '*.meta' \
-            .dev-src/Assets/Designer/ Assets/Designer/
+          if [ "$GITHUB_EVENT_NAME" = "push" ] && [ -n "$BEFORE" ] && [ "${BEFORE//0/}" != "" ] \
+             && git -C .dev-src cat-file -e "$BEFORE^{commit}" 2>/dev/null; then
+            # push の差分だけを反映する。designer_develop で消したファイルだけが消え、develop 側にだけあるファイルには触らない
+            git -C .dev-src diff --name-status -z --no-renames "$BEFORE" "$AFTER" -- Assets/Designer \
+            | while IFS= read -r -d '' status && IFS= read -r -d '' path; do
+                case "$path" in *.meta) continue ;; esac
+                case "$status" in
+                  D) rm -f -- "$path" ;;
+                  *) mkdir -p -- "$(dirname -- "$path")"; cp -p -- ".dev-src/$path" "$path" ;;
+                esac
+              done
+          else
+            # 手動実行など差分が取れない場合は、追加・更新だけを反映する(削除はしない)
+            rsync -a --exclude '*.meta' .dev-src/Assets/Designer/ Assets/Designer/
+          fi
           rm -rf .dev-src
 
       - name: Remove orphaned .meta（実体が削除された場合の掃除）

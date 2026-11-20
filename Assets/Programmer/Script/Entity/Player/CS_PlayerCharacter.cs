@@ -18,10 +18,12 @@ using UnityEngine;
  *   (キャラクターで未設定の時は、それぞれPlayer.prefabに設定されている共通の値を使う)
  * ・必殺技の効果: 必殺技でゲージを消費した時(CS_PlayerSpecialAttack.onSpecialActivated、サーバー)から、キャラクターの効果時間だけ続く
  *   続いているかはeffectRemaining(全員で読める)で分かる。効果ごとに効かせる場所は次の通り
- *     正面からの奇襲   : CS_PlayerAmbushが、奇襲の「背後か上」の条件を見ない
+ *     正面からの奇襲   : CS_PlayerAmbushが、奇襲の「気づかれていない」「背後か上」の条件を見ない(見られていても奇襲できる)
  *     身体能力の強化   : ここ(サーバー)でCS_PlayerStats.SetSpecialBoostRateを掛け、終わったら1に戻す
  *     全員が見える     : CS_PlayerScanが、全ての悪人グループ・警察・巡回ドローンを見えている状態にする(使った本人の画面のみ)
  *     警察に見つからない: CS_PlayerTransformationが、変身中のタグを外す(警察の視界は変身中のタグのプレイヤーだけを見つける)
+ *                       仕様では警察だけでなく、ストリートライト・レーザー・ドローンも全て無視できる。警察・ドローンの視界はタグで外れ、
+ *                       ライト・レーザー・ドローンのテーザー・警戒の報告は、警察側(CS_PoliceVision.IsHiddenFromPolice)がこの効果を見て無視する
  * ・効果の残り時間は、サーバーの時刻での終わる時刻で持つ(オフラインではTime.timeAsDouble)。番号と同じく、サーバー(とオフライン)は
  *   _serverEffectEndTimeで持ち、スポーン中はNetworkVariable(_effectEndTime)にも書いて全員に同期する
  */

@@ -36,6 +36,14 @@ public class CS_SecurityLight : MonoBehaviour
     // 1秒あたりに進む距離(m)
     private float _speed = 0.0f;
 
+    // 複数経路で動く時の、経路の点(ワールド座標。最初に1度だけ求める)と、各点までの道のり(m)・全体の長さ(m)
+    private Vector3[] _routeWorld = null;
+    private float[] _routeDistances = null;
+    private float _routeLength = 0.0f;
+
+    // 経路の点を入れておく、子オブジェクトの名前(この子の、さらに子が、順に通る点になる)
+    public const string routeRootName = "RoutePoints";
+
     // 今、ライトが照らしている床の高さ(ワールドのY)
     private float _floorY = 0.0f;
 
@@ -66,6 +74,10 @@ public class CS_SecurityLight : MonoBehaviour
     [SerializeField, Range(0f, 500f)]
     [Tooltip("動く距離(m。置いた場所から、この距離まで往復する。0ならその場に留まる)")]
     private float _moveDistance = 5.0f;
+
+    [SerializeField]
+    [Tooltip("複数の点を通る経路で動く時に、最後の点から最初の点へ戻って周回するか(オフなら、最後の点で折り返して往復する)。経路の点は、子の「RoutePoints」の、さらに子に並べる(2つ以上あれば、上の「動く向き・距離」は使わない)")]
+    private bool _loopRoute = false;
 
     [Header("＝＝＝ ライトの大きさ(置く場所ごとに設定) ＝＝＝")]
     [SerializeField, Min(0.5f)]
@@ -107,7 +119,46 @@ public class CS_SecurityLight : MonoBehaviour
         float multiplier = _data != null ? _data.speedMultiplier : 0.0f;
         _speed = baseSpeed * multiplier;
 
+        BuildRoute();
         ApplyDiscShape();
+    }
+
+    /// <summary>
+    /// 子の「RoutePoints」の、さらに子(経路の点)から、経路を作るメソッド(点が2つ未満なら、経路は使わず、従来の「向きと距離」で動く)
+    /// ライト自身が動いても、点の位置がずれないよう、ワールド座標で1度だけ控える
+    /// </summary>
+    private void BuildRoute()
+    {
+        _routeWorld = null;
+        _routeDistances = null;
+        _routeLength = 0.0f;
+
+        Vector3[] points = GetRoutePoints();
+        if (points.Length < 2) return;
+
+        // 周回する時は、最後の点から最初の点へ戻る分も、道のりに足す
+        int count = _loopRoute ? points.Length + 1 : points.Length;
+        _routeWorld = new Vector3[count];
+        _routeDistances = new float[count];
+        for (int i = 0; i < count; i++)
+        {
+            _routeWorld[i] = points[i % points.Length];
+            if (i > 0) _routeDistances[i] = _routeDistances[i - 1] + Vector3.Distance(_routeWorld[i - 1], _routeWorld[i]);
+        }
+        _routeLength = _routeDistances[count - 1];
+    }
+
+    /// <summary>
+    /// 今の、経路の点の位置(ワールド座標)を、順に集めるメソッド(経路が無ければ、空)
+    /// </summary>
+    private Vector3[] GetRoutePoints()
+    {
+        Transform root = transform.Find(routeRootName);
+        if (root == null) return new Vector3[0];
+
+        Vector3[] points = new Vector3[root.childCount];
+        for (int i = 0; i < points.Length; i++) points[i] = root.GetChild(i).position;
+        return points;
     }
 
     private void OnValidate()
@@ -141,7 +192,8 @@ public class CS_SecurityLight : MonoBehaviour
         for (int i = 0; i < count; i++)
         {
             CS_PlayerHealth player = _overlapBuffer[i].GetComponentInParent<CS_PlayerHealth>();
-            if (player == null || player.isDead || !IsInsideCircle(player.transform.position, radius)) continue;
+            // 「警察に見つからない」効果の間のプレイヤーは、照らされない(減点・警戒状態・点滅もしない)
+            if (player == null || player.isDead || CS_PoliceVision.IsHiddenFromPolice(player) || !IsInsideCircle(player.transform.position, radius)) continue;
             if (!IsStandingOnLitFloor(_overlapBuffer[i].bounds.min.y, player.transform.position)) continue;
 
             // 照らされている間は、毎回、照らされている時間として知らせる(スコアの減点。点滅の間隔とは関係なく数える)
@@ -172,13 +224,37 @@ public class CS_SecurityLight : MonoBehaviour
     }
 
     /// <summary>
-    /// 時刻から、ライトの位置を求めるメソッド(置いた場所から指定した向きへ、指定した距離まで往復する)
+    /// 時刻から、ライトの位置を求めるメソッド
+    /// 経路(2つ以上の点)があれば、点を順につないだ線の上を、往復(または周回)する
+    /// 無ければ、置いた場所から指定した向きへ、指定した距離まで往復する
     /// </summary>
     private Vector3 GetPosition(double time)
     {
+        if (_routeWorld != null && _routeLength > 0.0f) return GetRoutePosition(time);
+
         Vector3 direction = _originRotation * _moveDirection.normalized;
         float offset = Mathf.PingPong((float)(time * _speed), _moveDistance);
         return _originPosition + direction * offset;
+    }
+
+    /// <summary>
+    /// 時刻から、経路の上の位置を求めるメソッド(周回なら、最後から最初へ戻る。往復なら、端で折り返す)
+    /// </summary>
+    private Vector3 GetRoutePosition(double time)
+    {
+        float travelled = (float)(time * _speed);
+        float distance = _loopRoute ? Mathf.Repeat(travelled, _routeLength) : Mathf.PingPong(travelled, _routeLength);
+
+        // distanceを含む区間を探して、その中を補間する
+        for (int i = 1; i < _routeWorld.Length; i++)
+        {
+            if (distance > _routeDistances[i] && i < _routeWorld.Length - 1) continue;
+
+            float segment = _routeDistances[i] - _routeDistances[i - 1];
+            float t = segment > 0.0f ? Mathf.Clamp01((distance - _routeDistances[i - 1]) / segment) : 0.0f;
+            return Vector3.Lerp(_routeWorld[i - 1], _routeWorld[i], t);
+        }
+        return _routeWorld[_routeWorld.Length - 1];
     }
 
     /// <summary>
@@ -267,6 +343,21 @@ public class CS_SecurityLight : MonoBehaviour
 
     private void OnDrawGizmosSelected()
     {
+        Gizmos.color = new Color(1.0f, 0.9f, 0.3f, 0.9f);
+
+        // 経路があれば、点を順につないだ線と、各点のライトを表示する(再生中は、控えた点)
+        Vector3[] route = Application.isPlaying && _routeWorld != null ? _routeWorld : GetRoutePoints();
+        if (route.Length >= 2)
+        {
+            for (int i = 0; i < route.Length; i++)
+            {
+                if (i > 0) Gizmos.DrawLine(route[i - 1], route[i]);
+                DrawCylinder(route[i], _diameter * 0.5f, _lightHeight);
+            }
+            if (_loopRoute && !(Application.isPlaying && _routeWorld != null)) Gizmos.DrawLine(route[route.Length - 1], route[0]);
+            return;
+        }
+
         // 動く範囲(両端のライトと、その間の線)をSceneビューに表示する
         Vector3 origin = Application.isPlaying ? _originPosition : transform.position;
         Quaternion rotation = Application.isPlaying ? _originRotation : transform.rotation;

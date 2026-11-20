@@ -15,9 +15,12 @@ using UnityEngine.UIElements;
 /*
  * メモ
  * ・ボタン
- *   悪人を置く / ポイントを置く: 押している間だけ、Sceneビューのクリックで置く(もう一度押す・Escで外す)
+ *   悪人を置く / ポイントを置く / 実行役を置く: 押している間だけ、Sceneビューのクリックで置く(もう一度押す・Escで外す)
  *   今ポイントを足している悪人を、ルートの色付きで表示する(悪人・ポイント・線をクリックすると切り替わる)
+ *   犯罪実行役を選んでいる時は、その実行役を表示する
  *   ▶ 再生 / ■ 停止: プレイせずにSceneビューで悪人を動かす(CSED_VillainPatrolPreview)
+ *   真上から見る: Sceneビューを真上からの2D表示にする(もう一度押すと元の視点。CSED_VillainPatrolTopView)
+ *   合わせ直す: 真上から見ている時に、路地裏・ルート・実行役が全部入るよう合わせ直す
  * ・パターン(アセット): 使っているパターン、同じパターンを使っているスポーン位置の数
  *   複製: 今のパターンを写した新しいアセットにする(このスポーン位置だけ変えたい時)
  * ・表示は IMGUIContainer で描く。状態が変わったら CSED_VillainPatrolEditorState.onChanged で描き直す
@@ -76,6 +79,7 @@ public class CSED_VillainPatrolOverlay : Overlay, ITransientOverlay
 
         DrawPattern(spawnPoint, route, pattern);
         DrawTools();
+        DrawTopView(containerWindow as SceneView);
         DrawCurrentRoute(pattern);
         DrawPlayback(pattern);
     }
@@ -110,6 +114,22 @@ public class CSED_VillainPatrolOverlay : Overlay, ITransientOverlay
         EditorGUILayout.BeginHorizontal();
         DrawToolButton("悪人を置く", CSED_VillainPatrolEditorState.Tool.PlaceVillain);
         DrawToolButton("ポイントを置く", CSED_VillainPatrolEditorState.Tool.PlacePoint);
+        DrawToolButton("実行役を置く", CSED_VillainPatrolEditorState.Tool.PlaceExecutor);
+        EditorGUILayout.EndHorizontal();
+    }
+
+    private static void DrawTopView(SceneView sceneView)
+    {
+        EditorGUILayout.BeginHorizontal();
+        bool isActive = CSED_VillainPatrolTopView.isActive;
+        if (GUILayout.Toggle(isActive, "真上から見る", EditorStyles.miniButton) != isActive)
+        {
+            CSED_VillainPatrolTopView.Toggle(sceneView != null ? sceneView : SceneView.lastActiveSceneView);
+        }
+        using (new EditorGUI.DisabledScope(!isActive))
+        {
+            if (GUILayout.Button("合わせ直す", EditorStyles.miniButton, GUILayout.Width(70f))) CSED_VillainPatrolTopView.Frame();
+        }
         EditorGUILayout.EndHorizontal();
     }
 
@@ -125,6 +145,13 @@ public class CSED_VillainPatrolOverlay : Overlay, ITransientOverlay
     // 今ポイントを足している悪人(ルートの色付き)
     private static void DrawCurrentRoute(CSO_VillainPatrolPattern pattern)
     {
+        int executor = CSED_VillainPatrolEditorState.selectedExecutor;
+        if (pattern != null && executor >= 0 && executor < pattern.executors.Count)
+        {
+            EditorGUILayout.LabelField($"{CSED_VillainPatrolLabels.GetExecutorName(executor)} を選択中", EditorStyles.miniBoldLabel);
+            return;
+        }
+
         int index = CSED_VillainPatrolEditorState.selectedRoute;
         bool hasRoute = pattern != null && index >= 0 && index < pattern.routes.Count;
 
@@ -144,7 +171,7 @@ public class CSED_VillainPatrolOverlay : Overlay, ITransientOverlay
     private static void DrawPlayback(CSO_VillainPatrolPattern pattern)
     {
         EditorGUILayout.BeginHorizontal();
-        using (new EditorGUI.DisabledScope(pattern == null || pattern.routes.Count == 0))
+        using (new EditorGUI.DisabledScope(pattern == null || pattern.slotCount == 0))
         {
             bool isPlaying = CSED_VillainPatrolEditorState.isPlaying;
             if (GUILayout.Button(isPlaying ? "■ 停止" : "▶ 再生", EditorStyles.miniButton, GUILayout.Width(70f)))

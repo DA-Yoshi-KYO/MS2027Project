@@ -42,6 +42,11 @@ using UnityEngine.AI;
  * ・グループがいなくなった(全員撃退された、または犯罪を完遂して逃走した)位置には、respawnCooldown 秒間リスポーンしない
  *   ただし同時にいるグループ数を保てない場合は、待ち中の位置にも生成する(グループ数を優先する)
  *   (待ち中の位置からは、待ちが早く終わる位置を選ぶ)
+ * ・ソロのエリア制(CS_SoloAreaProgressionがある時)
+ *   今のエリアのスポーン位置だけを使い、エリアごとに最初に1回だけ生成する(倒された悪人は補充しない = 倒しきれる)
+ *   完遂ゲージも今のエリアだけ進める
+ *   今のエリアの悪人グループが全員いなくなったら(エリアの犯罪が完遂していなければ)、次のエリアへ進める(AdvanceArea)
+ *   マルチ(CS_SoloAreaProgressionが無い)は今まで通り
  * ・ランダムイベント(大量発生)用に、スポーン位置を使わずにグループを生成する SpawnEventGroup がある
  *   イベントのグループは通常のグループ数に数えず、犯罪も進めない(時間経過の段階の反映は通常と同じ)
  * ・エリアの犯罪完遂ゲージ(ソロ。スポーン位置の親のCS_CrimeArea)
@@ -111,6 +116,9 @@ public class CS_VillainSpawner : MonoBehaviour
     private CS_TimerController _timer;   // ゲームのタイマー(経過時間の取得用)。テストシーンなどで無ければnull
     private float _startTime;            // スポナーが動き始めた時刻(タイマーが無い時の経過時間に使う)
     private CSO_VillainTimeScaling.Stage _currentStage;   // 今の経過時間の段階(変わったら既にいる悪人にも反映する)
+    private CS_SoloAreaProgression _progression;   // ソロのエリアの攻略順(マルチはnull)
+    private CS_CrimeArea _filledArea;              // ソロで、最初の生成を済ませたエリア(エリアごとに1回だけ生成する)
+    private readonly Dictionary<CS_CrimeArea, int> _spawnedCounts = new Dictionary<CS_CrimeArea, int>();   // ソロで、エリアごとに出した悪人の数
 
     public int groupCount => _groups.Count;
 
@@ -143,6 +151,7 @@ public class CS_VillainSpawner : MonoBehaviour
             if (area != null && !_crimeAreas.Contains(area)) _crimeAreas.Add(area);
         }
 
+        _progression = CS_SoloAreaProgression.instance;
         _timer = FindAnyObjectByType<CS_TimerController>();
         _startTime = Time.time;
 
@@ -172,16 +181,80 @@ public class CS_VillainSpawner : MonoBehaviour
         RemoveDeadGroups();
         UpdateStage();
         FillRequiredGroups();
+        CheckAreaCleared();
+    }
+
+    // ソロ: 今のエリアの悪人の数を報告し、エリアが決着したら次のエリアへ進める
+    //   ・悪人を全員倒した → 守れた
+    //   ・制限時間が切れた → 倒した率が基準以上なら守れた(一旦クリア)、未満なら守れなかった。どちらも残った悪人は消して次へ
+    private void CheckAreaCleared()
+    {
+        if (_progression == null) return;
+
+        CS_CrimeArea current = _progression.currentArea;
+        if (current == null || _filledArea != current) return;
+
+        int spawned = _spawnedCounts.TryGetValue(current, out int count) ? count : 0;
+        int alive = CountAliveMembers(current);
+        _progression.SetAreaCounts(current, spawned, spawned - alive);
+
+        if (alive == 0)
+        {
+            _progression.AdvanceArea(true);
+            return;
+        }
+        if (!_progression.isAreaTimeUp) return;
+
+        bool isProtected = _progression.GetDefeatedRate(current) >= _progression.clearRate;
+        RemoveAreaVillains(current);
+        _progression.AdvanceArea(isProtected);
+    }
+
+    // エリアで生き残っている悪人の数(撃退・逃走でDestroyされたメンバーは数えない)
+    private int CountAliveMembers(CS_CrimeArea area)
+    {
+        int alive = 0;
+        foreach (CS_VillainGroup group in _groups)
+        {
+            if (group.crimeArea != area) continue;
+
+            foreach (CS_VillainCrime member in group.members)
+            {
+                if (member != null) alive++;
+            }
+        }
+        return alive;
+    }
+
+    // エリアに残った悪人を消す(時間切れでエリアが決着した時)
+    private void RemoveAreaVillains(CS_CrimeArea area)
+    {
+        foreach (CS_VillainGroup group in _groups)
+        {
+            if (group.crimeArea != area) continue;
+
+            foreach (CS_VillainCrime member in group.members)
+            {
+                if (member == null) continue;
+
+                if (member.TryGetComponent(out NetworkObject networkObject) && networkObject.IsSpawned) networkObject.Despawn(true);
+                else Destroy(member.gameObject);
+            }
+        }
     }
 
     // エリアの犯罪完遂ゲージ(ソロ)を進める。毎秒「エリアで生き残っている悪人グループ数 × 特殊倍率」を足す
     private void TickCrimeAreas(float deltaTime)
     {
-        if (_crimeAreas.Count == 0) return;
+        // ソロのエリア制では、時間でたまる犯罪完遂ゲージは使わない(エリアごとの制限時間に置き換えたため)
+        if (_progression != null || _crimeAreas.Count == 0) return;
 
         float multiplier = CS_RandomEventManager.GetCrimeRateMultiplier();
         foreach (CS_CrimeArea area in _crimeAreas)
         {
+            // ソロは、今のエリアだけ進める
+            if (_progression != null && area != _progression.currentArea) continue;
+
             int activeGroupCount = 0;
             foreach (CS_VillainGroup group in _groups)
             {
@@ -307,6 +380,15 @@ public class CS_VillainSpawner : MonoBehaviour
     // 同時に存在させるグループ数を下回っていたら、空きがある限り生成する(足りなければリスポーン待ちの位置も使う)
     private void FillRequiredGroups()
     {
+        if (_progression != null)
+        {
+            // ソロは、今のエリアに最初の1回だけ生成する(補充しない)
+            CS_CrimeArea current = _progression.currentArea;
+            if (current == null || _filledArea == current) return;
+
+            _filledArea = current;
+        }
+
         while (_groups.Count < requiredGroupCount)
         {
             if (!TrySpawnGroup()) return;
@@ -322,7 +404,32 @@ public class CS_VillainSpawner : MonoBehaviour
         if (stage == null) return 0;
 
         // Mathf.RoundToIntは x.5 を偶数側へ丸める(14.5 → 14)ので、0.5を足して切り捨てる
-        return Mathf.FloorToInt(_spawnPoints.Length * stage.spawnPercent / 100f + 0.5f);
+        return Mathf.FloorToInt(CountUsablePoints() * stage.spawnPercent / 100f + 0.5f);
+    }
+
+    // ソロ: エリアごとに出した悪人の数を数える(倒した率の分母)
+    private void AddSpawnedCount(CS_VillainGroup group)
+    {
+        if (_progression == null || group.crimeArea == null) return;
+
+        _spawnedCounts.TryGetValue(group.crimeArea, out int count);
+        _spawnedCounts[group.crimeArea] = count + group.members.Count;
+    }
+
+    // 今使えるスポーン位置か(ソロは今のエリアの位置だけ)
+    private bool IsUsablePoint(CS_VillainSpawnPoint point)
+    {
+        return _progression == null || point.crimeArea == _progression.currentArea;
+    }
+
+    private int CountUsablePoints()
+    {
+        int count = 0;
+        foreach (CS_VillainSpawnPoint point in _spawnPoints)
+        {
+            if (point != null && IsUsablePoint(point)) count++;
+        }
+        return count;
     }
 
     // 空いているスポーン位置から1つ選び、グループを生成する
@@ -340,7 +447,9 @@ public class CS_VillainSpawner : MonoBehaviour
         }
 
         _hasWarnedNoPoint = false;
-        _groups.Add(SpawnGroup(point));
+        CS_VillainGroup spawned = SpawnGroup(point);
+        _groups.Add(spawned);
+        AddSpawnedCount(spawned);
         SetSmoke(point, true);
         return true;
     }
@@ -466,7 +575,7 @@ public class CS_VillainSpawner : MonoBehaviour
         CS_VillainSpawnPoint earliestCoolingPoint = null;
         foreach (CS_VillainSpawnPoint point in _spawnPoints)
         {
-            if (point == null || point.isOccupied) continue;
+            if (point == null || point.isOccupied || !IsUsablePoint(point)) continue;
 
             if (!point.isCoolingDown)
             {

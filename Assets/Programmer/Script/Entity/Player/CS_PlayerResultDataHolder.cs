@@ -63,7 +63,7 @@ public class CS_PlayerResultDataHolder : NetworkBehaviour
     private void Start()
     {
         if (IsSpawned) return;
-        if (NetworkManager.Singleton != null && NetworkManager.Singleton.IsListening) return;
+        if (CS_PlayerNetwork.isOnline) return;
 
         Initialize();
     }
@@ -149,7 +149,7 @@ public class CS_PlayerResultDataHolder : NetworkBehaviour
         int defeatVillainScore = 0, int foundByPoliceScore = 0, int crimeCompletedScore = 0, int defeatPlayerScore = 0,
         int defeatVillainCount = 0, int foundByPoliceCount = 0, int crimeCompletedCount = 0, int defeatPlayerCount = 0)
     {
-        if (IsSpawned && !IsServer) return;
+        if (!this.IsServerOrOffline()) return;
 
         CS_ResultData.Score current = _score.Value;
         _score.Value = new CS_ResultData.Score(

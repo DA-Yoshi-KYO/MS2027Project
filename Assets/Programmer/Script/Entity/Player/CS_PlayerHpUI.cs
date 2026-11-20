@@ -49,7 +49,7 @@ public class CS_PlayerHpUI : NetworkBehaviour
     private void Start()
     {
         if (IsSpawned) return;
-        if (NetworkManager.Singleton != null && NetworkManager.Singleton.IsListening) return;
+        if (CS_PlayerNetwork.isOnline) return;
 
         BindHpUI(_player.isLocalPlayer);
     }

@@ -520,6 +520,9 @@ public class CS_PoliceAlertManager : MonoBehaviour
                 playerPosition, oppositeDirection, yawOffset, _reinforceWidenAngle,
                 _alertData.reinforceDistance, _alertData.reinforceDistance, out Vector3 position)) continue;
 
+            // ソロ: 今のエリアの扇形の外には出さない
+            if (!CS_SoloAreaProgression.IsActiveAt(position)) continue;
+
             // 出現した時に、プレイヤーの方を向いている
             Vector3 toPlayer = playerPosition - position;
             toPlayer.y = 0.0f;

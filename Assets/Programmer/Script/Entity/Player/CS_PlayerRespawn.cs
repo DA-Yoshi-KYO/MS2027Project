@@ -38,8 +38,8 @@ public class CS_PlayerRespawn : NetworkBehaviour
     private readonly NetworkVariable<double> _invincibleEndTime = new NetworkVariable<double>();    // 復活後の無敵が終わる時刻
 
     public float respawnDelay => _respawnDelay;
-    public float respawnRemaining => _health.isDead ? Mathf.Max(0f, (float)(_respawnTime.Value - GetCurrentTime())) : 0f;  // HUD用
-    public bool isRespawnInvincible => !_health.isDead && GetCurrentTime() < _invincibleEndTime.Value;   // 復活直後の無敵中か(見た目用)
+    public float respawnRemaining => _health.isDead ? Mathf.Max(0f, (float)(_respawnTime.Value - this.GetSyncedTime())) : 0f;  // HUD用
+    public bool isRespawnInvincible => !_health.isDead && this.GetSyncedTime() < _invincibleEndTime.Value;   // 復活直後の無敵中か(見た目用)
 
     private void Awake()
     {
@@ -60,7 +60,7 @@ public class CS_PlayerRespawn : NetworkBehaviour
     // 死亡したら復活のカウントを始める(サーバー、またはオフラインのみ)
     private void HandleDeath()
     {
-        if (IsSpawned && !IsServer) return;
+        if (!this.IsServerOrOffline()) return;
 
         if (_respawnCoroutine != null)
         {
@@ -70,7 +70,7 @@ public class CS_PlayerRespawn : NetworkBehaviour
         // 復活後の無敵中に死亡した場合(無敵を無視するダメージなど)に備えて、無敵を確実に終わらせる
         EndInvincible();
 
-        _respawnTime.Value = GetCurrentTime() + _respawnDelay;
+        _respawnTime.Value = this.GetSyncedTime() + _respawnDelay;
         _respawnCoroutine = StartCoroutine(RespawnAfterDelay());
     }
 
@@ -89,7 +89,7 @@ public class CS_PlayerRespawn : NetworkBehaviour
         _health.Revive();
 
         _health.SetInvincible(this, true);
-        _invincibleEndTime.Value = GetCurrentTime() + _invincibleDuration;
+        _invincibleEndTime.Value = this.GetSyncedTime() + _invincibleDuration;
         yield return new WaitForSeconds(_invincibleDuration);
 
         _respawnCoroutine = null;
@@ -101,11 +101,5 @@ public class CS_PlayerRespawn : NetworkBehaviour
     {
         _health.SetInvincible(this, false);
         _invincibleEndTime.Value = 0;
-    }
-
-    // 復活の基準時刻(オンラインはサーバー時刻で揃える)
-    private double GetCurrentTime()
-    {
-        return IsSpawned ? NetworkManager.ServerTime.Time : Time.timeAsDouble;
     }
 }

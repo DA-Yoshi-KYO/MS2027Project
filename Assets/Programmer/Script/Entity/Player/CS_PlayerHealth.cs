@@ -75,7 +75,7 @@ public class CS_PlayerHealth : NetworkBehaviour, IDamageable, IHealable
     private void Start()
     {
         if (IsSpawned) return;
-        if (NetworkManager.Singleton != null && NetworkManager.Singleton.IsListening) return;
+        if (CS_PlayerNetwork.isOnline) return;
 
         TryInitializeHp();
     }
@@ -111,7 +111,7 @@ public class CS_PlayerHealth : NetworkBehaviour, IDamageable, IHealable
     public void TakeDamage(float damage, GameObject attacker)
     {
         // ネットワーク時はサーバーのみが処理する(オフラインはそのまま通す)
-        if (IsSpawned && !IsServer) return;
+        if (!this.IsServerOrOffline()) return;
         if (_isDead.Value) return;
         if (isInvincible) return;
         if (damage <= 0f) return;
@@ -180,7 +180,7 @@ public class CS_PlayerHealth : NetworkBehaviour, IDamageable, IHealable
     // 死亡中は回復しない(復帰させたい場合はRevive()を使う)
     public void Heal(float amount)
     {
-        if (IsSpawned && !IsServer) return;
+        if (!this.IsServerOrOffline()) return;
         if (_isDead.Value) return;
         if (amount <= 0f) return;
 
@@ -192,7 +192,7 @@ public class CS_PlayerHealth : NetworkBehaviour, IDamageable, IHealable
     // 他の要因の無敵は解除しないので、呼び出し元はthisを渡す
     public void SetInvincible(object source, bool invincible)
     {
-        if (IsSpawned && !IsServer) return;
+        if (!this.IsServerOrOffline()) return;
 
         if (invincible)
         {
@@ -206,7 +206,7 @@ public class CS_PlayerHealth : NetworkBehaviour, IDamageable, IHealable
     // HPを満タンにして復帰させる(サーバーのみ。今後のリスポーン処理からの呼び出しを想定)
     public void Revive()
     {
-        if (IsSpawned && !IsServer) return;
+        if (!this.IsServerOrOffline()) return;
 
         _currentHp.Value = maxHp;
         _isDead.Value = false;
@@ -229,7 +229,7 @@ public class CS_PlayerHealth : NetworkBehaviour, IDamageable, IHealable
     // HP上限が変わったとき、現在HPが上限を超えないようにする(サーバーのみ)
     private void HandleMaxHpChanged(float newMaxHp)
     {
-        if (IsSpawned && !IsServer) return;
+        if (!this.IsServerOrOffline()) return;
 
         // まだ初期化していなければ、HP上限が入ったこの時点で満タンにする(Issue #223)
         if (!_isHpInitialized)

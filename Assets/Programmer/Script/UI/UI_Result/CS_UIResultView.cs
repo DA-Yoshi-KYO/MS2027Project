@@ -29,7 +29,7 @@ public class CS_UIResultView : CS_BaseView<CS_UIResultPresenter>
     [SerializeField] private TextMeshProUGUI _defeatPlayerText;     // 他P撃破
     [SerializeField] private TextMeshProUGUI _totalScoreText;       // 総合スコア
     [SerializeField] private TextMeshProUGUI _playerNumberText;     //プレイヤーの番号
-    [SerializeField] private TextMeshProUGUI _rankText;             // 順位（仮）
+    [SerializeField] private TextMeshProUGUI _rankText;             // ソロは順位が無いので、守れたエリア数・食い止めた犯罪完遂率の表示に使う
     [SerializeField] private TextMeshProUGUI _titleText;            // 称号（仮）
 
     [Header("マルチ用 UI")]
@@ -85,11 +85,25 @@ public class CS_UIResultView : CS_BaseView<CS_UIResultPresenter>
         if (_totalScoreText != null)
             _totalScoreText.text = $"総合スコア : {data.totalScore}点";
 
-        if (_rankText != null)
-            _rankText.text = "順位 : ---"; // 仮
-
         if (_titleText != null)
             _titleText.text = $"称号 : {data.title}";
+    }
+
+    /// <summary>
+    /// ソロ用：エリアの結果(終わり方・守れたエリア数・食い止めた犯罪完遂率)を表示する
+    /// </summary>
+    public void UpdateSoloAreaResult(CS_SoloAreaResult? result)
+    {
+        if (!result.HasValue || _rankText == null) return;
+
+        CS_SoloAreaResult r = result.Value;
+        string title = r.reason switch
+        {
+            CSE_SoloEndReason.AllCleared => r.protectedAreaCount == r.areaCount ? "全エリアの犯罪を止めた！" : "一部のエリアを守れた",
+            CSE_SoloEndReason.CrimeCompleted => "1つもエリアを守れなかった…",
+            _ => "時間切れ",
+        };
+        _rankText.text = $"{title}\n守れたエリア : {r.protectedAreaCount}/{r.areaCount}\n食い止めた完遂率 : {Mathf.RoundToInt(r.stoppedRate * 100f)}%";
     }
 
     // =========================================================

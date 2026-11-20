@@ -44,10 +44,10 @@ public class CS_PlayerCharacter : NetworkBehaviour
     private bool _isBoosting;             // 身体能力の強化を掛けているか(サーバー、またはオフラインのみ)
 
     public CSO_PlayableCharacterRoster roster => _roster;
-    public int characterIndex => !IsSpawned || IsServer ? _serverIndex : _characterIndex.Value;
+    public int characterIndex => this.IsServerOrOffline() ? _serverIndex : _characterIndex.Value;
     public CSO_PlayableCharacter currentCharacter => _roster != null ? _roster.Get(characterIndex) : null;
     public CSE_PlayerSpecialEffect currentEffect => currentCharacter != null ? currentCharacter.specialEffect : CSE_PlayerSpecialEffect.None;
-    public float effectRemaining => Mathf.Max(0f, (float)((!IsSpawned || IsServer ? _serverEffectEndTime : _effectEndTime.Value) - GetNow()));   // 必殺技の効果の残り時間(秒)
+    public float effectRemaining => Mathf.Max(0f, (float)((this.IsServerOrOffline() ? _serverEffectEndTime : _effectEndTime.Value) - this.GetSyncedTime()));   // 必殺技の効果の残り時間(秒)
     public bool isEffectActive => currentEffect != CSE_PlayerSpecialEffect.None && effectRemaining > 0f;
 
     public event Action<CSO_PlayableCharacter> onCharacterChanged;   // キャラクターが変わった時(全員)
@@ -101,7 +101,7 @@ public class CS_PlayerCharacter : NetworkBehaviour
     // スポーン後に変えた時は、基礎数値を新しいキャラクターの値に戻す
     public void SetCharacterIndex(int index)
     {
-        if (IsSpawned && !IsServer) return;
+        if (!this.IsServerOrOffline()) return;
         if (_roster == null || _roster.Get(index) == null || index == _serverIndex) return;
 
         int previous = _serverIndex;
@@ -120,7 +120,7 @@ public class CS_PlayerCharacter : NetworkBehaviour
         CSO_PlayableCharacter character = currentCharacter;
         if (character == null || character.specialEffect == CSE_PlayerSpecialEffect.None) return;
 
-        SetEffectEndTime(GetNow() + character.effectDuration);
+        SetEffectEndTime(this.GetSyncedTime() + character.effectDuration);
     }
 
     // 効果が終わる時刻を決める(サーバー、またはオフラインのみ)
@@ -133,7 +133,7 @@ public class CS_PlayerCharacter : NetworkBehaviour
     // 身体能力の強化を、効果が続いている間だけ掛ける(サーバー、またはオフラインのみ)
     private void UpdateBoost()
     {
-        if (IsSpawned && !IsServer) return;
+        if (!this.IsServerOrOffline()) return;
         if (_stats == null) return;
 
         bool shouldBoost = IsEffectActive(CSE_PlayerSpecialEffect.StatusBoost);
@@ -146,11 +146,5 @@ public class CS_PlayerCharacter : NetworkBehaviour
     private void HandleCharacterIndexChanged(int previous, int current)
     {
         onCharacterChanged?.Invoke(currentCharacter);
-    }
-
-    // 今の時刻(スポーン中はサーバーの時刻、オフラインではTime.timeAsDouble)
-    private double GetNow()
-    {
-        return IsSpawned ? NetworkManager.ServerTime.Time : Time.timeAsDouble;
     }
 }

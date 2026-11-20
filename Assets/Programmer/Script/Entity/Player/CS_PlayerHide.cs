@@ -71,8 +71,12 @@ public class CS_PlayerHide : NetworkBehaviour
     [Header("飛ぶ")]
     [SerializeField][Min(0.1f)] private float _flySpeed = 25f;          // 飛ぶ速さ(m/秒)
     [SerializeField][Min(0f)] private float _arriveDistance = 0.3f;     // 着く位置との距離がこれ以内になったら着いたとみなす(m。高さ込み)
+    [SerializeField][Min(0f)] private float _minimumSADistance = 2f;    // プレイヤーからこの距離より近いSAポイントへは飛ばない(m。近すぎるSAを除く)
     [SerializeField][Min(0f)] private float _maxFlyTime = 1f;           // これ以上かかっても着かなければやめる(秒)
     [SerializeField][Min(0f)] private float _releaseGhostTime = 0.1f;   // 放した直後、この時間だけ当たり判定を切ったままにする(秒。足場の角に引っかからないように)
+
+    [Header("SAヒントUI")]
+    [SerializeField][Min(0f)] private float _arrivedHintLeaveDistance = 1f;   // SAで着いたSAポイントの着く位置から、この距離より離れたら、到着したSAポイントとして扱わない(m。SAヒントUI用)
 
     [Header("見つかる距離")]
     [SerializeField][Min(0f)] private float _revealDistance = 2f;       // 隠れていても、警察・悪人とこの距離以内なら見つかる(m。高さ込み)
@@ -94,6 +98,7 @@ public class CS_PlayerHide : NetworkBehaviour
     private CS_SAPoint _point;            // 飛んでいる先のSAポイント
     private float _yawBeforeFly;            // 飛ぶ前に向いていた向き(度。着いたらこの向きに戻す)
     private CS_SAPoint _candidate;        // 今ダッシュボタンを押したら飛ぶSAポイント
+    private CS_SAPoint _arrivedPoint;     // SAで最後に着いたSAポイント(次のSA開始・ジャンプ・離れた時に消す。SAヒントUI用)
     private float _elapsed;
     private float _flySpeedNow;             // 今飛んでいる速さ(m/秒。SAポイントごとに違う)
     private float _flyTimeLimit;            // 今の飛行で、着かなければやめる時間(秒)
@@ -109,6 +114,20 @@ public class CS_PlayerHide : NetworkBehaviour
     public bool isHidden => _isHidden.Value;                // 隠れている状態か(全員で分かる。サーバーが決める)
     public bool isInHideBox => CS_HidePoint.IsInsideAny(bodyCenter);   // 体の中心が隠れられる箱の中にあるか(その場で調べる)
     public CS_SAPoint currentHidePoint => FindHidePoint(bodyCenter);   // 体の中心が入っている、隠れられる箱を持つSAポイント(無ければnull。その場で調べる。SAヒントUI用)
+    // SAで着いたばかりのSAポイント(種類を問わない。着く位置から_arrivedHintLeaveDistanceより離れる・ジャンプする・次のSAを始める・SAポイントが無効になると、nullになる。SAヒントUI用)
+    public CS_SAPoint arrivedPoint
+    {
+        get
+        {
+            if (_arrivedPoint == null) return null;
+
+            // 動くSAポイントでも着く位置から離れていないか調べられるよう、SAポイントの着く位置との距離で見る
+            float leaveDistance = _arrivedHintLeaveDistance;
+            bool isAway = (_rigidbody.position - GetArrivePosition(_arrivedPoint)).sqrMagnitude > leaveDistance * leaveDistance;
+            if (isAway || !_arrivedPoint.isActiveAndEnabled) _arrivedPoint = null;
+            return _arrivedPoint;
+        }
+    }
     public CS_SAPoint currentCandidate => _candidate;     // 今ダッシュボタンを押したら飛ぶSAポイント(本人の手元。アイコン表示用)
 
     // 体の中心(当たり判定の中心)
@@ -123,8 +142,15 @@ public class CS_PlayerHide : NetworkBehaviour
         _ambush = GetComponent<CS_PlayerAmbush>();
     }
 
+    private void OnEnable()
+    {
+        if (_player != null) _player.onJumped += ClearArrivedPoint;
+    }
+
     private void OnDisable()
     {
+        if (_player != null) _player.onJumped -= ClearArrivedPoint;
+        _arrivedPoint = null;
         if (_isFlying) EndFly();
         EndGhost();
         SetHidden(false);
@@ -167,6 +193,7 @@ public class CS_PlayerHide : NetworkBehaviour
         if (_isFlying || !CanUse() || _candidate == null) return false;
         if (_ambush != null && _ambush.isAmbushing) return false;
 
+        _arrivedPoint = null;
         _point = _candidate;
         _candidate = null;
         _isFlying = true;
@@ -265,6 +292,9 @@ public class CS_PlayerHide : NetworkBehaviour
 
             // 今いるハイドポイント(体の中心が隠れられる箱の中にある)へは飛ばない
             if (point.Contains(bodyCenter)) continue;
+
+            // 近すぎるSAポイントへは飛ばない(プレイヤーの位置から立つ位置までの距離。SAヒントUIと同じ測り方)
+            if ((point.standPosition - transform.position).sqrMagnitude < _minimumSADistance * _minimumSADistance) continue;
 
             Vector3 target = point.standPosition + Vector3.up * _pointHeight;
             if (!IsOnScreen(viewCamera, target)) continue;
@@ -415,12 +445,19 @@ public class CS_PlayerHide : NetworkBehaviour
     // 着いた: 位置(高さ込み)を合わせ、速度を0にして、飛ぶ前に向いていた向きに戻して、普通の状態に戻る(勢いは残さない)
     private void Arrive()
     {
+        CS_SAPoint arrived = _point;
         _player.SnapPosition(GetArrivePosition(_point));
         EndFly();
+        _arrivedPoint = arrived;
 
         // 飛ぶ前の向きに戻す(ハイドポイントの向きには合わせない)。移動キーを押せば、いつも通り進む方向へ向く
         _player.SetAimFacing(_yawBeforeFly);
         _player.ClearAimFacing();
+    }
+
+    private void ClearArrivedPoint()
+    {
+        _arrivedPoint = null;
     }
 
     private void EndFly()

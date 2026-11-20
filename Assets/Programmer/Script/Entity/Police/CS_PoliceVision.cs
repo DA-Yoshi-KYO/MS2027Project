@@ -251,6 +251,18 @@ public class CS_PoliceVision : MonoBehaviour
     }
 
     /// <summary>
+    /// プレイヤーが、必殺技の「警察に見つからない」効果の間かを判定するメソッド(この間は、警察・防犯装置に見つからず、ダメージ・減点も受けない)
+    /// 警察の視界は、効果の間にタグが通常に戻ることで見つからなくなる(CS_PlayerTransformation)が、タグを見ない防犯装置(ライト・レーザー・ドローンのテーザー)は、これで判定する
+    /// 効果の状態は全員に同期されているので、どこで呼んでもよい
+    /// </summary>
+    /// <param name="player">判定するプレイヤー</param>
+    /// <returns>警察に見つからない効果の間ならtrue</returns>
+    public static bool IsHiddenFromPolice(CS_PlayerHealth player)
+    {
+        return player != null && player.TryGetComponent(out CS_PlayerCharacter character) && character.IsEffectActive(CSE_PlayerSpecialEffect.HiddenFromPolice);
+    }
+
+    /// <summary>
     /// 標的が視界に映っているかを判定するメソッド
     /// </summary>
     /// <param name="targetPosition">標的の中心の位置</param>

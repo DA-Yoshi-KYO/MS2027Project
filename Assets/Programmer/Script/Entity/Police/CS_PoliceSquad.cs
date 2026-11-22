@@ -44,6 +44,9 @@ public class CS_PoliceSquad : MonoBehaviour, IPoliceGroup
     // グループ全員で合わせる巡回速度(メンバーの中で一番遅い巡回速度。隊列がばらけないように揃える)
     private float _groupPatrolSpeed = 0.0f;
 
+    // 開始時の準備(巡回ポイント・ステータスの確認)が済んでいるか
+    private bool _isReady = false;
+
     // 現在目指している巡回ポイントの番号(隊列で巡回する時の、先頭の番号)
     private int _patrolIndex = 0;
 
@@ -162,11 +165,48 @@ public class CS_PoliceSquad : MonoBehaviour, IPoliceGroup
         _sharedTarget = new CS_PoliceSharedTarget(_shareDuration);
         _groupPatrolSpeed = CalculateGroupPatrolSpeed();
         InitializeSpreadPatrol();
-        for (int i = 0; i < _memberStatuses.Length; i++)
-        {
-            _members.Add(SpawnMember(i));
-        }
+        _isReady = true;
 
+        // ソロ: 今のエリアの部隊だけ出す。エリアが変わるたびに出す・消すを切り替える
+        if (CS_SoloAreaProgression.instance != null) CS_SoloAreaProgression.instance.onAreaChanged += HandleAreaChanged;
+        SyncWithArea();
+    }
+
+    private void OnDestroy()
+    {
+        if (CS_SoloAreaProgression.instance != null) CS_SoloAreaProgression.instance.onAreaChanged -= HandleAreaChanged;
+    }
+
+    private void HandleAreaChanged(CS_CrimeArea area)
+    {
+        SyncWithArea();
+    }
+
+    /// <summary>
+    /// 出現位置が今のエリアなら警察を出し、違うなら消すメソッド(ソロ以外は常に出す)
+    /// </summary>
+    private void SyncWithArea()
+    {
+        if (!_isReady) return;
+
+        bool shouldExist = CS_SoloAreaProgression.IsActiveAt(_spawnPoint.position);
+        if (shouldExist && _members.Count == 0)
+        {
+            _formation.Clear();
+            for (int i = 0; i < _memberStatuses.Length; i++)
+            {
+                _members.Add(SpawnMember(i));
+            }
+        }
+        else if (!shouldExist && _members.Count > 0)
+        {
+            foreach (CS_PoliceBrain member in _members)
+            {
+                if (member != null) CS_PoliceSpawnUtility.Despawn(member.gameObject);
+            }
+            _members.Clear();
+            _formation.Clear();
+        }
     }
 
     private void Update()

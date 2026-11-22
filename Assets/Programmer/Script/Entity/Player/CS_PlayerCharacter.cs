@@ -18,10 +18,12 @@ using UnityEngine;
  *   (キャラクターで未設定の時は、それぞれPlayer.prefabに設定されている共通の値を使う)
  * ・必殺技の効果: 必殺技でゲージを消費した時(CS_PlayerSpecialAttack.onSpecialActivated、サーバー)から、キャラクターの効果時間だけ続く
  *   続いているかはeffectRemaining(全員で読める)で分かる。効果ごとに効かせる場所は次の通り
- *     正面からの奇襲   : CS_PlayerAmbushが、奇襲の「背後か上」の条件を見ない
+ *     正面からの奇襲   : CS_PlayerAmbushが、奇襲の「気づかれていない」「背後か上」の条件を見ない(見られていても奇襲できる)
  *     身体能力の強化   : ここ(サーバー)でCS_PlayerStats.SetSpecialBoostRateを掛け、終わったら1に戻す
  *     全員が見える     : CS_PlayerScanが、全ての悪人グループ・警察・巡回ドローンを見えている状態にする(使った本人の画面のみ)
  *     警察に見つからない: CS_PlayerTransformationが、変身中のタグを外す(警察の視界は変身中のタグのプレイヤーだけを見つける)
+ *                       仕様では警察だけでなく、ストリートライト・レーザー・ドローンも全て無視できる。警察・ドローンの視界はタグで外れ、
+ *                       ライト・レーザー・ドローンのテーザー・警戒の報告は、警察側(CS_PoliceVision.IsHiddenFromPolice)がこの効果を見て無視する
  * ・効果の残り時間は、サーバーの時刻での終わる時刻で持つ(オフラインではTime.timeAsDouble)。番号と同じく、サーバー(とオフライン)は
  *   _serverEffectEndTimeで持ち、スポーン中はNetworkVariable(_effectEndTime)にも書いて全員に同期する
  */
@@ -42,10 +44,10 @@ public class CS_PlayerCharacter : NetworkBehaviour
     private bool _isBoosting;             // 身体能力の強化を掛けているか(サーバー、またはオフラインのみ)
 
     public CSO_PlayableCharacterRoster roster => _roster;
-    public int characterIndex => !IsSpawned || IsServer ? _serverIndex : _characterIndex.Value;
+    public int characterIndex => this.IsServerOrOffline() ? _serverIndex : _characterIndex.Value;
     public CSO_PlayableCharacter currentCharacter => _roster != null ? _roster.Get(characterIndex) : null;
     public CSE_PlayerSpecialEffect currentEffect => currentCharacter != null ? currentCharacter.specialEffect : CSE_PlayerSpecialEffect.None;
-    public float effectRemaining => Mathf.Max(0f, (float)((!IsSpawned || IsServer ? _serverEffectEndTime : _effectEndTime.Value) - GetNow()));   // 必殺技の効果の残り時間(秒)
+    public float effectRemaining => Mathf.Max(0f, (float)((this.IsServerOrOffline() ? _serverEffectEndTime : _effectEndTime.Value) - this.GetSyncedTime()));   // 必殺技の効果の残り時間(秒)
     public bool isEffectActive => currentEffect != CSE_PlayerSpecialEffect.None && effectRemaining > 0f;
 
     public event Action<CSO_PlayableCharacter> onCharacterChanged;   // キャラクターが変わった時(全員)
@@ -99,7 +101,7 @@ public class CS_PlayerCharacter : NetworkBehaviour
     // スポーン後に変えた時は、基礎数値を新しいキャラクターの値に戻す
     public void SetCharacterIndex(int index)
     {
-        if (IsSpawned && !IsServer) return;
+        if (!this.IsServerOrOffline()) return;
         if (_roster == null || _roster.Get(index) == null || index == _serverIndex) return;
 
         int previous = _serverIndex;
@@ -118,7 +120,7 @@ public class CS_PlayerCharacter : NetworkBehaviour
         CSO_PlayableCharacter character = currentCharacter;
         if (character == null || character.specialEffect == CSE_PlayerSpecialEffect.None) return;
 
-        SetEffectEndTime(GetNow() + character.effectDuration);
+        SetEffectEndTime(this.GetSyncedTime() + character.effectDuration);
     }
 
     // 効果が終わる時刻を決める(サーバー、またはオフラインのみ)
@@ -131,7 +133,7 @@ public class CS_PlayerCharacter : NetworkBehaviour
     // 身体能力の強化を、効果が続いている間だけ掛ける(サーバー、またはオフラインのみ)
     private void UpdateBoost()
     {
-        if (IsSpawned && !IsServer) return;
+        if (!this.IsServerOrOffline()) return;
         if (_stats == null) return;
 
         bool shouldBoost = IsEffectActive(CSE_PlayerSpecialEffect.StatusBoost);
@@ -144,11 +146,5 @@ public class CS_PlayerCharacter : NetworkBehaviour
     private void HandleCharacterIndexChanged(int previous, int current)
     {
         onCharacterChanged?.Invoke(currentCharacter);
-    }
-
-    // 今の時刻(スポーン中はサーバーの時刻、オフラインではTime.timeAsDouble)
-    private double GetNow()
-    {
-        return IsSpawned ? NetworkManager.ServerTime.Time : Time.timeAsDouble;
     }
 }

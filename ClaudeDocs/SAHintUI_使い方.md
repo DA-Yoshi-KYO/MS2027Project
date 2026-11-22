@@ -87,19 +87,24 @@ _saHintModel.Dispose();
 
 ## 3. 動作仕様
 
-- 表示するのは**隠れている間のみ**。`StopHiding()` で対象がクリアされ、矢印は全て非表示になる。
+- 表示するのは**隠れている間と、SA到着後のみ**。`StopHint()`(`StopHiding()` も同じ)で対象がクリアされ、矢印は全て非表示になる。
 - 検索対象は `CS_SAPoint.activePoints`。距離は `standPosition` で計算し、`searchDistance` 以内を**近い順に最大 `maximumDisplayCount` 個**表示する。
 - 矢印は、プレイヤーの画面座標を中心とした楕円(`horizontalRadius` × `verticalRadius`)上に置かれ、SAポイント方向を向く。
 - 画面変換に失敗した対象(カメラ背後など)や、プレイヤーと同一画面位置の対象はスキップされる。
 - 矢印はUpdate内で `Time.unscaledDeltaTime` により拡縮する(ポーズ中も動く)。矢印ごとに位相がずれる。
 - Presenterは毎フレーム(カメラ更新後)`RefreshTargets()` を呼ぶ。一覧が変化した時のみ `OnTargetsUpdated` が発火する。
-- 検索は `CS_SAPoint.IsInSAReachBox` を**見ていない**。SAReachBoxの外にあるSAポイントも距離内なら案内される。
+- 案内するのは、`SAReachBox`が設定されている(`hasSAReachBox`)SAポイントだけ。箱が空でSAできないポイントは案内しない。
+- プレイヤーから `minimumDistance` 未満の近すぎるSAポイントは案内しない。
+- 遠くのSAポイントも案内する目的のため、`IsInSAReachBox`(足元が箱の中にあるか)では絞らない。
+- 表示するのは、ハイドポイントの隠れられる箱の中にいる間と、SAで到着したSAポイント(信号機など種類を問わない)の上にいる間。ゲーム側は `StartHint(今いるSAポイント)` / `StopHint()` を呼ぶ(`StartHiding` / `StopHiding` も同じ動き)。
+- SAで到着した後は、着く位置から1m(`CS_PlayerHide._arrivedHintLeaveDistance`)より離れる・ジャンプする・次のSAを始めると消える。
 
 ## 4. 調整値(`CSO_UISAHintData`)
 
 | 項目 | 既定 | 説明 |
 |---|---|---|
 | `searchDistance` | 50 | SAポイントを検索する距離(m) |
+| `minimumDistance` | 2 | これより近いSAポイントは案内しない距離(m。0〜`searchDistance`) |
 | `maximumDisplayCount` | 3 | 同時表示する矢印数(1〜3) |
 | `horizontalRadius` | 200 | 矢印楕円の横半径 |
 | `verticalRadius` | 100 | 矢印楕円の縦半径 |

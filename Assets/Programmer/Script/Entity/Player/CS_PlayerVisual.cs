@@ -19,6 +19,8 @@ using UnityEngine;
  *     走っているか(Sprint)も、座標の変化の速さが通常の移動より速いかで決める
  *     接地(Grounded)は、ちょっとした段差を下りただけで空中のモーションにならないよう、
  *     落ちている(上がっていない)間は足元から_stepHeight以内に地面があれば接地とみなす(見た目だけ。ゲームの接地判定は変えない)
+ *     さらに、接地していない状態が_airborneDelay秒(既定0.15秒)続くまでは接地のままにする(段差の角で一瞬浮いた時に、空中のモーションへ切り替わらないように)
+ *     ジャンプした時は待たずに空中にする(ジャンプのモーションは今まで通り)
  *     (CS_Player.isSprinting / isDashingは操作している本人の手元にしか無いため)
  *   ・被弾           : 同期済みのHPが減ったのを各クライアントが検知して再生する(通信なし)
  *   ・ジャンプ、ダッシュ、攻撃、必殺技、奇襲 : 操作している本人が再生し、同時にRPCで他クライアントへ通知する
@@ -66,12 +68,14 @@ public class CS_PlayerVisual : NetworkBehaviour
     [SerializeField] private float _blinkInterval = 0.1f;       // 復活直後の無敵中に点滅する間隔(秒)
     [SerializeField][Min(0f)] private float _stepHeight = 0.4f; // この高さまでの段差は、下りても空中のモーションにしない(m)
     [SerializeField] private LayerMask _stepGroundLayers = ~0;  // 段差の判定で地面とみなすレイヤー
+    [SerializeField][Min(0f)] private float _airborneDelay = 0.15f;   // 接地していない状態がこの秒数続くまでは、空中のモーションにしない(段差の角で一瞬浮いただけで切り替わらないように。ジャンプは除く)
     [SerializeField][Min(1)] private int _attackMotionCount = 3;    // Animatorにある通常攻撃のモーションの数。これを超えた段(5段コンボの4・5段目など)は先頭から使い回す
     [SerializeField] private int[] _attackMotionForStep;          // 通常攻撃の各段に使うモーションの番号(空なら段の番号をAttack Motion Countで割った余り)。ツールが書き込む
     [SerializeField][Min(0f)] private float _ambushImpactTime = 0.5f;  // 奇襲のモーションの頭から当たる瞬間までの秒数(等倍の時)。ツールが書き込む
     [SerializeField][Min(0.01f)] private float _minAmbushSpeed = 0.3f; // 奇襲のモーションの速さの下限・上限(倍)
     [SerializeField][Min(0.01f)] private float _maxAmbushSpeed = 6f;
 
+    private float _notGroundedTime;      // 見た目の上で、接地していない状態が続いている秒数
     private CS_Player _player;
     private CS_PlayerStats _stats;
     private CS_PlayerHealth _health;
@@ -149,9 +153,19 @@ public class CS_PlayerVisual : NetworkBehaviour
 
         float verticalSpeed = Time.deltaTime > 0f ? (transform.position.y - _lastPosition.y) / Time.deltaTime : 0f;
         UpdateLocomotion(Time.deltaTime);
-        SetBool(CS_PlayerAnimatorParams.groundedHash, IsVisuallyGrounded(verticalSpeed));
+        SetBool(CS_PlayerAnimatorParams.groundedHash, UpdateVisualGrounded(verticalSpeed, Time.deltaTime));
         SetBool(CS_PlayerAnimatorParams.deadHash, _health.isDead);
         if (Has(CS_PlayerAnimatorParams.attackSpeedHash)) _animator.SetFloat(CS_PlayerAnimatorParams.attackSpeedHash, _stats.comboSpeedRate);
+    }
+
+    // アニメーターへ渡す接地。接地していない状態が_airborneDelay秒続くまでは、接地のままにする
+    // (段差の角をカプセルが乗り越える時に一瞬だけ浮いても、空中のモーションへ切り替わらないように)
+    private bool UpdateVisualGrounded(float verticalSpeed, float deltaTime)
+    {
+        if (IsVisuallyGrounded(verticalSpeed)) _notGroundedTime = 0f;
+        else _notGroundedTime += deltaTime;
+
+        return _notGroundedTime < _airborneDelay;
     }
 
     // 見た目の上での接地。本当に接地しているか、落ちている(上がっていない)間に足元から_stepHeight以内に地面があれば接地とみなす
@@ -273,6 +287,7 @@ public class CS_PlayerVisual : NetworkBehaviour
         {
             case ActionType.Jump:
                 SetTrigger(CS_PlayerAnimatorParams.jumpHash);
+                _notGroundedTime = _airborneDelay;   // ジャンプした時は待たずに空中にする(着地のモーションへすぐ戻らないように)
                 break;
             case ActionType.Dash:
                 SetTrigger(CS_PlayerAnimatorParams.dashHash);

@@ -2,6 +2,7 @@ name: Generate Designer Meta Files
 
 # designer_output 上で Unity を batchmode 起動し、Assets/Designer 以下の不足 .meta を生成して commit する。
 # 既存ファイルの .meta(GUID) は変更しないため、参照は壊れない。
+# .meta を生成する前に develop を designer_output へ取り込み、develop 側の既存 .meta(GUID)と食い違わないようにする。
 # 完了後、designer_output の更新を「作業完了」として Discord のデザイナー進捗チャンネルへ通知する。
 # 必要な Secrets: UNITY_LICENSE / UNITY_EMAIL / UNITY_PASSWORD / DISCORD_WEBHOOK_DESIGNER
 # 詳細: ClaudeUsers/meta自動生成フローガイド.md
@@ -35,8 +36,29 @@ jobs:
         uses: actions/checkout@v4
         with:
           ref: designer_output
+          fetch-depth: 0  # develop とのマージに履歴が必要
         env:
           GIT_LFS_SKIP_SMUDGE: 1
+
+      # .meta を生成する前に develop を取り込む。
+      # develop 側に既にある .meta(GUID)を先に取り込めば、そのファイルは「.meta あり」と判定され、
+      # designer_output で別の GUID の .meta が作られることを防げる。
+      # 競合した場合は自動で解決せず、ワークフローを失敗させる(管理者が手動で解決する)。
+      # この push は GITHUB_TOKEN によるため他のワークフローは起動せず、「作業完了」通知も飛ばない。
+      - name: Merge develop into designer_output
+        run: |
+          git config user.name "unity-meta-bot"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git fetch origin develop
+          if git merge-base --is-ancestor origin/develop HEAD; then
+            echo "develop は取り込み済みです。"
+          elif git merge --no-edit -m "Merge branch 'develop' into designer_output" origin/develop; then
+            git push origin HEAD:designer_output
+          else
+            echo "::error::develop の取り込みで競合しました。designer_output に develop を手動でマージして競合を解決してください。"
+            git merge --abort
+            exit 1
+          fi
 
       - name: Check for files without .meta
         id: check
@@ -126,6 +148,12 @@ jobs:
         run: |
           if [ -z "$DISCORD_WEBHOOK_DESIGNER" ]; then
             echo "DISCORD_WEBHOOK_DESIGNER が未設定のためスキップします" >&2
+            exit 0
+          fi
+
+          # 管理者が designer_output に develop を手動マージして push した場合は、develop のコミットが並ぶだけなので通知しない
+          if [ "$GITHUB_EVENT_NAME" = "push" ] && [ "$(jq -r '.head_commit.message // "" | startswith("Merge ")' "$GITHUB_EVENT_PATH")" = "true" ]; then
+            echo "マージコミットの push のため通知をスキップします" >&2
             exit 0
           fi
 

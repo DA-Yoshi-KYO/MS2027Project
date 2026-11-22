@@ -14,10 +14,11 @@ using UnityEngine;
 /// SAヒントUIに必要な状態を保持するModel。
 ///
 /// ・ローカルプレイヤーとプレイヤーカメラを保持する
-/// ・プレイヤーがSAに隠れている間だけ対象を検索する
-/// ・CS_SAPoint.activePointsから検索する
+/// ・ハイドポイントで隠れている間、または
+///   SAで到着したSAポイント(種類を問わない)の上にいる間、ヒントを表示する
+/// ・CS_SAPoint.activePointsから候補を検索する
 /// ・距離計算にはCS_SAPoint.standPositionを使用する
-/// ・現在隠れているSAポイント自身は候補から除外する
+/// ・現在いるSAポイント自身は候補から除外する
 /// ・範囲内のSAポイントを近い順に最大指定数保持する
 /// ・UIクラスは参照しない
 ///
@@ -36,9 +37,8 @@ public sealed class CS_UISAHintModel :
     /// <summary>
     /// Modelが公開されたときの通知。
     /// </summary>
-    public static event Action<
-        CS_UISAHintModel
-    > OnBound;
+    public static event Action<CS_UISAHintModel>
+        OnBound;
 
     /// <summary>
     /// Modelの公開が解除されたときの通知。
@@ -125,13 +125,16 @@ public sealed class CS_UISAHintModel :
         _pointDistanceBuffer =
             new List<PointDistance>();
 
-    private bool _isHiding;
+    /// <summary>
+    /// SAヒントが有効か。
+    /// </summary>
+    private bool _isHintActive;
 
     /// <summary>
-    /// 現在プレイヤーが隠れているSAポイント。
-    /// このポイントは案内対象から除外する。
+    /// 現在いるSAポイント。
+    /// このポイント自身は案内対象から除外する。
     /// </summary>
-    private CS_SAPoint _currentHidingPoint;
+    private CS_SAPoint _currentSAPoint;
 
     // =========================================================
     // イベント
@@ -155,11 +158,21 @@ public sealed class CS_UISAHintModel :
     public CSO_UISAHintData data =>
         _data;
 
+    /// <summary>
+    /// Presenterが表示条件として使用する。
+    /// ハイドポイントと信号機のどちらでもtrueになる。
+    /// </summary>
     public bool isHiding =>
-        _isHiding;
+        _isHintActive;
+
+    public bool isHintActive =>
+        _isHintActive;
 
     public CS_SAPoint currentHidingPoint =>
-        _currentHidingPoint;
+        _currentSAPoint;
+
+    public CS_SAPoint currentSAPoint =>
+        _currentSAPoint;
 
     public int targetCount =>
         _nearbyPoints.Count;
@@ -180,9 +193,10 @@ public sealed class CS_UISAHintModel :
 
         _data = data;
 
-        _isHiding = false;
+        _isHintActive = false;
 
-        _currentHidingPoint = null;
+        _currentSAPoint = null;
+
     }
 
     // =========================================================
@@ -228,29 +242,38 @@ public sealed class CS_UISAHintModel :
     }
 
     // =========================================================
-    // 隠れ状態
+    // ヒントの開始・終了
     // =========================================================
 
     /// <summary>
-    /// プレイヤーがSAポイントに隠れ始めたことを設定する。
+    /// 現在いるSAポイントを設定し、ヒントを開始する。
     ///
-    /// currentHidingPointは現在隠れているSAポイント。
-    /// このポイント自身は案内対象から除外する。
+    /// ・ハイドポイントで隠れている間
+    /// ・SAで到着したSAポイント(信号機など種類を問わない)
+    /// のどちらも、この入口から開始する。
+    /// 渡したSAポイント自身は案内対象から除外する。
     /// </summary>
-    public void StartHiding(
-        CS_SAPoint currentHidingPoint)
+    public void StartHint(
+        CS_SAPoint currentPoint)
     {
+        if (currentPoint == null)
+        {
+            StopHint();
+
+            return;
+        }
+
         bool stateChanged =
-            !_isHiding;
+            !_isHintActive;
 
         bool pointChanged =
-            _currentHidingPoint !=
-            currentHidingPoint;
+            _currentSAPoint !=
+            currentPoint;
 
-        _isHiding = true;
+        _isHintActive = true;
 
-        _currentHidingPoint =
-            currentHidingPoint;
+        _currentSAPoint =
+            currentPoint;
 
         if (stateChanged ||
             pointChanged)
@@ -260,46 +283,63 @@ public sealed class CS_UISAHintModel :
     }
 
     /// <summary>
-    /// プレイヤーがSAポイントから出たことを設定する。
+    /// 現在のSAヒントを終了する。
     /// </summary>
-    public void StopHiding()
+    public void StopHint()
     {
-        if (!_isHiding &&
-            _currentHidingPoint == null)
+        if (!_isHintActive &&
+            _currentSAPoint == null)
         {
             return;
         }
 
-        _isHiding = false;
+        _isHintActive = false;
 
-        _currentHidingPoint = null;
+        _currentSAPoint = null;
 
         ClearTargets();
     }
 
+    // =========================================================
+    // 既存コードとの接続用
+    // =========================================================
+
+    /// <summary>
+    /// StartHint()と同じ。
+    /// </summary>
+    public void StartHiding(
+        CS_SAPoint hidePoint)
+    {
+        StartHint(hidePoint);
+    }
+
+    /// <summary>
+    /// StopHint()と同じ。
+    /// </summary>
+    public void StopHiding()
+    {
+        StopHint();
+    }
+
     /// <summary>
     /// 既存コードとの接続用。
-    ///
-    /// trueを渡した場合は現在SAが不明なため、
-    /// 現在地SAを除外できない。
-    /// 新規コードではStartHiding()を推奨する。
     /// </summary>
     public void SetHiding(bool isHiding)
     {
         if (isHiding)
         {
-            StartHiding(
-                currentHidingPoint: null
+            StartHint(
+                currentPoint: null
             );
         }
         else
         {
-            StopHiding();
+            StopHint();
         }
     }
 
     /// <summary>
-    /// 隠れ状態と現在SAを同時に設定する。
+    /// 隠れ状態と現在のSAポイントを同時に設定する。
     /// </summary>
     public void SetHiding(
         bool isHiding,
@@ -307,14 +347,25 @@ public sealed class CS_UISAHintModel :
     {
         if (isHiding)
         {
-            StartHiding(
+            StartHint(
                 currentHidingPoint
             );
         }
         else
         {
-            StopHiding();
+            StopHint();
         }
+    }
+
+    /// <summary>
+    /// SAポイントの種類を問わず、
+    /// 現在のSAヒントを強制終了する。
+    ///
+    /// 死亡、プレイヤー無効化、Model破棄時などに使用する。
+    /// </summary>
+    public void StopAllHints()
+    {
+        StopHint();
     }
 
     // =========================================================
@@ -326,11 +377,14 @@ public sealed class CS_UISAHintModel :
     ///
     /// ・CS_SAPoint.activePointsから検索する
     /// ・距離計算にはstandPositionを使用する
-    /// ・現在隠れているSAポイントは除外する
+    /// ・現在いるSAポイントは除外する
+    /// ・SAReachBoxが設定されていない(SAできない)SAポイントは除外する
+    /// ・プレイヤーから最小距離(minimumDistance)未満の近すぎるSAポイントは除外する
     /// </summary>
     public void RefreshTargets()
     {
-        if (!_isHiding ||
+        if (!_isHintActive ||
+            _currentSAPoint == null ||
             _player == null ||
             _data == null)
         {
@@ -348,11 +402,16 @@ public sealed class CS_UISAHintModel :
             searchDistance *
             searchDistance;
 
+        float minimumSquaredDistance =
+            _data.minimumDistance *
+            _data.minimumDistance;
+
         Vector3 playerPosition =
             _player.position;
 
-        IReadOnlyList<CS_SAPoint> activePoints =
-            CS_SAPoint.activePoints;
+        IReadOnlyList<CS_SAPoint>
+            activePoints =
+                CS_SAPoint.activePoints;
 
         if (activePoints == null)
         {
@@ -378,9 +437,15 @@ public sealed class CS_UISAHintModel :
                 continue;
             }
 
-            // 現在隠れているSA自身は案内しない。
+            // 現在いるSA自身は案内しない。
             if (saPoint ==
-                _currentHidingPoint)
+                _currentSAPoint)
+            {
+                continue;
+            }
+
+            // SAReachBoxが空のSAポイントはSAできないため案内しない。
+            if (!saPoint.hasSAReachBox)
             {
                 continue;
             }
@@ -396,6 +461,13 @@ public sealed class CS_UISAHintModel :
 
             if (squaredDistance >
                 searchSquaredDistance)
+            {
+                continue;
+            }
+
+            // 近すぎるSAポイントは案内しない。
+            if (squaredDistance <
+                minimumSquaredDistance)
             {
                 continue;
             }
@@ -522,8 +594,9 @@ public sealed class CS_UISAHintModel :
 
         _pointDistanceBuffer.Clear();
 
-        _currentHidingPoint = null;
+        _isHintActive = false;
 
-        _isHiding = false;
+        _currentSAPoint = null;
+
     }
 }

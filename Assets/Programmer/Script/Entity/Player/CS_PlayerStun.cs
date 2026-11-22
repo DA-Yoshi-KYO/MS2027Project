@@ -27,16 +27,16 @@ public class CS_PlayerStun : NetworkBehaviour, IStunnable
     // 書き込みはサーバーのみ。スタンが終わる時刻(サーバーの時刻)
     private readonly NetworkVariable<double> _stunEndTime = new NetworkVariable<double>();
 
-    public bool isStunned => GetCurrentTime() < _stunEndTime.Value;
-    public float stunRemaining => Mathf.Max(0f, (float)(_stunEndTime.Value - GetCurrentTime()));   // HUD・見た目用
+    public bool isStunned => this.GetSyncedTime() < _stunEndTime.Value;
+    public float stunRemaining => Mathf.Max(0f, (float)(_stunEndTime.Value - this.GetSyncedTime()));   // HUD・見た目用
 
     // IStunnable実装。duration秒の間スタンさせる(サーバー、またはオフラインのみ)
     public void Stun(float duration)
     {
-        if (IsSpawned && !IsServer) return;
+        if (!this.IsServerOrOffline()) return;
         if (duration <= 0f) return;
 
-        double endTime = GetCurrentTime() + duration;
+        double endTime = this.GetSyncedTime() + duration;
         if (endTime <= _stunEndTime.Value) return;
 
         _stunEndTime.Value = endTime;
@@ -45,15 +45,9 @@ public class CS_PlayerStun : NetworkBehaviour, IStunnable
     // スタンをseconds秒短くする(サーバー、またはオフラインのみ。CS_PlayerStunEscapeが呼ぶ)
     public void Shorten(float seconds)
     {
-        if (IsSpawned && !IsServer) return;
+        if (!this.IsServerOrOffline()) return;
         if (seconds <= 0f || !isStunned) return;
 
-        _stunEndTime.Value = System.Math.Max(GetCurrentTime(), _stunEndTime.Value - seconds);
-    }
-
-    // オンラインではサーバーの時刻、オフラインではゲームの時刻
-    private double GetCurrentTime()
-    {
-        return IsSpawned ? NetworkManager.ServerTime.Time : Time.timeAsDouble;
+        _stunEndTime.Value = System.Math.Max(this.GetSyncedTime(), _stunEndTime.Value - seconds);
     }
 }

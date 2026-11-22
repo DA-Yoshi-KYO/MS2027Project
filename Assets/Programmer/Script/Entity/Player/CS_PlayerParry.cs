@@ -268,7 +268,7 @@ public class CS_PlayerParry : NetworkBehaviour
             _invincibleCoroutine = null;
         }
 
-        if (_health != null && (!IsSpawned || IsServer)) _health.SetInvincible(this, false);
+        if (_health != null && this.IsServerOrOffline()) _health.SetInvincible(this, false);
     }
 
     private static float HorizontalDistance(Vector3 a, Vector3 b)

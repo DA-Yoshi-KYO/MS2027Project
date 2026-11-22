@@ -103,7 +103,8 @@ public class CS_SecurityLaser : MonoBehaviour
         for (int i = 0; i < count; i++)
         {
             CS_PlayerHealth player = _overlapBuffer[i].GetComponentInParent<CS_PlayerHealth>();
-            if (player == null || player.isDead || !CanHit(player)) continue;
+            // 「警察に見つからない」効果の間のプレイヤーには、当たらない(ダメージ・減点なし)
+            if (player == null || player.isDead || CS_PoliceVision.IsHiddenFromPolice(player) || !CanHit(player)) continue;
 
             OnTouched(player);
         }

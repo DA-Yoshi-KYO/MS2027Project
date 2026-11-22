@@ -13,8 +13,11 @@
  * ・プランナーは「Tools → プレイヤー調整」のウィンドウから編集する(Inspectorで直接編集してもよい)
  * ・4キャラ並べた一覧はCSO_PlayableCharacterRosterが持つ。プレイヤーへの反映はCS_PlayerCharacterが行う
  * ・基礎数値(_stats)・必殺技の攻撃(_specialAttack)が未設定の時は、Player.prefabに設定されている共通の値を使う
- * ・必殺技の効果(仕様書「プレイヤー」の必殺技。効果の種類はCSE_PlayerSpecialEffect)
- *   必殺技が当たる瞬間(ゲージを消費した時)から_effectDuration秒続く
+ * ・必殺技は「攻撃する」か「効果だけ」かを_hasSpecialAttackで選ぶ(仕様書「必殺技とは」11/20更新: ギロ・イシュは効果だけ、アブは範囲攻撃)
+ *   攻撃する  : ボタン → 攻撃のモーション → 当たる瞬間にゲージを消費して、効果が始まる(_specialAttackを使う)
+ *   効果だけ  : ボタンを押した瞬間にゲージを消費して、効果が始まる(攻撃のモーション・ダメージ・カメラの揺れは無い。_specialAttackは使わない)
+ * ・必殺技の効果(効果の種類はCSE_PlayerSpecialEffect)
+ *   ゲージを消費した時から_effectDuration秒続く
  *   _boostRateは「身体能力の強化」の時だけ使う
  */
 // ========================================
@@ -32,6 +35,7 @@ public class CSO_PlayableCharacter : ScriptableObject
 
     [Header("必殺技")]
     [SerializeField] private string _specialName = "必殺技";           // 必殺技の名前
+    [SerializeField] private bool _hasSpecialAttack = true;            // 必殺技で攻撃するか(しないなら、使った瞬間に効果だけが始まる)
     [SerializeField] private CSO_AttackData _specialAttack;            // 必殺技の攻撃。未設定ならPlayer.prefabの共通の攻撃
     [SerializeField] private CSE_PlayerSpecialEffect _specialEffect;   // 必殺技を使った後に続く効果
     [SerializeField][Min(0f)] private float _effectDuration = 60f;     // 効果が続く時間(秒)
@@ -45,6 +49,7 @@ public class CSO_PlayableCharacter : ScriptableObject
     public Color themeColor => _themeColor;
     public CSO_PlayerStats stats => _stats;
     public string specialName => _specialName;
+    public bool hasSpecialAttack => _hasSpecialAttack;
     public CSO_AttackData specialAttack => _specialAttack;
     public CSE_PlayerSpecialEffect specialEffect => _specialEffect;
     public float effectDuration => _effectDuration;

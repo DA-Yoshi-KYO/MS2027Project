@@ -157,8 +157,8 @@ public class CS_PoliceAlertManager : MonoBehaviour
     {
         if (player == null || CS_PoliceSquad.IsNetworkClientOnly()) return;
 
-        // 復活後の無敵中は見つからない(警戒状態にしない・警察を向かわせない・暗躍ボーナスもリセットしない)
-        if (CS_PoliceVision.IsRespawnInvincible(player)) return;
+        // 復活後の無敵中・「警察に見つからない」効果の間は見つからない(警戒状態にしない・警察を向かわせない・暗躍ボーナスもリセットしない)
+        if (CS_PoliceVision.IsRespawnInvincible(player) || CS_PoliceVision.IsHiddenFromPolice(player)) return;
 
         if (!player.TryGetComponent(out CS_PlayerAlert alert))
         {
@@ -184,7 +184,7 @@ public class CS_PoliceAlertManager : MonoBehaviour
     {
         Report(player, position, finderPosition);
 
-        if (player == null || _instance == null || _instance._alertData == null || CS_PoliceSquad.IsNetworkClientOnly() || CS_PoliceVision.IsRespawnInvincible(player)) return;
+        if (player == null || _instance == null || _instance._alertData == null || CS_PoliceSquad.IsNetworkClientOnly() || CS_PoliceVision.IsRespawnInvincible(player) || CS_PoliceVision.IsHiddenFromPolice(player)) return;
 
         float duration = _instance._alertData.touchAlertDuration;
         if (duration > 0.0f) _instance._touchedUntil[player] = Time.time + duration;
@@ -197,7 +197,7 @@ public class CS_PoliceAlertManager : MonoBehaviour
     /// <param name="player">見られているプレイヤー</param>
     public static void ReportExposure(CS_PlayerHealth player)
     {
-        if (player == null || _instance == null || CS_PoliceSquad.IsNetworkClientOnly() || CS_PoliceVision.IsRespawnInvincible(player)) return;
+        if (player == null || _instance == null || CS_PoliceSquad.IsNetworkClientOnly() || CS_PoliceVision.IsRespawnInvincible(player) || CS_PoliceVision.IsHiddenFromPolice(player)) return;
 
         _instance._lastExposedTimes[player] = Time.time;
     }
@@ -209,7 +209,7 @@ public class CS_PoliceAlertManager : MonoBehaviour
     /// <param name="player">当たったプレイヤー</param>
     public static void ReportLaserHit(CS_PlayerHealth player)
     {
-        if (player == null || _instance == null || _instance._alertData == null || CS_PoliceSquad.IsNetworkClientOnly() || CS_PoliceVision.IsRespawnInvincible(player)) return;
+        if (player == null || _instance == null || _instance._alertData == null || CS_PoliceSquad.IsNetworkClientOnly() || CS_PoliceVision.IsRespawnInvincible(player) || CS_PoliceVision.IsHiddenFromPolice(player)) return;
 
         _instance.ApplyPenalty(player, _instance._alertData.laserPenaltyPoint);
     }
@@ -519,6 +519,9 @@ public class CS_PoliceAlertManager : MonoBehaviour
             if (!CS_PoliceSpawnUtility.TryFindSpawnPositionToward(
                 playerPosition, oppositeDirection, yawOffset, _reinforceWidenAngle,
                 _alertData.reinforceDistance, _alertData.reinforceDistance, out Vector3 position)) continue;
+
+            // ソロ: 今のエリアの扇形の外には出さない
+            if (!CS_SoloAreaProgression.IsActiveAt(position)) continue;
 
             // 出現した時に、プレイヤーの方を向いている
             Vector3 toPlayer = playerPosition - position;

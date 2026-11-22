@@ -102,7 +102,7 @@ public class CS_PlayerStats : NetworkBehaviour
     private void Start()
     {
         if (IsSpawned) return;
-        if (NetworkManager.Singleton != null && NetworkManager.Singleton.IsListening) return;
+        if (CS_PlayerNetwork.isOnline) return;
 
         ApplyBaseStats();
     }
@@ -139,87 +139,75 @@ public class CS_PlayerStats : NetworkBehaviour
     // HP上限を変更する(サーバーのみ)
     public void SetMaxHp(float value)
     {
-        if (IsSpawned && !IsServer) return;
-
-        _maxHp.Value = Mathf.Max(1f, value);
+        SetStat(_maxHp, value, 1f);
     }
 
     // 攻撃力(倍率)を変更する(サーバーのみ)
     public void SetAttackPower(float value)
     {
-        if (IsSpawned && !IsServer) return;
-
-        _attackPower.Value = Mathf.Max(0f, value);
+        SetStat(_attackPower, value, 0f);
     }
 
     // 移動速度を変更する(サーバーのみ)
     public void SetMoveSpeed(float value)
     {
-        if (IsSpawned && !IsServer) return;
-
-        _moveSpeed.Value = Mathf.Max(0f, value);
+        SetStat(_moveSpeed, value, 0f);
     }
 
     // ジャンプ力を変更する(サーバーのみ)
     public void SetJumpPower(float value)
     {
-        if (IsSpawned && !IsServer) return;
-
-        _jumpPower.Value = Mathf.Max(0f, value);
+        SetStat(_jumpPower, value, 0f);
     }
 
     // ダッシュ速度を変更する(サーバーのみ)
     public void SetDashSpeed(float value)
     {
-        if (IsSpawned && !IsServer) return;
-
-        _dashSpeed.Value = Mathf.Max(0f, value);
+        SetStat(_dashSpeed, value, 0f);
     }
 
     // ダッシュ後、ダッシュボタンを押し続けている間の速度を変更する(サーバーのみ)
     public void SetSprintSpeed(float value)
     {
-        if (IsSpawned && !IsServer) return;
-
-        _sprintSpeed.Value = Mathf.Max(0f, value);
+        SetStat(_sprintSpeed, value, 0f);
     }
 
     // 必殺ゲージの上限を変更する(サーバーのみ)
     public void SetMaxGauge(float value)
     {
-        if (IsSpawned && !IsServer) return;
-
-        _maxGauge.Value = Mathf.Max(1f, value);
+        SetStat(_maxGauge, value, 1f);
     }
 
     // 必殺技の威力(倍率)を変更する(サーバーのみ)
     public void SetSpecialAttackPower(float value)
     {
-        if (IsSpawned && !IsServer) return;
-
-        _specialAttackPower.Value = Mathf.Max(0f, value);
+        SetStat(_specialAttackPower, value, 0f);
     }
 
     // 暗躍ボーナスの倍率を変更する(サーバーのみ。CS_PlayerStealthBonusが呼ぶ)
     public void SetStealthBonusRate(float value)
     {
-        if (IsSpawned && !IsServer) return;
-
-        _stealthBonusRate.Value = Mathf.Max(0f, value);
+        SetStat(_stealthBonusRate, value, 0f);
     }
 
     // 必殺技の「身体能力の強化」の倍率を変える(サーバーのみ。CS_PlayerCharacterが使う)
     public void SetSpecialBoostRate(float value)
     {
-        if (IsSpawned && !IsServer) return;
+        SetStat(_specialBoostRate, value, 0f);
+    }
 
-        _specialBoostRate.Value = Mathf.Max(0f, value);
+    // ステータスを書き換える(サーバー、またはオフラインのみ。minimum未満にはしない)
+    private void SetStat(NetworkVariable<float> stat, float value, float minimum)
+    {
+        if (!this.IsServerOrOffline()) return;
+
+        stat.Value = Mathf.Max(minimum, value);
     }
 
     // 全ステータスをBase Statsの値に戻す(サーバーのみ。リスポーン処理などからの呼び出しを想定)
     public void ResetToBase()
     {
-        if (IsSpawned && !IsServer) return;
+        if (!this.IsServerOrOffline()) return;
 
         ApplyBaseStats();
     }

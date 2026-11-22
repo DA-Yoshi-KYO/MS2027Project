@@ -70,7 +70,9 @@ GameObject:
   - component: {fileID: 1153621398760505636}
   - component: {fileID: 3618917485198117787}
   - component: {fileID: 387243062822567825}
+  - component: {fileID: 338409013222301893}
   - component: {fileID: 6719901807448412688}
+  - component: {fileID: 5767155461765081608}
   m_Layer: 31
   m_Name: Player
   m_TagString: PlayerNoTransformation
@@ -924,8 +926,10 @@ MonoBehaviour:
   _sightSampleInset: 0.1
   _flySpeed: 25
   _arriveDistance: 0.3
+  _minimumSADistance: 2
   _maxFlyTime: 1
   _releaseGhostTime: 0.1
+  _arrivedHintLeaveDistance: 1
   _revealDistance: 2
 --- !u!114 &5684253229926721997
 MonoBehaviour:
@@ -1221,6 +1225,19 @@ MonoBehaviour:
   _startPitch: -20
   _startDistance: 2.2
   _startPivotHeight: 0.9
+--- !u!114 &338409013222301893
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1825699444668748530}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 415a85cc2d67d2e4bb9e1dfa57b5cadc, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CS_PlayerRideSAPoint
+  _rayLength: 0.4
 --- !u!114 &6719901807448412688
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1234,6 +1251,20 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::CS_PlayerSAHintUI
   _data: {fileID: 11400000, guid: ebd770a307ac64a4f8b2e0435ba49f58, type: 2}
+--- !u!114 &5767155461765081608
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1825699444668748530}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 01bbaa867d252ce4a80b2c253f0d3eaf, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CS_PlayerSpecialEffectCue
+  _font: {fileID: 11400000, guid: e30c1b888243f8b42930f1a1c3601a06, type: 2}
+  _cutInTime: 0.9
 --- !u!1 &3298430547158640491
 GameObject:
   m_ObjectHideFlags: 0

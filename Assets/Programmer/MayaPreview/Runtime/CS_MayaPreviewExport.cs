@@ -30,6 +30,11 @@ using UnityEngine.Rendering;
  History: 2026/10/11 New
           2026/10/11 FBX, written into the project (Assets/Designer), MT_ material names
           2026/11/09 Export types, folders per type, prefab, restore / overwrite per Maya scene
+          2026/11/18 Outlines made in the preview are exported as a child "<name>_Outline"
+          2026/11/22 Textures: every picked file is copied into the project, two exports never share a
+                     file name by accident, and Load uses the copy when the original file is not there
+          2026/11/22 Maya meshes (centimetres) are written in metres: they came out 100 times too big.
+                     Manifest version 4: node positions of Maya meshes in metres
 =====================================+
 */
 
@@ -114,6 +119,7 @@ public class CS_MayaPreviewExportMaterial
     public CS_MayaPreviewExportColor[] colors;
     public CS_MayaPreviewExportVector[] vectors;
     public CS_MayaPreviewExportTexture[] textures;
+    public float outlineWidth;   // outline (SHG_Outline) part: line width in world metres; 0 = not an outline
 }
 
 [Serializable] public class CS_MayaPreviewExportFloat { public string prop; public float value; }
@@ -160,6 +166,8 @@ public static class CS_MayaPreviewExport
     public const string ProjectFile = "MayaPreviewProject.txt";   // written next to the player by the build
     public const string TypesFile = "Programmer/MayaPreview/Runtime/MayaPreviewExportTypes.json";   // in Assets
     private const string LivePrefix = "MayaLive_";
+    public const float MayaUnitsToMetres = 0.01f;   // Maya sends centimetres, whatever the scene's unit is
+    private const int MetresVersion = 4;            // manifests from this version: Maya node positions in metres
     private const string ModelRootName = "Maya_Model_Root";
 
     // One row of the export list.
@@ -562,6 +570,7 @@ public static class CS_MayaPreviewExport
         public readonly HashSet<string> usedFiles = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         public readonly List<string> warnings = new List<string>();
         public int meshCount;
+        public readonly Dictionary<string, string> claimed = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);   // copy -> its original, of the other exports
     }
 
     // root: <project>/Assets/Designer. Files go to the folders of the type (see the file header).
@@ -577,6 +586,7 @@ public static class CS_MayaPreviewExport
         w.type = type;
         try
         {
+            if (type.materials) ReadClaimedTextures(w, ManifestPath(root, type.id, name));
             var entries = new List<CS_MayaPreviewExportEntry>();
             foreach (Item item in items)
             {
@@ -605,6 +615,7 @@ public static class CS_MayaPreviewExport
 
             var manifest = new CS_MayaPreviewExportManifest
             {
+                version = MetresVersion,
                 name = name,
                 type = type.id,
                 scene = Scene,
@@ -693,9 +704,11 @@ public static class CS_MayaPreviewExport
     private static void AddMesh(Writer w, GameObject o, int parent, string name, bool live)
     {
         Transform t = o.transform;
-        int index = AddNode(w, name, parent, t.localPosition, t.localRotation, t.localScale);
+        Vector3 position = live ? t.localPosition * MayaUnitsToMetres : t.localPosition;
+        int index = AddNode(w, name, parent, position, t.localRotation, t.localScale);
         w.nodes[index].mayaPath = live ? ShapePath(o) : "";
         WriteRenderer(w, index, o);
+        WriteOutline(w, index, o);
     }
 
     // Scene object: the object (with its world transform) and the children that render something.
@@ -707,6 +720,7 @@ public static class CS_MayaPreviewExport
             ? AddNode(w, t.name, parent, t.position, t.rotation, t.lossyScale)
             : AddNode(w, t.name, parent, t.localPosition, t.localRotation, t.localScale);
         WriteRenderer(w, index, t.gameObject);
+        WriteOutline(w, index, t.gameObject);
         foreach (Transform child in t) AddScene(w, child, index, false);
     }
 
@@ -721,10 +735,31 @@ public static class CS_MayaPreviewExport
     {
         Renderer renderer = o.GetComponent<Renderer>();
         if (renderer == null || !CS_MayaPreviewSelection.Selectable(renderer)) return;
+        WriteMesh(w, index, renderer, true);
+    }
+
+    // An outline made in the preview: a child "<name>_Outline" with the outline's mesh (smoothed
+    // normals, transparent parts left out) and its SHG_Outline material per part.
+    private static void WriteOutline(Writer w, int index, GameObject o)
+    {
+        CS_MayaPreviewOutline outline = CS_MayaPreviewOutline.Of(o);
+        if (outline == null || outline.OutlineRenderer == null || !outline.OutlineRenderer.enabled) return;
+        if (string.IsNullOrEmpty(w.nodes[index].mesh)) return;   // the object itself was not written
+        Transform t = outline.transform;
+        int child = AddNode(w, w.nodes[index].name + CS_MayaPreviewOutline.Suffix, index, t.localPosition, t.localRotation, t.localScale);
+        WriteMesh(w, child, outline.OutlineRenderer, false);
+    }
+
+    private static void WriteMesh(Writer w, int index, Renderer renderer, bool warnSkinned)
+    {
+        GameObject o = renderer.gameObject;
         CS_MayaPreviewExportNode node = w.nodes[index];
         Mesh mesh = null;
         Mesh baked = null;
-        Matrix4x4 toNode = Matrix4x4.identity;
+        // A Maya mesh, or the outline under it: centimetres -> metres.
+        bool mayaUnits = IsLive(o) || (o.transform.parent != null && IsLive(o.transform.parent.gameObject)
+                                       && o.GetComponent<CS_MayaPreviewOutline>() != null);
+        Matrix4x4 toNode = mayaUnits ? Matrix4x4.Scale(Vector3.one * MayaUnitsToMetres) : Matrix4x4.identity;
         if (renderer is SkinnedMeshRenderer skinned)
         {
             baked = new Mesh { name = skinned.sharedMesh != null ? skinned.sharedMesh.name : o.name };
@@ -738,7 +773,7 @@ public static class CS_MayaPreviewExport
                 Matrix4x4 toWorld = Fit(baked, unscaled, target) <= Fit(baked, scaled, target) ? unscaled : scaled;
                 toNode = t.worldToLocalMatrix * toWorld;
                 mesh = baked;
-                w.warnings.Add("スキンメッシュは動かない形で書き出しました: " + o.name);
+                if (warnSkinned) w.warnings.Add("スキンメッシュは動かない形で書き出しました: " + o.name);
             }
             catch (Exception exception) { w.warnings.Add("形を固定できませんでした " + o.name + ": " + exception.Message); }
         }
@@ -774,12 +809,47 @@ public static class CS_MayaPreviewExport
         return (c - target.center).magnitude + Mathf.Abs(e.magnitude - target.extents.magnitude);
     }
 
-    private static string UniqueFile(Writer w, string sub, string baseName, string extension)
+    private static string UniqueFile(Writer w, string sub, string baseName, string extension, string source)
     {
         string file = sub + "/" + baseName + extension;
-        for (int i = 2; w.usedFiles.Contains(file); i++) file = sub + "/" + baseName + "_" + i + extension;
+        for (int i = 2; w.usedFiles.Contains(file) || TakenByOtherExport(w, file, source); i++)
+            file = sub + "/" + baseName + "_" + i + extension;
         w.usedFiles.Add(file);
         return file;
+    }
+
+    private static void ReadClaimedTextures(Writer w, string thisManifest)
+    {
+        foreach (Saved saved in FindExports(w.root))
+        {
+            if (string.Equals(Normalize(saved.file), Normalize(thisManifest), StringComparison.OrdinalIgnoreCase)) continue;
+            CS_MayaPreviewExportMaterial[] materials = ReadManifest(saved.file)?.materials;
+            if (materials == null) continue;
+            foreach (CS_MayaPreviewExportMaterial material in materials)
+            {
+                if (material?.textures == null) continue;
+                foreach (CS_MayaPreviewExportTexture texture in material.textures)
+                    if (!string.IsNullOrEmpty(texture.file)) w.claimed[texture.file] = Normalize(texture.source);
+            }
+        }
+    }
+
+    // Another export's copy with the same name but another picture must not be overwritten.
+    private static bool TakenByOtherExport(Writer w, string file, string source)
+    {
+        if (!w.claimed.TryGetValue(file, out string owner)) return false;
+        if (string.Equals(owner, Normalize(source), StringComparison.OrdinalIgnoreCase)) return false;
+        string target = w.root + "/" + file;
+        return File.Exists(target) && (!File.Exists(source) || !SameBytes(source, target));
+    }
+
+    private static bool SameBytes(string a, string b)
+    {
+        if (new FileInfo(a).Length != new FileInfo(b).Length) return false;
+        byte[] x = File.ReadAllBytes(a), y = File.ReadAllBytes(b);
+        for (int i = 0; i < x.Length; i++)
+            if (x[i] != y[i]) return false;
+        return true;
     }
 
     private static int AddMaterial(Writer w, Material material)
@@ -821,7 +891,9 @@ public static class CS_MayaPreviewExport
             {
                 case ShaderPropertyType.Float:
                 case ShaderPropertyType.Range:
-                    floats.Add(new CS_MayaPreviewExportFloat { prop = prop, value = material.GetFloat(prop) });
+                    float number = material.GetFloat(prop);
+                    if (maya && prop == "_NoseSize") number *= MayaUnitsToMetres;   // a length of the mesh
+                    floats.Add(new CS_MayaPreviewExportFloat { prop = prop, value = number });
                     break;
                 case ShaderPropertyType.Int:
                     ints.Add(new CS_MayaPreviewExportFloat { prop = prop, value = material.GetInteger(prop) });
@@ -834,6 +906,7 @@ public static class CS_MayaPreviewExport
                     break;
                 case ShaderPropertyType.Texture:
                     if (shader.GetPropertyTextureDimension(p) != TextureDimension.Tex2D) break;
+                    if ((shader.GetPropertyFlags(p) & ShaderPropertyFlags.NonModifiableTextureData) != 0) break;    // part of the shader
                     Texture texture = material.GetTexture(prop);
                     if (texture == null) break;
                     bool normal = maya ? library.IsNormalProp(mayaName, prop) : (shader.GetPropertyFlags(p) & ShaderPropertyFlags.Normal) != 0;
@@ -842,7 +915,8 @@ public static class CS_MayaPreviewExport
                     {
                         prop = prop, textureName = texture.name, normal = normal, linear = linear,
                         scale = material.GetTextureScale(prop), offset = material.GetTextureOffset(prop),
-                        source = maya ? library.SourcePath(mayaName, prop) : "", file = ""
+                        source = prop == CS_MayaPreviewClothSeams.MapProp ? CS_MayaPreviewClothSeams.FileOf(material)
+                               : maya ? library.SourcePath(mayaName, prop) : CS_MayaPreviewOutline.TexturePathOf(material, prop) ?? TextureFileOf(texture), file = ""
                     };
                     entry.file = CopyTexture(w, entry.source, texture);
                     textures.Add(entry);
@@ -854,6 +928,7 @@ public static class CS_MayaPreviewExport
         data.colors = colors.ToArray();
         data.vectors = vectors.ToArray();
         data.textures = textures.ToArray();
+        data.outlineWidth = CS_MayaPreviewOutline.WorldWidthOf(material);
         w.materials.Add(data);
         w.materialColors.Add(material.HasProperty("_BaseColor") ? material.GetColor("_BaseColor")
             : material.HasProperty("_Color") ? material.GetColor("_Color") : Color.white);
@@ -862,18 +937,43 @@ public static class CS_MayaPreviewExport
         return index;
     }
 
-    // Texture files of Maya materials go to <Folder>/Texture. Textures that are already in the
-    // project (scene materials) are found by name in the editor and not copied.
+    // Texture files go to <root>/Texture/<type>; the manifest keeps that relative path, so the materials
+    // do not depend on where the picture was picked from.
+    //   - already in that root (an earlier copy): referenced as it is
+    //   - the file is there: copied
+    //   - the file is gone but its pixels are loaded: written as png
+    //   - no file (textures of scene materials): found by name in the editor
     private static string CopyTexture(Writer w, string source, Texture texture)
     {
         try
         {
-            if (w.textureFolder == null || string.IsNullOrEmpty(source) || !File.Exists(source)) return "";
+            if (w.textureFolder == null || string.IsNullOrEmpty(source)) return "";
+            source = Normalize(source);
             if (w.copiedTextures.TryGetValue(source, out string done)) return done;
-            string file = UniqueFile(w, w.textureFolder,SafeName(Path.GetFileNameWithoutExtension(source)), Path.GetExtension(source).ToLowerInvariant());
-            string target = w.root + "/" + file;
-            Directory.CreateDirectory(Path.GetDirectoryName(target));
-            if (!SameFile(source, target)) File.Copy(source, target, true);
+
+            bool exists = File.Exists(source);
+            string rootPrefix = w.root.TrimEnd('/') + "/";
+            string file;
+            if (exists && source.StartsWith(rootPrefix, StringComparison.OrdinalIgnoreCase))
+            {
+                file = source.Substring(rootPrefix.Length);
+                w.usedFiles.Add(file);
+            }
+            else
+            {
+                var loaded = texture as Texture2D;
+                if (!exists && (loaded == null || !loaded.isReadable))
+                {
+                    w.warnings.Add("テクスチャのファイルが見つかりません: " + source);
+                    return "";
+                }
+                string extension = exists ? Path.GetExtension(source).ToLowerInvariant() : ".png";
+                file = UniqueFile(w, w.textureFolder, SafeName(Path.GetFileNameWithoutExtension(source)), extension, source);
+                string target = w.root + "/" + file;
+                Directory.CreateDirectory(Path.GetDirectoryName(target));
+                if (!exists) File.WriteAllBytes(target, loaded.EncodeToPNG());
+                else if (!SameFile(source, target)) File.Copy(source, target, true);
+            }
             w.copiedTextures[source] = file;
             return file;
         }
@@ -911,13 +1011,14 @@ public static class CS_MayaPreviewExport
             foreach (CS_MayaPreviewExportRename rename in manifest.renames)
                 if (rename != null) Rename(rename.path, rename.name);
         var library = CS_MayaPreviewMaterialLibrary.Current;
+        string exportRoot = RootOfManifest(path);
         if (library != null && manifest.materials != null)
         {
             foreach (CS_MayaPreviewExportMaterial material in manifest.materials)
             {
                 if (material == null || !material.maya || string.IsNullOrEmpty(material.name)) continue;
                 CS_MayaPreviewUndo.RecordMayaMaterial(library, material.name, "Load export", false);
-                library.Restore(material.name, material.mayaSettings);
+                library.Restore(material.name, WithExportedTextures(material, exportRoot));
                 CS_MayaPreviewUndo.Close();
                 restoredMaterials++;
             }
@@ -931,7 +1032,7 @@ public static class CS_MayaPreviewExport
                 if (node == null || string.IsNullOrEmpty(node.mayaPath)) continue;
                 Transform live = root.Find(LivePrefix + node.mayaPath);
                 if (live == null) continue;
-                live.localPosition = node.position;
+                live.localPosition = manifest.version >= MetresVersion ? node.position / MayaUnitsToMetres : node.position;
                 live.localRotation = node.rotation;
                 live.localScale = node.scale;
                 movedObjects++;
@@ -960,4 +1061,49 @@ public static class CS_MayaPreviewExport
         }
         return "マテリアル " + restoredMaterials + "、位置 " + movedObjects + " を戻しました";
     }
+
+    // Assets/Designer/Json/<type>/<name>.mpx.json -> Assets/Designer (wherever this PC has the project).
+    private static string RootOfManifest(string manifestPath)
+    {
+        string folder = Normalize(Path.GetDirectoryName(manifestPath));
+        int json = folder.LastIndexOf("/" + JsonFolder + "/", StringComparison.OrdinalIgnoreCase);
+        return json > 0 ? folder.Substring(0, json) : ProjectFolder();
+    }
+
+    // Another PC, or the original picture was moved: the copy in the project is used instead.
+    private static string WithExportedTextures(CS_MayaPreviewExportMaterial material, string root)
+    {
+        if (material.textures == null || string.IsNullOrEmpty(root)) return material.mayaSettings;
+        var copies = new Dictionary<string, string>();
+        foreach (CS_MayaPreviewExportTexture texture in material.textures)
+        {
+            if (string.IsNullOrEmpty(texture.file)) continue;
+            if (texture.prop == CS_MayaPreviewClothSeams.MapProp) continue;     // measured again, not a picture someone picked
+            if (!string.IsNullOrEmpty(texture.source) && File.Exists(texture.source)) continue;
+            string copy = Normalize(root) + "/" + texture.file;
+            if (File.Exists(copy)) copies[texture.prop] = copy;
+        }
+        return copies.Count > 0 ? CS_MayaPreviewMaterialLibrary.Relocate(material.mayaSettings, copies) : material.mayaSettings;
+    }
+
+
+    // =========================================================
+    // Texture files picked for scene materials
+    // =========================================================
+
+    private static readonly Dictionary<Texture, string> s_textureFiles = new Dictionary<Texture, string>();
+
+    public static void RememberTextureFile(Texture texture, string file)
+    {
+        if (texture != null) s_textureFiles[texture] = Normalize(file);
+    }
+
+    public static string TextureFileOf(Texture texture) =>
+        texture != null && s_textureFiles.TryGetValue(texture, out string file) ? file : "";
+
+    // Maps read as numbers: no sRGB curve, no block compression.
+    public static bool IsDataMap(string prop) =>
+        prop == CS_MayaPreviewClothSeams.MapProp ||
+        prop == "_FaceSDFMap" || prop == "_HairHeightMap" || prop == "_HairHighlightJitterMap" || prop == "_EyeHighlightMask" ||
+        prop == "_ClothThreadMap" || prop == "_ClothFuzzMap" || prop == "_ClothStitchMask";
 }

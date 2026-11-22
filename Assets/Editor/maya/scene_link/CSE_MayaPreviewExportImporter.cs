@@ -23,6 +23,10 @@ using UnityEngine.Rendering.HighDefinition;
  History: 2026/10/11 New
           2026/10/11 FBX + Designer folders, automatic (no Import menu, no prefab)
           2026/11/09 Folders per export type, prefab
+          2026/11/18 Outline materials (SHG_Outline, from the preview's outlines): width converted
+                     to the imported model's scale, no shadow casting
+          2026/11/18 A single top object is the model root (no extra file-name object above it)
+          2026/11/22 SDF / height maps uncompressed; textures found by name with or without extension
 =====================================+
 */
 public class CSE_MayaPreviewExportImporter : AssetPostprocessor
@@ -117,7 +121,9 @@ public class CSE_MayaPreviewExportImporter : AssetPostprocessor
             {
                 if (material?.textures == null) continue;
                 foreach (CS_MayaPreviewExportTexture texture in material.textures)
-                    if (!string.IsNullOrEmpty(texture.file)) SetupTexture(root + "/" + texture.file, texture.normal, texture.linear);
+                    if (!string.IsNullOrEmpty(texture.file))
+                        SetupTexture(root + "/" + texture.file, texture.normal, texture.linear, CS_MayaPreviewExport.IsDataMap(texture.prop),
+                            texture.prop == CS_MayaPreviewClothSeams.MapProp);
             }
         }
 
@@ -127,11 +133,21 @@ public class CSE_MayaPreviewExportImporter : AssetPostprocessor
                 materials.Add(data != null ? BuildMaterial(root, materialFolder, data) : null);
         AssetDatabase.SaveAssets();
 
-        RemapModel(fbxPath, manifest.materials, materials, buildMaterials);
+        // One object at the top (Chara_Test_UNLIT): it becomes the model root itself, no extra
+        // "<file name>" object above it. Several at the top: they stay under that root.
+        int top = 0;
+        if (manifest.nodes != null) foreach (CS_MayaPreviewExportNode node in manifest.nodes) if (node != null && node.parent < 0) top++;
+        RemapModel(fbxPath, manifest.materials, materials, buildMaterials, top != 1);
         var model = AssetDatabase.LoadAssetAtPath<GameObject>(fbxPath);
+        if (model != null && buildMaterials) SetupOutlines(model, manifest.materials, materials);
         UnityEngine.Object ping = model;
         bool prefab = typed && !string.IsNullOrEmpty(manifest.prefab);
         if (model != null && prefab) ping = MakePrefab(model, root + "/" + manifest.prefab) ?? ping;
+        if (prefab && buildMaterials)
+        {
+            SetupEyes(root + "/" + manifest.prefab);
+            SetupShade(root + "/" + manifest.prefab);
+        }
         Debug.Log("Maya Preview Import : " + fbxPath +
                   (buildMaterials ? "  (" + materials.Count + " materials in " + materialFolder + ")" : "") +
                   (prefab ? "  prefab " + root + "/" + manifest.prefab : ""), ping);
@@ -168,7 +184,7 @@ public class CSE_MayaPreviewExportImporter : AssetPostprocessor
     }
 
     // The FBX uses the MT_ materials (same names as its own materials).
-    private static void RemapModel(string fbxPath, CS_MayaPreviewExportMaterial[] data, List<Material> materials, bool staticModel)
+    private static void RemapModel(string fbxPath, CS_MayaPreviewExportMaterial[] data, List<Material> materials, bool staticModel, bool preserveHierarchy)
     {
         var importer = AssetImporter.GetAtPath(fbxPath) as ModelImporter;
         if (importer == null)
@@ -182,7 +198,7 @@ public class CSE_MayaPreviewExportImporter : AssetPostprocessor
         // Motion (no materials): the animation settings are left to the user.
         if (staticModel && importer.importAnimation) { importer.importAnimation = false; changed = true; }
         if (staticModel && importer.animationType != ModelImporterAnimationType.None) { importer.animationType = ModelImporterAnimationType.None; changed = true; }
-        if (!importer.preserveHierarchy) { importer.preserveHierarchy = true; changed = true; }
+        if (importer.preserveHierarchy != preserveHierarchy) { importer.preserveHierarchy = preserveHierarchy; changed = true; }
         if (importer.materialImportMode == ModelImporterMaterialImportMode.None)
         {
             importer.materialImportMode = ModelImporterMaterialImportMode.ImportViaMaterialDescription;
@@ -198,14 +214,103 @@ public class CSE_MayaPreviewExportImporter : AssetPostprocessor
             importer.AddRemap(id, materials[i]);
             changed = true;
         }
+        // CS_ToonEyeReflection measures the eyes in a build too
+        if (!importer.isReadable && materials.Exists(m => m != null && m.shader != null && m.shader.name == CS_ToonEyeReflection.EyeShader))
+        {
+            importer.isReadable = true;
+            changed = true;
+        }
         if (changed) importer.SaveAndReimport();
     }
 
-    private static void SetupTexture(string path, bool normal, bool linear)
+    // Outline parts: the preview sends the line width in world metres; the shader pushes the hull
+    // out in object space, so it is divided by the scale of the renderer that uses it. The outline
+    // casts no shadow (a dark ring under the character otherwise).
+    private static void SetupOutlines(GameObject model, CS_MayaPreviewExportMaterial[] data, List<Material> materials)
+    {
+        if (data == null) return;
+        var widths = new Dictionary<Material, float>();
+        for (int i = 0; i < materials.Count && i < data.Length; i++)
+            if (materials[i] != null && data[i] != null && data[i].outlineWidth > 0f) widths[materials[i]] = data[i].outlineWidth;
+        if (widths.Count == 0) return;
+        foreach (Renderer renderer in model.GetComponentsInChildren<Renderer>(true))
+        {
+            Vector3 s = renderer.transform.lossyScale;
+            float scale = Mathf.Max(1e-6f, Mathf.Max(Mathf.Abs(s.x), Mathf.Max(Mathf.Abs(s.y), Mathf.Abs(s.z))));
+            foreach (Material material in renderer.sharedMaterials)
+            {
+                if (material == null || !widths.TryGetValue(material, out float width)) continue;
+                if (material.HasProperty("_OutlineWidth")) material.SetFloat("_OutlineWidth", width / scale);
+                material.SetShaderPassEnabled("ShadowCaster", false);
+                EditorUtility.SetDirty(material);
+            }
+        }
+        AssetDatabase.SaveAssets();
+    }
+
+    // The pupils mirror what the eyes look at: the script that takes that picture, on the prefab's eye renderers.
+    private static void SetupEyes(string prefabPath)
+    {
+        var asset = AssetDatabase.LoadAssetAtPath<GameObject>(prefabPath);
+        if (asset == null) return;
+        bool missing = false;
+        foreach (Renderer renderer in asset.GetComponentsInChildren<Renderer>(true))
+            missing |= CS_ToonEyeReflection.HasEye(renderer) && !renderer.TryGetComponent(out CS_ToonEyeReflection _);
+        if (!missing) return;
+        GameObject contents = PrefabUtility.LoadPrefabContents(prefabPath);
+        try
+        {
+            foreach (Renderer renderer in contents.GetComponentsInChildren<Renderer>(true))
+                if (CS_ToonEyeReflection.HasEye(renderer) && !renderer.TryGetComponent(out CS_ToonEyeReflection _))
+                    renderer.gameObject.AddComponent<CS_ToonEyeReflection>();
+            PrefabUtility.SaveAsPrefabAsset(contents, prefabPath);
+        }
+        finally { PrefabUtility.UnloadPrefabContents(contents); }
+    }
+
+    // In the shade of something the whole character darkens: the script that gives the shader the character's box.
+    private static void SetupShade(string prefabPath)
+    {
+        var asset = AssetDatabase.LoadAssetAtPath<GameObject>(prefabPath);
+        if (asset == null || asset.TryGetComponent(out CS_ToonShade _)) return;
+        bool toon = false;
+        foreach (Renderer renderer in asset.GetComponentsInChildren<Renderer>(true))
+            foreach (Material material in renderer.sharedMaterials)
+                toon |= material != null && material.shader != null && material.shader.name.Contains("SHG_NTE_");
+        if (!toon) return;
+        GameObject contents = PrefabUtility.LoadPrefabContents(prefabPath);
+        try
+        {
+            contents.AddComponent<CS_ToonShade>();
+            PrefabUtility.SaveAsPrefabAsset(contents, prefabPath);
+        }
+        finally { PrefabUtility.UnloadPrefabContents(contents); }
+    }
+
+    private static void SetupTexture(string path, bool normal, bool linear, bool data, bool texels)
     {
         var importer = AssetImporter.GetAtPath(path) as TextureImporter;
-        if (importer == null) return;
+        if (importer == null)
+        {
+            AssetDatabase.ImportAsset(path);    // just copied: not imported yet
+            importer = AssetImporter.GetAtPath(path) as TextureImporter;
+            if (importer == null) return;
+        }
         bool changed = false;
+        // Block compression draws steps into the edge of an SDF shadow.
+        if (data && importer.textureCompression != TextureImporterCompression.Uncompressed)
+        {
+            importer.textureCompression = TextureImporterCompression.Uncompressed;
+            changed = true;
+        }
+        // read texel by texel (the cloth's seam map): no smaller copies
+        if (texels && (importer.mipmapEnabled || importer.sRGBTexture || importer.alphaIsTransparency))
+        {
+            importer.mipmapEnabled = false;
+            importer.sRGBTexture = false;
+            importer.alphaIsTransparency = false;
+            changed = true;
+        }
         if (normal && importer.textureType != TextureImporterType.NormalMap) { importer.textureType = TextureImporterType.NormalMap; changed = true; }
         if (!normal && linear && importer.sRGBTexture) { importer.sRGBTexture = false; changed = true; }
         if (changed) importer.SaveAndReimport();
@@ -265,6 +370,7 @@ public class CSE_MayaPreviewExportImporter : AssetPostprocessor
     private static Texture FindProjectTexture(string name)
     {
         if (string.IsNullOrEmpty(name)) return null;
+        name = Path.GetFileNameWithoutExtension(name);   // textures loaded by the player are named "xxx.png"
         foreach (string guid in AssetDatabase.FindAssets(name + " t:Texture"))
         {
             string path = AssetDatabase.GUIDToAssetPath(guid);

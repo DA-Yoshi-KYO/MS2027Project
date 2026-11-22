@@ -269,6 +269,13 @@ public static class CSED_PlacementState
         set => EditorPrefs.SetBool(_prefix + "LaserAuto", value);
     }
 
+    // レーザーの棒の太さ(m。断面は正方形)
+    public static float laserThickness
+    {
+        get => EditorPrefs.GetFloat(_prefix + "LaserThickness", 0.3f);
+        set => EditorPrefs.SetFloat(_prefix + "LaserThickness", value);
+    }
+
     public static float laserBeamLength
     {
         get => EditorPrefs.GetFloat(_prefix + "LaserLength", 6.0f);
@@ -386,6 +393,23 @@ public static class CSED_PlacementState
     // 今、経路の点を足している(まだ確定していない)ストリートライト
     public static CS_SecurityLight activeLight;
 
+    // 置いた直後の、レーザーの棒を回す軸
+    public enum LaserAxis
+    {
+        Vertical,   // 縦軸: 棒を、水平に回す(標準)
+        Travel,     // 往復する向きの軸: 棒を、立てたり斜めにしたりする
+    }
+
+    public static LaserAxis laserAxis
+    {
+        get => (LaserAxis)EditorPrefs.GetInt(_prefix + "LaserAxis", 0);
+        set => EditorPrefs.SetInt(_prefix + "LaserAxis", (int)value);
+    }
+
+    // 置いた直後で、棒の向きを決めている(まだ確定していない)防犯レーザーと、その動く向き(ワールド。水平)
+    public static GameObject activeLaser;
+    public static Vector3 laserTravel;
+
     // 2クリックで置く物(レーザー)の、1回目にクリックした点
     public static bool hasPendingStart;
     public static Vector3 pendingStart;
@@ -399,13 +423,14 @@ public static class CSED_PlacementState
         activeSquad = null;
         activeDrone = null;
         activeLight = null;
+        activeLaser = null;
         hasPendingStart = false;
     }
 
     /// <summary>
     /// 作業中(巡回ポイントを足している・2クリック目を待っている)かを返すメソッド
     /// </summary>
-    public static bool isWorking => activeFollower != null || activeSquad != null || activeDrone != null || activeLight != null || hasPendingStart;
+    public static bool isWorking => activeFollower != null || activeSquad != null || activeDrone != null || activeLight != null || activeLaser != null || hasPendingStart;
 
     // ---- 置いた物の一覧(プレハブへ反映するために覚えておく。スクリプトを再読み込みすると、空になる) ----
 

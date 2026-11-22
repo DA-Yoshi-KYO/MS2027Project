@@ -78,12 +78,17 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::CS_TimerController
   ShowTopMostFoldoutHeaderGroup: 1
   _maxTime: 300
-  _notificationController: {fileID: 0}
+  _notificationController: {fileID: 9201942720854417754}
   _timeNotifications:
+  - _remainingSeconds: 180
+    _message: "\u6B8B\u308A3\u5206\uFF01"
+    _backSprite: {fileID: 7016567118648177773, guid: 7b93633fda6cb5b4ab311ea0a300f810, type: 3}
   - _remainingSeconds: 60
     _message: "\u6B8B\u308A1\u5206\uFF01"
+    _backSprite: {fileID: -284027598274331803, guid: ae74f3b9161e74842883375a374ec8bd, type: 3}
   - _remainingSeconds: 30
     _message: "\u6B8B\u308A30\u79D2\uFF01"
+    _backSprite: {fileID: 9059632490213449646, guid: 38ca41d274f47694984185c688c8cc6c, type: 3}
   _enableCountdown: 1
   _countdownStartSeconds: 5
 --- !u!114 &8389588009085528967

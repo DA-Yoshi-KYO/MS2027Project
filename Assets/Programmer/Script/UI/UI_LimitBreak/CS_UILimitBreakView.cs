@@ -12,8 +12,11 @@ using UnityEngine;
 
 /// <summary>
 /// LIMITBREAKの表示を担当するView。
-/// ラベルと数値を別のTextMeshProUGUIで表示する。
-/// 0%では非表示にし、値変更時は現在値から目標値へカウントする。
+///
+/// ・数値を白外縁、黒縁、赤文字の3層で表示する
+/// ・3つのTextMeshProUGUIへ同じ数値を同期する
+/// ・0%では非表示にする
+/// ・値変更時は現在値から目標値へカウントする
 /// </summary>
 public sealed class CS_UILimitBreakView :
     CS_BaseView<CS_UILimitBreakPresenter>
@@ -26,15 +29,20 @@ public sealed class CS_UILimitBreakView :
     [SerializeField]
     private GameObject _displayRoot;
 
-    [Header("LIMITBREAKラベル")]
+    [Header("LIMITBREAK数値・外側の白縁")]
     [SerializeField]
-    private TextMeshProUGUI _limitBreakLabelText;
+    private TextMeshProUGUI _outerWhiteValueText;
 
-    [Header("LIMITBREAK数値")]
+    [Header("LIMITBREAK数値・中央の黒縁")]
     [SerializeField]
-    private TextMeshProUGUI _limitBreakValueText;
+    private TextMeshProUGUI _blackOutlineValueText;
+
+    [Header("LIMITBREAK数値・内側の赤文字")]
+    [SerializeField]
+    private TextMeshProUGUI _innerRedValueText;
 
     [Header("カウントアニメーション")]
+
     [Tooltip("現在値から目標値まで変化する秒数")]
     [Min(0f)]
     [SerializeField]
@@ -45,7 +53,12 @@ public sealed class CS_UILimitBreakView :
     // =========================================================
 
     private Coroutine _countCoroutine;
+
     private int _displayedPercent;
+
+    // =========================================================
+    // 公開プロパティ
+    // =========================================================
 
     public int displayedPercent =>
         _displayedPercent;
@@ -56,24 +69,22 @@ public sealed class CS_UILimitBreakView :
 
     private void Awake()
     {
-        if (_limitBreakLabelText != null)
-        {
-            _limitBreakLabelText.text =
-                "LIMIT\nBREAK";
+        DisableRaycastTarget(
+            _outerWhiteValueText
+        );
 
-            _limitBreakLabelText.raycastTarget =
-                false;
-        }
+        DisableRaycastTarget(
+            _blackOutlineValueText
+        );
 
-        if (_limitBreakValueText != null)
-        {
-            _limitBreakValueText.raycastTarget =
-                false;
-        }
+        DisableRaycastTarget(
+            _innerRedValueText
+        );
 
         _displayedPercent = 0;
 
         ApplyValueText(0);
+
         SetVisible(false);
     }
 
@@ -92,10 +103,11 @@ public sealed class CS_UILimitBreakView :
     /// </summary>
     public void AnimateTo(int targetPercent)
     {
-        targetPercent = Mathf.Max(
-            0,
-            targetPercent
-        );
+        targetPercent =
+            Mathf.Max(
+                0,
+                targetPercent
+            );
 
         StopCountAnimation();
 
@@ -105,9 +117,10 @@ public sealed class CS_UILimitBreakView :
             SetVisible(true);
         }
 
-        _countCoroutine = StartCoroutine(
-            CountTo(targetPercent)
-        );
+        _countCoroutine =
+            StartCoroutine(
+                CountTo(targetPercent)
+            );
     }
 
     /// <summary>
@@ -117,10 +130,11 @@ public sealed class CS_UILimitBreakView :
     {
         StopCountAnimation();
 
-        _displayedPercent = Mathf.Max(
-            0,
-            percent
-        );
+        _displayedPercent =
+            Mathf.Max(
+                0,
+                percent
+            );
 
         ApplyValueText(
             _displayedPercent
@@ -158,15 +172,18 @@ public sealed class CS_UILimitBreakView :
             elapsed +=
                 Time.unscaledDeltaTime;
 
-            float rate = Mathf.Clamp01(
-                elapsed / _countDuration
-            );
+            float rate =
+                Mathf.Clamp01(
+                    elapsed /
+                    _countDuration
+                );
 
-            float value = Mathf.Lerp(
-                startPercent,
-                targetPercent,
-                rate
-            );
+            float value =
+                Mathf.Lerp(
+                    startPercent,
+                    targetPercent,
+                    rate
+                );
 
             _displayedPercent =
                 Mathf.RoundToInt(value);
@@ -204,14 +221,58 @@ public sealed class CS_UILimitBreakView :
     // Text更新
     // =========================================================
 
-    private void ApplyValueText(
-        int percent)
+    /// <summary>
+    /// 白外縁、黒縁、赤文字の3つへ
+    /// 同じパーセント文字列を設定する。
+    /// </summary>
+    private void ApplyValueText(int percent)
     {
-        if (_limitBreakValueText == null)
-            return;
+        string valueText =
+            $"{percent}%";
 
-        _limitBreakValueText.text =
-            $":{percent}%";
+        SetText(
+            _outerWhiteValueText,
+            valueText
+        );
+
+        SetText(
+            _blackOutlineValueText,
+            valueText
+        );
+
+        SetText(
+            _innerRedValueText,
+            valueText
+        );
+    }
+
+    /// <summary>
+    /// 指定したTextMeshProUGUIへ文字列を設定する。
+    /// </summary>
+    private static void SetText(
+        TextMeshProUGUI text,
+        string value)
+    {
+        if (text == null)
+        {
+            return;
+        }
+
+        text.text = value;
+    }
+
+    /// <summary>
+    /// UIテキストが入力を遮らないようにする。
+    /// </summary>
+    private static void DisableRaycastTarget(
+        TextMeshProUGUI text)
+    {
+        if (text == null)
+        {
+            return;
+        }
+
+        text.raycastTarget = false;
     }
 
     // =========================================================
@@ -221,9 +282,12 @@ public sealed class CS_UILimitBreakView :
     private void SetVisible(bool isVisible)
     {
         if (_displayRoot == null)
+        {
             return;
+        }
 
-        if (_displayRoot.activeSelf != isVisible)
+        if (_displayRoot.activeSelf !=
+            isVisible)
         {
             _displayRoot.SetActive(
                 isVisible
@@ -238,7 +302,9 @@ public sealed class CS_UILimitBreakView :
     private void StopCountAnimation()
     {
         if (_countCoroutine == null)
+        {
             return;
+        }
 
         StopCoroutine(
             _countCoroutine
@@ -254,9 +320,10 @@ public sealed class CS_UILimitBreakView :
 
     private void OnValidate()
     {
-        _countDuration = Mathf.Max(
-            0f,
-            _countDuration
-        );
+        _countDuration =
+            Mathf.Max(
+                0f,
+                _countDuration
+            );
     }
 }

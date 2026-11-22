@@ -44,7 +44,7 @@ public class CS_PlayerItemSlot : NetworkBehaviour, ICarriableItemHolder
     private readonly NetworkVariable<int> _heldItemIndex = new NetworkVariable<int>(_noItemIndex);
 
     public bool hasItem => heldItem != null;
-    public CSO_ItemDataCarriable heldItem => IsSpawned && !IsServer ? FindSyncableItem(_heldItemIndex.Value) : _heldItem;
+    public CSO_ItemDataCarriable heldItem => this.IsServerOrOffline() ? _heldItem : FindSyncableItem(_heldItemIndex.Value);
 
     public event Action<CSO_ItemDataCarriable> onItemChanged;   // 全クライアントで発生する(HUD表示用)
 
@@ -75,7 +75,7 @@ public class CS_PlayerItemSlot : NetworkBehaviour, ICarriableItemHolder
     // ICarriableItemHolder実装。スロットに格納できたらtrueを返す
     public bool TryStoreItem(CSO_ItemDataCarriable item)
     {
-        if (IsSpawned && !IsServer) return false;
+        if (!this.IsServerOrOffline()) return false;
         if (hasItem) return false;
 
         SetHeldItem(item);

@@ -33,10 +33,15 @@ public class CS_TimerController : NetworkBehaviour
 
         [SerializeField] private string _message = "残り1分！";
 
+        // 追加: この通知で使う帯画像
+        [Tooltip("この通知で使う帯の画像。空なら従来の時間通知の画像")]
+        [SerializeField] private Sprite _backSprite;
+
         [NonSerialized] private bool _hasNotified;
 
         public float remainingSeconds => _remainingSeconds;
         public string message => _message;
+        public Sprite backSprite => _backSprite; // 追加
         public bool hasNotified => _hasNotified;
 
         public void MarkAsNotified()
@@ -89,6 +94,7 @@ public class CS_TimerController : NetworkBehaviour
     private CS_SceneTransitioner _sceneTransitioner;
 
     private bool _isFinished;
+    private CS_CrimeArea _soloArea;   // ソロで、残り時間を表示している今のエリア(エリアが変わったか調べる用)
     private bool _hasSavedResults;
     private double _offlineEndTime;
     private float _previousRemainTime;
@@ -167,7 +173,9 @@ public class CS_TimerController : NetworkBehaviour
         if (_isFinished)
             return;
 
-        float remainTime = GetRemainTimeInternal();
+        // ソロは、全体の残り時間ではなく、今のエリアの残り時間を表示・通知する(終了はCS_SoloGameJudgeが決める)
+        bool isSoloArea = TryGetSoloAreaRemainTime(out float soloRemainTime);
+        float remainTime = isSoloArea ? soloRemainTime : GetRemainTimeInternal();
 
         _timerModel.SetTime(remainTime);
         UpdateTimeNotifications(remainTime);
@@ -175,10 +183,11 @@ public class CS_TimerController : NetworkBehaviour
 
         _previousRemainTime = remainTime;
 
-        if (ShouldCheckFinish() && remainTime <= 0f)
+        if (!isSoloArea && ShouldCheckFinish() && remainTime <= 0f)
         {
             _isFinished = true;
             _notificationController?.HideCountdown();
+            onTimeUp?.Invoke();   // 結果の保存・遷移より前に知らせる(ソロの判定がリザルトの内容を決めるため)
 
             if (IsOnline())
             {
@@ -197,6 +206,61 @@ public class CS_TimerController : NetworkBehaviour
                     _sceneTransitioner.StartTransition();
             }
         }
+    }
+
+    // =========================================================
+    // ソロ：エリアごとの残り時間
+    // =========================================================
+
+    /// <summary>
+    /// ソロ(エリア制)なら、今のエリアの残り時間を返す
+    /// エリアが変わった時は、表示の最大時間を新しいエリアの制限時間にし、通知とカウントダウンを最初からにする
+    /// </summary>
+    /// <returns>ソロのエリア制で動いているならtrue(マルチはfalse)</returns>
+    private bool TryGetSoloAreaRemainTime(out float remainTime)
+    {
+        remainTime = 0f;
+        CS_SoloAreaProgression progression = CS_SoloAreaProgression.instance;
+        if (progression == null || IsOnline())
+            return false;
+
+        CS_CrimeArea area = progression.currentArea;
+        if (area != _soloArea)
+        {
+            // 新しいエリアに入った時
+            _soloArea = area;
+            _timerModel.SetMaxTime(progression.areaTimeLimit);
+            ResetNotifications();
+            _notificationController?.HideCountdown();
+            _previousRemainTime = progression.areaRemainingTime;
+        }
+
+        remainTime = progression.areaRemainingTime;
+        return true;
+    }
+
+    // =========================================================
+    // 時間切れ以外の終了（ソロ用）
+    // =========================================================
+
+    /// <summary>時間切れで終了する時に呼ばれる（結果の保存・シーン遷移より前）</summary>
+    public event Action onTimeUp;
+
+    /// <summary>
+    /// 時間切れを待たずに今すぐ終了する（ソロ用。オフライン専用）
+    /// 結果を保存してリザルトへ遷移する
+    /// </summary>
+    public void FinishNow()
+    {
+        if (_isFinished || IsOnline())
+            return;
+
+        _isFinished = true;
+        _notificationController?.HideCountdown();
+        SaveResultsLocal();
+
+        if (_sceneTransitioner != null)
+            _sceneTransitioner.StartTransition();
     }
 
     // =========================================================
@@ -258,7 +322,9 @@ public class CS_TimerController : NetworkBehaviour
                 continue;
 
             setting.MarkAsNotified();
-            _notificationController.ShowTimeAlert(setting.message);
+
+            // 変更: 帯画像も一緒に渡す
+            _notificationController.ShowTimeAlert(setting.message, setting.backSprite);
         }
     }
 

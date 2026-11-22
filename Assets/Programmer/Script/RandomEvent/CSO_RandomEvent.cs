@@ -31,6 +31,10 @@ using UnityEngine;
  *   blockPoliceDetection をオンにしたイベントは、開催中、発生地点の範囲(CS_RandomEventPoint.radius)の中で
  *   警察に探知されない。警察側は CS_RandomEventManager.IsPoliceDetectionBlocked(位置) で問い合わせる
  *
+ * ■ 犯罪完遂ゲージの特殊倍率(ソロ)
+ *   crimeRateMultiplier は、開催中にエリアの犯罪完遂ゲージ(CS_CrimeArea)へ足す量に掛ける倍率(通常1.0、犯罪活性化なら1.5など)
+ *   開催中のイベントが複数ある時は、全部の倍率を掛け合わせる(CS_RandomEventManager.GetCrimeRateMultiplier)
+ *
  * ■ 注意
  *   ・アセットは全ての開催で共有されるので、開催ごとの状態はこのクラスのフィールドに持たない
  *     → CS_RandomEventContext.stateに入れる(例: 生成した悪人のリスト)
@@ -52,9 +56,14 @@ public abstract class CSO_RandomEvent : ScriptableObject
     [Tooltip("開催中、発生地点の範囲の中では警察に探知されないようにする")]
     private bool _blockPoliceDetection;
 
+    [SerializeField, Min(0f)]
+    [Tooltip("開催中、エリアの犯罪完遂ゲージ(ソロ)へ足す量に掛ける倍率(特殊倍率)。通常は1、犯罪活性化なら1.5など")]
+    private float _crimeRateMultiplier = 1f;
+
     public string displayName => _displayName;
     public float duration => _duration;
     public bool blockPoliceDetection => _blockPoliceDetection;
+    public float crimeRateMultiplier => _crimeRateMultiplier;
 
     // イベントを終えるか(CS_RandomEventManagerが毎フレーム確認する)。時間切れか、イベントごとの終わる条件を満たした時
     public bool ShouldEnd(CS_RandomEventContext context)

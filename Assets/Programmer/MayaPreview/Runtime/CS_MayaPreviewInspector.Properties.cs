@@ -15,6 +15,7 @@ using UnityEngine.Rendering.HighDefinition;
           - Scene materials: edited for this run only; Reset restores the original values.
  History: 2026/10/11 New (Material split out of the Inspector, ball preview)
           2026/10/11 Material list only in the Inspector (one row per material)
+          2026/11/22 Properties in groups (.Groups), items that do nothing hidden or grey (.Relevance)
 =====================================+
 */
 public partial class CS_MayaPreviewInspector
@@ -222,7 +223,7 @@ public partial class CS_MayaPreviewInspector
     {
         light.enabled = Toggle("Enabled", light.enabled);
         light.intensity = Mathf.Max(0, Number("Intensity", light.intensity));
-        light.color = ColorField("Light color", light.color, false, "lightColor");
+        light.color = ColorField("Light color", light.color, false, "lightColor", alpha: false);
         light.useColorTemperature = Toggle("Use temperature", light.useColorTemperature);
         if (light.useColorTemperature)
             light.colorTemperature = Mathf.Clamp(Number("Kelvin", light.colorTemperature), 1000, 20000);
@@ -470,7 +471,7 @@ public partial class CS_MayaPreviewInspector
         Rect nameRect = GUILayoutUtility.GetRect(10, 22, GUILayout.ExpandWidth(true));
         GUI.Label(nameRect, Fit(active.name, _bold, nameRect.width), _bold);
         // 2nd line: what the shader is, in Japanese (the English name is on the button / below)
-        GUILayout.Label(new GUIContent(JapaneseShader(active.material.shader.name), active.material.shader.name), _row);
+        GUILayout.Label(new GUIContent(ShaderTitle(active.material), active.material.shader.name), _row);
         GUILayout.Label(active.maya ? "Maya material  - saved per name" : "Scene material  - this run only", _dim);
         GUILayout.Label("Used by " + active.users + (active.users == 1 ? " slot" : " slots") + " in the selection", _dim);
         GUILayout.Space(4);
@@ -544,31 +545,45 @@ public partial class CS_MayaPreviewInspector
         if (rect.Contains(e.mousePosition) && !_previewDragging) _tooltip = "Drag to turn";
     }
 
+    // SHG_NTE_Skin is listed three times (face / body / nose): the same shader with another part chosen.
     private void DrawShaderPicker(CS_MayaPreviewMaterialLibrary library, MaterialSlot active)
     {
         string current = active.material.shader.name;
+        int currentPart = CS_MayaPreviewMeshData.PartOf(active.material);
         foreach (string name in library.ShaderNames)
         {
-            GUILayout.BeginHorizontal();
-            GUILayout.Space(4);
-            string label = JapaneseShader(name) + "　（" + ShortShader(name) + "）";
-            if (GUILayout.Button(new GUIContent(label, name), name == current ? _buttonOn : _button, GUILayout.Height(RowHeight + 2)))
+            bool skin = name == CS_MayaPreviewMeshData.SkinShader;
+            for (int part = 0; part < (skin ? PartNames.Length : 1); part++)
             {
-                _shaderPickerOpen = false;
-                if (name != current)
+                string title = skin ? "トゥーン " + PartNames[part] : JapaneseShader(name);
+                bool on = name == current && (!skin || part == currentPart);
+                GUILayout.BeginHorizontal();
+                GUILayout.Space(4);
+                if (GUILayout.Button(new GUIContent(title + "　（" + ShortShader(name) + "）", name), on ? _buttonOn : _button, GUILayout.Height(RowHeight + 2)))
                 {
-                    CS_MayaPreviewUndo.RecordMayaMaterial(library, active.key, "Shader " + ShortShader(name), false);
-                    ClearFields();
-                    library.SetShader(active.key, name);
-                    CS_MayaPreviewUndo.Close();
+                    _shaderPickerOpen = false;
+                    if (!on)
+                    {
+                        CS_MayaPreviewUndo.RecordMayaMaterial(library, active.key, "Shader " + title, false);
+                        ClearFields();
+                        if (name != current) library.SetShader(active.key, name);
+                        if (skin) library.SetFloat(active.key, CS_MayaPreviewMeshData.PartProp, part);
+                        CS_MayaPreviewUndo.Close();
+                    }
                 }
+                GUILayout.Space(4);
+                GUILayout.EndHorizontal();
             }
-            GUILayout.Space(4);
-            GUILayout.EndHorizontal();
         }
     }
 
-    // Every visible property of the shader, one line each.
+    private static string ShaderTitle(Material material)
+    {
+        int part = CS_MayaPreviewMeshData.PartOf(material);
+        return part >= 0 ? "トゥーン " + PartNames[part] : JapaneseShader(material.shader.name);
+    }
+
+    // Every visible property of the shader, one line each, in groups that open and close (.Groups).
     private void DrawProperties(MaterialSlot slot, CS_MayaPreviewMaterialLibrary library)
     {
         Material material = slot.material;
@@ -577,80 +592,121 @@ public partial class CS_MayaPreviewInspector
         if (!maya && !_sceneOriginals.ContainsKey(material))
             _sceneOriginals[material] = new Material(material) { hideFlags = HideFlags.DontSave };
 
-        int count = shader.GetPropertyCount();
-        for (int p = 0; p < count; p++)
+        List<PropertyGroup> groups = GroupsOf(shader);
+        DrawGroupButtons(groups);
+        DrawRelevanceHeader(slot, library);
+        var visible = new List<int>();
+        foreach (PropertyGroup group in groups)
         {
-            ShaderPropertyFlags flags = shader.GetPropertyFlags(p);
-            if ((flags & (ShaderPropertyFlags.HideInInspector | ShaderPropertyFlags.PerRendererData)) != 0) continue;
-            string prop = shader.GetPropertyName(p);
-            string label = shader.GetPropertyDescription(p);
-            if (string.IsNullOrEmpty(label)) label = prop;
-            if (maya && library.IsOverridden(slot.key, prop)) label = "* " + label;
-
-            switch (shader.GetPropertyType(p))
+            visible.Clear();
+            int changed = 0;
+            foreach (int p in group.properties)
             {
-                case ShaderPropertyType.Range:
+                if (!IsPropertyShown(slot, p)) continue;
+                visible.Add(p);
+                if (maya && library.IsOverridden(slot.key, shader.GetPropertyName(p))) changed++;
+            }
+            if (visible.Count == 0) continue;
+            if (!DrawGroupHeader(group, visible.Count, changed)) continue;
+            if (!string.IsNullOrEmpty(group.note)) Note(group.note);
+            foreach (int p in visible)
+            {
+                string grey = GreyReason(material, shader.GetPropertyName(p));
+                bool enabled = GUI.enabled;
+                GUI.enabled = enabled && grey == null;
+                DrawProperty(slot, library, p, grey);
+                GUI.enabled = enabled;
+            }
+        }
+    }
+
+    private void DrawProperty(MaterialSlot slot, CS_MayaPreviewMaterialLibrary library, int p, string grey)
+    {
+        Material material = slot.material;
+        Shader shader = material.shader;
+        bool maya = library != null;
+        ShaderPropertyFlags flags = shader.GetPropertyFlags(p);
+        string prop = shader.GetPropertyName(p);
+        string label = shader.GetPropertyDescription(p);
+        if (string.IsNullOrEmpty(label)) label = prop;
+        if (maya && library.IsOverridden(slot.key, prop)) label = "* " + label;
+        string tip = grey ?? (LabelHints.TryGetValue(prop, out string hint) ? hint + "  " + prop : prop);
+        if (CheckBoxProps.Contains(prop))
+        {
+            bool on = material.GetFloat(prop) > 0.5f;
+            if (Toggle(label, on, tip) != on) SetFloat(slot, library, prop, on ? 0f : 1f);
+            return;
+        }
+
+        switch (shader.GetPropertyType(p))
+        {
+            case ShaderPropertyType.Range:
+            {
+                Vector2 limits = shader.GetPropertyRangeLimits(p);
+                float value = material.GetFloat(prop);
+                float edited = Slider(label, value, limits.x, limits.y, prop, tip);
+                if (edited != value) SetFloat(slot, library, prop, edited);
+                break;
+            }
+            case ShaderPropertyType.Float:
+            case ShaderPropertyType.Int:
+            {
+                bool isInt = shader.GetPropertyType(p) == ShaderPropertyType.Int;
+                float value = isInt ? material.GetInteger(prop) : material.GetFloat(prop);
+                if (IsToggle(shader, p))
                 {
-                    Vector2 limits = shader.GetPropertyRangeLimits(p);
-                    float value = material.GetFloat(prop);
-                    float edited = Slider(label, value, limits.x, limits.y, prop, prop);
+                    bool on = value > 0.5f;
+                    if (Toggle(label, on, tip) != on) SetFloat(slot, library, prop, on ? 0f : 1f);
+                }
+                else
+                {
+                    float edited = Number(label, value, prop, tip);
                     if (edited != value) SetFloat(slot, library, prop, edited);
-                    break;
                 }
-                case ShaderPropertyType.Float:
-                case ShaderPropertyType.Int:
+                break;
+            }
+            case ShaderPropertyType.Color:
+            {
+                Color value = material.GetColor(prop);
+                Color edited = ColorField(label, value, (flags & ShaderPropertyFlags.HDR) != 0, prop, tip, HasAlpha(shader, prop));
+                if (edited != value)
                 {
-                    bool isInt = shader.GetPropertyType(p) == ShaderPropertyType.Int;
-                    float value = isInt ? material.GetInteger(prop) : material.GetFloat(prop);
-                    if (IsToggle(shader, p))
-                    {
-                        bool on = value > 0.5f;
-                        if (Toggle(label, on, prop) != on) SetFloat(slot, library, prop, on ? 0f : 1f);
-                    }
-                    else
-                    {
-                        float edited = Number(label, value, prop, prop);
-                        if (edited != value) SetFloat(slot, library, prop, edited);
-                    }
-                    break;
+                    if (maya) library.SetColor(slot.key, prop, edited);
+                    else { material.SetColor(prop, edited); Validate(material); }
                 }
-                case ShaderPropertyType.Color:
+                break;
+            }
+            case ShaderPropertyType.Vector:
+            {
+                Vector4 value = material.GetVector(prop);
+                Vector4 edited = Vector4Field(label, value, prop, prop);
+                if (edited != value)
                 {
-                    Color value = material.GetColor(prop);
-                    Color edited = ColorField(label, value, (flags & ShaderPropertyFlags.HDR) != 0, prop, prop);
-                    if (edited != value)
-                    {
-                        if (maya) library.SetColor(slot.key, prop, edited);
-                        else { material.SetColor(prop, edited); Validate(material); }
-                    }
-                    break;
+                    if (maya) library.SetVector(slot.key, prop, edited);
+                    else { material.SetVector(prop, edited); Validate(material); }
                 }
-                case ShaderPropertyType.Vector:
+                break;
+            }
+            case ShaderPropertyType.Texture:
+            {
+                if (shader.GetPropertyTextureDimension(p) != TextureDimension.Tex2D) break;
+                Texture texture = material.GetTexture(prop);
+                string current = maya ? library.TexturePath(slot.key, prop)
+                    : CS_MayaPreviewOutline.TexturePathOf(material, prop) ?? CS_MayaPreviewExport.TextureFileOf(texture);
+                string edited = PathField(label, current, texture, prop, prop);
+                if (edited == null) break;
+                if (maya) library.SetTexture(slot.key, prop, edited);
+                else
                 {
-                    Vector4 value = material.GetVector(prop);
-                    Vector4 edited = Vector4Field(label, value, prop, prop);
-                    if (edited != value)
+                    Texture2D loaded = edited.Length > 0 ? LoadTextureFile(edited, (flags & ShaderPropertyFlags.Normal) != 0 || CS_MayaPreviewExport.IsDataMap(prop)) : null;
+                    if (edited.Length == 0 || loaded != null)
                     {
-                        if (maya) library.SetVector(slot.key, prop, edited);
-                        else { material.SetVector(prop, edited); Validate(material); }
+                        material.SetTexture(prop, loaded);
+                        Validate(material);
+                        CS_MayaPreviewOutline.NoteTexture(material, prop, edited);
                     }
-                    break;
                 }
-                case ShaderPropertyType.Texture:
-                {
-                    if (shader.GetPropertyTextureDimension(p) != TextureDimension.Tex2D) break;
-                    Texture texture = material.GetTexture(prop);
-                    string current = maya ? library.TexturePath(slot.key, prop) : "";
-                    string edited = PathField(label, current, texture, prop, prop);
-                    if (edited == null) break;
-                    if (maya) library.SetTexture(slot.key, prop, edited);
-                    else
-                    {
-                        Texture2D loaded = edited.Length > 0 ? LoadTextureFile(edited, (flags & ShaderPropertyFlags.Normal) != 0) : null;
-                        if (edited.Length == 0 || loaded != null) { material.SetTexture(prop, loaded); Validate(material); }
-                    }
-                    break;
-                }
+                break;
             }
         }
     }
@@ -688,6 +744,7 @@ public partial class CS_MayaPreviewInspector
             if (!texture.LoadImage(File.ReadAllBytes(path), false)) { Destroy(texture); return null; }
             _loadedTextures[key] = texture;
             _owned.Add(texture);
+            CS_MayaPreviewExport.RememberTextureFile(texture, path);
             return texture;
         }
         catch (Exception exception)

@@ -49,6 +49,8 @@ public partial class CS_MayaPreviewInspector
         {
             _rightDown = false;
             if ((position - _rightDownPosition).magnitude > ContextClickPixels) return;
+            // Only on an object (empty space keeps the selection, so no menu there).
+            if (_selection.Raycast(_view, _view.ScreenPointToRay(position), out _) == null) { _contextOpen = false; return; }
             _selection.Pick(_view, position, false);
             if (_selection.Count == 0) { _contextOpen = false; return; }
             _contextOpen = true;
@@ -130,7 +132,7 @@ public partial class CS_MayaPreviewInspector
         {
             CS_MayaPreviewOutline outline = CS_MayaPreviewOutline.Of(target);
             if (outline == null) continue;
-            Destroy(outline.gameObject);
+            outline.Remove();
             removed++;
         }
         Flash("アウトラインを削除しました（" + removed + "）");
@@ -157,7 +159,7 @@ public partial class CS_MayaPreviewInspector
         }
         if (GUILayout.Button("アウトラインを削除", _button, GUILayout.Height(RowHeight + 2)))
         {
-            Destroy(outline.gameObject);
+            outline.Remove();
             ClearFields();
         }
         GUILayout.Space(8);

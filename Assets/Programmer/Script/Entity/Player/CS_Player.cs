@@ -36,12 +36,29 @@ using UnityEngine.InputSystem;
  *   LateUpdateでワールド座標を直接指定している
  *   カメラにはCinemachineBrainが付いており、位置・向きはCinemachineCamera(_virtualCameraTransform)へ指定する
  *   (Brainが実際のカメラへ反映する。攻撃時の揺れはCS_PlayerCameraShakeがImpulseで加える)
+ * ・SAモーション(CS_PlayerHide): SAで飛んでいる間(isHiding)は、Fly/Lungeの残り時間とは別の、SA専用の速度(_saVelocity)をRigidbodyに入れて動く
+ *   BeginSAMotion(始める)・SetSAVelocity(毎物理フレーム速度を決める)・EndSAMotion(終える。専用の速度をクリアして、終わった時の速度を渡す)
+ *   終わった時の速度の水平は空中の勢い(_airMomentum)になる。勢いがある間は、水平の速度が入力の移動速度へ_airControlAccelで近づき、SAポイントごとの減速率(_airMomentumDrag。毎秒e^(-減速率)の割合)で弱まる
+ *   勢いは着地・ダッシュ・踏み込み・倒れる・スタンで0になる。勢いが0の間・SAを使わない時の動きは今まで通り
  * ・死亡中(CS_PlayerHealth.isDead)は移動・攻撃を行わない(canActで判定)
+ * ・スタート時のカメラの演出(CS_PlayerIntroCamera。付いていなければ演出しない): 自分のプレイヤーとして操作を始めた時に流す
+ *   演出中は動けず(canAct)、視点も操作できない。カメラの位置は演出が決める(UpdateCameraTransform)
+ *   マルチでは、全員の演出が終わってゲームが始まるまで動けない(CS_PlayerIntroCamera.isMatchHeld。視点は動かせる)
  *   視点操作(カメラ)は死亡中も継続する
  *   死亡中は水平方向の速度を毎回0にし、死亡時の勢いで滑り続けないようにしている(落下はする)
  * ・移動速度はCS_PlayerStats.currentMoveSpeed(暗躍ボーナス込み)を使う(実際の変更はCS_PlayerStats側で行う)
  * ・Colliderには摩擦0の物理マテリアル(PlayerFrictionless)を設定している
  *   (摩擦があると、空中で壁に向かって移動し続けた時に壁に張り付いて落ちなくなるため)
+ * ・移動の手触り(原神のような操作感を目指して調整。各項目を0にすると、その項目は以前の動きに戻る)
+ *   加速・減速: 入力の速さへ、地上は_groundAcceleration(速くなる時)・_groundDeceleration(止まる・遅くなる時)、空中は_airAccelerationで近づく
+ *     (以前は押した瞬間に最高速・離した瞬間に完全停止。ごく短い加速・減速を入れて、細かい位置合わせをしやすくした。仕様の「慣性は少なめ」は守る値にしている)
+ *     動く足場(CS_PlayerRideSAPoint)が足した速度は、加速の計算から除く(除かないと増え続ける)
+ *   坂(_followSlope): 地上では地面の向き(_groundNormal)に沿って動き、入力が無い時はその場に止まる(下り坂で跳ねる・摩擦0で滑るのを防ぐ)
+ *   段差を下りる(_stepDownHeight): 低い段差を下りた瞬間は、宙に浮かず下の地面へ吸い付く(1物理フレームで下りる)。高い段差は普通に落ちる
+ *   段差を登る(_suppressStepBounce): ジャンプしていないのに付いた上向きの勢い(段差の角で押し上げられた分)を消す。走って段差を登った時に跳ねない
+ *   ジャンプの猶予: 足場から出て_coyoteTime秒以内なら跳べる。着地前_jumpBufferTime秒以内に押したジャンプは、着地した時に跳ぶ
+ *   カメラ: 追う高さだけ_cameraVerticalSmoothTime秒遅らせる(ジャンプ・段差でカクッと動かない)。SAで飛んでいる間・3m以上離れた時はすぐ合わせる
+ *   接地の状態はFixedUpdateの最初に1回だけ調べる(UpdateGrounded。_isGroundedNow)
  * ・ジャンプ
  *   接地中にジャンプボタンを押すと、CS_PlayerStats.jumpPowerを初速として真上に飛ぶ
  *   入力はUpdateで拾って予約し、実際に飛ぶ処理はFixedUpdate側のMove()の後に行う
@@ -87,6 +104,20 @@ public class CS_Player : NetworkBehaviour
     [Header("移動")]
     [SerializeField] private float _rotationSpeed = 720f;   // 進む方向へ体が回る速さ(度/秒)
 
+    [Header("移動の手触り(0にすると、その項目は以前の動きに戻る)")]
+    [SerializeField][Min(0f)] private float _groundAcceleration = 60f;   // 地上で、入力の速さへ近づく加速度(m/秒²)。0ならすぐ最高速
+    [SerializeField][Min(0f)] private float _groundDeceleration = 80f;   // 地上で、止まる・遅くなる時の減速度(m/秒²)。0ならすぐ止まる
+    [SerializeField][Min(0f)] private float _airAcceleration = 40f;      // 空中で、入力の速さへ近づく加速度(m/秒²)。0ならすぐ入力の速さ
+    [SerializeField] private bool _followSlope = true;                   // 坂では地面に沿って動き、止まったらその場に止まる(下り坂で跳ねない・滑らない)
+    [SerializeField][Min(0f)] private float _stepDownHeight = 0.4f;      // この高さまでの段差は、下りる時に宙に浮かず、下の地面へ足を吸い付ける(m)。0で吸い付けない
+    [SerializeField] private bool _suppressStepBounce = true;            // ジャンプしていないのに付いた上向きの勢い(段差の角で押し上げられた分)を消す(走って段差を登った時に跳ねないように)
+    [SerializeField][Min(0f)] private float _coyoteTime = 0.12f;         // 足場から出た直後でも、ジャンプできる猶予(秒)
+    [SerializeField][Min(0f)] private float _jumpBufferTime = 0.12f;     // 着地の少し前に押したジャンプを覚えておく時間(秒)
+    [SerializeField][Min(0f)] private float _cameraVerticalSmoothTime = 0.1f;   // カメラが上下にプレイヤーを追う遅れ(秒。ジャンプ・段差でカメラがカクッと動かないように)
+
+    [Header("空中の勢い(SAで放した後。減速率はSAポイントごと。CS_GrappleSAPointの_releaseDrag)")]
+    [SerializeField][Min(0f)] private float _airControlAccel = 25f; // 勢いがある間、入力の移動速度へ近づく加速度(m/秒²)。大きいほど入力で曲げやすい
+
     [Header("ジャンプ")]
     [SerializeField] private LayerMask _groundLayers = ~0;      // 地面と判定するレイヤー
     [SerializeField] private float _groundCheckDistance = 0.15f;  // 接地判定用の余白
@@ -121,6 +152,8 @@ public class CS_Player : NetworkBehaviour
     private CS_PlayerStats _stats;
     private CS_PlayerStun _stun;    // スタン(パリーされた時など)。付いていなければスタンしない
     private CS_PlayerHide _hide;    // SA(ハイドポイントへ飛ぶ)。付いていなければSAしない
+    private CS_PlayerRideSAPoint _ride;   // 動く足場に乗る処理。付いていれば、足場が運んだ速度を加速の計算から除く
+    private CS_PlayerIntroCamera _introCamera;    // スタート時のカメラの演出。付いていなければ演出しない
     private NetworkTransform _networkTransform;
 
     private Vector3 _spawnPosition;     // 操作を始めた時の位置と向き(落ちた時に戻す先)
@@ -142,6 +175,15 @@ public class CS_Player : NetworkBehaviour
     private bool _isControlled;     // このプレイヤーを自分(このマシン)が操作するか。NPCはサーバーが操作する
     private Vector2 _moveInput;
     private bool _jumpRequested;    // Updateで押下を検知し、FixedUpdateで消費する
+    private float _jumpRequestTime;         // ジャンプが押された時刻(_jumpBufferTimeの間だけ覚えておく)
+    private float _lastGroundedTime = float.NegativeInfinity;   // 最後に接地していた時刻(_coyoteTimeの判定に使う)
+    private bool _hasJumpedSinceGrounded;   // 接地してから、もうジャンプしたか(猶予の間に2回跳ばないように)
+    private bool _isGroundedNow;            // この物理フレームで接地しているか(FixedUpdateの最初に1回だけ調べる)
+    private bool _wasStanding;              // 前の物理フレームで地面に立っていたか(段差を下りた瞬間を見つけるため)
+    private Vector3 _groundNormal = Vector3.up;   // 接地している地面の向き(坂に沿って動くのに使う)
+    private float _cameraPivotY;            // カメラが追うプレイヤーの高さ(上下だけ遅れて追う)
+    private float _cameraPivotYVelocity;
+    private bool _hasCameraPivotY;
     private float _yaw;
     private float _pitch = 11f;
 
@@ -158,15 +200,19 @@ public class CS_Player : NetworkBehaviour
     private Vector3 _lungeVelocity; // エイムアシストの踏み込みの速度
     private float _lungeRemaining;  // 踏み込みの残り時間(秒)
     private bool _isLungeVertical;  // 踏み込みが高さも含めて進むか(Fly)。falseなら水平だけ進む(Lunge)
+    private Vector3 _saVelocity;    // SAで飛んでいる間の専用の速度(CS_PlayerHideが毎物理フレーム決める。Fly/Lungeの残り時間は使わない)
+    private Vector3 _airMomentum;   // SAで放した後に残す水平の勢い(m/秒)。入力の速度へ近づく。着地・ダッシュ・踏み込み・倒れる・スタンで0になる(EndSAMotion)
+    private float _airMomentumDrag;    // 空中の勢いの減速率(毎秒e^(-減速率)の割合で弱める)。SAで放す時に渡され、勢いが0になれば0に戻る(EndSAMotion)
 
     public bool isControlled => _isControlled;          // このプレイヤーを自分(このマシン)が操作しているか(NPCはサーバーでtrue)
-    public bool canAct => _isControlled && !_health.isDead && !isStunned;   // 移動・攻撃してよいか(CS_PlayerAttackも参照)
+    public bool canAct => _isControlled && !_health.isDead && !isStunned && !isPlayingIntro && !CS_PlayerIntroCamera.isMatchHeld;   // 移動・攻撃してよいか(CS_PlayerAttackも参照)
+    public bool isPlayingIntro => _introCamera != null && _introCamera.isPlaying;   // スタート時のカメラの演出中か(自分のプレイヤーのみ。この間は動けない)
     public bool isStunned => _stun != null && _stun.isStunned;   // スタン中か(パリーされた時など。死亡中と同じく行動できない)
     public bool isHiding => _hide != null && _hide.isHiding;     // SAでハイドポイントへ飛んでいる最中か(操作しているマシンでだけ正しい)
     public bool isNpc => _isNpc.Value;                  // NPCか(全クライアントで分かる)
     // 自分の画面のプレイヤー(このマシンで人が操作しているプレイヤー)か。HUD・ミニマップの中心などに使う
     // NPCはホストではIsOwnerがtrueになるため、IsOwnerではなくこちらを使う
-    public bool isLocalPlayer => !_isNpc.Value && (IsSpawned ? IsOwner : !IsOnline());
+    public bool isLocalPlayer => !_isNpc.Value && (IsSpawned ? IsOwner : !CS_PlayerNetwork.isOnline);
     public CS_PlayerNpcInput npcInput => _npcInput;     // NPCの入力(CS_PlayerNpcBrainが書き込む。NPCを操作するマシン以外ではnull)
     public CS_PlayerButton attackAction => _attackButton;   // 攻撃ボタン(CS_PlayerAttackが使う)
     public CS_PlayerButton specialAction => _specialButton; // 必殺技ボタン(CS_PlayerSpecialAttackが使う)
@@ -190,7 +236,7 @@ public class CS_Player : NetworkBehaviour
     // 何番目のプレイヤーかを割り当てる(CS_PlayerSpawnerが、スポーンする前に呼ぶ)
     public void AssignPlayerNumber(int number)
     {
-        if (IsSpawned && !IsServer) return;
+        if (!this.IsServerOrOffline()) return;
 
         _playerNumber.Value = number;
     }
@@ -228,6 +274,8 @@ public class CS_Player : NetworkBehaviour
         _stats = GetComponent<CS_PlayerStats>();
         _stun = GetComponent<CS_PlayerStun>();
         _hide = GetComponent<CS_PlayerHide>();
+        _ride = GetComponent<CS_PlayerRideSAPoint>();
+        _introCamera = GetComponent<CS_PlayerIntroCamera>();
         _networkTransform = GetComponent<NetworkTransform>();
 
         // 壁などとの衝突で回転しないよう、物理による回転はすべて止める
@@ -256,7 +304,7 @@ public class CS_Player : NetworkBehaviour
     private void Start()
     {
         if (_isControlled || IsSpawned) return;
-        if (IsOnline()) return;
+        if (CS_PlayerNetwork.isOnline) return;
 
         if (_isNpc.Value)
         {
@@ -316,6 +364,7 @@ public class CS_Player : NetworkBehaviour
             // SAで飛んでいる途中なら、飛ぶのをやめてからジャンプする
             if (isHiding) _hide.ExitHide();
             _jumpRequested = true;
+            _jumpRequestTime = Time.time;
         }
 
         // 飛べるハイドポイントがあれば、ダッシュの代わりにそこへ飛ぶ(クールタイム中でも飛べる)
@@ -348,6 +397,7 @@ public class CS_Player : NetworkBehaviour
             _isDashing = false;
             _jumpRequested = false;
             _lungeRemaining = 0f;
+            _airMomentum = Vector3.zero;
             StopHorizontalVelocity();
             return;
         }
@@ -356,6 +406,8 @@ public class CS_Player : NetworkBehaviour
         {
             _dashCooldownRemaining -= Time.fixedDeltaTime;
         }
+
+        UpdateGrounded();
 
         // 体の向きを更新する(移動している方向へ向く。カメラを回しただけでは回らない)
         UpdateFacing();
@@ -370,8 +422,8 @@ public class CS_Player : NetworkBehaviour
         }
         else if (isHiding)
         {
-            // SAで飛んでいる間(踏み込みの合間)は止めておく(CS_PlayerHideが毎フレームFlyで動かす)
-            _rigidbody.linearVelocity = Vector3.zero;
+            // SAで飛んでいる間は、CS_PlayerHideが決めたSA専用の速度(_saVelocity)で動く(Move()の速度上書きは通らない)
+            _rigidbody.linearVelocity = _saVelocity;
         }
         else
         {
@@ -411,6 +463,7 @@ public class CS_Player : NetworkBehaviour
         _lungeVelocity = direction.normalized * (distance / duration);
         _lungeRemaining = duration;
         _isLungeVertical = false;
+        _airMomentum = Vector3.zero;
     }
 
     // 指定した方向へ、高さも含めてまっすぐ進む(ハイドポイントへ飛ぶ時に使う)。ダッシュを始めると打ち切られる
@@ -421,12 +474,46 @@ public class CS_Player : NetworkBehaviour
         _lungeVelocity = direction.normalized * (distance / duration);
         _lungeRemaining = duration;
         _isLungeVertical = true;
+        _airMomentum = Vector3.zero;
+    }
+
+    // ========================================
+    // SAモーション(CS_PlayerHideから使う)
+    // SAで飛んでいる間は、Fly/Lungeの残り時間とは別の、SA専用の速度(_saVelocity)で動く
+    // ========================================
+
+    // SAの飛行を始める。専用の速度を0にし、踏み込み(Fly/Lunge)・空中の勢いを消す。この後はisHidingの間、_saVelocityで動く
+    public void BeginSAMotion()
+    {
+        _saVelocity = Vector3.zero;
+        _lungeRemaining = 0f;
+        _airMomentum = Vector3.zero;
+    }
+
+    // SAで飛んでいる間の速度(向き・高さ込み)を決める。毎物理フレーム呼ぶ
+    public void SetSAVelocity(Vector3 velocity)
+    {
+        _saVelocity = velocity;
+    }
+
+    // SAの飛行を終える。専用の速度をクリアすると同時に、終わった時の速度を通常の状態に渡す(0なら速度0)
+    // 垂直はRigidbodyにそのまま渡して重力に任せ、水平は空中の勢いとして残す(入力の速度へ近づき、着地で0になる)
+    // 呼ぶ前に、CS_PlayerHide側でisHidingをfalseにしておくこと(通常の動きに戻るため)
+    public void EndSAMotion(Vector3 exitVelocity, float drag = 0f)
+    {
+        _saVelocity = Vector3.zero;
+        _lungeRemaining = 0f;   // 踏み込みの残り時間を取り残さない(残ると、その間速度が上書きされ、切れた時に速度が0になる)
+        _rigidbody.linearVelocity = exitVelocity;
+        _airMomentum = new Vector3(exitVelocity.x, 0f, exitVelocity.z);
+        _airMomentumDrag = Mathf.Max(0f, drag);
+        if (exitVelocity.y > 0f) _hasJumpedSinceGrounded = true;   // 上向きに放された時は跳んだ扱いにする(段差で跳ねないための、上向きの勢いを消す処理に消されないように)
     }
 
     // 位置を指定した位置へ合わせ、踏み込みと速度を止める(SAでハイドポイントに着いた時に使う)
     public void SnapPosition(Vector3 position)
     {
         _lungeRemaining = 0f;
+        _airMomentum = Vector3.zero;
         _rigidbody.linearVelocity = Vector3.zero;
         _rigidbody.position = position;
         transform.position = position;
@@ -528,6 +615,9 @@ public class CS_Player : NetworkBehaviour
 
         // 今向いている方向を視点の初期値にする
         _yaw = transform.eulerAngles.y;
+
+        // スタート時のカメラの演出(プレイヤーの周りを下から上へ螺旋状に回る)
+        if (_introCamera != null) _introCamera.Play();
 
         RegisterAsLocalPlayer();
     }
@@ -650,6 +740,13 @@ public class CS_Player : NetworkBehaviour
             return;
         }
 
+        // スタート時のカメラの演出中は、移動も視点の操作も受け付けない(演出の終わりの位置がずれないように)
+        if (isPlayingIntro)
+        {
+            _moveInput = Vector2.zero;
+            return;
+        }
+
         _moveInput = _moveAction.ReadValue<Vector2>();
 
         // マウスは「1フレームの移動量」なのでdeltaTimeを掛けない
@@ -657,6 +754,9 @@ public class CS_Player : NetworkBehaviour
         Vector2 mouseLook = _mouseLookAction.ReadValue<Vector2>() * _mouseSensitivity;
         Vector2 stickLook = _stickLookAction.ReadValue<Vector2>() * _stickSensitivity * Time.deltaTime;
         Vector2 look = mouseLook + stickLook;
+
+        // マルチで全員のスタート時の演出が終わるまでは、動けない(視点は動かせる)
+        if (CS_PlayerIntroCamera.isMatchHeld) _moveInput = Vector2.zero;
 
         _yaw += look.x;
         _pitch = Mathf.Clamp(_pitch - look.y, _minPitch, _maxPitch);
@@ -712,18 +812,106 @@ public class CS_Player : NetworkBehaviour
     // カメラの向き基準で移動する。押した方向へすぐ動き出し、体の向きは回りながら追いつく(UpdateFacing)
     private void Move()
     {
-        // 入力なしのときは水平方向を止める(落下は残す)
-        if (_moveInput == Vector2.zero)
+        // SAで放した後の勢い(_airMomentum)がある間は、入力の移動に足す。勢いが0の時は、下の今まで通りの動き
+        if (_airMomentum != Vector3.zero)
         {
-            StopHorizontalVelocity();
+            MoveWithAirMomentum();
+            return;
+        }
+        _airMomentumDrag = 0f;   // 勢いが無い間は、減速率も0に戻す
+
+        // 入力の速さ(スティックを少し倒せばゆっくり、入力なしなら0)へ、加速度・減速度で近づける
+        float speed = _isSprinting ? _stats.currentSprintSpeed : _stats.currentMoveSpeed;
+        Vector3 target = _moveInput == Vector2.zero ? Vector3.zero : GetMoveDirection() * speed;
+        Vector3 velocity = _rigidbody.linearVelocity;
+        Vector3 horizontal = ApproachHorizontal(GetOwnHorizontalVelocity(velocity), target);
+
+        // 坂では地面に沿って動く(上り・下りで地面から離れない)。止まっている時はその場に止める(摩擦0なので、放っておくと滑る)
+        if (_followSlope && IsStandingOnGround(velocity.y))
+        {
+            _rigidbody.linearVelocity = horizontal.sqrMagnitude < 0.0001f
+                ? Vector3.zero
+                : Vector3.ProjectOnPlane(horizontal, _groundNormal).normalized * horizontal.magnitude;
             return;
         }
 
-        Vector3 direction = GetMoveDirection();
+        _rigidbody.linearVelocity = new Vector3(horizontal.x, SuppressStepBounce(GetStepDownVelocity(velocity.y)), horizontal.z);
+    }
 
-        float speed = _isSprinting ? _stats.currentSprintSpeed : _stats.currentMoveSpeed;
-        Vector3 horizontal = direction * speed;
-        _rigidbody.linearVelocity = new Vector3(horizontal.x, _rigidbody.linearVelocity.y, horizontal.z);
+    // ジャンプしていないのに上へ動いている時(段差の角に当たって押し上げられた時)は、上向きの勢いを消す
+    // 段差の上へ登る分は当たり判定が押し上げてくれるので、残った勢いだけを消す(消さないと、登った勢いのまま段差の上へ飛び出して跳ねる)
+    private float SuppressStepBounce(float verticalVelocity)
+    {
+        if (!_suppressStepBounce || verticalVelocity <= 0f) return verticalVelocity;
+        if (_hasJumpedSinceGrounded || _jumpRequested) return verticalVelocity;   // ジャンプの上昇は消さない
+
+        return 0f;
+    }
+
+    // 低い段差を下りた瞬間(前の物理フレームでは立っていて、今は浮いている)は、下の地面まで1物理フレームで下りる速度にする
+    // (宙に浮いて落ちる間がなくなり、空中のモーションにもならない)。下の地面が_stepDownHeightより遠ければ、普通に落ちる
+    private float GetStepDownVelocity(float verticalVelocity)
+    {
+        if (_stepDownHeight <= 0f || _isGroundedNow || !_wasStanding || verticalVelocity > 0.1f || _jumpRequested) return verticalVelocity;
+
+        Vector3 origin = _collider.bounds.center;
+        float footDistance = _collider.bounds.extents.y;
+        if (!Physics.Raycast(origin, Vector3.down, out RaycastHit hit, footDistance + _stepDownHeight, _groundLayers, QueryTriggerInteraction.Ignore)) return verticalVelocity;
+
+        float gap = hit.distance - footDistance;
+        return Mathf.Min(verticalVelocity, -gap / Time.fixedDeltaTime);
+    }
+
+    // 自分で動いている分の水平の速度)(動く足場に乗っている時は、前の物理フレームで足場が足した速度を除く。除かないと加速の計算で増え続ける)
+    private Vector3 GetOwnHorizontalVelocity(Vector3 velocity)
+    {
+        Vector3 horizontal = new Vector3(velocity.x, 0f, velocity.z);
+        if (_ride == null || !_ride.isActiveAndEnabled || !isLocalPlayer) return horizontal;   // 足場の速度を足すのは自分のプレイヤーだけ
+
+        Vector3 carried = _ride.platformVelocity;
+        return horizontal - new Vector3(carried.x, 0f, carried.z);
+    }
+
+    // 今の水平の速度を、目標の速度へ加速度・減速度で近づける(0の項目は、すぐ目標の速度にする)
+    // 地上: 速くなる時は_groundAcceleration、止まる・遅くなる時は_groundDeceleration。空中: _airAcceleration
+    private Vector3 ApproachHorizontal(Vector3 current, Vector3 target)
+    {
+        float rate;
+        if (!_isGroundedNow) rate = _airAcceleration;
+        else rate = target.sqrMagnitude < current.sqrMagnitude ? _groundDeceleration : _groundAcceleration;
+
+        return rate > 0f ? Vector3.MoveTowards(current, target, rate * Time.fixedDeltaTime) : target;
+    }
+
+    // 地面に立っているか(接地していて、跳び上がっている途中でない)
+    private bool IsStandingOnGround(float verticalVelocity)
+    {
+        return _isGroundedNow && verticalVelocity <= 0.1f && !_jumpRequested;
+    }
+
+    // SAで放した後の勢いで動く。入力がある間は、水平の速度が入力の移動速度へ_airControlAccelで近づく(曲げられる)
+    // 入力の有無にかかわらず、SAポイントごとの減速率(_airMomentumDrag。毎秒e^(-減速率)の割合)で弱まる(0なら勢いはそのまま続く)。着地(接地かつ垂直速度が0以下)で勢いを0にして、通常の動きに戻る
+    private void MoveWithAirMomentum()
+    {
+        float verticalVelocity = _rigidbody.linearVelocity.y;
+        if (verticalVelocity <= 0f && IsGrounded())
+        {
+            _airMomentum = Vector3.zero;
+            return;   // 次の物理フレームから、今まで通りの動きに戻る(この1フレームの水平速度は変えない)
+        }
+
+        float deltaTime = Time.fixedDeltaTime;
+        if (_moveInput != Vector2.zero)
+        {
+            float speed = _isSprinting ? _stats.currentSprintSpeed : _stats.currentMoveSpeed;
+            Vector3 inputVelocity = GetMoveDirection() * speed;
+            _airMomentum = Vector3.MoveTowards(_airMomentum, inputVelocity, _airControlAccel * deltaTime);
+        }
+
+        if (_airMomentumDrag > 0f) _airMomentum *= Mathf.Exp(-_airMomentumDrag * deltaTime);
+        if (_airMomentum.sqrMagnitude < 0.0001f) _airMomentum = Vector3.zero;   // ほぼ止まったら、勢いを0にして通常の動きに戻る
+
+        _rigidbody.linearVelocity = new Vector3(_airMomentum.x, verticalVelocity, _airMomentum.z);
     }
 
     // 水平方向の速度だけを0にする(Y速度はそのまま残す)
@@ -732,23 +920,47 @@ public class CS_Player : NetworkBehaviour
         _rigidbody.linearVelocity = new Vector3(0f, _rigidbody.linearVelocity.y, 0f);
     }
 
-    // ジャンプ予約を消費し、接地していれば真上に飛ばす
+    // ジャンプ予約を消費し、跳べれば真上に飛ばす
+    // 跳べる: 接地している、または足場から出て_coyoteTime秒以内(まだ跳んでいない)
+    // 跳べない時は、押してから_jumpBufferTime秒の間だけ予約を残す(着地の少し前に押しても跳べるように)
     private void ApplyJump()
     {
         if (!_jumpRequested) return;
 
+        bool canJump = _isGroundedNow || (!_hasJumpedSinceGrounded && Time.time - _lastGroundedTime <= _coyoteTime);
+        if (!canJump)
+        {
+            if (Time.time - _jumpRequestTime > _jumpBufferTime) _jumpRequested = false;
+            return;
+        }
+
         _jumpRequested = false;
-        if (!IsGrounded()) return;
+        _hasJumpedSinceGrounded = true;
+        _lastGroundedTime = float.NegativeInfinity;
 
         Vector3 velocity = _rigidbody.linearVelocity;
         _rigidbody.linearVelocity = new Vector3(velocity.x, _stats.currentJumpPower, velocity.z);
         onJumped?.Invoke();
     }
 
+    // この物理フレームの接地の状態を調べる(FixedUpdateの最初に1回)
+    private void UpdateGrounded()
+    {
+        _wasStanding = _isGroundedNow && _rigidbody.linearVelocity.y <= 0.1f;
+        _isGroundedNow = TryGetGround(out RaycastHit hit);
+        _groundNormal = _isGroundedNow ? hit.normal : Vector3.up;
+        if (!_isGroundedNow || _rigidbody.linearVelocity.y > 0.1f) return;
+
+        // 着地している(跳び上がっている途中でない)間は、猶予の基準の時刻を更新し、また跳べるようにする
+        _lastGroundedTime = Time.time;
+        _hasJumpedSinceGrounded = false;
+    }
+
     // ダッシュを開始する(方向をこの時点で決めて固定する)
     private void StartDash()
     {
         _isDashing = true;
+        _airMomentum = Vector3.zero;
         _lungeRemaining = 0f;   // ダッシュ(回避)を優先し、エイムアシストの踏み込みは打ち切る
         _dashElapsed = 0f;
         _dashCooldownRemaining = _dashCooldown;
@@ -786,15 +998,14 @@ public class CS_Player : NetworkBehaviour
     // カプセルの底から下方向にレイを飛ばして接地しているか調べる
     private bool IsGrounded()
     {
-        Vector3 origin = _collider.bounds.center;
-        float rayLength = _collider.bounds.extents.y + _groundCheckDistance;
-        return Physics.Raycast(origin, Vector3.down, rayLength, _groundLayers, QueryTriggerInteraction.Ignore);
+        return TryGetGround(out _);
     }
 
-    // NetworkManagerが動いているか(オフラインのテストシーンではfalse)
-    private static bool IsOnline()
+    private bool TryGetGround(out RaycastHit hit)
     {
-        return NetworkManager.Singleton != null && NetworkManager.Singleton.IsListening;
+        Vector3 origin = _collider.bounds.center;
+        float rayLength = _collider.bounds.extents.y + _groundCheckDistance;
+        return Physics.Raycast(origin, Vector3.down, out hit, rayLength, _groundLayers, QueryTriggerInteraction.Ignore);
     }
 
     // カメラをプレイヤーの周りに配置する(プレイヤーの回転の影響を受けない)
@@ -804,10 +1015,36 @@ public class CS_Player : NetworkBehaviour
         Transform target = _virtualCameraTransform != null ? _virtualCameraTransform : _cameraTransform;
         if (target == null) return;
 
+        // スタート時のカメラの演出中は、演出の位置に置く(終わるといつもの位置にぴったり重なる)
+        if (_introCamera != null && _introCamera.TryGetPose(_yaw, _pitch, _cameraDistance, _cameraPivotHeight, out Vector3 introPosition, out Quaternion introRotation))
+        {
+            target.SetPositionAndRotation(introPosition, introRotation);
+            return;
+        }
+
         Quaternion rotation = Quaternion.Euler(_pitch, _yaw, 0f);
         Vector3 pivot = transform.position + Vector3.up * _cameraPivotHeight;
+        pivot.y = SmoothCameraPivotY(pivot.y);
         Vector3 position = pivot - rotation * Vector3.forward * _cameraDistance;
 
         target.SetPositionAndRotation(position, rotation);
+    }
+
+    // カメラが追う高さを、上下だけ少し遅らせる(左右・前後はぴったり追う)
+    // 大きく離れた時(復活・落下の戻し・SAで高所へ飛んだ時など)は、遅れずにすぐ合わせる
+    private float SmoothCameraPivotY(float targetY)
+    {
+        const float snapDistance = 3f;
+        bool isFlying = isHiding || (_lungeRemaining > 0f && _isLungeVertical);   // SAで飛んでいる間は、遅らせない(高さが大きく変わるため)
+        if (_cameraVerticalSmoothTime <= 0f || isFlying || !_hasCameraPivotY || Mathf.Abs(targetY - _cameraPivotY) > snapDistance)
+        {
+            _hasCameraPivotY = true;
+            _cameraPivotY = targetY;
+            _cameraPivotYVelocity = 0f;
+            return targetY;
+        }
+
+        _cameraPivotY = Mathf.SmoothDamp(_cameraPivotY, targetY, ref _cameraPivotYVelocity, _cameraVerticalSmoothTime);
+        return _cameraPivotY;
     }
 }

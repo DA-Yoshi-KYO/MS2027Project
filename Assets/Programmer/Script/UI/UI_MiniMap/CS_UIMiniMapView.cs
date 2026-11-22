@@ -4,6 +4,7 @@
  * 制作者：元浪梨緒
  * ------------------------------------------------
  * 2026-09-27 | 初回作成
+ * 2026-11-15 | アイコンのプールのキーを構造体にして、毎フレームの文字列生成とforeachのGCをなくした(負荷の軽減)
  * ================================================ */
 
 using System.Collections.Generic;
@@ -109,12 +110,45 @@ public class CS_UIMiniMapView :
     // 内部フィールド
     // =========================================================
 
+    // プールのキー(種別+ID)。毎フレーム文字列を作らないよう、構造体で扱う
+    private readonly struct IconKey : System.IEquatable<IconKey>
+    {
+        private readonly CSE_MiniMapEntityType _type;
+        private readonly string _id;
+
+        public IconKey(
+            CSE_MiniMapEntityType type,
+            string id)
+        {
+            _type = type;
+            _id = id;
+        }
+
+        public bool Equals(IconKey other)
+        {
+            return _type == other._type &&
+                _id == other._id;
+        }
+
+        public override bool Equals(object obj)
+        {
+            return obj is IconKey other &&
+                Equals(other);
+        }
+
+        public override int GetHashCode()
+        {
+            return ((int)_type * 397) ^
+                (_id != null ? _id.GetHashCode() : 0);
+        }
+    }
+
     private readonly Dictionary<
-        string,
+        IconKey,
         MiniMapIconInstance
     > _iconPool = new();
 
-    private readonly HashSet<string>
+    private readonly HashSet<IconKey>
         _activeIds = new();
 
     // =========================================================
@@ -150,12 +184,18 @@ public class CS_UIMiniMapView :
 
         _activeIds.Clear();
 
-        foreach (MiniMapIconData icon in data.icons)
+        // foreachだと列挙子がGCを出すため、forで回す
+        IReadOnlyList<MiniMapIconData> icons =
+            data.icons;
+
+        for (int i = 0; i < icons.Count; i++)
         {
-            string poolKey =
-                BuildPoolKey(
-                    icon.id,
-                    icon.type
+            MiniMapIconData icon = icons[i];
+
+            IconKey poolKey =
+                new IconKey(
+                    icon.type,
+                    icon.id
                 );
 
             _activeIds.Add(poolKey);
@@ -259,12 +299,13 @@ public class CS_UIMiniMapView :
 
     private void RenderIcon(
         MiniMapIconData data,
-        string poolKey)
+        IconKey poolKey)
     {
         MiniMapIconInstance instance =
             GetOrCreateIcon(
                 poolKey,
-                data.type
+                data.type,
+                data.id
             );
 
         if (instance == null)
@@ -312,7 +353,8 @@ public class CS_UIMiniMapView :
         {
             instance.scaleAnimationElapsed =
                 _offsetAnimationById
-                    ? GetAnimationOffset(poolKey)
+                    ? instance.animationOffsetRate *
+                        _crimeWarningScaleDuration
                     : 0f;
 
             instance.root.localScale =
@@ -386,23 +428,21 @@ public class CS_UIMiniMapView :
         }
     }
 
-    private float GetAnimationOffset(
-        string poolKey)
+    // アイコンの作成時に1回だけ、IDごとの位相のずれ(0～1)を求める
+    private static float GetAnimationOffsetRate(
+        CSE_MiniMapEntityType type,
+        string id)
     {
-        if (string.IsNullOrEmpty(poolKey))
+        if (string.IsNullOrEmpty(id))
             return 0f;
 
         int hash =
-            poolKey.GetHashCode();
+            $"{type}:{id}".GetHashCode();
 
-        float normalized =
-            Mathf.Abs(
-                hash % 1000
-            ) /
-            1000f;
-
-        return normalized *
-            _crimeWarningScaleDuration;
+        return Mathf.Abs(
+            hash % 1000
+        ) /
+        1000f;
     }
 
     // =========================================================
@@ -410,8 +450,9 @@ public class CS_UIMiniMapView :
     // =========================================================
 
     private MiniMapIconInstance GetOrCreateIcon(
-        string poolKey,
-        CSE_MiniMapEntityType type)
+        IconKey poolKey,
+        CSE_MiniMapEntityType type,
+        string id)
     {
         if (_iconPool.TryGetValue(
             poolKey,
@@ -463,6 +504,12 @@ public class CS_UIMiniMapView :
                 iconImage
             );
 
+        instance.animationOffsetRate =
+            GetAnimationOffsetRate(
+                type,
+                id
+            );
+
         _iconPool[poolKey] =
             instance;
 
@@ -493,13 +540,6 @@ public class CS_UIMiniMapView :
 
             _ => null,
         };
-    }
-
-    private static string BuildPoolKey(
-        string id,
-        CSE_MiniMapEntityType type)
-    {
-        return $"{type}:{id}";
     }
 
     private static void SetIconAlpha(
@@ -611,6 +651,13 @@ public class CS_UIMiniMapView :
             get;
             set;
         } = 1f;
+
+        // IDごとの拡縮アニメーションの位相のずれ(0～1)
+        public float animationOffsetRate
+        {
+            get;
+            set;
+        }
 
         public MiniMapIconInstance(
             RectTransform root,

@@ -34,7 +34,7 @@ public class CS_VillainPatrolRoute : MonoBehaviour
         set => _pattern = value;
     }
 
-    // 巡回パターンで巡回するか(ポイントのあるルートが1本以上ある)
+    // 巡回パターンを使うか(犯罪実行役か、ポイントのあるルートが1つ以上ある)
     public bool hasPattern => _pattern != null && _pattern.slotCount > 0;
 
     // スポーン位置の向き(Y軸の回転だけ)
@@ -68,6 +68,37 @@ public class CS_VillainPatrolRoute : MonoBehaviour
     public Vector3 GetStartPosition(int routeIndex)
     {
         return GetPointWorldPosition(_pattern.routes[routeIndex], 0);
+    }
+
+    // ---- 犯罪実行役 ----
+
+    // 実行役の位置(運ぶ時は貨物の位置。NavMeshの上)
+    public Vector3 GetExecutorPosition(int executorIndex)
+    {
+        return SnapToNavMesh(ToWorld(_pattern.executors[executorIndex].localPosition));
+    }
+
+    // 運ぶ実行役の、車の位置(NavMeshの上)
+    public Vector3 GetExecutorCarryPosition(int executorIndex)
+    {
+        return SnapToNavMesh(ToWorld(_pattern.executors[executorIndex].carryLocalPosition));
+    }
+
+    // 実行役の向き(ワールド)
+    public Quaternion GetExecutorRotation(int executorIndex)
+    {
+        return yawRotation * Quaternion.Euler(0f, _pattern.executors[executorIndex].angle, 0f);
+    }
+
+    // 実行役の犯罪モーション。「エリアに合わせる」なら、スポーン位置の担当のエリアのモーション(エリアが無ければ蹴る)
+    public CSE_VillainCrimeMotion GetExecutorMotion(int executorIndex)
+    {
+        CSE_VillainCrimeMotion motion = _pattern.executors[executorIndex].motion;
+        if (motion != CSE_VillainCrimeMotion.Auto) return motion;
+
+        CS_VillainSpawnPoint spawnPoint = GetComponent<CS_VillainSpawnPoint>();
+        CS_CrimeArea area = spawnPoint != null ? spawnPoint.crimeArea : null;
+        return area != null && area.crimeMotion != CSE_VillainCrimeMotion.Auto ? area.crimeMotion : CSE_VillainCrimeMotion.Kick;
     }
 
     public static Vector3 SnapToNavMesh(Vector3 position)

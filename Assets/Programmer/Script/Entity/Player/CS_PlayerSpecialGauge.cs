@@ -86,7 +86,7 @@ public class CS_PlayerSpecialGauge : NetworkBehaviour
     // ゲージを増やす(サーバーのみ)
     public void Fill(float amount)
     {
-        if (IsSpawned && !IsServer) return;
+        if (!this.IsServerOrOffline()) return;
         if (amount <= 0f) return;
 
         float previous = _currentGauge.Value;
@@ -100,7 +100,7 @@ public class CS_PlayerSpecialGauge : NetworkBehaviour
     // 満タンの時だけ全消費してtrueを返す。満タンでなければ何もしない(サーバーのみ)
     public bool TryConsumeFull()
     {
-        if (IsSpawned && !IsServer) return false;
+        if (!this.IsServerOrOffline()) return false;
         if (!isFull) return false;
 
         _currentGauge.Value = 0f;
@@ -124,7 +124,7 @@ public class CS_PlayerSpecialGauge : NetworkBehaviour
     // 上限が下がった時、現在値が上限を超えないようにする(サーバーのみ)
     private void HandleMaxGaugeChanged(float newMaxGauge)
     {
-        if (IsSpawned && !IsServer) return;
+        if (!this.IsServerOrOffline()) return;
         if (_currentGauge.Value <= newMaxGauge) return;
 
         _currentGauge.Value = newMaxGauge;

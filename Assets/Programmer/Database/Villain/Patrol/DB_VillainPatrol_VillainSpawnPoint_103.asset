@@ -1,0 +1,60 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: fa4b329add8b2ab489f636ec9ceceace, type: 3}
+  m_Name: DB_VillainPatrol_VillainSpawnPoint_103
+  m_EditorClassIdentifier: Assembly-CSharp::CSO_VillainPatrolPattern
+  _routes:
+  - _color: {r: 0.8392157, g: 0.27058825, b: 0.23137255, a: 1}
+    _loopMode: 0
+    _speed: 1.5
+    _startAngle: 0
+    _points:
+    - _localPosition: {x: 0, y: -6.2, z: 0}
+      _actions: []
+    - _localPosition: {x: 0.74022293, y: -6.141403, z: 20.236008}
+      _actions: []
+    - _localPosition: {x: 5.466175, y: -6.141403, z: 9.556946}
+      _actions: []
+    _formation:
+      _followerCount: 0
+      _shape: 1
+      _spacing: 1.5
+  - _color: {r: 0.18431373, g: 0.43529412, b: 0.8392157, a: 1}
+    _loopMode: 0
+    _speed: 1.5
+    _startAngle: 0
+    _points:
+    - _localPosition: {x: 5.9409027, y: -6.141403, z: -5.6606445}
+      _actions: []
+    - _localPosition: {x: 24.05059, y: -6.141403, z: -2.6672974}
+      _actions: []
+    - _localPosition: {x: 18.517399, y: -6.141403, z: 3.9921722}
+      _actions: []
+    _formation:
+      _followerCount: 0
+      _shape: 1
+      _spacing: 1.5
+  - _color: {r: 0.05882353, g: 0.6039216, b: 0.44705883, a: 1}
+    _loopMode: 0
+    _speed: 1.5
+    _startAngle: 0
+    _points:
+    - _localPosition: {x: 9.118244, y: -6.141403, z: 23.553955}
+      _actions: []
+    - _localPosition: {x: 23.6229, y: -6.141403, z: 22.140732}
+      _actions: []
+    - _localPosition: {x: 15.881039, y: -6.141403, z: 11.790527}
+      _actions: []
+    _formation:
+      _followerCount: 0
+      _shape: 1
+      _spacing: 1.5

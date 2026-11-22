@@ -42,7 +42,7 @@ public class CS_PlayerSpecialGaugeUI : NetworkBehaviour
     private void Start()
     {
         if (IsSpawned) return;
-        if (NetworkManager.Singleton != null && NetworkManager.Singleton.IsListening) return;
+        if (CS_PlayerNetwork.isOnline) return;
 
         BindGaugeUI(_player.isLocalPlayer);
     }
@@ -91,7 +91,7 @@ public class CS_PlayerSpecialGaugeUI : NetworkBehaviour
 
         // 上限が0だと表示で0除算になるため、最低でも1にしておく
         _gaugeModel = new CS_UISpecialGaugeModel(Mathf.Max(1f, max), current);
-        _gaugeModel.Bind(_player.playerNumber);
+        _gaugeModel.Bind(_player.playerNumber, CSE_CharacterType.Giro);
     }
 
     // ゲージが変わるたびにUI側のModelへ反映する(上限が変わっていたらModelを作り直す)

@@ -17,7 +17,10 @@ using UnityEngine;
  * ・編集の対象は、Hierarchyで選んでいるスポーン位置(CS_VillainSpawnPoint)の巡回パターン
  * ・パターンのアセットは Assets/Programmer/Database/Villain/Patrol に作る(「悪人を置く」で無ければ自動で作る)
  * ・選んでいる悪人・ポイント・道具は、スポーン位置の選択が変わったら外す
+ * ・選べるのは、巡回の悪人(とポイント)か、犯罪実行役のどちらか一方(片方を選ぶと、もう片方は外れる)
  * ・状態が変わったら onChanged を呼び、Sceneビュー・ツールバー・Inspectorを描き直す
+ * ・位置の基準(positionBasis): Inspectorで位置を数値で書く時の基準。スポーン位置(m) / 路地裏(割合 0〜1)
+ *   エディタを閉じても覚えておく(EditorPrefs)
  */
 // ========================================
 
@@ -28,13 +31,23 @@ public static class CSED_VillainPatrolEditorState
         None,           // 何も押されていない(Sceneビューは普段どおりのUnityの操作)
         PlaceVillain,   // 悪人を置く
         PlacePoint,     // ポイントを置く
+        PlaceExecutor,  // 犯罪実行役を置く
+    }
+
+    // Inspectorで位置を数値で書く時の基準
+    public enum PositionBasis
+    {
+        SpawnPoint,   // スポーン位置からの相対(m。右がX、前がZ)
+        Alley,        // 路地裏の中の割合(縦・横 0〜1。CSED_VillainPatrolAlley)
     }
 
     private const string _patternFolder = "Assets/Programmer/Database/Villain/Patrol";
+    private const string _positionBasisKey = "CSED_VillainPatrol.PositionBasis";
 
     private static Tool _tool;
     private static int _selectedRoute = -1;
     private static int _selectedPoint = -1;
+    private static int _selectedExecutor = -1;
     private static bool _isPlaying;
     private static double _playStartTime;
 
@@ -47,6 +60,17 @@ public static class CSED_VillainPatrolEditorState
     }
     public static int selectedRoute => _selectedRoute;
     public static int selectedPoint => _selectedPoint;
+    public static int selectedExecutor => _selectedExecutor;
+
+    public static PositionBasis positionBasis
+    {
+        get => (PositionBasis)EditorPrefs.GetInt(_positionBasisKey, (int)PositionBasis.SpawnPoint);
+        set
+        {
+            EditorPrefs.SetInt(_positionBasisKey, (int)value);
+            NotifyChanged();
+        }
+    }
     public static bool isPlaying => _isPlaying;
 
     // プレビューの再生時間(秒)
@@ -70,6 +94,16 @@ public static class CSED_VillainPatrolEditorState
     {
         _selectedRoute = routeIndex;
         _selectedPoint = pointIndex;
+        _selectedExecutor = -1;
+        NotifyChanged();
+    }
+
+    // 犯罪実行役を選ぶ(巡回の悪人・ポイントの選択は外す)
+    public static void SelectExecutor(int executorIndex)
+    {
+        _selectedExecutor = executorIndex;
+        _selectedRoute = -1;
+        _selectedPoint = -1;
         NotifyChanged();
     }
 
@@ -79,6 +113,7 @@ public static class CSED_VillainPatrolEditorState
         _tool = Tool.None;
         _selectedRoute = -1;
         _selectedPoint = -1;
+        _selectedExecutor = -1;
         _isPlaying = false;
         NotifyChanged();
     }

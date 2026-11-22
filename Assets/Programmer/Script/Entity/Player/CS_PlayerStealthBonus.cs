@@ -89,7 +89,7 @@ public class CS_PlayerStealthBonus : NetworkBehaviour
     // 悪人を1人倒した時に呼ぶ(サーバー、またはオフラインのみ。CS_PlayerScoringが呼ぶ)
     public void AddDefeat()
     {
-        if (!HasAuthority()) return;
+        if (!this.IsServerOrOffline()) return;
 
         SetStreak(_streak.Value + 1);
     }
@@ -97,7 +97,7 @@ public class CS_PlayerStealthBonus : NetworkBehaviour
     // 連続撃破を途切れさせる(サーバー、またはオフラインのみ)
     public void ResetStreak()
     {
-        if (!HasAuthority()) return;
+        if (!this.IsServerOrOffline()) return;
 
         SetStreak(0);
     }
@@ -142,12 +142,6 @@ public class CS_PlayerStealthBonus : NetworkBehaviour
         if (_scan == null) return;
 
         _scan.SetBonusRadius(scanBonusRadius);
-    }
-
-    // 連続撃破数を変えてよいか(サーバー、またはオフラインのみ)
-    private bool HasAuthority()
-    {
-        return !IsSpawned || IsServer;
     }
 
     private void OnValidate()

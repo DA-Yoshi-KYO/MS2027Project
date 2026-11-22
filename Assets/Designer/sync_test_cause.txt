@@ -1,0 +1,17 @@
+同期hookが動かなかった原因(動作確認用テストファイル)
+
+【現象】
+designer_develop の Assets/Designer に push しても、designer_output への同期、.meta 生成、Discord 通知が動いていないように見えた。
+
+【原因】
+Sync Designer Assets to Output は designer_develop への push で毎回起動していたが、designer_output への push が
+Git LFS のファイルロックで拒否され、11/11 以降は失敗していた(run #11 から #16)。
+ロックされていたのは Assets/Designer/Mesh/City/env_City.fbx(DA-Yoshi-KYO)と Assets/Designer/Mesh/PatrolDrone.fbx(PIGUMI)。
+同期が失敗すると、後続の Generate Designer Meta Files(.meta 生成と Discord 通知)は skipped になる。
+
+【対策】
+ロック(lockable と pre-commit の自動ロック)の対象を Artist 配下のみに変更(develop の 586f2b3)。
+残っていた2件のロックは解除済み。
+
+【結果】
+同期の手動再実行(run #17)と meta 生成(run #19)は成功。

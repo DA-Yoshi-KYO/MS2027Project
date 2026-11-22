@@ -25,6 +25,9 @@ using UnityEngine;
  *   同じルートのメンバー同士は、スポーン位置のpatrolSpacing(m)の間隔で並ぶ(倒れた人の分は詰める)
  *   → slot番目の人は、ルートの範囲をslot人分ずらした範囲を往復する(並んだまま往復するので、折り返しても追い越さない)
  *     短くて全員が並びきらないルートでは、間隔を詰める
+ * ・エリア(スポーン位置の親のCS_CrimeArea)があるグループは、グループごとの犯罪完遂を使わない(ソロ)
+ *   完遂時間・完遂の判定は行わず、犯罪の進行度(crimeProgress)はエリアの犯罪完遂率になる(メンバーへ送る値も同じ)
+ *   ゲージを進めるのはCS_VillainSpawner(エリアで生き残っているグループ数を数える)
  * ・完遂までの時間は、残っているメンバーのcrimeCompleteTimeのうち一番長いもの
  * ・完遂したら
  *   1. onAnyCrimeCompleted を1回だけ呼ぶ
@@ -48,6 +51,7 @@ using UnityEngine;
 public class CS_VillainGroup
 {
     private readonly CS_VillainSpawnPoint _spawnPoint;
+    private readonly CS_CrimeArea _crimeArea;   // 担当のエリア(スポーン位置の親。無ければnull)
     private readonly List<CS_VillainCrime> _members = new List<CS_VillainCrime>();
     private readonly List<CS_VillainCombat> _combats = new List<CS_VillainCombat>();          // メンバーの反撃(_membersと同じ順)
     private readonly HashSet<CS_VillainCombat> _attackers = new HashSet<CS_VillainCombat>();   // 攻撃枠を持っているメンバー
@@ -68,6 +72,8 @@ public class CS_VillainGroup
 
     public int id => _id;   // グループ番号(0から。メンバーのCS_VillainCrime.groupIdと同じ)
     public CS_VillainSpawnPoint spawnPoint => _spawnPoint;
+    public CS_CrimeArea crimeArea => _crimeArea;           // 担当のエリア(無ければnull)
+    public bool usesAreaCrime => _crimeArea != null;      // グループごとではなく、エリアの犯罪完遂ゲージを使うか(ソロ)
     public bool isCrimeCompleted => _isCrimeCompleted;
     public IReadOnlyList<CS_VillainCrime> members => _members;
     public bool usesTimeScaling => _usesTimeScaling;   // 時間経過の段階でステータスを変えるか   // 撃退・逃走で消えたメンバーはnullになっている
@@ -79,10 +85,13 @@ public class CS_VillainGroup
     public bool isLookingAround => _lookAroundRemaining > 0f;   // 巡回の端で、全員で見回している間か
 
     // 犯罪の進行度(0～1)
+    // 犯罪の進行度(0～1)。エリアの担当なら、エリアの犯罪完遂率
     public float crimeProgress
     {
         get
         {
+            if (usesAreaCrime) return _crimeArea.progress;
+
             float completeTime = GetCrimeCompleteTime();
             return completeTime <= 0f ? 1f : Math.Min(1f, _crimeElapsed / completeTime);
         }
@@ -106,13 +115,18 @@ public class CS_VillainGroup
         _maxAttackers = maxAttackers;
         _usesTimeScaling = usesTimeScaling;
 
-        if (spawnPoint != null) _patrolPaths.AddRange(spawnPoint.CreatePatrolPaths());
+        if (spawnPoint != null)
+        {
+            _patrolPaths.AddRange(spawnPoint.CreatePatrolPaths());
+            _crimeArea = spawnPoint.crimeArea;
+        }
     }
 
     public void AddMember(CS_VillainCrime member)
     {
         _members.Add(member);
         member.SetGroup(_id, crimeProgress);
+        member.SetCrimeArea(_crimeArea);
         CS_VillainCombat combat = member.GetComponent<CS_VillainCombat>();
         _combats.Add(combat);
         _patrolRouteIndices.Add(hasPatrol ? (_combats.Count - 1) % _patrolPaths.Count : -1);
@@ -344,6 +358,14 @@ public class CS_VillainGroup
         if (!isAlive) return;
 
         TickPatrol(deltaTime);
+
+        // エリアの担当は、グループでは完遂しない(進行度はエリアの完遂率をメンバーへ送るだけ)
+        if (usesAreaCrime)
+        {
+            SyncProgress(false);
+            return;
+        }
+
         if (!IsAllMembersCommittingCrime()) return;
 
         _crimeElapsed += deltaTime;

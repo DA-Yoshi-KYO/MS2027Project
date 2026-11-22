@@ -2,15 +2,41 @@
 # 同じフォルダの data.mpk.NNN を読み、このフォルダの中身をバイト単位で元通りに復元する。
 # 各ファイルは書き込む前に SHA-256 を照合する。
 # Windows 標準の PowerShell 5.1 + .NET Framework (Add-Type) だけで動作する。
-param([switch]$Force)
+# -Force : 確認なしで復元する。-Check : 復元済みの中身が今の data.mpk と同じか調べるだけ
+#          (同じ = 終了コード 0、古い / 未復元 = 2)。
+# 復元のたびに、前に復元した古いファイルを先に消す（data.mpk が更新されたとき古い exe が残らない）。
+# 復元した data.mpk の SHA-256 を .mpk_stamp に書き、次の -Check で比べる。
+param([switch]$Force, [switch]$Check)
 $ErrorActionPreference = 'Stop'
 $here = Split-Path -Parent $MyInvocation.MyCommand.Path
 $toolRx = '^(Clause\.bat|Open\.bat|Unpack\.ps1|data\.mpk\.\d{3})$'
+# 消さずに残す物: 復元の記録と、プレビューが作る利用者のデータ
+$keepRx = '^(\.mpk_stamp|MayaPreviewImports)$'
+$stampFile = Join-Path $here '.mpk_stamp'
+
+function Get-MpkStamp([string[]]$files) {
+    $sha = [Security.Cryptography.SHA256]::Create()
+    $buf = New-Object byte[] (4MB)
+    foreach ($f in $files) {
+        $fs = [IO.File]::OpenRead($f)
+        try { while (($n = $fs.Read($buf, 0, $buf.Length)) -gt 0) { [void]$sha.TransformBlock($buf, 0, $n, $null, 0) } }
+        finally { $fs.Dispose() }
+    }
+    [void]$sha.TransformFinalBlock((New-Object byte[] 0), 0, 0)
+    return (($sha.Hash | ForEach-Object { $_.ToString('x2') }) -join '')
+}
 
 $parts = @(Get-ChildItem -LiteralPath $here -File | Where-Object { $_.Name -match '^data\.mpk\.\d{3}$' } | Sort-Object Name | ForEach-Object { $_.FullName })
 if ($parts.Count -eq 0) { throw "圧縮データ (data.mpk.000 ...) が見つかりません: $here" }
 
-$existing = @(Get-ChildItem -LiteralPath $here -Force | Where-Object { $_.Name -notmatch $toolRx })
+$stamp = Get-MpkStamp ([string[]]$parts)
+$existing = @(Get-ChildItem -LiteralPath $here -Force | Where-Object { $_.Name -notmatch $toolRx -and $_.Name -notmatch $keepRx })
+if ($Check) {
+    $old = if (Test-Path -LiteralPath $stampFile) { ([IO.File]::ReadAllText($stampFile)).Trim() } else { '' }
+    if ($existing.Count -gt 0 -and $old -eq $stamp) { Write-Host '最新です'; exit 0 }
+    Write-Host '復元が必要です（data.mpk が更新されたか、まだ復元していません）'
+    exit 2
+}
 if ($existing.Count -gt 0 -and -not $Force) {
     $ans = Read-Host "$here には既にファイルがあります。同名ファイルを上書きして復元しますか? (y/N)"
     if ($ans -ne 'y' -and $ans -ne 'Y') { Write-Host '中止しました。'; exit 1 }
@@ -364,9 +390,17 @@ $cp.GenerateInMemory = $true
 [void]$cp.ReferencedAssemblies.Add('System.dll')
 Add-Type -TypeDefinition $cs -Language CSharp -CompilerParameters $cp
 
+# 前に復元した古いファイルを消す（新しい data.mpk に無いファイルが残らないように）
+foreach ($item in $existing) {
+    try { Remove-Item -LiteralPath $item.FullName -Recurse -Force }
+    catch { throw "古いファイルを消せません（MS2027.exe などが起動中なら閉じてから、もう一度実行してください）: $($item.FullName)`n$($_.Exception.Message)" }
+}
+if (Test-Path -LiteralPath $stampFile) { Remove-Item -LiteralPath $stampFile -Force }
+
 Write-Host "解凍中: $($parts.Count) 個の圧縮データ -> $here"
 $sw = [Diagnostics.Stopwatch]::StartNew()
 $summary = [Mpk.Unpacker]::Unpack([string[]]$parts, $here)
+[IO.File]::WriteAllText($stampFile, $stamp)
 Write-Host ("{0} ({1:0.0} 秒)" -f $summary, $sw.Elapsed.TotalSeconds)
 Write-Host "復元完了: $here"
 exit 0

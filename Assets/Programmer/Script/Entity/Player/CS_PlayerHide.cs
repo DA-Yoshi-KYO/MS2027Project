@@ -1,9 +1,10 @@
+using System;
 using Unity.Netcode;
 using UnityEngine;
 
 /*
  * SA(ステルスアクション。ハイドポイントへ飛ぶ)と、ハイドポイントの隠れられる箱に入っている間の「隠れている」状態を扱うクラス
- * ペルソナ5のカバーがリファレンス。ハイドポイント(CS_HidePoint)はフィールドに置く
+ * ペルソナ5のカバーがリファレンス。SAポイント(CS_SAPoint。ハイドポイント・信号機など)はフィールドに置く
  *
  * 制作者：　吉田京志郎
  */
@@ -14,7 +15,7 @@ using UnityEngine;
  * ・仕様は仕様書「プレイヤー」のSA(SAポイントの仕様について)と、Issue #381
  * ・SAの流れ(本人の手元で進める)
  *   1. 飛んでいない間、飛べるハイドポイント(currentCandidate)を探す
- *      条件: 足元がそのハイドポイントのSAできる範囲の箱(CS_HidePoint.IsInSAReachBox)の中にある・画面に映っている・
+ *      条件: 足元がそのハイドポイントのSAできる範囲の箱(CS_SAPoint.IsInSAReachBox)の中にある・画面に映っている・
  *            カメラから見て、そのハイドポイントの隠れられる箱が_requiredVisibleRatio(既定30%)以上見えている・カメラの正面に一番近い
  *            体の中心がそのハイドポイントの隠れられる箱の中にある(今いるハイドポイント)時は、そこへは飛ばない
  * ・見えている割合
@@ -26,18 +27,32 @@ using UnityEngine;
  *   隠れられる箱が空のハイドポイントは、立つ位置の_pointHeight上の1点だけで調べる
  *   2. 飛べるハイドポイントがある時にダッシュボタン(RT/SHIFT)を押すと、ダッシュの代わりに飛ぶ(CS_PlayerがTryBeginHideを呼ぶ)
  *      無い時は今まで通りダッシュになる
- *   3. 飛ぶ: 体の底(足元)が立つ位置に来る所へ、高さも含めて_flySpeedでまっすぐ飛ぶ(CS_Player.Fly)。街灯の上・車の上などにも飛べる
+ *   3. 飛ぶ: 体の底(足元)が立つ位置に来る所へ、高さも含めて_flySpeedでまっすぐ飛ぶ(SA専用の速度(CS_Player.SetSAVelocity)を毎物理フレーム渡す。Fly/Lungeの残り時間は使わない)。街灯の上・車の上などにも飛べる
  *      飛んでいる間は物にぶつからず(Rigidbody.detectCollisionsを切る)、重力も切る。_maxFlyTime秒以内に着けなかった時はやめる
  *      (飛べるのは、壁などに遮られず見えているハイドポイントだけなので、壁を抜けて飛ぶことはない)
  *   4. 着いた: 位置(高さ込み)を合わせ、飛ぶ前に向いていた向きに戻して、すぐ普通の状態に戻る(歩ける・ジャンプできる・重力あり)
  *      以前の「張り付いて動かない」は無くした(仕様「SAポイント移動後も通常の状態と変わらないように移動できる」)
  * ・隠れている判定(isHidden)
- *   プレイヤーの体の中心(当たり判定の中心)が、どれかのハイドポイントの隠れられる箱(CS_HidePoint)の中にある間は隠れている
+ *   プレイヤーの体の中心(当たり判定の中心)が、どれかのハイドポイントの隠れられる箱(CS_HidePoint)の中にある間は隠れている(信号機など箱を持たないSAポイントは隠れ扱いにならない)
  *   SAで飛んで来た時も、歩いて入った時も同じ。飛んでいる最中も、箱の外なら見つかる
  *   判定はサーバー(またはオフライン)で毎フレーム行い、NetworkVariableで全員に伝える(警察・悪人のAIはサーバーで動くため)
  *   警察(CS_PoliceVision)・悪人(CS_VillainCombat)は、IsConcealedFromで「隠れていて、_revealDistanceより離れているか」を問い合わせる
  *   _revealDistance(既定2m)まで近づかれると、隠れていても見つかる
  *   本人の手元では、サーバーから伝わる前でも箱に入ったかが分かるよう、isInHideBoxも公開する(奇襲の条件などに使う)
+ * ・飛び方はSAポイントごとに変えられる(CS_SAPointのpullSpeed・releaseDistanceRate。グラップルなど)
+ *   pullSpeedが0以下なら_flySpeedを使う。着いたら、releaseDistanceRateが0のSAポイント(信号機・ハイドポイント)は位置を合わせて速度を0にする(勢いは残さない)
+ *   遠い的でも着けるよう、飛べる最長時間は max(_maxFlyTime, 距離 / 速さ × 1.5) とする
+ *   releaseDistanceRateが0より大きいSAポイント(グラップル)は、飛び始めの距離のその割合まで引っ張られるか、着く位置に着いたら、早い方で自動で放す(ReleaseWithVelocity)
+ *   放した時は、通常の状態に戻って自由落下する(位置の合わせ込みはしない)。放した瞬間の速度(向き・高さ込み)をそのまま残す
+ *   終わる時はCS_Player.EndSAMotion(終わった時の速度)で、SA専用の速度をクリアすると同時にその速度を渡す(垂直はRigidbody、水平は空中の勢い)。着いた時(信号機・ハイドポイント)は速度0
+ *   空中の勢いは、入力がある間は入力の速度へ近づき(_airControlAccel)、着地で0になる
+ *   放した後は移動入力で曲げられる(飛んでいる間はSA専用の速度で動かす)
+ *   放した直後は、_releaseGhostTime秒だけ当たり判定を切ったままにして足場の角に引っかからないようにする(BeginGhost)
+ *   壁抜け・床抜けしないよう、上向きに進んでいる時だけ・着く位置を通り過ぎない範囲だけ行い、下向きになったらすぐ戻す
+ *   飛び始めの瞬間に重力と当たり判定を切り、すぐ動かす(次のフレームを待たない)
+ * ・動くSAポイント(CS_PathFollowerで動く)にも対応: 飛んでいる間は毎物理フレーム、SAポイントの立つ位置(standPosition)を読み直して追いかける
+ *   (向き・速さ・残りの距離・着く位置を毎回計算し直す)。動かないSAポイントは今までと同じ動き。放す距離の割合は、飛び始めの距離が基準のまま
+ * ・飛び始め・飛び終わり(着いた時・途中でやめた時)をonFlyBegin・onFlyEndで知らせる(ロープの表示などが購読する。本人の手元でだけ起きる)
  * ・1つのハイドポイントに何人でも入れる(以前の予約は無くした)
  * ・SAで飛ぶのは人のプレイヤーだけ(NPCは使わない)。隠れている判定はNPCにも同じように効く
  */
@@ -56,7 +71,12 @@ public class CS_PlayerHide : NetworkBehaviour
     [Header("飛ぶ")]
     [SerializeField][Min(0.1f)] private float _flySpeed = 25f;          // 飛ぶ速さ(m/秒)
     [SerializeField][Min(0f)] private float _arriveDistance = 0.3f;     // 着く位置との距離がこれ以内になったら着いたとみなす(m。高さ込み)
+    [SerializeField][Min(0f)] private float _minimumSADistance = 2f;    // プレイヤーからこの距離より近いSAポイントへは飛ばない(m。近すぎるSAを除く)
     [SerializeField][Min(0f)] private float _maxFlyTime = 1f;           // これ以上かかっても着かなければやめる(秒)
+    [SerializeField][Min(0f)] private float _releaseGhostTime = 0.1f;   // 放した直後、この時間だけ当たり判定を切ったままにする(秒。足場の角に引っかからないように)
+
+    [Header("SAヒントUI")]
+    [SerializeField][Min(0f)] private float _arrivedHintLeaveDistance = 1f;   // SAで着いたSAポイントの着く位置から、この距離より離れたら、到着したSAポイントとして扱わない(m。SAヒントUI用)
 
     [Header("見つかる距離")]
     [SerializeField][Min(0f)] private float _revealDistance = 2f;       // 隠れていても、警察・悪人とこの距離以内なら見つかる(m。高さ込み)
@@ -75,16 +95,40 @@ public class CS_PlayerHide : NetworkBehaviour
 
     // 本人の手元の状態
     private bool _isFlying;
-    private CS_HidePoint _point;            // 飛んでいる先のハイドポイント
+    private CS_SAPoint _point;            // 飛んでいる先のSAポイント
     private float _yawBeforeFly;            // 飛ぶ前に向いていた向き(度。着いたらこの向きに戻す)
-    private CS_HidePoint _candidate;        // 今ダッシュボタンを押したら飛ぶハイドポイント
+    private CS_SAPoint _candidate;        // 今ダッシュボタンを押したら飛ぶSAポイント
+    private CS_SAPoint _arrivedPoint;     // SAで最後に着いたSAポイント(次のSA開始・ジャンプ・離れた時に消す。SAヒントUI用)
     private float _elapsed;
+    private float _flySpeedNow;             // 今飛んでいる速さ(m/秒。SAポイントごとに違う)
+    private float _flyTimeLimit;            // 今の飛行で、着かなければやめる時間(秒)
+    private Vector3 _flyVelocity;           // 最後に決めた飛行の速度(向き・高さ込み。放す時に残す。着く位置の手前で頭打ちにする前の、本来の速さ)
+    private float _flyStartDistance;        // 飛び始めた時の、着く位置までの距離(m。放す位置を割合で決めるのに使う)
+    private float _ghostRemaining;          // 放した直後に、当たり判定を切ったままにする残り時間(秒)
     private bool _isFloating;               // 重力を切っているか(元に戻すため)
+
+    public event Action<CS_SAPoint> onFlyBegin;   // 飛び始めた時(飛ぶ先のSAポイント)
+    public event Action<CS_SAPoint> onFlyEnd;     // 飛び終わった時(着いた時・途中でやめた時。飛んでいた先のSAポイント)
 
     public bool isHiding => _isFlying;                      // SAでハイドポイントへ飛んでいる最中か(本人の手元)
     public bool isHidden => _isHidden.Value;                // 隠れている状態か(全員で分かる。サーバーが決める)
     public bool isInHideBox => CS_HidePoint.IsInsideAny(bodyCenter);   // 体の中心が隠れられる箱の中にあるか(その場で調べる)
-    public CS_HidePoint currentCandidate => _candidate;     // 今ダッシュボタンを押したら飛ぶハイドポイント(本人の手元。アイコン表示用)
+    public CS_SAPoint currentHidePoint => FindHidePoint(bodyCenter);   // 体の中心が入っている、隠れられる箱を持つSAポイント(無ければnull。その場で調べる。SAヒントUI用)
+    // SAで着いたばかりのSAポイント(種類を問わない。着く位置から_arrivedHintLeaveDistanceより離れる・ジャンプする・次のSAを始める・SAポイントが無効になると、nullになる。SAヒントUI用)
+    public CS_SAPoint arrivedPoint
+    {
+        get
+        {
+            if (_arrivedPoint == null) return null;
+
+            // 動くSAポイントでも着く位置から離れていないか調べられるよう、SAポイントの着く位置との距離で見る
+            float leaveDistance = _arrivedHintLeaveDistance;
+            bool isAway = (_rigidbody.position - GetArrivePosition(_arrivedPoint)).sqrMagnitude > leaveDistance * leaveDistance;
+            if (isAway || !_arrivedPoint.isActiveAndEnabled) _arrivedPoint = null;
+            return _arrivedPoint;
+        }
+    }
+    public CS_SAPoint currentCandidate => _candidate;     // 今ダッシュボタンを押したら飛ぶSAポイント(本人の手元。アイコン表示用)
 
     // 体の中心(当たり判定の中心)
     private Vector3 bodyCenter => _collider != null ? _collider.bounds.center : transform.position;
@@ -98,15 +142,24 @@ public class CS_PlayerHide : NetworkBehaviour
         _ambush = GetComponent<CS_PlayerAmbush>();
     }
 
+    private void OnEnable()
+    {
+        if (_player != null) _player.onJumped += ClearArrivedPoint;
+    }
+
     private void OnDisable()
     {
+        if (_player != null) _player.onJumped -= ClearArrivedPoint;
+        _arrivedPoint = null;
         if (_isFlying) EndFly();
+        EndGhost();
         SetHidden(false);
     }
 
     private void Update()
     {
         UpdateHidden();
+        UpdateGhost();
 
         if (!CanUse())
         {
@@ -118,11 +171,16 @@ public class CS_PlayerHide : NetworkBehaviour
         if (_isFlying)
         {
             _candidate = null;
-            UpdateFly();
             return;
         }
 
         _candidate = FindCandidate();
+    }
+
+    // 飛んでいる間は、物理の1フレームごとに、着く位置へ向かう一定の速度をCS_Playerへ渡す(Fly/Lungeの残り時間は使わない)
+    private void FixedUpdate()
+    {
+        if (_isFlying) StepFly();
     }
 
     // ========================================
@@ -135,12 +193,27 @@ public class CS_PlayerHide : NetworkBehaviour
         if (_isFlying || !CanUse() || _candidate == null) return false;
         if (_ambush != null && _ambush.isAmbushing) return false;
 
+        _arrivedPoint = null;
         _point = _candidate;
         _candidate = null;
         _isFlying = true;
         _elapsed = 0f;
         _yawBeforeFly = transform.eulerAngles.y;
+        _flySpeedNow = _point.pullSpeed > 0f ? _point.pullSpeed : _flySpeed;
+        Vector3 toPoint = GetArrivePosition(_point) - _rigidbody.position;
+        float distance = toPoint.magnitude;
+        _flyTimeLimit = Mathf.Max(_maxFlyTime, distance / _flySpeedNow * 1.5f);
+        _flyStartDistance = distance;
+        _flyVelocity = distance > 0.0001f ? toPoint / distance * _flySpeedNow : Vector3.zero;
         _player.SetAimFacing(Quaternion.LookRotation(HorizontalDirection(_point.standPosition)).eulerAngles.y);
+
+        // SA専用の速度で動かす。動き出しをなめらかにするため、飛び始めの瞬間に重力と当たり判定を切り、すぐ速度を渡す(次のフレームを待たない)
+        _player.BeginSAMotion();
+        SetFloating(true);
+        _rigidbody.detectCollisions = false;
+        _player.SetSAVelocity(_flyVelocity);
+
+        onFlyBegin?.Invoke(_point);
         return true;
     }
 
@@ -165,6 +238,16 @@ public class CS_PlayerHide : NetworkBehaviour
     // ========================================
     // 隠れている判定(サーバー、またはオフライン)
     // ========================================
+
+    // positionが箱の中に入っている、ハイドポイント(無ければnull)
+    private static CS_SAPoint FindHidePoint(Vector3 position)
+    {
+        foreach (CS_SAPoint point in CS_SAPoint.activePoints)
+        {
+            if (point != null && point.Contains(position)) return point;
+        }
+        return null;
+    }
 
     // 体の中心が隠れられる箱の中にある間は隠れている(倒れている間は隠れない)
     private void UpdateHidden()
@@ -192,7 +275,7 @@ public class CS_PlayerHide : NetworkBehaviour
     }
 
     // 飛べるハイドポイントのうち、カメラの正面に一番近いもの(無ければnull)
-    private CS_HidePoint FindCandidate()
+    private CS_SAPoint FindCandidate()
     {
         Camera viewCamera = _player.playerCamera;
         if (viewCamera == null) return null;
@@ -200,15 +283,18 @@ public class CS_PlayerHide : NetworkBehaviour
         Vector3 cameraForward = viewCamera.transform.forward;
         Vector3 feet = GetFeetPosition();
         Vector3 sightPosition = viewCamera.transform.position;
-        CS_HidePoint best = null;
+        CS_SAPoint best = null;
         float bestAngle = float.MaxValue;
-        foreach (CS_HidePoint point in CS_HidePoint.activePoints)
+        foreach (CS_SAPoint point in CS_SAPoint.activePoints)
         {
             // SAできる範囲の箱はハイドポイントごと。足元が箱の中にある時だけ飛べる
             if (!point.IsInSAReachBox(feet)) continue;
 
             // 今いるハイドポイント(体の中心が隠れられる箱の中にある)へは飛ばない
             if (point.Contains(bodyCenter)) continue;
+
+            // 近すぎるSAポイントへは飛ばない(プレイヤーの位置から立つ位置までの距離。SAヒントUIと同じ測り方)
+            if ((point.standPosition - transform.position).sqrMagnitude < _minimumSADistance * _minimumSADistance) continue;
 
             Vector3 target = point.standPosition + Vector3.up * _pointHeight;
             if (!IsOnScreen(viewCamera, target)) continue;
@@ -226,7 +312,7 @@ public class CS_PlayerHide : NetworkBehaviour
     }
 
     // fromから見て、pointの隠れられる箱が_requiredVisibleRatio以上見えているか(箱が空ならfallbackの1点で調べる)
-    private bool IsVisibleEnough(Vector3 from, CS_HidePoint point, Vector3 fallback)
+    private bool IsVisibleEnough(Vector3 from, CS_SAPoint point, Vector3 fallback)
     {
         if (!point.hasHideBox) return IsSightClear(from, fallback);
 
@@ -282,54 +368,123 @@ public class CS_PlayerHide : NetworkBehaviour
         return true;
     }
 
-    // 着く位置(体の底が立つ位置に来る所)へ直進し、着いたら普通の状態に戻る
-    private void UpdateFly()
+    // 着く位置(体の底が立つ位置に来る所)へ直進し、着いたら普通の状態に戻る(物理の1フレームごと)
+    private void StepFly()
     {
-        _elapsed += Time.deltaTime;
+        _elapsed += Time.fixedDeltaTime;
 
-        Vector3 toPoint = GetArrivePosition(_point) - transform.position;
+        Vector3 toPoint = GetArrivePosition(_point) - _rigidbody.position;
         float distance = toPoint.magnitude;
         if (distance <= _arriveDistance)
         {
-            Arrive();
+            // 放す設定のあるSAポイント(グラップル)は、着いた時も5割で放した時と同じように、速度を残して放す(位置は合わせない)
+            if (_point.releaseDistanceRate > 0f) ReleaseWithVelocity(distance);
+            else Arrive();
+            return;
+        }
+
+        // 飛び始めの距離のreleaseDistanceRate(割合)まで引っ張られたら、その時の速度を残したまま放す(グラップル。1以上なら放さず着くまで)
+        float releaseRate = _point.releaseDistanceRate;
+        if (releaseRate > 0f && distance <= _flyStartDistance * (1f - releaseRate))
+        {
+            ReleaseWithVelocity(distance);
             return;
         }
 
         // 何かに引っかかって着かない時はやめる
-        if (_elapsed >= _maxFlyTime)
+        if (_elapsed >= _flyTimeLimit)
         {
             EndFly();
             return;
         }
 
-        // 毎フレーム向きと距離を決め直す(少しずれても、着く位置へ向かう)
-        SetFloating(true);
-        _rigidbody.detectCollisions = false;
-        _player.Fly(toPoint / distance, distance, distance / _flySpeed);
+        // 毎物理フレーム向きと速さを決め直す(少しずれても、着く位置へ向かう)。着く位置を通り越さないよう、速さは残りの距離で頭打ちにする
+        float speed = Mathf.Min(_flySpeedNow, distance / Time.fixedDeltaTime);
+        _flyVelocity = toPoint / distance * _flySpeedNow;   // 放す時に残す速度は、頭打ちにしない本来の速さ
+        _player.SetSAVelocity(toPoint / distance * speed);
     }
 
-    // 着いた: 位置(高さ込み)を合わせ、飛ぶ前に向いていた向きに戻して、普通の状態に戻る
+    // 飛び始めの距離のreleaseDistanceRateまで引っ張られるか、着いた: ロープを放し、通常の状態に戻って重力で落ちる(位置は合わせない)
+    // 放した瞬間の速度(向き・高さ込み)を、そのまま残す: CS_Player.EndSAMotionへ渡す(垂直はRigidbody、水平は空中の勢いになる)。放した後は移動入力で曲げられる
+    // remainingDistanceは、放した時の、着く位置までの残りの距離(m)
+    private void ReleaseWithVelocity(float remainingDistance)
+    {
+        Vector3 velocity = _flyVelocity;
+
+        EndFly(velocity, _point.releaseDrag);   // 重力・当たり判定を戻し、速度を通常の状態に渡す(CS_Player.EndSAMotion)。ロープを消すonFlyEndもここで呼ばれる
+
+        BeginGhost(velocity, remainingDistance);
+    }
+
+    // 放した直後だけ、当たり判定を切ったままにする(足場の角に引っかからないように)
+    // 壁抜け・床抜けしないよう、次の時だけ行う: 上向きに進んでいる(床の下へ落ちない)・飛んでいた線の上(着く位置までの残りの距離を超えない)
+    private void BeginGhost(Vector3 velocity, float remainingDistance)
+    {
+        if (_releaseGhostTime <= 0f || velocity.y < 0f || velocity.sqrMagnitude < 0.0001f) return;
+
+        float untilTarget = remainingDistance / velocity.magnitude;   // 着く位置を通り過ぎるまでの時間
+        _ghostRemaining = Mathf.Min(_releaseGhostTime, untilTarget);
+        if (_ghostRemaining > 0f) _rigidbody.detectCollisions = false;
+    }
+
+    // 時間がきたか、下向きになったら、当たり判定を戻す
+    private void UpdateGhost()
+    {
+        if (_ghostRemaining <= 0f) return;
+
+        _ghostRemaining -= Time.deltaTime;
+        if (_ghostRemaining <= 0f || _rigidbody.linearVelocity.y < 0f || _isFlying) EndGhost();
+    }
+
+    private void EndGhost()
+    {
+        _ghostRemaining = 0f;
+        if (!_isFlying && _rigidbody != null) _rigidbody.detectCollisions = true;
+    }
+
+    // 着いた: 位置(高さ込み)を合わせ、速度を0にして、飛ぶ前に向いていた向きに戻して、普通の状態に戻る(勢いは残さない)
     private void Arrive()
     {
+        CS_SAPoint arrived = _point;
         _player.SnapPosition(GetArrivePosition(_point));
         EndFly();
+        _arrivedPoint = arrived;
 
         // 飛ぶ前の向きに戻す(ハイドポイントの向きには合わせない)。移動キーを押せば、いつも通り進む方向へ向く
         _player.SetAimFacing(_yawBeforeFly);
         _player.ClearAimFacing();
     }
 
+    private void ClearArrivedPoint()
+    {
+        _arrivedPoint = null;
+    }
+
     private void EndFly()
     {
+        EndFly(Vector3.zero);
+    }
+
+    // 飛ぶのを終える。exitVelocityは、終わった時にCS_Playerへ渡す速度(0なら速度0)。dragは、その水平の勢いの減速率(SAポイントごと。0なら減速なし)
+    private void EndFly(Vector3 exitVelocity, float drag = 0f)
+    {
+        CS_SAPoint endedPoint = _point;
+        bool wasFlying = _isFlying;
+
         _isFlying = false;
         _point = null;
         _elapsed = 0f;
         _player.ClearAimFacing();
         SetFloating(false);
+
+        if (!wasFlying) return;
+
+        _player.EndSAMotion(exitVelocity, drag);   // SA専用の速度をクリアし、終わった時の速度を渡す(水平は空中の勢いになる)
+        onFlyEnd?.Invoke(endedPoint);
     }
 
     // 体の底(足元)が立つ位置に来る時の、プレイヤーの位置(プレイヤーの位置は体の中心のため)
-    private Vector3 GetArrivePosition(CS_HidePoint point)
+    private Vector3 GetArrivePosition(CS_SAPoint point)
     {
         return point.standPosition + (transform.position - GetFeetPosition());
     }

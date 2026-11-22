@@ -23,6 +23,61 @@ void Hologram_Glitch_half(half3 PositionOS, half GlitchIntensity, half GlitchSpe
 }
 
 // ---------------------------------------------------------------------------
+// Image: scroll the main texture, and cut one color out of it.
+// The defaults (scroll 0, key strength 0) return the texture untouched.
+// ---------------------------------------------------------------------------
+float3 Hologram_ToSRGB(float3 c)
+{
+    c = saturate(c);
+    return lerp(c * 12.92, 1.055 * pow(c, 1.0 / 2.4) - 0.055, step(0.0031308, c));
+}
+
+float3 Hologram_ToLinear(float3 c)
+{
+    c = saturate(c);
+    return lerp(c / 12.92, pow((c + 0.055) / 1.055, 2.4), step(0.04045, c));
+}
+
+void Hologram_Image_float(
+    float4 UV, UnityTexture2D Tex, UnityTexture2D KeepMask,
+    float ScrollX, float ScrollY,
+    float4 KeyColor, float KeyStrength, float KeyTolerance, float KeySoftness,
+    out float4 Out)
+{
+    // Subtracting moves the picture itself to +X (right) / +Y (up).
+    float2 scroll = frac(_TimeParameters.x * float2(ScrollX, ScrollY));
+    float2 uv = Tex.GetTransformedUV(UV.xy) - scroll;
+
+    float4 tex = SAMPLE_TEXTURE2D(Tex.tex, Tex.samplerstate, uv);
+    float keep = smoothstep(0.5, 1.0, SAMPLE_TEXTURE2D(KeepMask.tex, KeepMask.samplerstate, uv).r);
+
+    // Compare in sRGB, so the tolerance means the same for dark and bright key colors.
+    float3 c = Hologram_ToSRGB(tex.rgb);
+    float3 k = Hologram_ToSRGB(KeyColor.rgb);
+    float3 diff = abs(c - k);
+    float keyed = saturate((max(diff.r, max(diff.g, diff.b)) - KeyTolerance) / max(KeySoftness, 0.001));
+    keyed = max(keyed, keep);
+
+    // Take the key color out of the half transparent edge, otherwise it stays as a fringe.
+    float3 cleaned = Hologram_ToLinear(k + (c - k) / max(keyed, 0.001));
+
+    float amount = saturate(KeyStrength);
+    Out.rgb = lerp(tex.rgb, cleaned, amount);
+    Out.a = tex.a * lerp(1.0, keyed, amount);
+}
+
+void Hologram_Image_half(
+    half4 UV, UnityTexture2D Tex, UnityTexture2D KeepMask,
+    half ScrollX, half ScrollY,
+    half4 KeyColor, half KeyStrength, half KeyTolerance, half KeySoftness,
+    out half4 Out)
+{
+    float4 o;
+    Hologram_Image_float(UV, Tex, KeepMask, ScrollX, ScrollY, KeyColor, KeyStrength, KeyTolerance, KeySoftness, o);
+    Out = o;
+}
+
+// ---------------------------------------------------------------------------
 // Fragment: scanlines, glow band, rim (fresnel), flicker.
 // ---------------------------------------------------------------------------
 void Hologram_Surface_float(
@@ -32,7 +87,7 @@ void Hologram_Surface_float(
     float ScanTiling, float ScanSpeed, float ScanStrength,
     float GlowTiling, float GlowSpeed, float GlowStrength,
     UnityTexture2D FlickerTex, float FlickerSpeed, float FlickerStrength,
-    float ExposureWeight,
+    float ExposureWeight, float BaseVisibility,
     out float3 Color, out float OutAlpha)
 {
     float t = _TimeParameters.x;
@@ -68,7 +123,9 @@ void Hologram_Surface_float(
 #endif
     Color = col * lerp(inverseExposure, 1.0, saturate(ExposureWeight));
 
-    OutAlpha = saturate(MainTex.a * MainColor.a * Alpha * (scan + rim + glow) * flicker);
+    // BaseVisibility 0 = only lit parts are visible (original), 1 = the whole picture stays visible.
+    float visibility = lerp(scan + rim + glow, 1.0, saturate(BaseVisibility));
+    OutAlpha = saturate(MainTex.a * MainColor.a * Alpha * visibility * flicker);
 }
 
 void Hologram_Surface_half(
@@ -78,14 +135,14 @@ void Hologram_Surface_half(
     half ScanTiling, half ScanSpeed, half ScanStrength,
     half GlowTiling, half GlowSpeed, half GlowStrength,
     UnityTexture2D FlickerTex, half FlickerSpeed, half FlickerStrength,
-    half ExposureWeight,
+    half ExposureWeight, half BaseVisibility,
     out half3 Color, out half OutAlpha)
 {
     float3 c; float a;
     Hologram_Surface_float(MainTex, MainColor, RimColor, PositionAWS, NormalWS, ViewDirWS,
         Direction, Brightness, Alpha, RimPower, ScanTiling, ScanSpeed, ScanStrength,
         GlowTiling, GlowSpeed, GlowStrength, FlickerTex, FlickerSpeed, FlickerStrength,
-        ExposureWeight, c, a);
+        ExposureWeight, BaseVisibility, c, a);
     Color = c;
     OutAlpha = a;
 }

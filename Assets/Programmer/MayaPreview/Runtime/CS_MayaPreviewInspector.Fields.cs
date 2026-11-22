@@ -9,6 +9,7 @@ using UnityEngine;
  Summary: Field widgets (label column + value column, one line each, no wrapping) and the
           dark skin of the preview GUI.
  History: 2026/10/11 Split from CS_MayaPreviewInspector, ellipsis + tooltips, compact colours
+          2026/11/22 Swatch opens the palette, texture slots have a button that picks the file
 =====================================+
 */
 public partial class CS_MayaPreviewInspector
@@ -18,7 +19,7 @@ public partial class CS_MayaPreviewInspector
     // =========================================================
 
     private readonly Dictionary<string, string> _fields = new Dictionary<string, string>();
-    private readonly HashSet<string> _openColors = new HashSet<string>();
+    private string _pickedId, _pickedPath;      // answer of the file dialog, taken by its PathField
     private readonly HashSet<string> _foldedSections = new HashSet<string>();
     private string _fieldScope = "";
     private float _labelWidth = 150f;
@@ -178,26 +179,31 @@ public partial class CS_MayaPreviewInspector
         return value;
     }
 
-    // Colour: swatch + hex on one line; click the swatch for R G B A.
-    private Color ColorField(string label, Color value, bool hdr, string key, string tooltip = null)
+    // Colour: swatch + hex on one line; click the swatch for the palette (.ColorPicker).
+    // alpha = false: the A is not read, so it is neither shown nor changed.
+    private Color ColorField(string label, Color value, bool hdr, string key, string tooltip = null, bool alpha = true)
     {
-        string id = FieldId(key + ".open");
-        bool open = _openColors.Contains(id);
+        string id = FieldId(key);
+        Color before = value;
+        value = SyncColorPicker(id, value);
+        if (value != before) _fields.Remove(FieldId(key + ".hex"));
         BeginRow(label, tooltip);
         Rect swatch = GUILayoutUtility.GetRect(40, 14, GUILayout.Width(46));
         swatch.y += 2;
+        if (GUI.enabled && swatch.Contains(Event.current.mousePosition)) _tooltip = "クリックでカラーパレット";
         if (GUI.Button(swatch, GUIContent.none, GUIStyle.none))
         {
-            if (!_openColors.Remove(id)) _openColors.Add(id);
-            open = !open;
             GUI.FocusControl(null);
+            OpenColorPicker(id, label, value, hdr, alpha);
         }
         if (Event.current.type == EventType.Repaint)
         {
-            Fill(swatch, BorderColor);
+            Fill(swatch, _pickerId == id ? AccentColor : BorderColor);
             Color shown = hdr ? new Color(Mathf.Clamp01(value.r), Mathf.Clamp01(value.g), Mathf.Clamp01(value.b), 1) : new Color(value.r, value.g, value.b, 1);
-            Fill(new Rect(swatch.x + 1, swatch.y + 1, swatch.width - 2, swatch.height - 4), shown);
-            Fill(new Rect(swatch.x + 1, swatch.yMax - 3, (swatch.width - 2) * Mathf.Clamp01(value.a), 2), Color.white);
+            if (!GUI.enabled) shown = Color.Lerp(shown, PanelColor, 0.65f);
+            shown.a = 1f;
+            Fill(new Rect(swatch.x + 1, swatch.y + 1, swatch.width - 2, swatch.height - (alpha ? 4 : 2)), shown);
+            if (alpha) Fill(new Rect(swatch.x + 1, swatch.yMax - 3, (swatch.width - 2) * Mathf.Clamp01(value.a), 2), Color.white);
         }
         if (hdr)
         {
@@ -207,49 +213,60 @@ public partial class CS_MayaPreviewInspector
         }
         else
         {
-            string hex = "#" + ColorUtility.ToHtmlStringRGBA(value);
+            string hex = "#" + (alpha ? ColorUtility.ToHtmlStringRGBA(value) : ColorUtility.ToHtmlStringRGB(value));
             string text = TextBox(key + ".hex", hex, 0);
-            if (text != hex && ColorUtility.TryParseHtmlString(text.StartsWith("#") ? text : "#" + text, out Color parsed)) value = parsed;
+            if (text != hex && ColorUtility.TryParseHtmlString(text.StartsWith("#") ? text : "#" + text, out Color parsed))
+            {
+                if (!alpha) parsed.a = value.a;
+                value = parsed;
+            }
         }
         EndRow();
-        if (!open) return value;
-        string scope = _fieldScope;
-        if (hdr)
-        {
-            value.r = Mathf.Max(0, Number("      R", value.r, key + ".r"));
-            value.g = Mathf.Max(0, Number("      G", value.g, key + ".g"));
-            value.b = Mathf.Max(0, Number("      B", value.b, key + ".b"));
-        }
-        else
-        {
-            value.r = Slider("      R", value.r, 0, 1, key + ".r");
-            value.g = Slider("      G", value.g, 0, 1, key + ".g");
-            value.b = Slider("      B", value.b, 0, 1, key + ".b");
-        }
-        value.a = Slider("      A", value.a, 0, 1, key + ".a");
-        _fieldScope = scope;
         return value;
     }
 
-    // Texture slot: thumbnail + file path. Returns the new path when a valid file (or empty) is entered, else null.
+    // Texture slot: thumbnail + file path + folder button (thumbnail and button open the file dialog).
+    // Returns the new path when a valid file (or empty) is entered or picked, else null.
     private string PathField(string label, string path, Texture texture, string key, string tooltip = null)
     {
+        string id = FieldId(key);
+        string picked = null;
+        if (_pickedId == id)
+        {
+            picked = _pickedPath;
+            _pickedId = _pickedPath = null;
+            _fields.Remove(FieldId(key + ".path"));
+        }
         BeginRow(label, tooltip);
         Rect thumb = GUILayoutUtility.GetRect(16, 16, GUILayout.Width(16));
         thumb.y += 1;
+        bool browse = GUI.Button(thumb, GUIContent.none, GUIStyle.none);
         if (Event.current.type == EventType.Repaint)
         {
             Fill(thumb, BorderColor);
             if (texture != null) GUI.DrawTexture(new Rect(thumb.x + 1, thumb.y + 1, 14, 14), texture, ScaleMode.ScaleAndCrop, false);
             else Fill(new Rect(thumb.x + 1, thumb.y + 1, 14, 14), FieldColor);
         }
-        if (thumb.Contains(Event.current.mousePosition)) _tooltip = texture != null ? texture.name : "None";
+        if (thumb.Contains(Event.current.mousePosition))
+            _tooltip = (texture != null ? texture.name : "None") + "  （クリックで画像を選ぶ）";
         GUILayout.Space(3);
         string shown = path;
         if (string.IsNullOrEmpty(shown) && texture != null) shown = "";
-        string text = TextBox(key + ".path", shown ?? "", 0, string.IsNullOrEmpty(path) ? (texture != null ? texture.name : "None (paste a .png / .jpg path)") : null);
+        string text = TextBox(key + ".path", shown ?? "", 0, string.IsNullOrEmpty(path) ? (texture != null ? texture.name : "None（右のボタンで選ぶ）") : null);
         bool changed = text != (shown ?? "");
+
+        Rect folder = GUILayoutUtility.GetRect(22, RowHeight - 2, GUILayout.Width(22));
+        if (GUI.Button(folder, GUIContent.none, _button)) browse = true;
+        DrawTinted(new Rect(folder.x + 5, folder.y + 2, 12, 12), CS_MayaPreviewIcons.Get(CS_MayaPreviewKind.MayaGroup), TextColor);
+        if (folder.Contains(Event.current.mousePosition)) _tooltip = "画像ファイルを選ぶ";
         EndRow();
+
+        if (browse)
+        {
+            GUI.FocusControl(null);
+            CS_MayaPreviewFileDialog.OpenImage(label.TrimStart('*', ' '), path, file => { _pickedId = id; _pickedPath = file; });
+        }
+        if (picked != null) return picked != path ? picked : null;
         if (!changed) return null;
         string trimmed = text.Trim().Trim('"');
         if (trimmed.Length == 0) return string.IsNullOrEmpty(path) ? null : "";
@@ -288,7 +305,7 @@ public partial class CS_MayaPreviewInspector
             ? GUILayoutUtility.GetRect(width, RowHeight - 2, style, GUILayout.Width(width))
             : GUILayoutUtility.GetRect(30, RowHeight - 2, style, GUILayout.MinWidth(30), GUILayout.ExpandWidth(true));
         // Middle button on the box: Houdini-style ladder (see Scrub).
-        if (rect.Contains(Event.current.mousePosition)) TryStartLadder(id, value);
+        if (GUI.enabled && rect.Contains(Event.current.mousePosition)) TryStartLadder(id, value);
         if (_scrubKey == id) { value = _scrubValue; _fields[id] = value.ToString("G6", CultureInfo.InvariantCulture); }
         GUI.SetNextControlName(id);
         string text = GUI.TextField(rect, _fields[id], style);

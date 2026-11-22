@@ -23,6 +23,7 @@ using UnityEngine.Rendering;
           Split into partial files: .Hierarchy / .Properties / .Export / .Fields / .Edit
  History: 2026/10/11 Material panel, export, icons, undo, new hierarchy
           2026/10/11 Outline on/off button, Ctrl+D duplicate, Delete
+          2026/11/22 Colour palette (.ColorPicker), shader property groups (.Groups), file dialog
 =====================================+
 */
 public partial class CS_MayaPreviewInspector : MonoBehaviour
@@ -50,7 +51,7 @@ public partial class CS_MayaPreviewInspector : MonoBehaviour
     private string _tooltip;
 
     public bool UiHidden => _uiHidden;
-    public bool Typing => _typing;
+    public bool Typing => _typing || ColorPickerTyping;
 
 
     // =========================================================
@@ -87,7 +88,7 @@ public partial class CS_MayaPreviewInspector : MonoBehaviour
         if (_uiHidden) return false;
         if (_typing || _drag != null || _previewDragging || _splitUpper >= 0 || _scrubKey != null || ExportDialogOpen) return true;
         Vector2 point = new Vector2(screenPosition.x, Screen.height - screenPosition.y) / _scale;
-        if (OverPanel(point) || ContextMenuBlocks(point)) return true;
+        if (OverPanel(point) || ContextMenuBlocks(point) || ColorPickerBlocks(point)) return true;
         if (icons) foreach (Rect rect in _iconRects) if (rect.Contains(point)) return true;
         return false;
     }
@@ -139,6 +140,7 @@ public partial class CS_MayaPreviewInspector : MonoBehaviour
         TickExportRestore();
         TickContextMenu();
         CS_MayaPreviewOutline.Tick();
+        CS_MayaPreviewFileDialog.Tick();
 
         var mouse = Mouse.current;
         bool held = mouse != null && (mouse.leftButton.isPressed || mouse.rightButton.isPressed || mouse.middleButton.isPressed);
@@ -147,7 +149,7 @@ public partial class CS_MayaPreviewInspector : MonoBehaviour
         if (_previewDragging && mouse != null && !mouse.leftButton.isPressed) _previewDragging = false;
 
         var keyboard = Keyboard.current;
-        if (keyboard == null || _typing || ExportDialogOpen) return;
+        if (keyboard == null || _typing || ExportDialogOpen || ColorPickerTyping) return;
         if (keyboard.tabKey.wasPressedThisFrame) _uiHidden = !_uiHidden;
     }
 
@@ -157,7 +159,8 @@ public partial class CS_MayaPreviewInspector : MonoBehaviour
     private void HandleShortcuts()
     {
         Event e = Event.current;
-        if (e.type != EventType.KeyDown || _typing || ExportDialogOpen) return;
+        if (e.type != EventType.KeyDown || _typing || ExportDialogOpen || ColorPickerTyping) return;
+        if (ColorPickerOpen && e.keyCode == KeyCode.Escape) return;   // closes the palette, keeps the selection
         bool control = e.control || e.command;
         if (control && e.keyCode == KeyCode.Z) { if (e.shift) Redo(); else Undo(); e.Use(); }
         else if (control && e.keyCode == KeyCode.Y) { Redo(); e.Use(); }
@@ -223,6 +226,8 @@ public partial class CS_MayaPreviewInspector : MonoBehaviour
             DrawExportDialog();
             if (current.type != EventType.Used && current.type != EventType.Layout) current.Use();
         }
+        // The colour palette lies over the panels: it takes its mouse / keys before them.
+        if (!modal && input) ColorPickerInput();
         // The right-click menu also takes clicks on it before the panels under it.
         if (!modal && _contextOpen && input)
         {
@@ -246,6 +251,7 @@ public partial class CS_MayaPreviewInspector : MonoBehaviour
         for (int i = 0; i < (int)PanelId.Count; i++) DrawPanelHeader((PanelId)i);
         DrawDragGhost();
         DrawFlash();
+        DrawColorPicker();
         DrawTooltip();
         DrawScrubOverlay();
         if (!modal && !input) DrawContextMenu();

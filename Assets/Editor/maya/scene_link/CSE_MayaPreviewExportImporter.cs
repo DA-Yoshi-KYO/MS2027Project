@@ -26,6 +26,7 @@ using UnityEngine.Rendering.HighDefinition;
           2026/11/18 Outline materials (SHG_Outline, from the preview's outlines): width converted
                      to the imported model's scale, no shadow casting
           2026/11/18 A single top object is the model root (no extra file-name object above it)
+          2026/11/22 SDF / height maps uncompressed; textures found by name with or without extension
 =====================================+
 */
 public class CSE_MayaPreviewExportImporter : AssetPostprocessor
@@ -120,7 +121,8 @@ public class CSE_MayaPreviewExportImporter : AssetPostprocessor
             {
                 if (material?.textures == null) continue;
                 foreach (CS_MayaPreviewExportTexture texture in material.textures)
-                    if (!string.IsNullOrEmpty(texture.file)) SetupTexture(root + "/" + texture.file, texture.normal, texture.linear);
+                    if (!string.IsNullOrEmpty(texture.file))
+                        SetupTexture(root + "/" + texture.file, texture.normal, texture.linear, CS_MayaPreviewExport.IsDataMap(texture.prop));
             }
         }
 
@@ -234,11 +236,22 @@ public class CSE_MayaPreviewExportImporter : AssetPostprocessor
         AssetDatabase.SaveAssets();
     }
 
-    private static void SetupTexture(string path, bool normal, bool linear)
+    private static void SetupTexture(string path, bool normal, bool linear, bool data)
     {
         var importer = AssetImporter.GetAtPath(path) as TextureImporter;
-        if (importer == null) return;
+        if (importer == null)
+        {
+            AssetDatabase.ImportAsset(path);    // just copied: not imported yet
+            importer = AssetImporter.GetAtPath(path) as TextureImporter;
+            if (importer == null) return;
+        }
         bool changed = false;
+        // Block compression draws steps into the edge of an SDF shadow.
+        if (data && importer.textureCompression != TextureImporterCompression.Uncompressed)
+        {
+            importer.textureCompression = TextureImporterCompression.Uncompressed;
+            changed = true;
+        }
         if (normal && importer.textureType != TextureImporterType.NormalMap) { importer.textureType = TextureImporterType.NormalMap; changed = true; }
         if (!normal && linear && importer.sRGBTexture) { importer.sRGBTexture = false; changed = true; }
         if (changed) importer.SaveAndReimport();
@@ -298,6 +311,7 @@ public class CSE_MayaPreviewExportImporter : AssetPostprocessor
     private static Texture FindProjectTexture(string name)
     {
         if (string.IsNullOrEmpty(name)) return null;
+        name = Path.GetFileNameWithoutExtension(name);   // textures loaded by the player are named "xxx.png"
         foreach (string guid in AssetDatabase.FindAssets(name + " t:Texture"))
         {
             string path = AssetDatabase.GUIDToAssetPath(guid);

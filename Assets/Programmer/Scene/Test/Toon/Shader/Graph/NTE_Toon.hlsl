@@ -64,6 +64,12 @@ float3 NTE_Diffuse(NTEToonInput i, float lit)
     return lerp(i.albedo, shade, (1.0 - lit) * i.shadowStrength);
 }
 
+// Without the deep shade colour (skin does not use it).
+float3 NTE_DiffusePlain(NTEToonInput i, float lit, float strength)
+{
+    return lerp(i.albedo, NTE_ShadowColor(i), (1.0 - lit) * strength);
+}
+
 float NTE_Fresnel(NTEToonInput i) { return 1.0 - saturate(dot(i.N, i.V)); }
 
 float3 NTE_Rim(NTEToonInput i, float lit)
@@ -147,6 +153,18 @@ float NTE_FabricGrain(float2 uv, float scale)
         #define NTE_HDRP_LIGHTS 1
     #endif
 #endif
+
+// Direction of the main light. A script that chose a light (CS_ToonLightDirection) says so with
+// _LightDirectionGiven and wins. Everything else (models from Maya, exported prefabs) follows the
+// scene's directional light itself, the one that casts the shadows.
+float3 NTE_LightDirection(float3 given)
+{
+#ifdef NTE_HDRP_LIGHTS
+    if (_LightDirectionGiven < 0.5 && _DirectionalLightCount > 0)
+        return -_DirectionalLightDatas[max(_DirectionalShadowIndex, 0)].forward;
+#endif
+    return given;
+}
 
 // Shadow maps see the real (faceted) mesh, the shading sees smooth normals: right at the light / shade edge the
 // mesh shadows itself in polygon-shaped blocks. Faded only there (N.L -0.02 .. 0.10), so surfaces lit at a
@@ -291,15 +309,6 @@ float3 NTE_SmoothSelfShadow(float3 color, float3 albedo, float3 tint, float3 nor
 // View-space normal (for matcap-style reflections that follow the camera)
 float3 NTE_ViewNormal(float3 N) { return normalize(mul((float3x3)UNITY_MATRIX_V, N)); }
 
-// Gold / brass detection from the texture (hue ~30-60deg, saturated, not dark)
-float NTE_GoldMask(float3 c)
-{
-    float mx = max(c.r, max(c.g, c.b)), mn = min(c.r, min(c.g, c.b));
-    float sat = (mx - mn) / max(mx, 1e-4);
-    float hueOk = step(c.b, c.g) * step(c.g, c.r) * smoothstep(0.25, 0.45, (c.g - c.b) / max(c.r - c.b, 1e-4));
-    return hueOk * smoothstep(0.3, 0.5, sat) * smoothstep(0.25, 0.4, mx);
-}
-
 // Stylised toon metal: bright top / dark bottom reflection band + sharp camera highlight.
 float3 NTE_MetalShade(NTEToonInput i, float3 base, float lit)
 {
@@ -328,7 +337,8 @@ float3 NTE_MetalShade(NTEToonInput i, float3 base, float lit)
     float FaceSign, float4 UV, float SkyLight, float BottomShade, float BackFaceShade, float DetailScale, float DetailStrength, \
     float3 PositionWS, float FabricSheen, float LightSharpness, out float3 Color
 #define NTE_INPUT NTEToonInput i = NTE_MakeInput(Tex, BaseColor, ShadowColor, NormalWS, ViewWS, TangentWS, MainLightDirection, \
-    ShadowThreshold, ShadowSoftness, ShadowSaturation, RimColor, RimStrength, RimWidth, ShadowStrength, Brightness, SpecColor, SpecStrength, SpecSize)
+    ShadowThreshold, ShadowSoftness, ShadowSaturation, RimColor, RimStrength, RimWidth, ShadowStrength, Brightness, SpecColor, SpecStrength, SpecSize); \
+    i.L = NTE_LightDirection(i.L)
 #define NTE_HALF_ARGS half4 Tex, half4 BaseColor, half3 ShadowColor, half3 NormalWS, half3 ViewWS, half3 TangentWS, half3 MainLightDirection, \
     half ShadowThreshold, half ShadowSoftness, half ShadowSaturation, half3 RimColor, half RimStrength, half RimWidth, \
     half ShadowStrength, half Brightness, half3 SpecColor, half SpecStrength, half SpecSize, \
@@ -339,19 +349,17 @@ float3 NTE_MetalShade(NTEToonInput i, float3 base, float lit)
     SpecColor, SpecStrength, SpecSize, FaceSign, UV, SkyLight, BottomShade, BackFaceShade, DetailScale, DetailStrength, PositionWS, FabricSheen, LightSharpness, c); Color = c; }
 #define NTE_ENV(col, lit) col = NTE_Environment(i, col, lit, FaceSign, SkyLight, BottomShade, BackFaceShade) + NTE_PunctualLights(i, PositionWS, FaceSign, LightSharpness)
 
-// ---------------- Cloth: soft band, fabric sheen, auto gold buttons ----------------
+// ---------------- Cloth: soft band, fabric weave and sheen ----------------
 void NTE_Cloth_float(NTE_ARGS)
 {
     NTE_INPUT;
     float lit = NTE_LitBand(i);
     float3 col = NTE_Diffuse(i, lit);
-    float gold = NTE_GoldMask(i.albedo) * step(0.001, i.specStrength);
-    float notGold = 1.0 - gold;
     float weave = 0.0, grain = 0.0;
     [branch] if (DetailStrength > 0.001)                                  // material-uniform: free to skip
     {
-        weave = NTE_Fabric(UV.xy, DetailScale) * DetailStrength * notGold;           // close-up threads
-        grain = NTE_FabricGrain(UV.xy, DetailScale * 0.1) * DetailStrength * notGold; // visible at game distance
+        weave = NTE_Fabric(UV.xy, DetailScale) * DetailStrength;                     // close-up threads
+        grain = NTE_FabricGrain(UV.xy, DetailScale * 0.1) * DetailStrength;           // visible at game distance
     }
     col *= 1.0 + (weave * 2.0 + grain * 1.6) * lerp(0.6, 1.0, lit);
     // Velvet / cloth profile: fibres catch light at grazing angles (bright fuzzy edge),
@@ -359,10 +367,9 @@ void NTE_Cloth_float(NTE_ARGS)
     float nv = saturate(dot(i.N, i.V));
     float sheen = pow(1.0 - nv, 2.0) * (1.0 + max(weave, 0.0) * 3.0);
     float3 sheenCol = lerp(i.albedo, 1.0.xxx, 0.35);
-    col *= lerp(1.0, 0.9, FabricSheen * nv * nv * notGold);
-    col += sheenCol * sheen * FabricSheen * 0.45 * lerp(0.35, 1.0, lit) * notGold;
+    col *= lerp(1.0, 0.9, FabricSheen * nv * nv);
+    col += sheenCol * sheen * FabricSheen * 0.45 * lerp(0.35, 1.0, lit);
     NTE_ENV(col, lit);
-    [branch] if (gold > 0.001) col = lerp(col, NTE_MetalShade(i, i.albedo, lit), gold);   // only on buttons
     Color = (col + NTE_Rim(i, lit)) * i.brightness;
 }
 NTE_HALF_FORWARD(NTE_Cloth)
@@ -385,46 +392,60 @@ float3 NTE_SkinScatter(NTEToonInput i, float3 col, float scatter)
     return lerp(col, red, saturate(scatter) * edge);
 }
 
-void NTE_Skin_float(NTE_ARGS)
+// sdfOn / sdfLit: the face shadow map replaces the N.L band (and the top / bottom shading that follows
+// the normals). Back faces are shaded like front faces: skin has no "inside of a skirt".
+float3 NTE_SkinShade(NTEToonInput i, float3 posWS, float absorption, float scatter, float sharpness,
+    float sky, float bottom, float sdfOn, float sdfLit, float sdfStrength)
 {
-    NTE_INPUT;
-    float absorb = saturate(DetailStrength);
+    float absorb = saturate(absorption);
     // Light sinks into skin: wrap the lighting so the gradient is long and soft instead of a cel step.
     float ndl = dot(i.N, i.L);
     float wrap = saturate((ndl + 0.6) / 1.6);
     wrap = wrap * wrap * (3.0 - 2.0 * wrap);
-    float lit = lerp(NTE_LitBand(i), wrap, absorb * 0.7);
-    float3 col = NTE_Diffuse(i, lit);
+    float lit = lerp(lerp(NTE_LitBand(i), wrap, absorb * 0.7), sdfLit, sdfOn);
+    float3 col = NTE_DiffusePlain(i, lit, lerp(i.shadowStrength, saturate(sdfStrength), sdfOn));
     // Absorption: the lit side never goes chalky white, the deep side keeps a faint warm glow from inside.
     col *= lerp(1.0, lerp(0.93, 1.0, 1.0 - lit), absorb);
     col += i.albedo * float3(0.03, 0.006, 0.0) * (1.0 - lit) * absorb;
     // Spot / point lights on skin get a softer edge as well (same "light sinks in" idea), so they do not
     // draw hard lit / unlit patches on the bumps of knees and calves.
-    col = NTE_Environment(i, col, lit, FaceSign, SkyLight, BottomShade, BackFaceShade)
-        + NTE_PunctualLightsCore(i, PositionWS, FaceSign, LightSharpness * (1.0 - 0.7 * absorb), 1.0);
-    col = NTE_SkinScatter(i, col, FabricSheen);
+    col = NTE_Environment(i, col, lit, 1.0, sky * (1.0 - sdfOn), bottom * (1.0 - sdfOn), 0.0)
+        + NTE_PunctualLightsCore(i, posWS, 1.0, sharpness * (1.0 - 0.7 * absorb), 1.0);
+    col = NTE_SkinScatter(i, col, scatter);
     // Very soft, velvety sheen (fine hair on the skin) instead of a plastic edge.
     col += i.albedo * pow(NTE_Fresnel(i), 4.0) * 0.08 * absorb * lit;
-    Color = (col + NTE_Rim(i, lit)) * i.brightness;
+    return (col + NTE_Rim(i, lit)) * i.brightness;
+}
+
+void NTE_Skin_float(NTE_ARGS)
+{
+    NTE_INPUT;
+    Color = NTE_SkinShade(i, PositionWS, DetailStrength, FabricSheen, LightSharpness, SkyLight, BottomShade, 0.0, 1.0, 0.0);
 }
 NTE_HALF_FORWARD(NTE_Skin)
 
-// ---------------- Hair: soft band, top-lit gradient, anisotropic angel ring ----------------
+// ---------------- Hair: soft band, top-lit gradient, highlight ----------------
+// Back faces are shaded like front faces (hair cards are seen from both sides).
+float3 NTE_HairShade(NTEToonInput i, float3 posWS, float sharpness, float sky, float bottom, float3 highlight)
+{
+    float lit = NTE_LitBand(i);
+    float3 col = NTE_Diffuse(i, lit);
+    col = NTE_Environment(i, col, lit, 1.0, sky, bottom, 0.0)     // crown catches the moonlight, underside darker
+        + NTE_PunctualLights(i, posWS, 1.0, sharpness);
+    // The article adds the highlight to the colour as it is shown (a gamma space project). Added to the linear
+    // colour here it would come out twice as wide and as bright.
+    if (any(highlight > 0.0))
+    {
+        float3 colour = max(col, 1e-6), addColour = max(highlight, 1e-6);
+        col = pow(pow(colour, 1.0 / 2.2) + addColour, 2.2);
+    }
+    return (col + NTE_Rim(i, lit)) * i.brightness;
+}
+
 void NTE_Hair_float(NTE_ARGS)
 {
     NTE_INPUT;
-    float lit = NTE_LitBand(i);
-    float3 col = NTE_Diffuse(i, lit);
-    NTE_ENV(col, lit);                                           // crown catches the moonlight, underside darker
-    // Kajiya-Kay along the strand (tangent), using the view as the highlight light so the ring stays visible.
-    float3 H = normalize(i.L + i.V * 2.0);
-    // VRoid hair UVs run along the strand in V, so the strand direction is the bitangent.
-    float3 strand = normalize(cross(i.N, i.T));
-    float tdh = dot(strand, H);
-    float sinTH = sqrt(saturate(1.0 - tdh * tdh));
-    float ring = smoothstep(1.0 - i.specSize * 0.2, 1.0 - i.specSize * 0.2 + 0.03, sinTH);
-    col += i.specColor * lerp(1.0.xxx, i.albedo, 0.35) * ring * i.specStrength * lerp(0.4, 1.0, lit);
-    Color = (col + NTE_Rim(i, lit)) * i.brightness;
+    Color = NTE_HairShade(i, PositionWS, LightSharpness, SkyLight, BottomShade, float3(0.0, 0.0, 0.0));
 }
 NTE_HALF_FORWARD(NTE_Hair)
 
@@ -446,8 +467,6 @@ void NTE_Leather_float(NTE_ARGS)
     float skyRef = smoothstep(0.45, 0.85, nv.y) * 0.35;
     float edge = smoothstep(0.55, 0.85, NTE_Fresnel(i)) * 0.4 * lerp(0.4, 1.0, lit);
     col += i.specColor * (specL + specC * 0.7 + skyRef + edge) * i.specStrength;
-    float gold = NTE_GoldMask(i.albedo);                         // buckles / studs
-    [branch] if (gold > 0.001) col = lerp(col, NTE_MetalShade(i, i.albedo, lit), gold);   // only on buttons
     Color = (col + NTE_Rim(i, lit)) * i.brightness;
 }
 NTE_HALF_FORWARD(NTE_Leather)
@@ -513,122 +532,582 @@ void NTE_Eye_half(half4 Tex, half4 BaseColor, half4 Mask, half3 NormalWS, half B
     float3 c; NTE_Eye_float(Tex, BaseColor, Mask, NormalWS, Brightness, HighlightBoost, IrisSaturation, HighlightStrength, IrisGradient, c); Color = c;
 }
 
-// ---------------- Eye: one texture, glowing highlights and a cornea that mirrors lights and sky ----------------
-// SHG_NTE_Eye (HDRP Lit, transparent). The eye mesh is flat, so the cornea (a dome) is made from the position on
-// the texture: EyeCenters = centre of each eye on the texture (xy = 1st eye, zw = 2nd eye; the same twice when
-// both eyes use one picture), EyeSize = half width / half height of one eye on the texture.
-// Inside that dome:
-//   - painted white highlights glow on their own (HDR, they bloom), whatever the scene lighting
-//   - a catchlight fixed to the camera (upper left) and one small sharp glint per light where the cornea mirrors
-//     it: they slide over the eye when the head, the camera or the light moves
-//   - the HDRP sky is mirrored on the cornea, more towards its edge (Reflection = how much)
-// Outside it (other parts painted on the same texture, e.g. shoes) only the plain texture is drawn.
+// ---------------- Cast shadow of the moon (HDRP Shadow Matte) ----------------
+// HDRP's shadow lookup turns its normal offset round where N.L changes sign (SHADOW_AUTO_FLIP_NORMAL):
+// the looked-up position jumps there and the shadow gets a straight, hard cut along that line (with a
+// light from straight above: a horizontal cut across every head, at its widest). The tint's strength
+// falls to 0 exactly there, so the jump cannot show. The side turned away is shaded by the band (影の濃さ).
+#define NTE_CAST_FADE 0.35      // N.L over which the cast shadow comes in (about 20 degrees)
+
+float NTE_CastFade(float3 normalWS, float3 given)
+{
+    float3 L = given;
+#ifdef NTE_HDRP_LIGHTS
+    if (_DirectionalLightCount > 0)
+        L = -_DirectionalLightDatas[max(_DirectionalShadowIndex, 0)].forward;     // the light that casts it
+#endif
+    float ndl = dot(normalWS * rsqrt(max(dot(normalWS, normalWS), 1e-6)), L * rsqrt(max(dot(L, L), 1e-6)));
+    return smoothstep(0.0, NTE_CAST_FADE, ndl);
+}
+
+void NTE_CastShadow_float(float3 Albedo, float3 BaseColor, float3 Tint, float Strength, float Brightness, float3 NormalWS, float3 LightDir, out float4 ShadowTint)
+{
+    float3 shade = max(Albedo * BaseColor.rgb, 0.0) * saturate(Tint.rgb) * 0.5;
+    ShadowTint = float4(shade, saturate(Strength) * NTE_CastFade(NormalWS, LightDir));
+}
+void NTE_CastShadow_half(half3 Albedo, half3 BaseColor, half3 Tint, half Strength, half Brightness, half3 NormalWS, half3 LightDir, out half4 ShadowTint)
+{
+    float4 tint;
+    NTE_CastShadow_float(Albedo, BaseColor, Tint, Strength, Brightness, NormalWS, LightDir, tint);
+    ShadowTint = tint;
+}
+
+// Skin: shadows falling on it turn red-orange (subsurface scattering), not grey.
+void NTE_SkinCastShadow_float(float3 Albedo, float3 BaseColor, float3 Tint, float Strength, float Brightness, float3 NormalWS, float3 LightDir, out float4 ShadowTint)
+{
+    float3 a = max(Albedo * BaseColor.rgb, 0.0);
+    float3 warm = a * a / max(max(a.r, max(a.g, a.b)), 1e-4);
+    float3 shade = lerp(a, warm, 0.3) * float3(1.05, 0.90, 0.86) * saturate(Tint.rgb) * 0.55;
+    ShadowTint = float4(shade, saturate(Strength) * NTE_CastFade(NormalWS, LightDir));
+}
+void NTE_SkinCastShadow_half(half3 Albedo, half3 BaseColor, half3 Tint, half Strength, half Brightness, half3 NormalWS, half3 LightDir, out half4 ShadowTint)
+{
+    float4 tint;
+    NTE_SkinCastShadow_float(Albedo, BaseColor, Tint, Strength, Brightness, NormalWS, LightDir, tint);
+    ShadowTint = tint;
+}
+
+// ---------------- Texture slots that may be empty ----------------
+// An empty slot gets Unity's 4x4 default texture: anything larger is a map someone assigned.
+float NTE_HasMap(UnityTexture2D map) { return step(4.5, max(map.texelSize.z, map.texelSize.w)); }
+
+// Unit directions of the texture's x / y on the surface, from screen derivatives (works with mirrored UVs
+// and does not need the mesh tangents). No derivatives in ray tracing passes: no bump there.
+void NTE_UVFrame(float3 positionWS, float3 N, float2 uv, out float3 T, out float3 B)
+{
+    T = 0.0; B = 0.0;
+#if !defined(SHADER_STAGE_RAY_TRACING)
+    float3 dp1 = ddx(positionWS), dp2 = ddy(positionWS);
+    float2 du1 = ddx(uv), du2 = ddy(uv);
+    float3 p2 = cross(dp2, N), p1 = cross(N, dp1);
+    float side = dot(dp1, p2) < 0.0 ? -1.0 : 1.0;
+    T = (p2 * du1.x + p1 * du2.x) * side;
+    B = (p2 * du1.y + p1 * du2.y) * side;
+    T *= rsqrt(max(dot(T, T), 1e-20));
+    B *= rsqrt(max(dot(B, B), 1e-20));
+#endif
+}
+
+// ---------------- Face: SDF shadow map ----------------
+// The map is painted for a light coming from the side where U grows (right of the picture); for the other
+// side it is read mirrored. Brighter = stays lit longer while the light goes from the front to the back.
+// FaceFront / FaceRight: object space, by convention (a model from Maya looks to +Z there, an imported
+// model to +Z here); FaceAngle turns both for a model that looks somewhere else.
+#define NTE_PART_FACE 0.0     // _SkinPart: one shader, three kinds of part
+#define NTE_PART_BODY 1.0
+#define NTE_PART_NOSE 2.0
+
+float3 NTE_TurnY(float3 v, float degrees_)
+{
+    float s, c;
+    sincos(radians(degrees_), s, c);
+    return float3(v.x * c + v.z * s, v.y, v.z * c - v.x * s);
+}
+
+float NTE_FaceSDF(UnityTexture2D map, float2 uv, float3 front, float3 right, float3 L, float softness, float flip)
+{
+    float3 F = TransformObjectToWorldDir(front);
+    float3 R = TransformObjectToWorldDir(right);
+    float2 flatL = float2(dot(R, L), dot(F, L));    // the light seen from above the head
+    flatL = dot(flatL, flatL) > 1e-5 ? normalize(flatL) : float2(0.0, 1.0);
+    bool mirrored = (flatL.x < 0.0) != (flip > 0.5);
+    float value = SAMPLE_TEXTURE2D_LOD(map.tex, map.samplerstate, float2(mirrored ? 1.0 - uv.x : uv.x, uv.y), 0).r;
+    float soft = max(softness, 0.002);
+    float away = (1.0 - flatL.y) * 0.5 * (1.0 + 2.0 * soft) - soft;     // 0 = light in front, 1 = behind
+    return smoothstep(-soft, soft, value - away);
+}
+
+void NTE_FaceSkin_float(float4 Tex, float4 BaseColor, float3 ShadowColor, float3 NormalWS, float3 ViewWS, float3 TangentWS,
+    float3 MainLightDirection, float ShadowThreshold, float ShadowSoftness, float ShadowSaturation, float3 RimColor,
+    float RimStrength, float RimWidth, float ShadowStrength, float Brightness, float3 SpecColor, float SpecStrength,
+    float SpecSize, float FaceSign, float4 UV, float SkyLight, float BottomShade, float BackFaceShade, float DetailScale,
+    float DetailStrength, float3 PositionWS, float FabricSheen, float LightSharpness,
+    UnityTexture2D SDFMap, float SDFStrength, float SDFSoftness, float SDFFlip, float4 FaceFront, float4 FaceRight, float FaceAngle, float Part,
+    out float3 Color)
+{
+    NTE_INPUT;
+    if (Part > NTE_PART_NOSE - 0.5)
+    {
+        Color = i.albedo * i.brightness;    // the nose is a painted mark: no shade, no rim
+        return;
+    }
+    float on = NTE_HasMap(SDFMap) * step(0.001, SDFStrength) * step(Part, NTE_PART_BODY - 0.5);
+    float lit = 1.0;
+    if (on > 0.5)
+        lit = NTE_FaceSDF(SDFMap, UV.xy, NTE_TurnY(FaceFront.xyz, FaceAngle), NTE_TurnY(FaceRight.xyz, FaceAngle), i.L, SDFSoftness, SDFFlip);
+    Color = NTE_SkinShade(i, PositionWS, DetailStrength, FabricSheen, LightSharpness, SkyLight, BottomShade, on, lit, SDFStrength);
+}
+void NTE_FaceSkin_half(half4 Tex, half4 BaseColor, half3 ShadowColor, half3 NormalWS, half3 ViewWS, half3 TangentWS,
+    half3 MainLightDirection, half ShadowThreshold, half ShadowSoftness, half ShadowSaturation, half3 RimColor,
+    half RimStrength, half RimWidth, half ShadowStrength, half Brightness, half3 SpecColor, half SpecStrength,
+    half SpecSize, half FaceSign, half4 UV, half SkyLight, half BottomShade, half BackFaceShade, half DetailScale,
+    half DetailStrength, float3 PositionWS, half FabricSheen, half LightSharpness,
+    UnityTexture2D SDFMap, half SDFStrength, half SDFSoftness, half SDFFlip, half4 FaceFront, half4 FaceRight, half FaceAngle, half Part,
+    out half3 Color)
+{
+    float3 c;
+    NTE_FaceSkin_float(Tex, BaseColor, ShadowColor, NormalWS, ViewWS, TangentWS, MainLightDirection, ShadowThreshold,
+        ShadowSoftness, ShadowSaturation, RimColor, RimStrength, RimWidth, ShadowStrength, Brightness, SpecColor, SpecStrength,
+        SpecSize, FaceSign, UV, SkyLight, BottomShade, BackFaceShade, DetailScale, DetailStrength, PositionWS, FabricSheen,
+        LightSharpness, SDFMap, SDFStrength, SDFSoftness, SDFFlip, FaceFront, FaceRight, FaceAngle, Part, c);
+    Color = c;
+}
+
+// ---------------- Skin part: nose ----------------
+// The nose is a part of its own (its own material, Part = nose). Seen from the front it stays; as the view
+// turns to the profile the whole part sinks into the face and disappears (vertex stage: clean silhouette).
+// NoseSize = size of the part in object units (set from the mesh), Depth = how many times that it sinks.
+void NTE_NoseSink_float(float3 PositionOS, float4 FaceFront, float FaceAngle, float Angle, float Depth, float NoseSize,
+    float Part, out float3 Out)
+{
+    Out = PositionOS;
+#ifndef SHADERGRAPH_PREVIEW
+    if (Part > NTE_PART_NOSE - 0.5 && Depth > 0.0)
+    {
+        float3 up = float3(0.0, 1.0, 0.0);
+        float3 F = NTE_TurnY(normalize(FaceFront.xyz), FaceAngle);
+        // The main camera is the origin of HDRP's camera-relative world. Only the turn around the head counts.
+        float3 V = TransformWorldToObjectDir(-TransformObjectToWorld(PositionOS));
+        V -= up * dot(V, up);
+        float facing = dot(V * rsqrt(max(dot(V, V), 1e-8)), F);
+        float shown = smoothstep(cos(radians(min(Angle + 10.0, 180.0))), cos(radians(max(Angle - 10.0, 0.0))), facing);
+        Out -= F * (NoseSize * Depth * (1.0 - shown));
+    }
+#endif
+}
+void NTE_NoseSink_half(float3 PositionOS, float4 FaceFront, half FaceAngle, half Angle, half Depth, float NoseSize,
+    half Part, out float3 Out)
+{
+    NTE_NoseSink_float(PositionOS, FaceFront, FaceAngle, Angle, Depth, NoseSize, Part, Out);
+}
+
+// ---------------- Hair: highlight ----------------
+// The procedural anisotropic highlight of https://light11.hatenadiary.com/entry/2021/02/25/202403 :
+// the binormal (not the normal) against the half vector, shifted along the normal by a jitter value.
+// One band, nothing else.
+//   _HairHighlightFlow 1 = the binormal and the jitter follow the UVs, as in the article (UVs laid along the strands).
+//                      0 = they run from the crown down (object up on the surface). On a sphere that is the same
+//                          as the article; it does not break on models whose hair UVs are cut up or turned.
+float NTE_StreakNoise(float2 p, float period)
+{
+    float2 c = floor(p), f = p - c;
+    f = f * f * (3.0 - 2.0 * f);
+    float a = c.x - period * floor(c.x / period);
+    float b = a + 1.0 < period ? a + 1.0 : 0.0;
+    return lerp(lerp(NTE_Hash(float2(a, c.y)), NTE_Hash(float2(b, c.y)), f.x),
+                lerp(NTE_Hash(float2(a, c.y + 1.0)), NTE_Hash(float2(b, c.y + 1.0)), f.x), f.y);
+}
+
+// The jitter picture of the article, made here: grey streaks along the strands. at.x closes after 1.
+float NTE_HairStreaks(float2 at, float count, float pixel)
+{
+    float n = max(floor(count + 0.5), 2.0);
+    float2 p = at * float2(n, n * 0.0625);
+    float v = NTE_StreakNoise(p, n) * 0.5 + NTE_StreakNoise(p * float2(2.0, 1.5) + float2(0.0, 7.0), n * 2.0) * 0.5;
+    v = saturate((v - 0.5) * 1.1 + 0.58);        // light grey streaks, like the picture of the article
+    return lerp(v, 0.58, saturate(pixel * n - 0.5));     // streaks under a pixel: their average, no shimmer
+}
+
+float NTE_HairHighlightShape(float3 N, float3 binormal, float3 V, float3 L, float position, float sharpness,
+    float jitter, float jitterStrength)
+{
+    float3 sum = L + V;
+    float3 halfDir = sum * rsqrt(max(dot(sum, sum), 1e-6));
+    float3 b = binormal - N * (position + (jitter * 0.5 - 0.5) * jitterStrength);
+    b *= rsqrt(max(dot(b, b), 1e-6));
+    float bdoth = dot(b, halfDir) * 0.5 + 0.5;
+    float highlight = saturate(bdoth * (1.0 - bdoth) * 4.0);
+    return pow(max(highlight, 1e-5), max(sharpness, 1.0));
+}
+
+float NTE_HairHighlight(NTEToonInput i, float3 bitangentWS, float2 uv, UnityTexture2D jitterMap,
+    float position, float sharpness, float jitterStrength, float streaks, float flow)
+{
+    float3 binormal;
+    float2 at;
+    float pixel;
+    float fade = 1.0;
+    if (flow >= 0.5)
+    {
+        binormal = bitangentWS * rsqrt(max(dot(bitangentWS, bitangentWS), 1e-6));
+        at = uv;
+        pixel = NTE_FWidth(uv).x;
+    }
+    else
+    {
+        float3 up = normalize(TransformObjectToWorldDir(float3(0.0, 1.0, 0.0)));
+        float3 side = TransformObjectToWorldDir(float3(1.0, 0.0, 0.0));
+        side -= up * dot(side, up);
+        side *= rsqrt(max(dot(side, side), 1e-6));
+        float high = clamp(dot(i.N, up), -1.0, 1.0);
+        binormal = up - i.N * high;
+        binormal *= rsqrt(max(dot(binormal, binormal), 1e-6));
+        float2 around = float2(dot(i.N, side), dot(i.N, cross(side, up)));
+        around *= rsqrt(max(dot(around, around), 1e-6));
+        at = float2(atan2(around.x, around.y + 1e-6) / 6.2831853 + 0.5, asin(high) / 3.1415927 + 0.5);
+        pixel = length(NTE_FWidth(around)) / 6.2831853;     // of the direction: no jump where the turn closes
+        fade = 1.0 - smoothstep(0.990, 0.999, abs(high));   // the strands meet at the crown
+    }
+    float hasMap = NTE_HasMap(jitterMap);
+    float painted = SAMPLE_TEXTURE2D_LOD(jitterMap.tex, jitterMap.samplerstate, at, 0).r;
+    float jitter = lerp(NTE_HairStreaks(at, streaks, pixel), painted, hasMap);
+    return NTE_HairHighlightShape(i.N, binormal, i.V, i.L, position, sharpness, jitter, jitterStrength) * fade;
+}
+
+// ---------------- Cloth: threads, fuzz, sheen, stitches ----------------
+// Built like HDRP's Cotton/Wool and Silk shaders (https://www.ame-name.com/archives/13793), shaded as toon:
+//   thread map = R occlusion, G & A normal (x = A, y = G), B smoothness
+//   fuzz map   = one channel, added to the colour
+// Sizes are real lengths, so one setting looks the same on every model: CS_MayaPreviewMeshData writes the
+// metres in one UV unit of each island into the second UV set (x = 4 + along U, y = 4 + along V).
+// Without it one UV unit counts as one metre.
+// The maps are Unity's fabric sample maps (Texture/Fabric/LICENSE.md).
+#define NTE_CLOTH_UV_OFFSET 4.0
+
+#if defined(SHADER_STAGE_RAY_TRACING)
+    #define NTE_DDX(v) 0.0
+    #define NTE_DDY(v) 0.0
+#else
+    #define NTE_DDX(v) ddx(v)
+    #define NTE_DDY(v) ddy(v)
+#endif
+
+float2 NTE_ClothMetres(float2 uv, float4 uv1)
+{
+    float2 size = uv1.x >= NTE_CLOTH_UV_OFFSET - 0.01 && uv1.y >= NTE_CLOTH_UV_OFFSET - 0.01
+        ? uv1.xy - NTE_CLOTH_UV_OFFSET : float2(1.0, 1.0);
+    return uv * size;
+}
+
+float2 NTE_Turn(float2 p, float degrees_)
+{
+    float s, c;
+    sincos(radians(degrees_), s, c);
+    return float2(c * p.x + s * p.y, c * p.y - s * p.x);
+}
+
+// x = how much of the pixel is thread, y = thread shading, z = the dent the thread pulls into the cloth.
+float3 NTE_Stitch(float2 m, float spacing, float offset, float stitchLength, float width, float twin, float pixel)
+{
+    float across = m.x - offset;
+    across -= spacing * floor(across / spacing + 0.5);
+    if (twin >= 0.5) across = abs(across) - width * 1.8;
+    float period = stitchLength * 1.6;
+    float along = m.y - period * floor(m.y / period + 0.5);
+    float d = length(float2(across, max(abs(along) - max(stitchLength - width, 0.0) * 0.5, 0.0)));
+    float radius = width * 0.5;
+    float aa = max(pixel, 1e-6);
+    float thin = saturate(width / aa);                      // thinner than a pixel: fainter, no shimmer
+    float cover = saturate((radius - d) / aa + 0.5) * thin;
+    float r = saturate(d / radius);
+    float twist = sin((along + across) / width * 6.2831853) * saturate(width / (aa * 4.0));
+    float dent = saturate(1.0 - (d - radius) / (radius + aa)) * thin;
+    return float3(cover, 1.0 - 0.35 * r * r + 0.1 * twist, dent * (1.0 - cover));
+}
+
+void NTE_ClothFabric_float(float4 Tex, float4 BaseColor, float3 ShadowColor, float3 NormalWS, float3 ViewWS, float3 TangentWS,
+    float3 MainLightDirection, float ShadowThreshold, float ShadowSoftness, float ShadowSaturation, float3 RimColor,
+    float RimStrength, float RimWidth, float ShadowStrength, float Brightness, float3 SpecColor, float SpecStrength,
+    float SpecSize, float FaceSign, float4 UV, float SkyLight, float BottomShade, float BackFaceShade, float DetailScale,
+    float DetailStrength, float3 PositionWS, float FabricSheen, float LightSharpness,
+    float3 BitangentWS, float4 UV1,
+    float Weave, float ThreadSize, float ThreadAspect, float ThreadAngle, float ThreadBump, float ThreadShade,
+    UnityTexture2D ThreadMap,
+    float FuzzStrength, float FuzzSize, float4 FuzzColor, float Mottle, UnityTexture2D FuzzMap,
+    float Smoothness, float ThreadSmoothness, float GlossStrength, float4 GlossColor, float Anisotropy,
+    float SheenStrength, float4 SheenColor,
+    float StitchStrength, float4 StitchColor, float StitchSpacing, float StitchOffset, float StitchLength,
+    float StitchWidth, float StitchAngle, float StitchTwin, float StitchGrid, UnityTexture2D StitchMask,
+    UnityTexture2D JerseyTex, UnityTexture2D TwillTex, UnityTexture2D PlainTex, UnityTexture2D JacketTex,
+    UnityTexture2D RibTex, UnityTexture2D FuzzTex, UnityTexture2D MottleTex,
+    out float3 Color)
+{
+    NTE_INPUT;
+    float lit = NTE_LitBand(i);
+    float3 B = BitangentWS * rsqrt(max(dot(BitangentWS, BitangentWS), 1e-6));
+    float3 sum = i.L + i.V;
+    float3 H = sum * rsqrt(max(dot(sum, sum), 1e-6));
+
+    // one sampler for every fabric map (HDRP has few to spare)
+    SamplerState repeatSampler = JerseyTex.samplerstate;
+    float2 metres = NTE_ClothMetres(UV.xy, UV1);
+    float2 p = NTE_Turn(metres, ThreadAngle);
+    float2 dpx = NTE_DDX(p), dpy = NTE_DDY(p);
+    float2 uvDx = NTE_DDX(UV.xy), uvDy = NTE_DDY(UV.xy);
+
+    float4 thread = float4(1.0, 0.5, 0.5, 0.5), average = thread;
+    int kind = (int)floor(Weave + 0.5);
+    if (kind >= 1)
+    {
+        // threads across one picture of each map
+        float threads = kind == 1 ? 14.0 : kind == 2 ? 20.0 : kind == 3 ? 12.0 : 16.0;
+        float2 tile = max(ThreadSize, 0.05) * 0.001 * threads * float2(1.0, max(ThreadAspect, 0.05));
+        float2 at = p / tile, ax = dpx / tile, ay = dpy / tile;
+        if (NTE_HasMap(ThreadMap) > 0.5)
+        {
+            thread = SAMPLE_TEXTURE2D_GRAD(ThreadMap.tex, repeatSampler, at, ax, ay);
+            average = SAMPLE_TEXTURE2D_LOD(ThreadMap.tex, repeatSampler, at, 16);
+        }
+        else if (kind == 1)
+        {
+            thread = SAMPLE_TEXTURE2D_GRAD(JerseyTex.tex, repeatSampler, at, ax, ay);
+            average = SAMPLE_TEXTURE2D_LOD(JerseyTex.tex, repeatSampler, at, 16);
+        }
+        else if (kind == 2)
+        {
+            thread = SAMPLE_TEXTURE2D_GRAD(TwillTex.tex, repeatSampler, at, ax, ay);
+            average = SAMPLE_TEXTURE2D_LOD(TwillTex.tex, repeatSampler, at, 16);
+        }
+        else if (kind == 3)
+        {
+            thread = SAMPLE_TEXTURE2D_GRAD(PlainTex.tex, repeatSampler, at, ax, ay);
+            average = SAMPLE_TEXTURE2D_LOD(PlainTex.tex, repeatSampler, at, 16);
+        }
+        else if (kind == 4)
+        {
+            thread = SAMPLE_TEXTURE2D_GRAD(JacketTex.tex, repeatSampler, at, ax, ay);
+            average = SAMPLE_TEXTURE2D_LOD(JacketTex.tex, repeatSampler, at, 16);
+        }
+        else
+        {
+            thread = SAMPLE_TEXTURE2D_GRAD(RibTex.tex, repeatSampler, at, ax, ay);
+            average = SAMPLE_TEXTURE2D_LOD(RibTex.tex, repeatSampler, at, 16);
+        }
+    }
+
+    // around their own average, so the cloth keeps its colour and brightness at every distance
+    float2 bump = NTE_Turn(float2(thread.a - average.a, thread.g - average.g) * 2.0, -ThreadAngle) * ThreadBump;
+    float3 bumped = i.N + i.T * bump.x + B * bump.y;
+    bumped *= rsqrt(max(dot(bumped, bumped), 1e-6));
+
+    float3 col = NTE_Diffuse(i, lit);
+    col *= max(1.0 + (dot(bumped, H) - dot(i.N, H)) * 0.7 + (thread.r - average.r) * ThreadShade, 0.0);
+
+    if (Mottle > 0.0)
+    {
+        float size = max(FuzzSize, 0.1) * 0.01 * 1.5;
+        float v = SAMPLE_TEXTURE2D_GRAD(MottleTex.tex, repeatSampler, p / size, dpx / size, dpy / size).r;
+        float mean = SAMPLE_TEXTURE2D_LOD(MottleTex.tex, repeatSampler, p / size, 16).r;
+        col *= max(1.0 + (v - mean) * Mottle, 0.0);
+    }
+    if (FuzzStrength > 0.0)
+    {
+        float size = max(FuzzSize, 0.1) * 0.01;
+        float fuzz;
+        if (NTE_HasMap(FuzzMap) > 0.5) fuzz = SAMPLE_TEXTURE2D_GRAD(FuzzMap.tex, repeatSampler, p / size, dpx / size, dpy / size).r;
+        else fuzz = SAMPLE_TEXTURE2D_GRAD(FuzzTex.tex, repeatSampler, p / size, dpx / size, dpy / size).r;
+        col += lerp(i.albedo, 1.0, 0.5) * FuzzColor.rgb * fuzz * FuzzStrength * lerp(0.5, 1.0, lit);
+    }
+
+    float nv = saturate(abs(dot(i.N, i.V)));
+    if (GlossStrength > 0.0)
+    {
+        // GGX's shape with a peak of 1, stretched along / across the threads for silk
+        float smoothHere = saturate(Smoothness + (thread.b - average.b) * 2.0 * ThreadSmoothness);
+        float rough = max((1.0 - smoothHere) * (1.0 - smoothHere), 0.03);
+        float at_ = max(rough * (1.0 + Anisotropy), 0.01), ab = max(rough * (1.0 - Anisotropy), 0.01);
+        float2 turnedT = NTE_Turn(float2(1.0, 0.0), -ThreadAngle);
+        float3 T2 = i.T * turnedT.x + B * turnedT.y;
+        float3 B2 = B * turnedT.x - i.T * turnedT.y;
+        float th = dot(T2, H) / at_, bh = dot(B2, H) / ab, nh = dot(bumped, H);
+        float d = max(th * th + bh * bh + nh * nh, 1e-4);
+        float gloss = saturate(1.0 / (d * d)) * step(0.0, nh);
+        col += GlossColor.rgb * lerp(i.albedo, 1.0, 0.5) * gloss * GlossStrength * lerp(0.2, 1.0, lit);
+    }
+    if (SheenStrength > 0.0)
+    {
+        // the fibres catch the light at grazing angles, the middle goes a little dusty
+        float sheen = pow(max(1.0 - nv, 1e-4), 2.5) * max(1.0 + (thread.r - average.r) * ThreadShade, 0.0);
+        col *= 1.0 - 0.12 * saturate(SheenStrength) * nv * nv;
+        col += SheenColor.rgb * lerp(i.albedo, 1.0, 0.35) * sheen * SheenStrength * 0.6 * lerp(0.35, 1.0, lit);
+    }
+
+    if (StitchStrength > 0.0)
+    {
+        float2 m = NTE_Turn(metres, StitchAngle);
+        float pixel = max(max(abs(NTE_DDX(m.x)) + abs(NTE_DDY(m.x)), abs(NTE_DDX(m.y)) + abs(NTE_DDY(m.y))), 1e-6);
+        float spacing = max(StitchSpacing, 0.2) * 0.01, offset = StitchOffset * 0.01;
+        float stitchLength = max(StitchLength, 0.2) * 0.001, width = max(StitchWidth, 0.05) * 0.001;
+        float3 stitch = NTE_Stitch(m, spacing, offset, stitchLength, width, StitchTwin, pixel);
+        if (StitchGrid >= 0.5)
+        {
+            float3 crossing = NTE_Stitch(m.yx, spacing, offset, stitchLength, width, StitchTwin, pixel);
+            if (crossing.x > stitch.x) stitch.xy = crossing.xy;
+            stitch.z = max(stitch.z, crossing.z) * (1.0 - stitch.x);
+        }
+        // white = stitched here (an empty slot = everywhere)
+        float mask = 1.0;
+        if (NTE_HasMap(StitchMask) > 0.5) mask = SAMPLE_TEXTURE2D_GRAD(StitchMask.tex, repeatSampler, UV.xy, uvDx, uvDy).r;
+        float amount = saturate(StitchStrength) * mask;
+        col *= 1.0 - 0.3 * stitch.z * amount;
+        float3 sewn = StitchColor.rgb * stitch.y * lerp(1.0, saturate(i.shadowColor), (1.0 - lit) * i.shadowStrength);
+        col = lerp(col, sewn, stitch.x * amount);
+    }
+
+    NTE_ENV(col, lit);
+    Color = (col + NTE_Rim(i, lit)) * i.brightness;
+}
+void NTE_ClothFabric_half(half4 Tex, half4 BaseColor, half3 ShadowColor, half3 NormalWS, half3 ViewWS, half3 TangentWS,
+    half3 MainLightDirection, half ShadowThreshold, half ShadowSoftness, half ShadowSaturation, half3 RimColor,
+    half RimStrength, half RimWidth, half ShadowStrength, half Brightness, half3 SpecColor, half SpecStrength,
+    half SpecSize, half FaceSign, float4 UV, half SkyLight, half BottomShade, half BackFaceShade, half DetailScale,
+    half DetailStrength, float3 PositionWS, half FabricSheen, half LightSharpness,
+    half3 BitangentWS, float4 UV1,
+    half Weave, half ThreadSize, half ThreadAspect, half ThreadAngle, half ThreadBump, half ThreadShade,
+    UnityTexture2D ThreadMap,
+    half FuzzStrength, half FuzzSize, half4 FuzzColor, half Mottle, UnityTexture2D FuzzMap,
+    half Smoothness, half ThreadSmoothness, half GlossStrength, half4 GlossColor, half Anisotropy,
+    half SheenStrength, half4 SheenColor,
+    half StitchStrength, half4 StitchColor, half StitchSpacing, half StitchOffset, half StitchLength,
+    half StitchWidth, half StitchAngle, half StitchTwin, half StitchGrid, UnityTexture2D StitchMask,
+    UnityTexture2D JerseyTex, UnityTexture2D TwillTex, UnityTexture2D PlainTex, UnityTexture2D JacketTex,
+    UnityTexture2D RibTex, UnityTexture2D FuzzTex, UnityTexture2D MottleTex,
+    out half3 Color)
+{
+    float3 c;
+    NTE_ClothFabric_float(Tex, BaseColor, ShadowColor, NormalWS, ViewWS, TangentWS, MainLightDirection, ShadowThreshold,
+        ShadowSoftness, ShadowSaturation, RimColor, RimStrength, RimWidth, ShadowStrength, Brightness, SpecColor, SpecStrength,
+        SpecSize, FaceSign, UV, SkyLight, BottomShade, BackFaceShade, DetailScale, DetailStrength, PositionWS, FabricSheen,
+        LightSharpness, BitangentWS, UV1, Weave, ThreadSize, ThreadAspect, ThreadAngle, ThreadBump, ThreadShade, ThreadMap,
+        FuzzStrength, FuzzSize, FuzzColor, Mottle, FuzzMap, Smoothness, ThreadSmoothness, GlossStrength, GlossColor, Anisotropy,
+        SheenStrength, SheenColor, StitchStrength, StitchColor, StitchSpacing, StitchOffset, StitchLength, StitchWidth,
+        StitchAngle, StitchTwin, StitchGrid, StitchMask, JerseyTex, TwillTex, PlainTex, JacketTex, RibTex, FuzzTex, MottleTex, c);
+    Color = c;
+}
+
+// ---------------- Hair: height map ----------------
+// White = raised, black = sunk. It bends the normal, so the shade and the highlight follow the strands.
+void NTE_HairMapped_float(float4 Tex, float4 BaseColor, float3 ShadowColor, float3 NormalWS, float3 ViewWS, float3 TangentWS,
+    float3 MainLightDirection, float ShadowThreshold, float ShadowSoftness, float ShadowSaturation, float3 RimColor,
+    float RimStrength, float RimWidth, float ShadowStrength, float Brightness, float3 SpecColor, float SpecStrength,
+    float SpecSize, float FaceSign, float4 UV, float SkyLight, float BottomShade, float BackFaceShade, float DetailScale,
+    float DetailStrength, float3 PositionWS, float FabricSheen, float LightSharpness,
+    UnityTexture2D HeightMap, float HeightStrength,
+    float3 BitangentWS, UnityTexture2D JitterMap, float4 HighlightColor, float HighlightStrength, float HighlightPosition,
+    float HighlightSharpness, float JitterStrength, float JitterStreaks, float HighlightFlow,
+    out float3 Color)
+{
+    NTE_INPUT;
+    if (NTE_HasMap(HeightMap) * step(0.001, HeightStrength) > 0.5)
+    {
+        float3 T, B;
+        NTE_UVFrame(GetCameraRelativePositionWS(PositionWS), i.N, UV.xy, T, B);
+        float2 d = max(HeightMap.texelSize.xy, 1.0 / 1024.0);       // the same look for a 1K and a 4K map
+        float hx = SAMPLE_TEXTURE2D_LOD(HeightMap.tex, HeightMap.samplerstate, UV.xy + float2(d.x, 0.0), 0).r
+                 - SAMPLE_TEXTURE2D_LOD(HeightMap.tex, HeightMap.samplerstate, UV.xy - float2(d.x, 0.0), 0).r;
+        float hy = SAMPLE_TEXTURE2D_LOD(HeightMap.tex, HeightMap.samplerstate, UV.xy + float2(0.0, d.y), 0).r
+                 - SAMPLE_TEXTURE2D_LOD(HeightMap.tex, HeightMap.samplerstate, UV.xy - float2(0.0, d.y), 0).r;
+        float2 slope = float2(hx / d.x, hy / d.y) * (0.5 / 64.0) * HeightStrength;
+        i.N = normalize(i.N - T * slope.x - B * slope.y);
+    }
+    float3 highlight = float3(0.0, 0.0, 0.0);
+    if (HighlightStrength > 0.0)
+        highlight = pow(max(HighlightColor.rgb, 1e-6), 1.0 / 2.2) * (HighlightStrength * NTE_HairHighlight(i, BitangentWS, UV.xy, JitterMap,
+            HighlightPosition, HighlightSharpness, JitterStrength, JitterStreaks, HighlightFlow));     // follows the height map
+    Color = NTE_HairShade(i, PositionWS, LightSharpness, SkyLight, BottomShade, highlight);
+}
+void NTE_HairMapped_half(half4 Tex, half4 BaseColor, half3 ShadowColor, half3 NormalWS, half3 ViewWS, half3 TangentWS,
+    half3 MainLightDirection, half ShadowThreshold, half ShadowSoftness, half ShadowSaturation, half3 RimColor,
+    half RimStrength, half RimWidth, half ShadowStrength, half Brightness, half3 SpecColor, half SpecStrength,
+    half SpecSize, half FaceSign, half4 UV, half SkyLight, half BottomShade, half BackFaceShade, half DetailScale,
+    half DetailStrength, float3 PositionWS, half FabricSheen, half LightSharpness,
+    UnityTexture2D HeightMap, half HeightStrength,
+    half3 BitangentWS, UnityTexture2D JitterMap, half4 HighlightColor, half HighlightStrength, half HighlightPosition,
+    half HighlightSharpness, half JitterStrength, half JitterStreaks, half HighlightFlow,
+    out half3 Color)
+{
+    float3 c;
+    NTE_HairMapped_float(Tex, BaseColor, ShadowColor, NormalWS, ViewWS, TangentWS, MainLightDirection, ShadowThreshold,
+        ShadowSoftness, ShadowSaturation, RimColor, RimStrength, RimWidth, ShadowStrength, Brightness, SpecColor, SpecStrength,
+        SpecSize, FaceSign, UV, SkyLight, BottomShade, BackFaceShade, DetailScale, DetailStrength, PositionWS, FabricSheen,
+        LightSharpness, HeightMap, HeightStrength, BitangentWS, JitterMap, HighlightColor, HighlightStrength,
+        HighlightPosition, HighlightSharpness, JitterStrength, JitterStreaks, HighlightFlow, c);
+    Color = c;
+}
+
+// ---------------- Eye: the painted texture + highlight, pasted texture, camera reflection ----------------
+// SHG_NTE_Eye (HDRP Lit, transparent). The colour is the painted texture at screen brightness: no light, no sky
+// and no shading changes it (the Lit part is switched off: no albedo, no F0). On top of it:
+//   - the highlight: where its mask is white, or without a mask where the painting is at least as white
+//     as HighlightThreshold
+//   - a pasted texture (sky etc.): fixed on the eye (Follow 0) .. mirrored, sliding with the camera (Follow 1)
+//   - one reflection computed from the camera on the cornea
+// UV1 = a 0..1 square over each UV island, + NTE_EYE_UV_OFFSET (CS_MayaPreviewMeshData). It shapes the cornea dome.
+// A mesh without it: the reflection uses the mesh normals, the pasted texture the normal UV.
 #if defined(SHADERPASS) && !defined(SHADERGRAPH_PREVIEW)
     #if SHADERPASS == SHADERPASS_FORWARD
-        #define NTE_EYE_LIGHTS 1
+        #define NTE_EYE_FORWARD 1
     #endif
 #endif
 
-#define NTE_EYE_BULGE 1.5   // how round the cornea is
+#define NTE_EYE_BULGE 1.5         // how round the cornea is
+#define NTE_EYE_UV_OFFSET 2.0
 
-// Sharp glint (+ a soft sheen around it) where the cornea mirrors a light. radiance = as seen on screen.
-float3 NTE_EyeGlint(float3 Nd, float3 V, float3 L, float3 radiance, float sheen)
+void NTE_EyeSimple_float(float4 Tex, float4 BaseColor, float4 UV, float4 UV1, float3 NormalWS, float3 PositionWS,
+    UnityTexture2D HighlightMask, float HighlightThreshold, float4 HighlightColor, float HighlightStrength,
+    UnityTexture2D OverlayMap, float4 OverlayColor, float OverlayStrength, float OverlayFollow,
+    float4 GlintColor, float GlintStrength, float GlintSize,
+    out float3 Albedo, out float3 Emission, out float Smoothness, out float Metallic, out float Occlusion)
 {
-    float nh = dot(Nd, normalize(L + V));
-    float g = smoothstep(0.9965, 0.998, nh) + smoothstep(0.95, 0.995, nh) * 0.2 * sheen;
-    float m = max(radiance.r, max(radiance.g, radiance.b));
-    float3 tint = lerp(1.0.xxx, radiance / max(m, 1e-6), 0.5);
-    return g * tint * (1.0 - exp(-2.0 * m));          // bright light -> full glint, dim light -> faint
-}
+    Albedo = 0.0; Smoothness = 0.0; Metallic = 1.0; Occlusion = 0.0;
 
-void NTE_EyeLit_float(float4 Tex, float4 BaseColor, float4 UV, float3 NormalWS, float3 PositionWS,
-    float Brightness, float IrisSaturation, float IrisGradient, float HighlightGlow, float Reflection,
-    float4 EyeCenters, float4 EyeSize, out float3 Albedo, out float3 Emission)
-{
-    // Position inside the nearer eye: -1..1 across it.
-    float2 size = max(EyeSize.xy, 1e-4);
-    float2 d0 = (UV.xy - EyeCenters.xy) / size;
-    float2 d1 = (UV.xy - EyeCenters.zw) / size;
-    float2 e = dot(d0, d0) <= dot(d1, d1) ? d0 : d1;
-    float inside = 1.0 - smoothstep(1.0, 1.15, length(e));
+    float3 color = Tex.rgb * BaseColor.rgb;
+    // 0 = none, 1 = the colour, above 1 = glows
+    float hasMask = NTE_HasMap(HighlightMask);
+    float white = smoothstep(HighlightThreshold - 0.06, HighlightThreshold + 0.06, min(Tex.r, min(Tex.g, Tex.b)));
+    float mask = lerp(white, SAMPLE_TEXTURE2D_LOD(HighlightMask.tex, HighlightMask.samplerstate, UV.xy, 0).r, hasMask);
+    float3 highlight = lerp(Tex.rgb, 1.0, hasMask) * HighlightColor.rgb * max(HighlightStrength, 1.0);
+    color = lerp(color, highlight, mask * saturate(HighlightStrength));
 
-    // Iris colour (as before); eyelid shade at the top and glowing lower iris come from the position in the eye.
-    float3 c = Tex.rgb * BaseColor.rgb;
-    float l = dot(c, float3(0.2126, 0.7152, 0.0722));
-    c = max(lerp(l.xxx, c, 1.0 + IrisSaturation), 0.0);
-    float grad = IrisGradient * inside;
-    c *= lerp(1.0, 0.55, smoothstep(0.05, 0.85, e.y) * grad * 2.0);
-    float glow = smoothstep(-0.1, -0.85, e.y) * grad;
-    c += c * glow * 2.5 + glow * 0.15;
-    Albedo = c * Brightness;
+#ifdef NTE_EYE_FORWARD
+    // Position on this eye: -1..1 across its island.
+    float mapped = step(NTE_EYE_UV_OFFSET - 0.5, min(UV1.x, UV1.y));
+    float2 e = ((UV1.xy - NTE_EYE_UV_OFFSET) * 2.0 - 1.0) * mapped;
+    float inside = (1.0 - smoothstep(0.95, 1.05, length(e))) * (1.0 - mask);     // nothing on top of a highlight
 
-    // Highlights in screen brightness (above 1 = blooms).
-    float highlight = smoothstep(0.75, 0.95, min(Tex.r, min(Tex.g, Tex.b)));     // painted white highlight
-    float3 screen = highlight.xxx;
-    float3 sky = 0.0;
-#ifdef NTE_EYE_LIGHTS
     float3 N = normalize(NormalWS);
     float3 posRWS = GetCameraRelativePositionWS(PositionWS);
     float3 V = GetWorldSpaceNormalizeViewDir(posRWS);
-    // Directions of the texture's x / y on the surface (screen derivatives, no mesh tangents needed).
-    float3 dp1 = ddx(posRWS), dp2 = ddy(posRWS);
-    float2 du1 = ddx(UV.xy), du2 = ddy(UV.xy);
-    float3 p2 = cross(dp2, N), p1 = cross(N, dp1);
-    float3 T = p2 * du1.x + p1 * du2.x;
-    float3 B = p2 * du1.y + p1 * du2.y;
-    T *= rsqrt(max(dot(T, T), 1e-20));
-    B *= rsqrt(max(dot(B, B), 1e-20));
-    float3 Nd = normalize(N + (e.x * T + e.y * B) * NTE_EYE_BULGE);           // the cornea
-    float exposure = GetCurrentExposureMultiplier();
+    float3 T, B;
+    NTE_UVFrame(posRWS, N, UV.xy, T, B);
+    float3 Nd = normalize(N + (e.x * T + e.y * B) * NTE_EYE_BULGE);     // the cornea
 
-    // Catchlight fixed to the camera (upper left, like a drawn highlight).
-    float3 key = normalize(V - UNITY_MATRIX_V[0].xyz * 0.5 + UNITY_MATRIX_V[1].xyz * 0.4);
-    screen += smoothstep(0.9945, 0.9955, dot(Nd, normalize(key + V)));
+    float2 fixedUV = lerp(UV.xy, e * 0.5 + 0.5, mapped);
+    float2 pasteUV = lerp(fixedUV, NTE_ViewNormal(Nd).xy * 0.5 + 0.5, saturate(OverlayFollow));
+    float4 paste = SAMPLE_TEXTURE2D_LOD(OverlayMap.tex, OverlayMap.samplerstate, pasteUV, 0);
+    float pasteAmount = paste.a * OverlayStrength * OverlayColor.a * NTE_HasMap(OverlayMap);
+    color = lerp(color, paste.rgb * OverlayColor.rgb, saturate(pasteAmount) * inside);
 
-    // One glint per light (sun / moon, spot, point).
-    for (uint k = 0; k < _DirectionalLightCount; k++)
-    {
-        DirectionalLightData dl = _DirectionalLightDatas[k];
-        if (dl.lightDimmer <= 0.0 || dl.specularDimmer <= 0.0)
-            continue;
-        screen += NTE_EyeGlint(Nd, V, -dl.forward, dl.color * (dl.specularDimmer * exposure), Reflection);
-    }
-    uint used = 0;
-    [loop] for (uint j = 0; j < _PunctualLightCount && used < 4; j++)
-    {
-        LightData light = FetchLight(j);
-        if (light.lightType != GPULIGHTTYPE_POINT && light.lightType != GPULIGHTTYPE_SPOT && light.lightType != GPULIGHTTYPE_PROJECTOR_PYRAMID)
-            continue;
-        if (light.specularDimmer <= 0.0)
-            continue;
-        float3 L; float4 distances;
-        GetPunctualLightVectors(posRWS, light, L, distances);
-        if (distances.x >= light.range)
-            continue;
-        float att = PunctualLightAttenuation(distances, light.rangeAttenuationScale, light.rangeAttenuationBias,
-                                             light.angleScale, light.angleOffset);
-        if (att <= 1e-4)
-            continue;
-        used++;
-        screen += NTE_EyeGlint(Nd, V, L, light.color * (att * light.specularDimmer * exposure), Reflection);
-    }
+    // A light held at the upper left of the camera: its reflection slides when the head or the camera turns.
+    float3 key = normalize(V - UNITY_MATRIX_V[0].xyz * 0.6 + UNITY_MATRIX_V[1].xyz * 0.7);
+    float edge = 1.0 - lerp(0.002, 0.05, saturate(GlintSize));
+    float glint = smoothstep(edge, edge + 0.002, dot(Nd, normalize(key + V)));
+    color += GlintColor.rgb * (glint * GlintStrength * GlintColor.a * inside);
 
-    // HDRP sky mirrored on the cornea, more towards its edge.
-    float3 R = reflect(-V, Nd);
-    float fresnel = lerp(0.35, 1.0, pow(1.0 - saturate(dot(Nd, V)), 2.0));
-    sky = SampleSkyTexture(R, 2.0, 0).rgb * (Reflection * fresnel);             // HDRP applies the exposure
-    screen *= GetInverseCurrentExposureMultiplier();                              // screen brightness -> emission
+    color *= GetInverseCurrentExposureMultiplier();                     // screen brightness -> emission
 #endif
-    // 目のハイライト色 (_EyeHighlightColor, white = as before)
-    Emission = (screen * HighlightGlow * _EyeHighlightColor.rgb + sky) * (inside * Tex.a);
+    Emission = color;
 }
-void NTE_EyeLit_half(half4 Tex, half4 BaseColor, half4 UV, half3 NormalWS, float3 PositionWS,
-    half Brightness, half IrisSaturation, half IrisGradient, half HighlightGlow, half Reflection,
-    half4 EyeCenters, half4 EyeSize, out half3 Albedo, out half3 Emission)
+void NTE_EyeSimple_half(half4 Tex, half4 BaseColor, half4 UV, float4 UV1, half3 NormalWS, float3 PositionWS,
+    UnityTexture2D HighlightMask, half HighlightThreshold, half4 HighlightColor, half HighlightStrength,
+    UnityTexture2D OverlayMap, half4 OverlayColor, half OverlayStrength, half OverlayFollow,
+    half4 GlintColor, half GlintStrength, half GlintSize,
+    out half3 Albedo, out half3 Emission, out half Smoothness, out half Metallic, out half Occlusion)
 {
     float3 a, em;
-    NTE_EyeLit_float(Tex, BaseColor, UV, NormalWS, PositionWS, Brightness, IrisSaturation, IrisGradient,
-                     HighlightGlow, Reflection, EyeCenters, EyeSize, a, em);
-    Albedo = a; Emission = em;
+    float sm, me, oc;
+    NTE_EyeSimple_float(Tex, BaseColor, UV, UV1, NormalWS, PositionWS, HighlightMask, HighlightThreshold, HighlightColor, HighlightStrength,
+        OverlayMap, OverlayColor, OverlayStrength, OverlayFollow, GlintColor, GlintStrength, GlintSize, a, em, sm, me, oc);
+    Albedo = a; Emission = em; Smoothness = sm; Metallic = me; Occlusion = oc;
 }
 #endif

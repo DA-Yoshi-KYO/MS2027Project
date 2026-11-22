@@ -4,6 +4,8 @@
  * 制作者：吉本竜
  * ------------------------------------------------
  * 2026-09-30 | 初回作成
+ * 2026-11-22 | 光の向きを渡したことを _LightDirectionGiven で知らせる
+ *            | (渡されていない物は Shader が自分でシーンの光を見る)
  * ================================================ */
 
 using UnityEngine;
@@ -51,6 +53,12 @@ public class CS_ToonLightDirection : MonoBehaviour
     /// </summary>
     private static readonly int MainLightDirectionID =
         Shader.PropertyToID("_MainLightDirection");
+
+    /// <summary>
+    /// 1 = このスクリプトが向きを渡している。0 の物は Shader がシーンの Directional Light を使う。
+    /// </summary>
+    private static readonly int LightDirectionGivenID =
+        Shader.PropertyToID("_LightDirectionGiven");
 
     /// <summary>
     /// Material を複製せずに、
@@ -139,6 +147,7 @@ public class CS_ToonLightDirection : MonoBehaviour
                 MainLightDirectionID,
                 lightDirection
             );
+            propertyBlock.SetFloat(LightDirectionGivenID, 1f);
 
             /*
              * 更新した MaterialPropertyBlock を

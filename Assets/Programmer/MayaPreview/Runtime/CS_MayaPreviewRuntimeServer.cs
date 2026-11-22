@@ -506,6 +506,10 @@ public class CS_MayaPreviewRuntimeServer : MonoBehaviour
                     _library?.SetFolder(
                         received.header.materialFolder
                     );
+                    if (!received.header.saved)
+                    {
+                        _library?.BeginSceneSync();   // 別のmb: 色や画像の違いは「Mayaでの編集」ではない
+                    }
                     CS_MayaPreviewExport.SetScene(
                         received.header.scene,
                         received.header.saved
@@ -990,6 +994,7 @@ public class CS_MayaPreviewRuntimeServer : MonoBehaviour
 
         mesh.RecalculateBounds();
         CS_MayaPreviewSelection.NotifyMeshChanged(mesh);
+        CS_MayaPreviewOutline.NotifyMeshChanged(mesh);   // 同じMeshを書き換えるので、参照の比較では気付けない
 
 
         // =====================================================
@@ -1258,6 +1263,7 @@ public class CS_MayaPreviewRuntimeServer : MonoBehaviour
 
         mesh.RecalculateBounds();
         CS_MayaPreviewSelection.NotifyMeshChanged(mesh);
+        CS_MayaPreviewOutline.NotifyMeshChanged(mesh);   // 同じMeshを書き換えるので、参照の比較では気付けない
 
 
         // =====================================================
@@ -1268,6 +1274,9 @@ public class CS_MayaPreviewRuntimeServer : MonoBehaviour
             targetObject,
             materialNames
         );
+
+        UpdateMeshData(targetObject);
+        _library?.EndSceneSync();
 
 
         Debug.Log(
@@ -1367,6 +1376,8 @@ public class CS_MayaPreviewRuntimeServer : MonoBehaviour
 
             meshRenderer.sharedMaterials =
                 materials;
+
+            UpdateMeshData(target.gameObject);
         }
 
 
@@ -1561,6 +1572,24 @@ public class CS_MayaPreviewRuntimeServer : MonoBehaviour
 
         _appliedMaterialKeys[targetObject.name] =
             key;
+    }
+
+
+    // トゥーンに要る値（目のUV、パーツの大きさ、Uの向き）をメッシュから測って入れる
+    private static void UpdateMeshData(
+        GameObject targetObject
+    )
+    {
+        if (
+            targetObject.TryGetComponent(out MeshFilter filter) &&
+            targetObject.TryGetComponent(out MeshRenderer meshRenderer)
+        )
+        {
+            CS_MayaPreviewMeshData.Apply(
+                filter.sharedMesh,
+                meshRenderer.sharedMaterials
+            );
+        }
     }
 
 

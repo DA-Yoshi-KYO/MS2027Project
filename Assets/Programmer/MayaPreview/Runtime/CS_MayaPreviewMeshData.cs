@@ -7,10 +7,11 @@ using UnityEngine;
  Summary: What the toon shaders need from a mesh. Measured only: no thresholds, nothing is recognised,
           so every model from every .mb is handled the same way. What a part IS (face / body / nose)
           is chosen in the Material panel (_SkinPart).
-          - Eye  : a 0..1 square over every UV island, in the second UV set (stored +Offset so an empty
-                   set or a lightmap is not taken for it). Eyes sharing one picture share the square.
+          - Eye  : where in its eyeball every point is, seen along the gaze both eyes share, in the second
+                   UV set, and that gaze in _EyeGaze (CS_ToonEyeShape). Does not depend on the eyes' UVs.
           - Cloth: the metres in one UV unit of every UV island, along U and along V, in the second UV set
                    (stored +ClothOffset): threads and stitches are the same real size on every model.
+                   The borders of those islands go to CS_MayaPreviewClothSeams (stitches along the edges).
           - Skin : the size of the part (_NoseSize: the nose sinks by multiples of it) and the side the
                    texture's U grows to (_FaceRight, for the SDF map).
           Both are in the mesh / material, so the export carries them.
@@ -24,7 +25,6 @@ public static class CS_MayaPreviewMeshData
     public const string ClothShader = "Shader Graphs/SHG_NTE_Cloth";
     public const string PartProp = "_SkinPart";
     public const int PartFace = 0, PartBody = 1, PartNose = 2;
-    public const float Offset = 2f;                 // NTE_EYE_UV_OFFSET in NTE_Toon.hlsl
     public const float ClothOffset = 4f;            // NTE_CLOTH_UV_OFFSET in NTE_Toon.hlsl
 
     // 0 face / 1 body / 2 nose, or -1 when it is not the skin shader.
@@ -38,8 +38,11 @@ public static class CS_MayaPreviewMeshData
     public static void Apply(Mesh mesh, Material[] materials)
     {
         if (mesh == null || !mesh.isReadable || materials == null) return;
+        CS_MayaPreviewClothSeams.Forget(mesh);
         Vector3[] vertices = null;
         Vector2[] uv = null, local = null;
+        List<int[]> eyeParts = null;
+        List<Material> eyeMaterials = null;
         int count = Mathf.Min(mesh.subMeshCount, materials.Length);
         for (int i = 0; i < count; i++)
         {
@@ -54,18 +57,37 @@ public static class CS_MayaPreviewMeshData
                 if (uv.Length != mesh.vertexCount) continue;
                 if (vertices == null) vertices = mesh.vertices;
                 if (local == null) local = new Vector2[uv.Length];
-                FillClothSizes(uv, vertices, mesh.GetTriangles(i), local);
+                int[] triangles = mesh.GetTriangles(i);
+                FillClothSizes(uv, vertices, triangles, local);
+                CS_MayaPreviewClothSeams.Collect(material, mesh, vertices, uv, triangles, local);
             }
             else if (eye)
             {
-                if (uv.Length != mesh.vertexCount) continue;
-                if (local == null) local = new Vector2[uv.Length];
-                FillSquares(uv, mesh.GetTriangles(i), local);
+                if (eyeParts == null)
+                {
+                    eyeParts = new List<int[]>();
+                    eyeMaterials = new List<Material>();
+                }
+                eyeParts.Add(mesh.GetTriangles(i));     // measured together: both eyes share one gaze
+                eyeMaterials.Add(material);
             }
             else
             {
                 if (vertices == null) vertices = mesh.vertices;
                 Measure(material, vertices, uv.Length == vertices.Length ? uv : null, mesh.GetTriangles(i));
+            }
+        }
+        if (eyeParts != null)
+        {
+            if (vertices == null) vertices = mesh.vertices;
+            CS_ToonEyeShape shape = CS_ToonEyeShape.Measure(vertices, eyeParts);
+            if (shape != null)
+            {
+                if (local == null) local = new Vector2[vertices.Length];
+                Vector2[] coords = shape.Coords();
+                for (int i = 0; i < coords.Length; i++) local[shape.vertices[i]] = coords[i];
+                var gaze = new Vector4(shape.front.x, shape.front.y, shape.front.z, 1f);
+                foreach (Material material in eyeMaterials) material.SetVector("_EyeGaze", gaze);
             }
         }
         if (local != null) mesh.uv2 = local;
@@ -99,43 +121,18 @@ public static class CS_MayaPreviewMeshData
 
 
     // =========================================================
-    // Eye
+    // UV islands
     // =========================================================
-
-    private static void FillSquares(Vector2[] uv, int[] triangles, Vector2[] local)
-    {
-        int[] corners = Islands(uv, triangles, out List<int> parent);
-
-        var min = new Vector2[parent.Count];
-        var max = new Vector2[parent.Count];
-        var seen = new bool[parent.Count];
-        for (int i = 0; i < triangles.Length; i++)
-        {
-            int island = Root(parent, corners[i]);
-            Vector2 at = uv[triangles[i]];
-            min[island] = seen[island] ? Vector2.Min(min[island], at) : at;
-            max[island] = seen[island] ? Vector2.Max(max[island], at) : at;
-            seen[island] = true;
-        }
-        for (int i = 0; i < triangles.Length; i++)
-        {
-            int island = Root(parent, corners[i]);
-            Vector2 at = uv[triangles[i]], size = max[island] - min[island];
-            local[triangles[i]] = new Vector2(
-                Offset + (size.x > 0f ? (at.x - min[island].x) / size.x : 0.5f),
-                Offset + (size.y > 0f ? (at.y - min[island].y) / size.y : 0.5f));
-        }
-    }
 
     // corners[i] = the point on the texture of triangle corner i. Connected there = the same island (Root).
     private static int[] Islands(Vector2[] uv, int[] triangles, out List<int> parent)
     {
-        var pointOf = new Dictionary<Vector2, int>(triangles.Length);
+        var pointOf = new Dictionary<PointKey, int>(triangles.Length);
         parent = new List<int>();
         var corners = new int[triangles.Length];
         for (int i = 0; i < triangles.Length; i++)
         {
-            Vector2 at = uv[triangles[i]];
+            var at = new PointKey(uv[triangles[i]]);
             if (!pointOf.TryGetValue(at, out int point))
             {
                 point = parent.Count;
@@ -186,6 +183,38 @@ public static class CS_MayaPreviewMeshData
                 ClothOffset + (toMetres > 0 ? (float)(alongU[island] * toMetres) : 1f),
                 ClothOffset + (toMetres > 0 ? (float)(alongV[island] * toMetres) : 1f));
         }
+    }
+
+    // A place as a dictionary key. Not Vector2 / Vector3: their hashes collide on grids (a sleeve of 100 000
+    // triangles took 14 seconds to measure).
+    public readonly struct PointKey : System.IEquatable<PointKey>
+    {
+        private readonly float _a, _b, _c, _d, _e;
+        private readonly int _hash;
+
+        public PointKey(Vector2 uv) : this(uv.x, uv.y, 0f, 0f, 0f) { }
+        public PointKey(Vector3 position, Vector2 uv) : this(uv.x, uv.y, position.x, position.y, position.z) { }
+
+        private PointKey(float a, float b, float c, float d, float e)
+        {
+            _a = a + 0f; _b = b + 0f; _c = c + 0f; _d = d + 0f; _e = e + 0f;        // + 0: -0 is 0
+            _hash = Mix(Mix(Mix(Mix(Mix(17, _a.GetHashCode()), _b.GetHashCode()), _c.GetHashCode()), _d.GetHashCode()), _e.GetHashCode());
+        }
+
+        private static int Mix(int hash, int value)
+        {
+            unchecked
+            {
+                uint h = ((uint)hash ^ (uint)value) * 0x9E3779B1u;
+                h ^= h >> 15;
+                h *= 0x85EBCA77u;
+                return (int)(h ^ (h >> 13));
+            }
+        }
+
+        public bool Equals(PointKey other) => _a == other._a && _b == other._b && _c == other._c && _d == other._d && _e == other._e;
+        public override bool Equals(object other) => other is PointKey key && Equals(key);
+        public override int GetHashCode() => _hash;
     }
 
     private static double Length(double x, double y, double z) => System.Math.Sqrt(x * x + y * y + z * z);

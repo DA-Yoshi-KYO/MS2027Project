@@ -995,6 +995,7 @@ public class CS_MayaPreviewRuntimeServer : MonoBehaviour
         mesh.RecalculateBounds();
         CS_MayaPreviewSelection.NotifyMeshChanged(mesh);
         CS_MayaPreviewOutline.NotifyMeshChanged(mesh);   // 同じMeshを書き換えるので、参照の比較では気付けない
+        CS_ToonEyeReflection.NotifyMeshChanged(mesh);    // 目の位置が動く
 
 
         // =====================================================
@@ -1575,7 +1576,7 @@ public class CS_MayaPreviewRuntimeServer : MonoBehaviour
     }
 
 
-    // トゥーンに要る値（目のUV、パーツの大きさ、Uの向き）をメッシュから測って入れる
+    // トゥーンに要る値（目のUV、パーツの大きさ、Uの向き、布の縁、瞳に映す景色の位置）をメッシュから測って入れる
     private static void UpdateMeshData(
         GameObject targetObject
     )
@@ -1589,6 +1590,7 @@ public class CS_MayaPreviewRuntimeServer : MonoBehaviour
                 filter.sharedMesh,
                 meshRenderer.sharedMaterials
             );
+            CS_ToonEyeReflection.Setup(meshRenderer);
         }
     }
 

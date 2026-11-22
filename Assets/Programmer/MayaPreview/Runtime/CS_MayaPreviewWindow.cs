@@ -12,9 +12,13 @@ using UnityEngine;
           - Whenever the window ratio still differs (maximised, resized from outside),
             the camera is letter / pillar boxed and the bars are drawn black.
           - Aspect presets, "reset ratio" and window-size presets for the View menu.
+          - Closing never runs inside the hook: Unity shuts Mono down while it handles WM_CLOSE, and
+            returning from there into the hook's freed code crashed. The close is held back until the
+            outermost hook has returned, then posted to Unity's own window procedure.
  History: 2026/10/10 New
           2026/11/18 The title bar shows the build version ("MS2027   2026_1118_02"), written next to
                      the player by the build (StreamingAssets/MayaPreviewVersion.txt)
+          2026/11/22 No crash on closing
 =====================================+
 */
 [RequireComponent(typeof(Camera))]
@@ -177,6 +181,9 @@ public class CS_MayaPreviewWindow : MonoBehaviour
     private const int GWLP_WNDPROC = -4;
     private const uint WM_NCHITTEST = 0x0084;
     private const uint WM_SIZING = 0x0214;
+    private const uint WM_CLOSE = 0x0010;
+    private const uint WM_SYSCOMMAND = 0x0112;
+    private const long SC_CLOSE = 0xF060;
     private const int HTLEFT = 10, HTRIGHT = 11, HTTOP = 12, HTBOTTOM = 15, HTBORDER = 18;
     private const int WMSZ_LEFT = 1, WMSZ_RIGHT = 2, WMSZ_TOP = 3, WMSZ_TOPLEFT = 4, WMSZ_TOPRIGHT = 5,
                       WMSZ_BOTTOM = 6, WMSZ_BOTTOMLEFT = 7, WMSZ_BOTTOMRIGHT = 8;
@@ -194,6 +201,7 @@ public class CS_MayaPreviewWindow : MonoBehaviour
     [DllImport("user32.dll", CharSet = CharSet.Unicode)] private static extern int GetClassNameW(IntPtr hWnd, System.Text.StringBuilder name, int count);
     [DllImport("user32.dll")] private static extern bool GetWindowRect(IntPtr hWnd, out RECT rect);
     [DllImport("user32.dll")] private static extern bool GetClientRect(IntPtr hWnd, out RECT rect);
+    [DllImport("user32.dll")] private static extern bool PostMessageW(IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam);
     [DllImport("kernel32.dll")] private static extern uint GetCurrentProcessId();
     [DllImport("user32.dll", CharSet = CharSet.Unicode)] private static extern bool SetWindowTextW(IntPtr hWnd, string text);
 
@@ -203,11 +211,16 @@ public class CS_MayaPreviewWindow : MonoBehaviour
     }
 
     private static IntPtr s_window, s_previous;
+    private static bool s_installed;
+    private static int s_depth;              // hook calls on the stack (Windows calls it nested)
+    private static bool s_closing;           // a close waits until the stack is free of the hook
+    private static uint s_closeMessage;
+    private static IntPtr s_closeW, s_closeL;
     private static WndProcDelegate s_hook;   // kept alive for the lifetime of the hook
 
     private static void InstallHook()
     {
-        if (s_previous != IntPtr.Zero) return;
+        if (s_installed) return;
         uint pid = GetCurrentProcessId();
         IntPtr found = IntPtr.Zero;
         EnumWindows((hWnd, _) =>
@@ -224,18 +237,54 @@ public class CS_MayaPreviewWindow : MonoBehaviour
         s_window = found;
         s_hook = Hook;
         s_previous = SetWindowLongPtr(s_window, GWLP_WNDPROC, Marshal.GetFunctionPointerForDelegate(s_hook));
+        s_installed = s_previous != IntPtr.Zero;
     }
 
+    // s_previous stays: a call that is already in the hook still passes its message on.
     private static void RemoveHook()
     {
-        if (s_previous == IntPtr.Zero) return;
+        if (!s_installed) return;
         SetWindowLongPtr(s_window, GWLP_WNDPROC, s_previous);
-        s_previous = IntPtr.Zero;
+        s_installed = false;
     }
 
     [AOT.MonoPInvokeCallback(typeof(WndProcDelegate))]
     private static IntPtr Hook(IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam)
     {
+        s_depth++;
+        try
+        {
+            return Handle(hWnd, msg, wParam, lParam);
+        }
+        finally
+        {
+            s_depth--;
+            if (s_depth == 0 && s_closing) HandOverClose();
+        }
+    }
+
+    // The close button / Alt+F4 / taskbar (SC_CLOSE, which sends WM_CLOSE from inside) and a plain WM_CLOSE.
+    private static bool IsClose(uint msg, IntPtr wParam) =>
+        msg == WM_CLOSE || (msg == WM_SYSCOMMAND && (wParam.ToInt64() & 0xFFF0) == SC_CLOSE);
+
+    // Outermost call, about to return: from here on Unity handles the window without any managed code.
+    private static void HandOverClose()
+    {
+        s_closing = false;
+        RemoveHook();
+        PostMessageW(s_window, s_closeMessage, s_closeW, s_closeL);
+    }
+
+    private static IntPtr Handle(IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam)
+    {
+        if (s_installed && IsClose(msg, wParam))
+        {
+            s_closing = true;
+            s_closeMessage = msg;
+            s_closeW = wParam;
+            s_closeL = lParam;
+            return IntPtr.Zero;
+        }
         if (msg == WM_NCHITTEST)
         {
             IntPtr hit = CallWindowProcW(s_previous, hWnd, msg, wParam, lParam);

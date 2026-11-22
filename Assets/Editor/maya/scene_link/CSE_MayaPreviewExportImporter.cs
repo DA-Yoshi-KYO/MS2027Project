@@ -122,7 +122,8 @@ public class CSE_MayaPreviewExportImporter : AssetPostprocessor
                 if (material?.textures == null) continue;
                 foreach (CS_MayaPreviewExportTexture texture in material.textures)
                     if (!string.IsNullOrEmpty(texture.file))
-                        SetupTexture(root + "/" + texture.file, texture.normal, texture.linear, CS_MayaPreviewExport.IsDataMap(texture.prop));
+                        SetupTexture(root + "/" + texture.file, texture.normal, texture.linear, CS_MayaPreviewExport.IsDataMap(texture.prop),
+                            texture.prop == CS_MayaPreviewClothSeams.MapProp);
             }
         }
 
@@ -142,6 +143,11 @@ public class CSE_MayaPreviewExportImporter : AssetPostprocessor
         UnityEngine.Object ping = model;
         bool prefab = typed && !string.IsNullOrEmpty(manifest.prefab);
         if (model != null && prefab) ping = MakePrefab(model, root + "/" + manifest.prefab) ?? ping;
+        if (prefab && buildMaterials)
+        {
+            SetupEyes(root + "/" + manifest.prefab);
+            SetupShade(root + "/" + manifest.prefab);
+        }
         Debug.Log("Maya Preview Import : " + fbxPath +
                   (buildMaterials ? "  (" + materials.Count + " materials in " + materialFolder + ")" : "") +
                   (prefab ? "  prefab " + root + "/" + manifest.prefab : ""), ping);
@@ -208,6 +214,12 @@ public class CSE_MayaPreviewExportImporter : AssetPostprocessor
             importer.AddRemap(id, materials[i]);
             changed = true;
         }
+        // CS_ToonEyeReflection measures the eyes in a build too
+        if (!importer.isReadable && materials.Exists(m => m != null && m.shader != null && m.shader.name == CS_ToonEyeReflection.EyeShader))
+        {
+            importer.isReadable = true;
+            changed = true;
+        }
         if (changed) importer.SaveAndReimport();
     }
 
@@ -236,7 +248,46 @@ public class CSE_MayaPreviewExportImporter : AssetPostprocessor
         AssetDatabase.SaveAssets();
     }
 
-    private static void SetupTexture(string path, bool normal, bool linear, bool data)
+    // The pupils mirror what the eyes look at: the script that takes that picture, on the prefab's eye renderers.
+    private static void SetupEyes(string prefabPath)
+    {
+        var asset = AssetDatabase.LoadAssetAtPath<GameObject>(prefabPath);
+        if (asset == null) return;
+        bool missing = false;
+        foreach (Renderer renderer in asset.GetComponentsInChildren<Renderer>(true))
+            missing |= CS_ToonEyeReflection.HasEye(renderer) && !renderer.TryGetComponent(out CS_ToonEyeReflection _);
+        if (!missing) return;
+        GameObject contents = PrefabUtility.LoadPrefabContents(prefabPath);
+        try
+        {
+            foreach (Renderer renderer in contents.GetComponentsInChildren<Renderer>(true))
+                if (CS_ToonEyeReflection.HasEye(renderer) && !renderer.TryGetComponent(out CS_ToonEyeReflection _))
+                    renderer.gameObject.AddComponent<CS_ToonEyeReflection>();
+            PrefabUtility.SaveAsPrefabAsset(contents, prefabPath);
+        }
+        finally { PrefabUtility.UnloadPrefabContents(contents); }
+    }
+
+    // In the shade of something the whole character darkens: the script that gives the shader the character's box.
+    private static void SetupShade(string prefabPath)
+    {
+        var asset = AssetDatabase.LoadAssetAtPath<GameObject>(prefabPath);
+        if (asset == null || asset.TryGetComponent(out CS_ToonShade _)) return;
+        bool toon = false;
+        foreach (Renderer renderer in asset.GetComponentsInChildren<Renderer>(true))
+            foreach (Material material in renderer.sharedMaterials)
+                toon |= material != null && material.shader != null && material.shader.name.Contains("SHG_NTE_");
+        if (!toon) return;
+        GameObject contents = PrefabUtility.LoadPrefabContents(prefabPath);
+        try
+        {
+            contents.AddComponent<CS_ToonShade>();
+            PrefabUtility.SaveAsPrefabAsset(contents, prefabPath);
+        }
+        finally { PrefabUtility.UnloadPrefabContents(contents); }
+    }
+
+    private static void SetupTexture(string path, bool normal, bool linear, bool data, bool texels)
     {
         var importer = AssetImporter.GetAtPath(path) as TextureImporter;
         if (importer == null)
@@ -250,6 +301,14 @@ public class CSE_MayaPreviewExportImporter : AssetPostprocessor
         if (data && importer.textureCompression != TextureImporterCompression.Uncompressed)
         {
             importer.textureCompression = TextureImporterCompression.Uncompressed;
+            changed = true;
+        }
+        // read texel by texel (the cloth's seam map): no smaller copies
+        if (texels && (importer.mipmapEnabled || importer.sRGBTexture || importer.alphaIsTransparency))
+        {
+            importer.mipmapEnabled = false;
+            importer.sRGBTexture = false;
+            importer.alphaIsTransparency = false;
             changed = true;
         }
         if (normal && importer.textureType != TextureImporterType.NormalMap) { importer.textureType = TextureImporterType.NormalMap; changed = true; }

@@ -1093,6 +1093,20 @@
                 },
                 "m_SlotId": 11
             }
+        },
+        {
+            "m_OutputSlot": {
+                "m_Node": {
+                    "m_Id": "d6b8f28d6a42447d83dee9d565b96bca"
+                },
+                "m_SlotId": 0
+            },
+            "m_InputSlot": {
+                "m_Node": {
+                    "m_Id": "3187bdf89db649d997ed5cfcb159b146"
+                },
+                "m_SlotId": 8
+            }
         }
     ],
     "m_VertexContext": {
@@ -1166,7 +1180,7 @@
     "promotedFromAssetID": "",
     "promotedFromCategoryName": "",
     "promotedOrdering": -1,
-    "m_Name": "上向き面の明るさ (空の光)",
+    "m_Name": "上向き面の明るさ",
     "m_DefaultRefNameVersion": 1,
     "m_RefNameGeneratedByDisplayName": "Sky Light",
     "m_DefaultReferenceName": "_SkyLight",
@@ -1186,7 +1200,7 @@
     "m_LiteralFloatMode": false,
     "m_RangeValues": {
         "x": 0.0,
-        "y": 2.0
+        "y": 4.0
     },
     "m_SliderType": 0,
     "m_SliderPower": 3.0,
@@ -2210,6 +2224,9 @@
             "m_Id": "ce3fe39cd0f9468686ca7604e4d7d9f9"
         },
         {
+            "m_Id": "33bfc207846a4f7982e8ffa19018e6b5"
+        },
+        {
             "m_Id": "bb91876ec1854e08bef0c78f6ef6b773"
         }
     ],
@@ -2238,7 +2255,7 @@
     "promotedFromAssetID": "",
     "promotedFromCategoryName": "",
     "promotedOrdering": -1,
-    "m_Name": "裏面 (スカート内側など) の暗さ",
+    "m_Name": "裏面の暗さ",
     "m_DefaultRefNameVersion": 1,
     "m_RefNameGeneratedByDisplayName": "Back Face Shade",
     "m_DefaultReferenceName": "_BackFaceShade",
@@ -2387,7 +2404,7 @@
     "m_Hidden": false,
     "m_PerRendererData": false,
     "m_customAttributes": [],
-    "m_Value": 0.800000011920929,
+    "m_Value": 1.0,
     "m_FloatType": 1,
     "m_LiteralFloatMode": false,
     "m_RangeValues": {
@@ -2565,7 +2582,7 @@
     "m_Hidden": false,
     "m_PerRendererData": false,
     "m_customAttributes": [],
-    "m_Value": 0.30000001192092896,
+    "m_Value": 0.7260274,
     "m_FloatType": 1,
     "m_LiteralFloatMode": false,
     "m_RangeValues": {
@@ -2766,7 +2783,7 @@
     "m_Hidden": false,
     "m_PerRendererData": false,
     "m_customAttributes": [],
-    "m_Value": 0.4000000059604645,
+    "m_Value": 0.5,
     "m_FloatType": 1,
     "m_LiteralFloatMode": false,
     "m_RangeValues": {
@@ -3089,7 +3106,7 @@
     "m_Hidden": false,
     "m_PerRendererData": false,
     "m_customAttributes": [],
-    "m_Value": 0.0,
+    "m_Value": 0.6,
     "m_FloatType": 1,
     "m_LiteralFloatMode": false,
     "m_RangeValues": {
@@ -3249,12 +3266,12 @@
     "m_Hidden": false,
     "m_PerRendererData": false,
     "m_customAttributes": [],
-    "m_Value": 2.0,
+    "m_Value": 1.5,
     "m_FloatType": 1,
     "m_LiteralFloatMode": false,
     "m_RangeValues": {
         "x": 0.5,
-        "y": 3.0
+        "y": 5.0
     },
     "m_SliderType": 0,
     "m_SliderPower": 3.0,
@@ -3329,7 +3346,7 @@
     "m_Hidden": false,
     "m_PerRendererData": false,
     "m_customAttributes": [],
-    "m_Value": 0.577,
+    "m_Value": 1.0,
     "m_FloatType": 1,
     "m_LiteralFloatMode": false,
     "m_RangeValues": {
@@ -4343,7 +4360,7 @@
     "m_LiteralFloatMode": false,
     "m_RangeValues": {
         "x": 0.0,
-        "y": 0.30000001192092896
+        "y": 0.6
     },
     "m_SliderType": 0,
     "m_SliderPower": 3.0,
@@ -4704,8 +4721,8 @@
     "m_customAttributes": [],
     "m_Value": {
         "r": 1.0,
-        "g": 0.9700000286102295,
-        "b": 0.9399999976158142,
+        "g": 1.0,
+        "b": 1.0,
         "a": 1.0
     },
     "isMainColor": false,
@@ -5254,9 +5271,9 @@
     "m_PerRendererData": false,
     "m_customAttributes": [],
     "m_Value": {
-        "r": 0.949999988079071,
-        "g": 0.8399999737739563,
-        "b": 0.8399999737739563,
+        "r": 1.0,
+        "g": 0.6971427,
+        "b": 0.6971427,
         "a": 1.0
     },
     "isMainColor": false,
@@ -5311,12 +5328,12 @@
     "m_Hidden": false,
     "m_PerRendererData": false,
     "m_customAttributes": [],
-    "m_Value": 0.029999999329447746,
+    "m_Value": 0.0,
     "m_FloatType": 1,
     "m_LiteralFloatMode": false,
     "m_RangeValues": {
         "x": 0.0,
-        "y": 1.0
+        "y": 3.0
     },
     "m_SliderType": 0,
     "m_SliderPower": 3.0,
@@ -5650,7 +5667,7 @@
     "promotedFromAssetID": "",
     "promotedFromCategoryName": "",
     "promotedOrdering": -1,
-    "m_Name": "全体の彩度 (1 = そのまま)",
+    "m_Name": "全体の彩度",
     "m_DefaultRefNameVersion": 1,
     "m_RefNameGeneratedByDisplayName": "NTESaturation",
     "m_DefaultReferenceName": "_NTESaturation",
@@ -5670,7 +5687,7 @@
     "m_LiteralFloatMode": false,
     "m_RangeValues": {
         "x": 0.0,
-        "y": 2.0
+        "y": 3.0
     },
     "m_SliderType": 0,
     "m_SliderPower": 3.0,
@@ -5729,7 +5746,7 @@
     "promotedFromAssetID": "",
     "promotedFromCategoryName": "",
     "promotedOrdering": -1,
-    "m_Name": "濃い影の色の強さ (光から遠いほどこの色)",
+    "m_Name": "濃い影の色の強さ",
     "m_DefaultRefNameVersion": 1,
     "m_RefNameGeneratedByDisplayName": "DeepShadowStrength",
     "m_DefaultReferenceName": "_DeepShadowStrength",
@@ -5975,7 +5992,7 @@
     "m_LiteralFloatMode": false,
     "m_RangeValues": {
         "x": 0.002,
-        "y": 0.2
+        "y": 0.5
     },
     "m_SliderType": 0,
     "m_SliderPower": 3.0,
@@ -6500,7 +6517,7 @@
     "m_LiteralFloatMode": false,
     "m_RangeValues": {
         "x": 10.0,
-        "y": 90.0
+        "y": 120.0
     },
     "m_SliderType": 0,
     "m_SliderPower": 3.0,
@@ -7059,7 +7076,7 @@
     "promotedFromAssetID": "",
     "promotedFromCategoryName": "",
     "promotedOrdering": -1,
-    "m_Name": "鼻先の沈む深さ (鼻の大きさの何倍)",
+    "m_Name": "鼻先の沈む深さ",
     "m_DefaultRefNameVersion": 1,
     "m_RefNameGeneratedByDisplayName": "NoseSinkDepth",
     "m_DefaultReferenceName": "_NoseSinkDepth",
@@ -7079,7 +7096,7 @@
     "m_LiteralFloatMode": false,
     "m_RangeValues": {
         "x": 0.0,
-        "y": 6.0
+        "y": 10.0
     },
     "m_SliderType": 0,
     "m_SliderPower": 3.0,
@@ -7447,4 +7464,27 @@
     "m_Property": {
         "m_Id": "a2888b760f9345399b7c052846683345"
     }
+}
+
+{
+    "m_SGVersion": 0,
+    "m_ObjectId": "33bfc207846a4f7982e8ffa19018e6b5",
+    "m_Id": 8,
+    "m_DisplayName": "PositionWS",
+    "m_SlotType": 0,
+    "m_Hidden": false,
+    "m_ShaderOutputName": "PositionWS",
+    "m_StageCapability": 3,
+    "m_Type": "UnityEditor.ShaderGraph.Vector3MaterialSlot",
+    "m_Value": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+    },
+    "m_DefaultValue": {
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.0
+    },
+    "m_Labels": []
 }

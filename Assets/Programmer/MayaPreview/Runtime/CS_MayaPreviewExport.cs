@@ -915,7 +915,8 @@ public static class CS_MayaPreviewExport
                     {
                         prop = prop, textureName = texture.name, normal = normal, linear = linear,
                         scale = material.GetTextureScale(prop), offset = material.GetTextureOffset(prop),
-                        source = maya ? library.SourcePath(mayaName, prop) : CS_MayaPreviewOutline.TexturePathOf(material, prop) ?? TextureFileOf(texture), file = ""
+                        source = prop == CS_MayaPreviewClothSeams.MapProp ? CS_MayaPreviewClothSeams.FileOf(material)
+                               : maya ? library.SourcePath(mayaName, prop) : CS_MayaPreviewOutline.TexturePathOf(material, prop) ?? TextureFileOf(texture), file = ""
                     };
                     entry.file = CopyTexture(w, entry.source, texture);
                     textures.Add(entry);
@@ -1077,6 +1078,7 @@ public static class CS_MayaPreviewExport
         foreach (CS_MayaPreviewExportTexture texture in material.textures)
         {
             if (string.IsNullOrEmpty(texture.file)) continue;
+            if (texture.prop == CS_MayaPreviewClothSeams.MapProp) continue;     // measured again, not a picture someone picked
             if (!string.IsNullOrEmpty(texture.source) && File.Exists(texture.source)) continue;
             string copy = Normalize(root) + "/" + texture.file;
             if (File.Exists(copy)) copies[texture.prop] = copy;
@@ -1101,6 +1103,7 @@ public static class CS_MayaPreviewExport
 
     // Maps read as numbers: no sRGB curve, no block compression.
     public static bool IsDataMap(string prop) =>
+        prop == CS_MayaPreviewClothSeams.MapProp ||
         prop == "_FaceSDFMap" || prop == "_HairHeightMap" || prop == "_HairHighlightJitterMap" || prop == "_EyeHighlightMask" ||
         prop == "_ClothThreadMap" || prop == "_ClothFuzzMap" || prop == "_ClothStitchMask";
 }

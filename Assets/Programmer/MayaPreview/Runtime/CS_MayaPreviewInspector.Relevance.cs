@@ -52,6 +52,8 @@ public partial class CS_MayaPreviewInspector
         ("_EyeOverlayColor", "_EyeOverlayStrength", Gate.Zero),
         ("_EyeOverlayFollow", "_EyeOverlayStrength", Gate.Zero),
         ("_EyeGlintColor", "_EyeGlintStrength", Gate.Zero),
+        ("_EyeMirrorColor", "_EyeMirrorStrength", Gate.Zero),
+        ("_EyeMirrorBlur", "_EyeMirrorStrength", Gate.Zero),
         ("_EyeGlintSize", "_EyeGlintStrength", Gate.Zero),
         ("_DeepShadowColor", "_DeepShadowStrength", Gate.Zero),
         ("_CelRimColor", "_CelRimWidth", Gate.Zero),
@@ -92,8 +94,46 @@ public partial class CS_MayaPreviewInspector
         ("_ClothStitchTwin", "_ClothStitchStrength", Gate.Zero),
         ("_ClothStitchGrid", "_ClothStitchStrength", Gate.Zero),
         ("_ClothStitchMask", "_ClothStitchStrength", Gate.Zero),
+        ("_ClothStitchEdge", "_ClothStitchStrength", Gate.Zero),
+        ("_ClothStitchInset", "_ClothStitchStrength", Gate.Zero),
+        ("_ClothStitchInset", "_ClothStitchEdge", Gate.Zero),
+        ("_ClothStitchSpacing", "_ClothStitchEdge", Gate.One),
+        ("_ClothStitchOffset", "_ClothStitchEdge", Gate.One),
+        ("_ClothStitchAngle", "_ClothStitchEdge", Gate.One),
+        ("_ClothStitchGrid", "_ClothStitchEdge", Gate.One),
+        ("_ClothThreadSize", "_ClothWeave", Gate.Zero),
+        ("_ClothThreadAspect", "_ClothWeave", Gate.Zero),
+        ("_ClothThreadBump", "_ClothWeave", Gate.Zero),
+        ("_ClothThreadShade", "_ClothWeave", Gate.Zero),
+        ("_ClothThreadSmoothness", "_ClothWeave", Gate.Zero),
+        ("_ClothThreadMap", "_ClothWeave", Gate.Zero),
         ("_OutlineTexDarken", "_OutlineTexBlend", Gate.Zero),
         ("_OutlineColor", "_OutlineTexBlend", Gate.One),
+    };
+
+    // The long half of the names: shown under the cursor, so the names fit a narrow panel.
+    private static readonly Dictionary<string, string> LabelHints = new Dictionary<string, string>
+    {
+        { "_OutlineTexBlend", "線にテクスチャの色を混ぜる量" },
+        { "_OutlineWidthMask", "黒 = 線なし（口元など）" },
+        { "_OutlineDepthPush", "線の太さの何倍ぶん奥へ押すか" },
+        { "_OutlineMaxPixels", "近づいた時の太さの上限。0 = 無制限" },
+        { "_SkyLight", "空の光で上向きの面が明るくなる量" },
+        { "_BackFaceShade", "スカートの内側など、裏から見た面の暗さ" },
+        { "_NTESaturation", "1 = そのまま" },
+        { "_DeepShadowStrength", "光から遠い面ほど「濃い影の色」になります" },
+        { "_ClothThreadMap", "HDRP の Thread Map（無くても織り目は出ます）" },
+        { "_ClothFuzzSize", "毛羽と色むらの大きさ" },
+        { "_ClothFuzzMap", "HDRP の Fuzz Map（無くても毛羽は出ます）" },
+        { "_EyeOverlayColorMap", "目に貼るテクスチャ（空など）" },
+        { "_EyeOverlayFollow", "0 = 目に固定" },
+        { "_EyeHighlightMask", "白 = 光る所" },
+        { "_EyeHighlightThreshold", "マスクが無い時、これより白い所が光ります" },
+        { "_EyeMirrorBulge", "反射の曲がり方。大きいほど広い範囲が映ります" },
+        { "_HairHighlightJitterMap", "無くてもギザギザは出ます" },
+        { "_HairHighlightStrength", "記事の Intensity" },
+        { "_HairHighlightJitter", "記事の Jitter Intensity" },
+        { "_NoseSinkDepth", "鼻の大きさの何倍ぶん沈むか" },
     };
 
     private static readonly string[] PartNames = { "顔", "体", "鼻" };
@@ -124,7 +164,7 @@ public partial class CS_MayaPreviewInspector
     {
         Material material = slot.material;
         string prop = material.shader.GetPropertyName(index);
-        if (prop == CS_MayaPreviewMeshData.PartProp || prop == WeaveProp) return false;     // the buttons above the groups
+        if (prop == CS_MayaPreviewMeshData.PartProp || prop == WeaveProp || prop == ClothKindProp) return false;     // the buttons above the groups
         int part = CS_MayaPreviewMeshData.PartOf(material);
         if (part == CS_MayaPreviewMeshData.PartFace && NoseItems.Contains(prop)) return false;
         if (part == CS_MayaPreviewMeshData.PartBody && (NoseItems.Contains(prop) || FaceItems.Contains(prop) || prop == "_FaceAngle"))
@@ -141,14 +181,8 @@ public partial class CS_MayaPreviewInspector
         int part = CS_MayaPreviewMeshData.PartOf(material);
         if (part >= 0)
         {
-            BeginRow("パーツ", "同じシェーダーのまま、出る項目と計算が切り替わります");
-            for (int i = 0; i < PartNames.Length; i++)
-            {
-                if (!GUILayout.Button(PartNames[i], i == part ? _buttonOn : _button, GUILayout.Height(RowHeight))) continue;
-                if (i != part) SetFloat(slot, library, CS_MayaPreviewMeshData.PartProp, i);
-                GUI.FocusControl(null);
-            }
-            EndRow();
+            int picked = ButtonGrid("パーツ", "同じシェーダーのまま、出る項目と計算が切り替わります", PartNames, part, PartNames.Length);
+            if (picked >= 0 && picked != part) SetFloat(slot, library, CS_MayaPreviewMeshData.PartProp, picked);
         }
         DrawClothHeader(slot, library);
         Note("灰色 = 今の設定では効かない項目（カーソルを合わせると理由が出ます）");
@@ -171,7 +205,8 @@ public partial class CS_MayaPreviewInspector
                     if (!HasMap(material, gate)) return name + "に画像を入れると使えます";
                     break;
                 case Gate.Zero:
-                    if (material.GetFloat(gate) < GateEpsilon) return name + "が 0 なので効きません";
+                    if (material.GetFloat(gate) < GateEpsilon)
+                        return gate == WeaveProp ? "織り方が「" + WeaveNames[0] + "」なので効きません" : name + "が 0 なので効きません";
                     break;
                 case Gate.One:
                     if (material.GetFloat(gate) > 1f - GateEpsilon) return name + "が 1 なので効きません";

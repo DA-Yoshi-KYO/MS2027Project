@@ -34,7 +34,7 @@ public partial class CS_MayaPreviewInspector
     // 0 / 1 values that are drawn as a check box.
     private static readonly HashSet<string> CheckBoxProps = new HashSet<string>
     {
-        "_FaceSDFFlip", "_HairHighlightFlow", "_ClothStitchTwin", "_ClothStitchGrid"
+        "_FaceSDFFlip", "_HairHighlightFlow", "_ClothStitchTwin", "_ClothStitchGrid", "_ClothStitchEdge"
     };
 
     // Toon shaders: (group, its properties in the order they are shown).
@@ -43,6 +43,7 @@ public partial class CS_MayaPreviewInspector
         (BasicGroup, new[] { "_BaseMap", "_BaseColor", "_CelBrightness", "_NTESaturation" }),
         ("ハイライト", new[] { "_EyeHighlightColor", "_EyeHighlightPower", "_EyeHighlightThreshold", "_EyeHighlightMask" }),
         ("貼り付けテクスチャ", new[] { "_EyeOverlayColorMap", "_EyeOverlayColor", "_EyeOverlayStrength", "_EyeOverlayFollow" }),
+        ("瞳への映り込み", new[] { "_EyeMirrorStrength", "_EyeMirrorBulge", "_EyeMirrorBlur", "_EyeMirrorColor" }),
         ("光の反射", new[] { "_EyeGlintColor", "_EyeGlintStrength", "_EyeGlintSize" }),
         ("顔のSDF影", new[] { "_FaceSDFMap", "_FaceSDFStrength", "_FaceSDFSoftness", "_FaceSDFFlip" }),
         ("鼻先", new[] { "_NoseHideAngle", "_NoseSinkDepth" }),
@@ -59,7 +60,7 @@ public partial class CS_MayaPreviewInspector
         ("毛羽・色むら", new[] { "_ClothFuzzStrength", "_ClothFuzzColor", "_ClothFuzzSize", "_ClothMottle", "_ClothFuzzMap" }),
         ("光沢", new[] { "_ClothGlossStrength", "_ClothGlossColor", "_ClothSmoothness", "_ClothThreadSmoothness", "_ClothAnisotropy",
                          "_ClothSheenStrength", "_ClothSheenColor" }),
-        ("縫い目", new[] { "_ClothStitchStrength", "_ClothStitchColor", "_ClothStitchLength", "_ClothStitchWidth", "_ClothStitchSpacing",
+        ("縫い目", new[] { "_ClothStitchStrength", "_ClothStitchColor", "_ClothStitchEdge", "_ClothStitchInset", "_ClothStitchLength", "_ClothStitchWidth", "_ClothStitchSpacing",
                            "_ClothStitchOffset", "_ClothStitchAngle", "_ClothStitchTwin", "_ClothStitchGrid", "_ClothStitchMask" }),
         ("上下の明るさ", new[] { "_SkyLight", "_BottomShade", "_BackFaceShade" }),
         ("リムライト", new[] { "_CelRimColor", "_CelRimStrength", "_CelRimWidth" }),
@@ -89,7 +90,9 @@ public partial class CS_MayaPreviewInspector
     private static string GroupNote(Shader shader, string title)
     {
         if (shader.name == CS_MayaPreviewMeshData.ClothShader && title == "縫い目")
-            return "「濃さ」を上げると列で縫い目が出ます。場所を絞る時は「縫う場所」に白黒の画像を入れます。";
+            return "布の縁と縫い合わせ（UVの切れ目）に沿って自動で縫います。チェックを外すと列で縫います。場所を絞る時は「縫う場所」に白黒の画像を入れます。";
+        if (shader.name == CS_MayaPreviewMeshData.EyeShader && title == "瞳への映り込み")
+            return "その目が見ている景色が瞳に映ります。カメラを動かすと映る物も動きます。";
         if (shader.name != CS_MayaPreviewMeshData.SkinShader) return null;
         if (title == "鼻先") return "このマテリアルのメッシュ全体が、横顔で顔に沈んで消えます（線も出ません）。";
         if (title == "顔の向き") return "SDF影と鼻先に使います。Maya で +Z 向きに作ったモデルは 0 のままで合います。";
@@ -107,7 +110,8 @@ public partial class CS_MayaPreviewInspector
         for (int p = 0; p < count; p++)
         {
             ShaderPropertyFlags flags = shader.GetPropertyFlags(p);
-            if ((flags & (ShaderPropertyFlags.HideInInspector | ShaderPropertyFlags.PerRendererData)) != 0) continue;
+            if ((flags & (ShaderPropertyFlags.HideInInspector | ShaderPropertyFlags.PerRendererData
+                          | ShaderPropertyFlags.NonModifiableTextureData)) != 0) continue;     // maps built into the shader
             remaining.Add(p);
         }
 
@@ -172,7 +176,7 @@ public partial class CS_MayaPreviewInspector
         GUILayout.Space(3);
         GUILayout.BeginHorizontal();
         GUILayout.FlexibleSpace();
-        if (GUILayout.Button("全部開く", _button, GUILayout.Width(64), GUILayout.Height(RowHeight)))
+        if (GUILayout.Button("全部開く", _button, GUILayout.Width(72), GUILayout.Height(RowHeight)))
             foreach (PropertyGroup group in groups) SetGroupOpen(group, true);
         if (GUILayout.Button("全部閉じる", _button, GUILayout.Width(72), GUILayout.Height(RowHeight)))
             foreach (PropertyGroup group in groups) SetGroupOpen(group, false);

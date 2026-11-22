@@ -2256,7 +2256,7 @@
     "promotedFromAssetID": "",
     "promotedFromCategoryName": "",
     "promotedOrdering": -1,
-    "m_Name": "線にテクスチャ色を混ぜる量",
+    "m_Name": "線に混ぜる元の色",
     "m_DefaultRefNameVersion": 1,
     "m_RefNameGeneratedByDisplayName": "Outline Texture Blend",
     "m_DefaultReferenceName": "_OutlineTexBlend",
@@ -2609,7 +2609,7 @@
     "promotedFromAssetID": "",
     "promotedFromCategoryName": "",
     "promotedOrdering": -1,
-    "m_Name": "線を消す場所 (黒=線なし / 口元など)",
+    "m_Name": "線を消す場所",
     "m_DefaultRefNameVersion": 1,
     "m_RefNameGeneratedByDisplayName": "OutlineWidthMask",
     "m_DefaultReferenceName": "_OutlineWidthMask",
@@ -3093,7 +3093,7 @@
     "promotedFromAssetID": "",
     "promotedFromCategoryName": "",
     "promotedOrdering": -1,
-    "m_Name": "内側の線を消す強さ (線の太さの何倍ぶん奥へ)",
+    "m_Name": "内側の線を消す強さ",
     "m_DefaultRefNameVersion": 1,
     "m_RefNameGeneratedByDisplayName": "内側の線を消す強さ (線の太さの何倍ぶん奥へ)",
     "m_DefaultReferenceName": "_OutlineDepthPush",
@@ -3113,7 +3113,7 @@
     "m_LiteralFloatMode": false,
     "m_RangeValues": {
         "x": 0.0,
-        "y": 12.0
+        "y": 24.0
     },
     "m_SliderType": 0,
     "m_SliderPower": 3.0,
@@ -3607,7 +3607,7 @@
     "promotedFromAssetID": "",
     "promotedFromCategoryName": "",
     "promotedOrdering": -1,
-    "m_Name": "近づいた時の太さの上限 (px / 0=無制限)",
+    "m_Name": "線の太さの上限 (px)",
     "m_DefaultRefNameVersion": 1,
     "m_RefNameGeneratedByDisplayName": "OutlineMaxPixels",
     "m_DefaultReferenceName": "_OutlineMaxPixels",
@@ -3627,7 +3627,7 @@
     "m_LiteralFloatMode": false,
     "m_RangeValues": {
         "x": 0.0,
-        "y": 12.0
+        "y": 24.0
     },
     "m_SliderType": 0,
     "m_SliderPower": 3.0,

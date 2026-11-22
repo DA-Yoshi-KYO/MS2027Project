@@ -92,6 +92,85 @@ public partial class CS_MayaPreviewInspector
         GUILayout.Space(2);
     }
 
+    // Buttons of one width in columns, whatever is written on them. Returns the one clicked, or -1.
+    private int ButtonGrid(string label, string tooltip, string[] names, int on, int columns)
+    {
+        const float gap = 3f;
+        int clicked = -1;
+        for (int start = 0; start < names.Length; start += columns)
+        {
+            BeginRow(start == 0 ? label : "", start == 0 ? tooltip : null);
+            Rect row = GUILayoutUtility.GetRect(0f, 10000f, RowHeight, RowHeight, GUILayout.ExpandWidth(true));
+            float width = Mathf.Max(1f, (row.width - gap * (columns - 1)) / columns);
+            for (int i = start; i < Mathf.Min(start + columns, names.Length); i++)
+            {
+                var cell = new Rect(Mathf.Round(row.x + (i - start) * (width + gap)), row.y, Mathf.Floor(width), row.height);
+                if (!GUI.Button(cell, names[i], i == on ? _buttonOn : _button)) continue;
+                clicked = i;
+                GUI.FocusControl(null);
+            }
+            EndRow();
+        }
+        return clicked;
+    }
+
+    // Columns in which every name fits (both blocks of a panel get the same, so all their buttons are one width).
+    // The width is the one of the last repaint: Layout and Repaint of one frame must count the same rows.
+    private float _buttonBlockWidth;
+
+    private int FittingColumns(string[] first, string[] second, int most)
+    {
+        if (_buttonBlockWidth <= 1f) return Mathf.Min(2, most);
+        float widest = 0f;
+        foreach (string[] names in new[] { first, second })
+            foreach (string name in names)
+                widest = Mathf.Max(widest, _buttonOn.CalcSize(new GUIContent(name)).x);
+        return Mathf.Clamp(Mathf.FloorToInt((_buttonBlockWidth + GridGap) / (Mathf.Ceil(widest) + 1f + GridGap)), 1, most);
+    }
+
+    private const float GridGap = 3f;
+
+    // A title with its buttons under it, over the whole width of the panel. cannot = why a button cannot be
+    // picked (it is grey then), or null. Returns the one clicked, or -1.
+    private int ButtonBlock(string title, string tooltip, string[] names, int on, int columns, System.Func<int, string> cannot = null)
+    {
+        GUILayout.BeginHorizontal(GUILayout.Height(RowHeight));
+        GUILayout.Space(10);
+        Rect head = GUILayoutUtility.GetRect(0f, 10000f, RowHeight, RowHeight, GUILayout.ExpandWidth(true));
+        GUI.Label(head, title, _skin.label);
+        if (head.Contains(Event.current.mousePosition)) _tooltip = title + "   " + tooltip;
+        GUILayout.Space(6);
+        GUILayout.EndHorizontal();
+
+        int clicked = -1;
+        for (int start = 0; start < names.Length; start += columns)
+        {
+            GUILayout.BeginHorizontal();
+            GUILayout.Space(10);
+            Rect row = GUILayoutUtility.GetRect(0f, 10000f, RowHeight, RowHeight, GUILayout.ExpandWidth(true));
+            if (Event.current.type == EventType.Repaint) _buttonBlockWidth = row.width;
+            float width = Mathf.Max(1f, Mathf.Floor((row.width - GridGap * (columns - 1)) / columns));
+            for (int i = start; i < Mathf.Min(start + columns, names.Length); i++)
+            {
+                var cell = new Rect(Mathf.Round(row.x + (i - start) * (width + GridGap)), row.y, width, row.height);
+                string reason = cannot?.Invoke(i);
+                bool enabled = GUI.enabled;
+                GUI.enabled = enabled && reason == null;
+                if (GUI.Button(cell, names[i], i == on ? _buttonOn : _button))
+                {
+                    clicked = i;
+                    GUI.FocusControl(null);
+                }
+                GUI.enabled = enabled;
+                if (reason != null && cell.Contains(Event.current.mousePosition)) _tooltip = reason;
+            }
+            GUILayout.Space(6);
+            GUILayout.EndHorizontal();
+            GUILayout.Space(2);
+        }
+        return clicked;
+    }
+
     // Text that fits the width, ending in "…" when it is too long.
     private readonly Dictionary<string, string> _fitCache = new Dictionary<string, string>();
     private string Fit(string text, GUIStyle style, float width)

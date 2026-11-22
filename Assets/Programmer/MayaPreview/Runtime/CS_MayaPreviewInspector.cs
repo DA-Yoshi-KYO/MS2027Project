@@ -140,6 +140,8 @@ public partial class CS_MayaPreviewInspector : MonoBehaviour
         TickExportRestore();
         TickContextMenu();
         CS_MayaPreviewOutline.Tick();
+        CS_MayaPreviewClothSeams.Tick();
+        CS_ToonShade.TickScene();
         CS_MayaPreviewFileDialog.Tick();
 
         var mouse = Mouse.current;

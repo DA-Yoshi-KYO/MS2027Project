@@ -630,7 +630,7 @@ public partial class CS_MayaPreviewInspector
         string label = shader.GetPropertyDescription(p);
         if (string.IsNullOrEmpty(label)) label = prop;
         if (maya && library.IsOverridden(slot.key, prop)) label = "* " + label;
-        string tip = grey ?? prop;
+        string tip = grey ?? (LabelHints.TryGetValue(prop, out string hint) ? hint + "  " + prop : prop);
         if (CheckBoxProps.Contains(prop))
         {
             bool on = material.GetFloat(prop) > 0.5f;

@@ -54,6 +54,10 @@ public static class CSED_PlacementSceneGUI
         {
             HandleDelete(e, clicked);
         }
+        else if (tool == CSED_PlacementState.Tool.Laser && CSED_PlacementState.activeLaser != null)
+        {
+            HandleLaserRotation(e, clicked);
+        }
         else if (CSED_PlacementBuilder.TryRaycast(e.mousePosition, out RaycastHit hit))
         {
             bool placeable = CanPlace(tool, hit);
@@ -87,6 +91,12 @@ public static class CSED_PlacementSceneGUI
         if (CSED_PlacementState.hasPendingStart)
         {
             CSED_PlacementState.hasPendingStart = false;
+        }
+        else if (CSED_PlacementState.activeLaser != null)
+        {
+            // 棒の向きを決めている途中のEscは、標準の向き(往復する向きに直角)に戻して終える
+            CSED_PlacementBuilder.SetLaserBeamDirection(CSED_PlacementState.activeLaser, CSED_PlacementState.laserTravel, CSED_PlacementBuilder.GetDefaultBeamDirection(CSED_PlacementState.laserTravel));
+            CSED_PlacementState.activeLaser = null;
         }
         else if (CSED_PlacementState.activeFollower != null || CSED_PlacementState.activeSquad != null || CSED_PlacementState.activeDrone != null || CSED_PlacementState.activeLight != null)
         {
@@ -128,6 +138,7 @@ public static class CSED_PlacementSceneGUI
         CSED_PlacementState.activeSquad = null;
         CSED_PlacementState.activeDrone = null;
         CSED_PlacementState.activeLight = null;
+        CSED_PlacementState.activeLaser = null;
         SceneView.RepaintAll();
     }
 
@@ -194,7 +205,88 @@ public static class CSED_PlacementSceneGUI
         sceneView.Repaint();
     }
 
-    // レーザー: 1回目のクリックで始点、2回目のクリックで終点を決めて置く
+    // 置いた直後の、レーザーの棒の向きを、マウスの位置で決める(クリックで確定。Shiftを押している間は、15度刻み)
+    // 回す軸は、Y(縦軸: 水平に回す)・Z(往復する向きの軸: 棒を立てる)のキー、またはウィンドウで切り替える
+    private static void HandleLaserRotation(Event e, bool clicked)
+    {
+        GameObject laser = CSED_PlacementState.activeLaser;
+        Vector3 center = laser.transform.position;
+        Vector3 travel = CSED_PlacementState.laserTravel;
+        Vector3 defaultBeam = CSED_PlacementBuilder.GetDefaultBeamDirection(travel);
+
+        if (e.type == EventType.KeyDown && (e.keyCode == KeyCode.Y || e.keyCode == KeyCode.Z))
+        {
+            CSED_PlacementState.laserAxis = e.keyCode == KeyCode.Y ? CSED_PlacementState.LaserAxis.Vertical : CSED_PlacementState.LaserAxis.Travel;
+            CSED_PlacementBuilder.SetLaserBeamDirection(laser, travel, defaultBeam);   // 軸を変えたら、いったん標準の向きから
+            EditorWindow.focusedWindow?.Repaint();
+            e.Use();
+            return;
+        }
+
+        bool turn = e.type == EventType.MouseMove || e.type == EventType.MouseDrag || e.type == EventType.MouseDown;
+        if (turn && CSED_PlacementState.laserAxis == CSED_PlacementState.LaserAxis.Vertical)
+        {
+            if (CSED_PlacementBuilder.TryRaycast(e.mousePosition, out RaycastHit hit))
+            {
+                Vector3 beam = Vector3.ProjectOnPlane(hit.point - center, Vector3.up);
+                if (beam.sqrMagnitude >= 0.25f)
+                {
+                    beam.Normalize();
+                    if (e.shift)
+                    {
+                        float snapped = Mathf.Round(Vector3.SignedAngle(defaultBeam, beam, Vector3.up) / 15.0f) * 15.0f;
+                        beam = Quaternion.AngleAxis(snapped, Vector3.up) * defaultBeam;
+                    }
+                    CSED_PlacementBuilder.SetLaserBeamDirection(laser, travel, beam);
+                }
+            }
+        }
+        else if (turn)
+        {
+            // 往復する向きに直角な、レーザーの中心を通る面と、マウスの光線が交わる点の方向へ、棒を向ける(空中でもよい)
+            Ray ray = HandleUtility.GUIPointToWorldRay(e.mousePosition);
+            Plane plane = new Plane(travel, center);
+            if (plane.Raycast(ray, out float distance))
+            {
+                Vector3 offset = ray.GetPoint(distance) - center;
+                if (offset.sqrMagnitude >= 0.04f)
+                {
+                    float degrees = Mathf.Atan2(Vector3.Dot(offset, Vector3.up), Vector3.Dot(offset, defaultBeam)) * Mathf.Rad2Deg;
+                    if (e.shift) degrees = Mathf.Round(degrees / 15.0f) * 15.0f;
+                    CSED_PlacementBuilder.SetLaserRoll(laser, travel, degrees);
+                }
+            }
+        }
+
+        if (e.type == EventType.Repaint) DrawLaserRotation(laser, defaultBeam);
+        if (clicked)
+        {
+            CSED_PlacementState.activeLaser = null;
+            SceneView.RepaintAll();
+        }
+        if (e.type == EventType.MouseMove) SceneView.RepaintAll();
+    }
+
+    // 棒の向きの予告(棒の両端を結ぶ線と、標準の向きからの角度)を描く
+    private static void DrawLaserRotation(GameObject laser, Vector3 defaultBeam)
+    {
+        CS_SecurityLaser script = laser.GetComponent<CS_SecurityLaser>();
+        float length = script != null ? new SerializedObject(script).FindProperty("_beamLength").floatValue : 6.0f;
+        Vector3 center = laser.transform.position;
+        Vector3 beam = laser.transform.right.normalized;
+        bool roll = CSED_PlacementState.laserAxis == CSED_PlacementState.LaserAxis.Travel;
+
+        Handles.color = _okColor;
+        Handles.DrawLine(center - beam * (length * 0.5f), center + beam * (length * 0.5f), 5.0f);
+        Handles.DrawWireDisc(center, roll ? CSED_PlacementState.laserTravel : Vector3.up, 0.6f);
+        Handles.color = _pathColor;
+        Handles.DrawDottedLine(center, center + CSED_PlacementState.laserTravel * 4.0f, 3.0f);
+        float angle = roll ? Vector3.SignedAngle(defaultBeam, beam, CSED_PlacementState.laserTravel) : Vector3.SignedAngle(defaultBeam, beam, Vector3.up);
+        string axisName = roll ? "往復する向きの軸(棒を立てる)" : "縦軸(水平に回す)";
+        Handles.Label(center + Vector3.up * 1.5f, $"回す軸: {axisName} / 標準から {angle:F0}度\n(クリックで確定 / Y: 縦軸 / Z: 往復する向きの軸 / Shift: 15度刻み / Esc: 標準に戻す)");
+    }
+
+    // レーザー: 1回目のクリックで始点、2回目のクリックで終点を決めて置き、続けて、棒の向きを決める(3回目のクリックで確定)
     private static void PlaceLine(Vector3 point)
     {
         if (!CSED_PlacementState.hasPendingStart)
@@ -206,7 +298,11 @@ public static class CSED_PlacementSceneGUI
 
         Vector3 start = CSED_PlacementState.pendingStart;
         CSED_PlacementState.hasPendingStart = false;
-        CSED_PlacementBuilder.PlaceLaser(start, point);
+        GameObject laser = CSED_PlacementBuilder.PlaceLaser(start, point);
+        if (laser == null) return;
+
+        CSED_PlacementState.activeLaser = laser;
+        CSED_PlacementState.laserTravel = Vector3.ProjectOnPlane(point - start, Vector3.up).normalized;
     }
 
     // ---- 消す ----
@@ -271,7 +367,7 @@ public static class CSED_PlacementSceneGUI
             case CSED_PlacementState.Tool.Villain: name = "敵(悪人の出現点。置いた後は巡回エディタで、巡回ポイントを足す)"; break;
             case CSED_PlacementState.Tool.Police: name = CSED_PlacementState.activeSquad != null ? "警察(巡回ポイントを足している。Enter / Escで確定)" : "警察(最初の巡回ポイントをクリック)"; break;
             case CSED_PlacementState.Tool.Drone: name = CSED_PlacementState.activeDrone != null ? "ドローン(巡回ポイントを足している。Enter / Escで確定)" : "ドローン(最初の巡回ポイントをクリック)"; break;
-            case CSED_PlacementState.Tool.Laser: name = CSED_PlacementState.hasPendingStart ? "レーザー(終点をクリック。Escで取り消し)" : "レーザー(始点をクリック)"; break;
+            case CSED_PlacementState.Tool.Laser: name = CSED_PlacementState.activeLaser != null ? "レーザー(棒の向きを決める。クリックで確定 / Y・Zで回す軸を切り替え / Escで標準の向きに戻す)" : (CSED_PlacementState.hasPendingStart ? "レーザー(終点をクリック。Escで取り消し)" : "レーザー(始点をクリック)"); break;
             case CSED_PlacementState.Tool.Light: name = CSED_PlacementState.activeLight != null ? "ライト(経路の点を足している。Enter / Escで確定)" : "ライト(最初の経路の点をクリック)"; break;
             default: name = "消す(置いた物をクリック)"; break;
         }

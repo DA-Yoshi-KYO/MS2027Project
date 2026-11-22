@@ -26,7 +26,6 @@ public static partial class CSED_PlacementBuilder
 
     // ---- 大きさ(配置ツールと同じ値) ----
     private const float _laserHeight = 1.0f;                 // レーザーの高さ(足元から。m)
-    private const float _laserThickness = 0.3f;              // レーザーの太さ(m)
     private const float _laserExtra = 0.6f;                  // レーザーの長さを、歩ける幅より足す長さ(m)
     private const float _laserMaxDistance = 50.0f;           // レーザーが往復する距離の上限(m)
     private const float _lightHeightOffset = 0.25f;          // ストリートライトを、床から浮かせる高さ(m)
@@ -336,12 +335,59 @@ public static partial class CSED_PlacementBuilder
 
         SerializedObject serialized = new SerializedObject(instance.GetComponent<CS_SecurityLaser>());
         serialized.FindProperty("_beamLength").floatValue = length;
-        serialized.FindProperty("_beamThickness").floatValue = _laserThickness;
+        serialized.FindProperty("_beamThickness").floatValue = Mathf.Max(0.02f, CSED_PlacementState.laserThickness);
         serialized.FindProperty("_moveDirection").vector3Value = Vector3.forward;
         serialized.FindProperty("_moveDistance").floatValue = distance;
         serialized.ApplyModifiedProperties();
         Finish(instance, "防犯レーザーを置く");
         return instance;
+    }
+
+    /// <summary>
+    /// 防犯レーザーの棒の向きを決めるメソッド。往復する向き(travel)は変えずに、棒だけを、指定した向き(beam。水平)へ回す
+    /// 棒は、このオブジェクトのローカルのX方向に伸びるので、Xが beam に向くように回し、往復する向き(ローカル)を、回した分だけ打ち消す
+    /// </summary>
+    /// <param name="laser">回すレーザー</param>
+    /// <param name="travel">往復する向き(ワールド)</param>
+    /// <param name="beam">棒の向き(ワールド。上下は無視する)</param>
+    public static void SetLaserBeamDirection(GameObject laser, Vector3 travel, Vector3 beam)
+    {
+        beam = Vector3.ProjectOnPlane(beam, Vector3.up);
+        if (laser == null || beam.sqrMagnitude < 0.0001f) return;
+
+        Quaternion rotation = Quaternion.LookRotation(Vector3.Cross(beam.normalized, Vector3.up));
+        laser.transform.rotation = rotation;
+
+        SerializedObject serialized = new SerializedObject(laser.GetComponent<CS_SecurityLaser>());
+        serialized.FindProperty("_moveDirection").vector3Value = Quaternion.Inverse(rotation) * travel;
+        serialized.ApplyModifiedPropertiesWithoutUndo();
+        EditorUtility.SetDirty(laser);
+    }
+
+    /// <summary>
+    /// 防犯レーザーの棒を、往復する向き(travel)を軸にして、標準の向き(往復する向きに直角。水平)から、指定した角度(度)だけ回すメソッド
+    /// 0度は水平、90度は真上(棒が縦に立つ)。往復する向きは変わらない
+    /// </summary>
+    public static void SetLaserRoll(GameObject laser, Vector3 travel, float degrees)
+    {
+        if (laser == null || travel.sqrMagnitude < 0.0001f) return;
+
+        travel = travel.normalized;
+        Quaternion rotation = Quaternion.AngleAxis(degrees, travel) * Quaternion.LookRotation(travel);
+        laser.transform.rotation = rotation;
+
+        SerializedObject serialized = new SerializedObject(laser.GetComponent<CS_SecurityLaser>());
+        serialized.FindProperty("_moveDirection").vector3Value = Vector3.forward;
+        serialized.ApplyModifiedPropertiesWithoutUndo();
+        EditorUtility.SetDirty(laser);
+    }
+
+    /// <summary>
+    /// 防犯レーザーの、標準の棒の向き(往復する向きに直角。水平)を返すメソッド
+    /// </summary>
+    public static Vector3 GetDefaultBeamDirection(Vector3 travel)
+    {
+        return Vector3.Cross(Vector3.up, travel).normalized;
     }
 
     /// <summary>

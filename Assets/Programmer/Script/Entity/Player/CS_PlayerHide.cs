@@ -470,7 +470,7 @@ public class CS_PlayerHide : NetworkBehaviour
     {
         CS_SAPoint endedPoint = _point;
         bool wasFlying = _isFlying;
-
+        
         _isFlying = false;
         _point = null;
         _elapsed = 0f;
@@ -479,6 +479,8 @@ public class CS_PlayerHide : NetworkBehaviour
 
         if (!wasFlying) return;
 
+        Vector3 newVel = exitVelocity;
+        newVel.y = 0f;
         _player.EndSAMotion(exitVelocity, drag);   // SA専用の速度をクリアし、終わった時の速度を渡す(水平は空中の勢いになる)
         onFlyEnd?.Invoke(endedPoint);
     }

@@ -122,6 +122,10 @@ public class CS_Player : NetworkBehaviour
     [SerializeField] private LayerMask _groundLayers = ~0;      // 地面と判定するレイヤー
     [SerializeField] private float _groundCheckDistance = 0.15f;  // 接地判定用の余白
 
+    [Header("落下(ふわっとしないよう、落ちている間だけ重力を強くする)")]
+    [SerializeField][Min(1f)] private float _fallGravityMultiplier = 2f;   // 落下中の重力の倍率(1で通常の重力のまま)。上昇中・ジャンプの高さには影響しない
+    [SerializeField][Min(0f)] private float _maxFallSpeed = 30f;           // 落下速度の上限(m/秒)。0なら上限なし
+
     [Header("ダッシュ")]
     [SerializeField] private float _dashDuration = 0.2f;    // ダッシュが続く時間(秒)
     [SerializeField] private float _dashCooldown = 0.8f;    // 次に出せるようになるまでの時間(秒)
@@ -429,7 +433,24 @@ public class CS_Player : NetworkBehaviour
         {
             Move();
             ApplyJump();
+            ApplyFallGravity();
         }
+    }
+
+    // 空中で落ちている間だけ、重力を_fallGravityMultiplier倍にする(落下がふわっとしないように)
+    // 通常の重力(Physics.gravity)に足りない分を足す。落下速度は_maxFallSpeedまで
+    private void ApplyFallGravity()
+    {
+        if (_isGroundedNow || !_rigidbody.useGravity) return;
+
+        Vector3 velocity = _rigidbody.linearVelocity;
+        if (velocity.y >= 0f) return;
+
+        float extraGravity = Mathf.Abs(Physics.gravity.y) * (_fallGravityMultiplier - 1f);
+        float newY = velocity.y - extraGravity * Time.fixedDeltaTime;
+        if (_maxFallSpeed > 0f) newY = Mathf.Max(newY, -_maxFallSpeed);
+
+        _rigidbody.linearVelocity = new Vector3(velocity.x, newY, velocity.z);
     }
 
     // ========================================

@@ -12,7 +12,8 @@ using UnityEngine;
 
 /// <summary>
 /// タイトルメニューの描画を担当するView
-/// ・選択フレーム(画像)を、選択中の項目の位置へ移動する
+/// ・選択中の項目は「選択時の画像」、それ以外は「通常の画像」を表示する(ON/OFFの切り替え)
+/// ・選択フレーム(画像)を使う場合は、選択中の項目の位置へ移動する(未設定なら使わない)
 /// ・画面上の座標がどの項目の上かを調べる(マウス用)
 /// ・「いつ選択を変えるか」「決定するか」は判断しない(Presenter の仕事)
 /// ・Presenter / Input と同じ GameObject にアタッチする
@@ -26,7 +27,11 @@ public sealed class CS_UITitleMenuView :
 
     /// <summary>
     /// メニュー項目1つ分の設定。
-    /// 項目の種類と、その項目の見た目(RectTransform)を対応づける。
+    /// 項目の種類と、その項目の見た目を対応づける。
+    ///
+    /// ・rect           : 項目の範囲(マウスの当たり判定と、フレームの移動先に使う)
+    /// ・normalObject   : 通常の画像(選択されていない時だけ表示する)
+    /// ・selectedObject : 選択時の画像(選択されている時だけ表示する)
     /// </summary>
     [Serializable]
     private sealed class ItemSet
@@ -34,31 +39,45 @@ public sealed class CS_UITitleMenuView :
         [SerializeField]
         private CSE_TitleMenuItem _itemType;
 
+        [Tooltip("項目の範囲。通常の画像と選択時の画像の親にする")]
         [SerializeField]
         private RectTransform _rect;
+
+        [Tooltip("通常の画像のGameObject。選択されていない時に表示する")]
+        [SerializeField]
+        private GameObject _normalObject;
+
+        [Tooltip("選択時の画像のGameObject。選択されている時に表示する")]
+        [SerializeField]
+        private GameObject _selectedObject;
 
         public CSE_TitleMenuItem itemType =>
             _itemType;
 
         public RectTransform rect =>
             _rect;
+
+        public GameObject normalObject =>
+            _normalObject;
+
+        public GameObject selectedObject =>
+            _selectedObject;
     }
 
     // =========================================================
     // Inspector
     // =========================================================
 
-    [Header("選択フレーム(画像)")]
-    [Tooltip("選択中の項目へ移動するフレーム。Layout Group の子には置かない")]
-    [SerializeField]
-    private RectTransform _frame;
-
     [Header("メニュー項目(SoloMode / MultiMode / End)")]
-    [Tooltip("項目の種類と、ボタン画像のRectTransformを対応づける。順番は問わない")]
+    [Tooltip("項目の種類と、通常/選択時の画像を対応づける。順番は問わない")]
     [SerializeField]
     private ItemSet[] _items;
 
-    [Header("フレーム移動")]
+    [Header("選択フレーム(任意)")]
+    [Tooltip("使う場合だけ設定する。選択中の項目へ移動する。空なら使わない。Layout Group の子には置かない")]
+    [SerializeField]
+    private RectTransform _frame;
+
     [Tooltip("フレームが項目へ移動する時間(秒)。0なら即移動")]
     [Min(0f)]
     [SerializeField]
@@ -68,8 +87,8 @@ public sealed class CS_UITitleMenuView :
     // 内部フィールド
     // =========================================================
 
-    // 項目番号(enumの値)で引ける RectTransform の一覧
-    private RectTransform[] _itemRects;
+    // 項目番号(enumの値)で引ける設定の一覧
+    private ItemSet[] _itemSets;
 
     // マウスの当たり判定に使うカメラ(Overlay の Canvas なら null)
     private Camera _uiCamera;
@@ -84,17 +103,16 @@ public sealed class CS_UITitleMenuView :
     private void Awake()
     {
         int itemCount = Enum.GetValues(typeof(CSE_TitleMenuItem)).Length;
-        _itemRects = new RectTransform[itemCount];
+        _itemSets = new ItemSet[itemCount];
 
-        // enumの値を番号にして、RectTransform を並べ直す(Inspectorの並び順に依存しない)
+        // enumの値を番号にして、設定を並べ直す(Inspectorの並び順に依存しない)
         if (_items != null)
         {
             for (int i = 0; i < _items.Length; i++)
             {
                 ItemSet item = _items[i];
 
-                if (item == null ||
-                    item.rect == null)
+                if (item == null)
                 {
                     continue;
                 }
@@ -107,17 +125,42 @@ public sealed class CS_UITitleMenuView :
                     continue;
                 }
 
-                _itemRects[index] = item.rect;
+                _itemSets[index] = item;
             }
         }
 
         for (int i = 0; i < itemCount; i++)
         {
-            if (_itemRects[i] == null)
+            ItemSet item = _itemSets[i];
+
+            if (item == null ||
+                item.rect == null)
             {
                 Debug.LogWarning(
                     $"{nameof(CS_UITitleMenuView)}: " +
-                    $"メニュー項目が設定されていません: {(CSE_TitleMenuItem)i}",
+                    $"メニュー項目の範囲(Rect)が設定されていません: {(CSE_TitleMenuItem)i}",
+                    this
+                );
+
+                continue;
+            }
+
+            if (item.normalObject == null ||
+                item.selectedObject == null)
+            {
+                Debug.LogWarning(
+                    $"{nameof(CS_UITitleMenuView)}: " +
+                    "通常の画像または選択時の画像が設定されていません: " +
+                    $"{(CSE_TitleMenuItem)i}",
+                    this
+                );
+            }
+            else if (item.normalObject == item.selectedObject)
+            {
+                Debug.LogWarning(
+                    $"{nameof(CS_UITitleMenuView)}: " +
+                    "通常の画像と選択時の画像に同じGameObjectが設定されています: " +
+                    $"{(CSE_TitleMenuItem)i}",
                     this
                 );
             }
@@ -135,17 +178,81 @@ public sealed class CS_UITitleMenuView :
                     ? null
                     : canvas.worldCamera;
         }
+
+        // Presenter から最初の選択が届くまでの間も、全項目を通常の画像にしておく
+        ApplySelectionVisual(-1);
     }
 
     // =========================================================
-    // 選択フレーム
+    // 選択の表示
+    // =========================================================
+
+    /// <summary>
+    /// 選択中の項目を表示する。Presenter から呼ばれる。
+    /// ・選択中の項目は「選択時の画像」ON、「通常の画像」OFF
+    /// ・それ以外の項目は「選択時の画像」OFF、「通常の画像」ON
+    /// ・選択フレームを設定している場合は、フレームも選択中の項目へ移動する
+    /// animate が false なら、フレームを即座に移動する(最初の表示用)。
+    /// </summary>
+    public void SetSelected(
+        int index,
+        bool animate)
+    {
+        ApplySelectionVisual(index);
+        MoveFrame(index, animate);
+    }
+
+    /// <summary>
+    /// 全項目の「通常の画像」と「選択時の画像」を、ON/OFFで切り替える。
+    /// selectedIndex が範囲外(-1など)なら、全項目が通常の画像になる。
+    /// </summary>
+    private void ApplySelectionVisual(
+        int selectedIndex)
+    {
+        if (_itemSets == null)
+        {
+            return;
+        }
+
+        for (int i = 0;
+             i < _itemSets.Length;
+             i++)
+        {
+            ItemSet item = _itemSets[i];
+
+            if (item == null)
+            {
+                continue;
+            }
+
+            bool isSelected =
+                i == selectedIndex;
+
+            if (item.normalObject != null)
+            {
+                item.normalObject.SetActive(
+                    !isSelected
+                );
+            }
+
+            if (item.selectedObject != null)
+            {
+                item.selectedObject.SetActive(
+                    isSelected
+                );
+            }
+        }
+    }
+
+    // =========================================================
+    // 選択フレーム(任意)
     // =========================================================
 
     /// <summary>
     /// 選択フレームを、指定した項目の位置へ移動する。
-    /// animate が false なら即座に移動する(最初の表示用)。
+    /// フレームが未設定なら何もしない。
     /// </summary>
-    public void SetSelected(
+    private void MoveFrame(
         int index,
         bool animate)
     {
@@ -280,19 +387,18 @@ public sealed class CS_UITitleMenuView :
     public int GetItemIndexAt(
         Vector2 screenPoint)
     {
-        if (_itemRects == null)
+        if (_itemSets == null)
         {
             return -1;
         }
 
         for (int i = 0;
-             i < _itemRects.Length;
+             i < _itemSets.Length;
              i++)
         {
-            RectTransform itemRect =
-                _itemRects[i];
-
-            if (itemRect == null)
+            if (!TryGetItemRect(
+                    i,
+                    out RectTransform itemRect))
             {
                 continue;
             }
@@ -319,14 +425,15 @@ public sealed class CS_UITitleMenuView :
     {
         itemRect = null;
 
-        if (_itemRects == null ||
+        if (_itemSets == null ||
             index < 0 ||
-            index >= _itemRects.Length)
+            index >= _itemSets.Length ||
+            _itemSets[index] == null)
         {
             return false;
         }
 
-        itemRect = _itemRects[index];
+        itemRect = _itemSets[index].rect;
         return itemRect != null;
     }
 

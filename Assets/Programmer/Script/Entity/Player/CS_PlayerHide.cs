@@ -411,7 +411,18 @@ public class CS_PlayerHide : NetworkBehaviour
     {
         Vector3 velocity = _flyVelocity;
 
-        EndFly(velocity, _point.releaseDrag);   // 重力・当たり判定を戻し、速度を通常の状態に渡す(CS_Player.EndSAMotion)。ロープを消すonFlyEndもここで呼ばれる
+        // 放した後の水平距離・上向きの速度が決まっている時は、引っ張る速さに関係なく、その固定値で速度を作る
+        // 水平は毎秒e^(-減速率)で弱まるので、飛ぶ距離は 初速÷減速率。逆算して 初速=距離×減速率 にする
+        float fixedDistance = _point.releaseHorizontalDistance;
+        float drag = _point.releaseDrag;
+        if (fixedDistance >= 0f && drag > 0f)
+        {
+            Vector3 horizontal = new Vector3(_flyVelocity.x, 0f, _flyVelocity.z);
+            horizontal = horizontal.sqrMagnitude > 0.0001f ? horizontal.normalized * (fixedDistance * drag) : Vector3.zero;
+            velocity = new Vector3(horizontal.x, _point.releaseUpSpeed, horizontal.z);
+        }
+
+        EndFly(velocity, drag);   // 重力・当たり判定を戻し、速度を通常の状態に渡す(CS_Player.EndSAMotion)。ロープを消すonFlyEndもここで呼ばれる
 
         BeginGhost(velocity, remainingDistance);
     }

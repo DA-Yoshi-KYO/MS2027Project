@@ -84,7 +84,7 @@ public static class CSED_PlacementState
 
     public static float releaseDistanceRate
     {
-        get => EditorPrefs.GetFloat(_prefix + "ReleaseRate", 0.5f);
+        get => EditorPrefs.GetFloat(_prefix + "ReleaseRate", 0.95f);
         set => EditorPrefs.SetFloat(_prefix + "ReleaseRate", value);
     }
 

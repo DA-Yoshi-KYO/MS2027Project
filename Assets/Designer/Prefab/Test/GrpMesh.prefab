@@ -1,0 +1,99 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!1001 &155465843471763573
+PrefabInstance:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Modification:
+    serializedVersion: 3
+    m_TransformParent: {fileID: 0}
+    m_Modifications:
+    - target: {fileID: -8679921383154817045, guid: 534d9678e7ce4e64ca64488a75173311, type: 3}
+      propertyPath: m_LocalPosition.x
+      value: -0
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 534d9678e7ce4e64ca64488a75173311, type: 3}
+      propertyPath: m_LocalPosition.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 534d9678e7ce4e64ca64488a75173311, type: 3}
+      propertyPath: m_LocalPosition.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 534d9678e7ce4e64ca64488a75173311, type: 3}
+      propertyPath: m_LocalRotation.w
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 534d9678e7ce4e64ca64488a75173311, type: 3}
+      propertyPath: m_LocalRotation.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 534d9678e7ce4e64ca64488a75173311, type: 3}
+      propertyPath: m_LocalRotation.y
+      value: -0
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 534d9678e7ce4e64ca64488a75173311, type: 3}
+      propertyPath: m_LocalRotation.z
+      value: -0
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 534d9678e7ce4e64ca64488a75173311, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.x
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 534d9678e7ce4e64ca64488a75173311, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.y
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: -8679921383154817045, guid: 534d9678e7ce4e64ca64488a75173311, type: 3}
+      propertyPath: m_LocalEulerAnglesHint.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 919132149155446097, guid: 534d9678e7ce4e64ca64488a75173311, type: 3}
+      propertyPath: m_Name
+      value: GrpMesh
+      objectReference: {fileID: 0}
+    m_RemovedComponents: []
+    m_RemovedGameObjects: []
+    m_AddedGameObjects: []
+    m_AddedComponents:
+    - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: 534d9678e7ce4e64ca64488a75173311, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 1034844896029360309}
+    - targetCorrespondingSourceObject: {fileID: -1315929889031303929, guid: 534d9678e7ce4e64ca64488a75173311, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 4924524063615822776}
+  m_SourcePrefab: {fileID: 100100000, guid: 534d9678e7ce4e64ca64488a75173311, type: 3}
+--- !u!1 &1074454365564728612 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 919132149155446097, guid: 534d9678e7ce4e64ca64488a75173311, type: 3}
+  m_PrefabInstance: {fileID: 155465843471763573}
+  m_PrefabAsset: {fileID: 0}
+--- !u!114 &1034844896029360309
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1074454365564728612}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ffe1b55d0d204aaba8261288de3c81d7, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CS_ToonShade
+--- !u!1 &8040249011702007154 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: -1315929889031303929, guid: 534d9678e7ce4e64ca64488a75173311, type: 3}
+  m_PrefabInstance: {fileID: 155465843471763573}
+  m_PrefabAsset: {fileID: 0}
+--- !u!114 &4924524063615822776
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8040249011702007154}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0c0191189c3342858b877206d31a9ad7, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CS_ToonEyeReflection

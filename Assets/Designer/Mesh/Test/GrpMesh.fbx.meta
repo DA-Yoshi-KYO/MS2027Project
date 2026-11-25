@@ -1,9 +1,59 @@
 fileFormatVersion: 2
-guid: 5312fc104de362f4b9070baed3debe0a
+guid: 534d9678e7ce4e64ca64488a75173311
 ModelImporter:
   serializedVersion: 24300
   internalIDToNameTable: []
-  externalObjects: {}
+  externalObjects:
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: MT_Test_MLamClothes
+    second: {fileID: 2100000, guid: bfa0d40df248f7240ad5e4d4ce963e35, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: MT_Test_MLamEye
+    second: {fileID: 2100000, guid: 33c086b25c5a00b418982b48c88b10ec, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: MT_Test_MLamFace
+    second: {fileID: 2100000, guid: c2844f2165a79f946930b222a6bba006, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: MT_Test_MLamHair
+    second: {fileID: 2100000, guid: 529ceed61d8d4ce4298ea63054a1db62, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: MT_Test_MLamSkin
+    second: {fileID: 2100000, guid: cb7a8e7284d39254ca43de9ccb2b84a9, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: MT_Test_OutlineMLamClothes
+    second: {fileID: 2100000, guid: e07cd774573c8dc48bd7ca319eb169a3, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: MT_Test_OutlineMLamEye
+    second: {fileID: 2100000, guid: c6bef120c7438ef4da18a45408b13bdb, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: MT_Test_OutlineMLamFace
+    second: {fileID: 2100000, guid: 117a46c61db0c6447b47fa00c3bcd7e2, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: MT_Test_OutlineMLamHair
+    second: {fileID: 2100000, guid: e6ac5eb33914a50428eacbe4d4c6fb5f, type: 2}
+  - first:
+      type: UnityEngine:Material
+      assembly: UnityEngine.CoreModule
+      name: MT_Test_OutlineMLamSkin
+    second: {fileID: 2100000, guid: c991768cbebacb04f9e6f867e7cea9df, type: 2}
   materials:
     materialImportMode: 2
     materialName: 0
@@ -31,7 +81,7 @@ ModelImporter:
     extraExposedTransformPaths: []
     extraUserProperties: []
     clipAnimations: []
-    isReadable: 0
+    isReadable: 1
   meshes:
     lODScreenPercentages: []
     globalScale: 1
@@ -42,8 +92,8 @@ ModelImporter:
     importPhysicalCameras: 1
     importVisibility: 1
     importBlendShapes: 1
-    importCameras: 1
-    importLights: 1
+    importCameras: 0
+    importLights: 0
     nodeNameCollisionStrategy: 1
     fileIdsGeneration: 2
     swapUVChannels: 0
@@ -80,7 +130,7 @@ ModelImporter:
     blendShapeNormalImportMode: 1
     normalSmoothingSource: 0
   referencedClips: []
-  importAnimation: 1
+  importAnimation: 0
   humanDescription:
     serializedVersion: 3
     human: []
@@ -99,7 +149,7 @@ ModelImporter:
     skeletonHasParents: 1
   lastHumanDescriptionAvatarSource: {instanceID: 0}
   autoGenerateAvatarMappingIfUnspecified: 1
-  animationType: 2
+  animationType: 0
   humanoidOversampling: 1
   avatarSetup: 0
   addHumanoidExtraRootOnlyWhenUsingAvatar: 1

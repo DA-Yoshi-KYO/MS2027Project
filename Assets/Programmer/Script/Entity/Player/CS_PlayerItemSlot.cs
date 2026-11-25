@@ -38,6 +38,7 @@ public class CS_PlayerItemSlot : NetworkBehaviour, ICarriableItemHolder
     [SerializeField] private CSO_ItemDataCarriable[] _syncableItems;   // 持てるアイテムの一覧(この番号で所持アイテムを同期する)
 
     private CS_Player _player;
+    private bool _seHadItem;                    // 拾った時のSE用に、前に持っていたかを覚える
     private CSO_ItemDataCarriable _heldItem;    // サーバー(またはオフライン)が持つ本体
 
     // 書き込みはサーバーのみ。_syncableItemsの何番目を持っているか(-1 = 何も持っていない)
@@ -51,6 +52,17 @@ public class CS_PlayerItemSlot : NetworkBehaviour, ICarriableItemHolder
     private void Awake()
     {
         _player = GetComponent<CS_Player>();
+        onItemChanged += HandleItemChangedSe;
+    }
+
+    // 拾った時のSE。持っていない→持った時だけ鳴らす。持ち物は全員に同期されるので、各クライアントが自分のPCで鳴らす(通信しない)
+    private void HandleItemChangedSe(CSO_ItemDataCarriable item)
+    {
+        bool hasNow = item != null;
+        bool isPickedUp = hasNow && !_seHadItem;
+        _seHadItem = hasNow;
+
+        if (isPickedUp) CS_SoundManager.instance?.PlaySe(CSE_SeId.PlayerItemPickup, transform.position);
     }
 
     public override void OnNetworkSpawn()
@@ -109,6 +121,7 @@ public class CS_PlayerItemSlot : NetworkBehaviour, ICarriableItemHolder
 
         CSO_ItemDataCarriable item = _heldItem;
         SetHeldItem(null);
+        CS_NetworkSoundPlayer.instance?.PlaySeForEveryone(CSE_SeId.PlayerItemUse, transform.position);   // 使用の判定はサーバーなので全員へ
 
         item.Activate(gameObject);
     }

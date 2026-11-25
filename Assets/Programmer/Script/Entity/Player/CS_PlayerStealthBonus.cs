@@ -135,6 +135,9 @@ public class CS_PlayerStealthBonus : NetworkBehaviour
     {
         ApplyScanRadius();
         onStreakChanged?.Invoke(current);
+
+        // 連続撃破が増えた時のSE(途切れて0に戻る時は鳴らさない)。全クライアントで起きるので、各自のPCで鳴らす
+        if (current > previous) CS_SoundManager.instance?.PlaySe(CSE_SeId.PlayerLimitBreakBonus, transform.position);
     }
 
     private void ApplyScanRadius()

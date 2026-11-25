@@ -638,6 +638,9 @@ public class CS_SecurityDrone : NetworkBehaviour, IDamageable, IStunnable
     /// <summary>
     /// 状態を変えるメソッド(ネットワーク接続中はサーバーが全員へ同期する。サーバー、またはオフラインで呼ぶ)
     /// </summary>
+    private bool _hasStateSeBaseline;               // 状態のSEの前の状態を覚えたか
+    private CSE_SecurityDroneState _stateSeLast;    // 状態のSEの前の状態
+
     private void SetState(CSE_SecurityDroneState newState)
     {
         if (_currentState == newState) return;
@@ -645,6 +648,25 @@ public class CS_SecurityDrone : NetworkBehaviour, IDamageable, IStunnable
         _currentState = newState;
         if (IsSpawned && IsServer) _state.Value = newState;
         ApplyVisual(newState);
+    }
+
+    // 状態が変わった時のSE(巡回・見つけた・追跡)。状態は全員に同期され、サーバーとクライアントの両方から呼ばれるので、
+    // 前の状態を覚えて1回だけ、各PCが自分で鳴らす(最初の状態では鳴らさない)
+    private void PlayStateSe(CSE_SecurityDroneState current)
+    {
+        bool hasPrevious = _hasStateSeBaseline;
+        bool isChanged = _stateSeLast != current;
+        _stateSeLast = current;
+        _hasStateSeBaseline = true;
+
+        if (!hasPrevious || !isChanged) return;
+
+        switch (current)
+        {
+            case CSE_SecurityDroneState.Patrol: CS_SoundManager.instance?.PlaySe(CSE_SeId.PatrolDronePatrol, transform.position); break;
+            case CSE_SecurityDroneState.Detected: CS_SoundManager.instance?.PlaySe(CSE_SeId.PatrolDroneSpotted, transform.position); break;
+            case CSE_SecurityDroneState.Chase: CS_SoundManager.instance?.PlaySe(CSE_SeId.PatrolDroneChase, transform.position); break;
+        }
     }
 
     // 状態が変わった時(クライアント)
@@ -658,6 +680,8 @@ public class CS_SecurityDrone : NetworkBehaviour, IDamageable, IStunnable
     /// </summary>
     private void ApplyVisual(CSE_SecurityDroneState current)
     {
+        PlayStateSe(current);
+
         if (_faceRenderer != null) _faceRenderer.enabled = current != CSE_SecurityDroneState.Stunned;
         if (_faceBlink == null) return;
 

@@ -401,9 +401,18 @@ public class CS_VillainGroup
         onAnyCrimeCompleted?.Invoke(this);
         SyncProgress(true);
 
+        bool isSePlayed = false;
         foreach (CS_VillainCrime member in _members)
         {
-            if (IsActive(member)) member.Escape();
+            if (!IsActive(member)) continue;
+
+            // 完遂のSEはグループで1回だけ、最初のメンバーの位置で鳴らす
+            if (!isSePlayed)
+            {
+                CS_NetworkSoundPlayer.instance?.PlaySeForEveryone(CSE_SeId.VillainCrimeComplete, member.transform.position);
+                isSePlayed = true;
+            }
+            member.Escape();
         }
     }
 

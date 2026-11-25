@@ -122,6 +122,7 @@ public class CS_PlayerInteractor : NetworkBehaviour
         if (!IsSpawned)
         {
             target.BeginInteract(gameObject);
+            PlayInteractSe();
             return;
         }
 
@@ -142,7 +143,16 @@ public class CS_PlayerInteractor : NetworkBehaviour
     [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Owner)]
     private void BeginInteractRpc(NetworkObjectReference targetReference)
     {
-        if (TryGetInteractable(targetReference, out IInteractable target)) target.BeginInteract(gameObject);
+        if (!TryGetInteractable(targetReference, out IInteractable target)) return;
+
+        target.BeginInteract(gameObject);
+        PlayInteractSe();
+    }
+
+    // 調べる・操作する時のSE。開始の判定はサーバーなので、全員へ鳴らす
+    private void PlayInteractSe()
+    {
+        CS_NetworkSoundPlayer.instance?.PlaySeForEveryone(CSE_SeId.PlayerInteract, transform.position);
     }
 
     [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Owner)]

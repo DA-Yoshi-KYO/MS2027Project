@@ -79,6 +79,7 @@ public class CS_PlayerStats : NetworkBehaviour
     public float currentGauge => _gauge.currentGauge;   // 実体はCS_PlayerSpecialGaugeにある値の中継
 
     public event Action<float> onMaxHpChanged;
+    private int _statusUpSeFrame = -1;     // 能力アップのSEを鳴らした最後のフレーム
     public event Action<float> onAttackPowerChanged;
     public event Action<float> onMoveSpeedChanged;
     public event Action<float> onJumpPowerChanged;
@@ -234,12 +235,55 @@ public class CS_PlayerStats : NetworkBehaviour
         return character != null && character.stats != null ? character.stats : _baseStats;
     }
 
-    private void HandleMaxHpChanged(float previous, float current) => onMaxHpChanged?.Invoke(current);
-    private void HandleAttackPowerChanged(float previous, float current) => onAttackPowerChanged?.Invoke(current);
-    private void HandleMoveSpeedChanged(float previous, float current) => onMoveSpeedChanged?.Invoke(current);
-    private void HandleJumpPowerChanged(float previous, float current) => onJumpPowerChanged?.Invoke(current);
-    private void HandleDashSpeedChanged(float previous, float current) => onDashSpeedChanged?.Invoke(current);
-    private void HandleSprintSpeedChanged(float previous, float current) => onSprintSpeedChanged?.Invoke(current);
-    private void HandleMaxGaugeChanged(float previous, float current) => onMaxGaugeChanged?.Invoke(current);
-    private void HandleSpecialAttackPowerChanged(float previous, float current) => onSpecialAttackPowerChanged?.Invoke(current);
+    // 能力が上がった時のSE。最初の設定(前の値が0以下)と下がった時は鳴らさない。
+    // 同じフレームに複数の能力が上がっても1回だけ。全クライアントで起きるので、各自のPCで鳴らす(通信しない)
+    private void PlayStatusUpSe(float previous, float current)
+    {
+        if (previous <= 0f || current <= previous) return;
+        if (_statusUpSeFrame == Time.frameCount) return;
+
+        _statusUpSeFrame = Time.frameCount;
+        CS_SoundManager.instance?.PlaySe(CSE_SeId.PlayerStatusUp, transform.position);
+    }
+
+    private void HandleMaxHpChanged(float previous, float current)
+    {
+        onMaxHpChanged?.Invoke(current);
+        PlayStatusUpSe(previous, current);
+    }
+    private void HandleAttackPowerChanged(float previous, float current)
+    {
+        onAttackPowerChanged?.Invoke(current);
+        PlayStatusUpSe(previous, current);
+    }
+    private void HandleMoveSpeedChanged(float previous, float current)
+    {
+        onMoveSpeedChanged?.Invoke(current);
+        PlayStatusUpSe(previous, current);
+    }
+    private void HandleJumpPowerChanged(float previous, float current)
+    {
+        onJumpPowerChanged?.Invoke(current);
+        PlayStatusUpSe(previous, current);
+    }
+    private void HandleDashSpeedChanged(float previous, float current)
+    {
+        onDashSpeedChanged?.Invoke(current);
+        PlayStatusUpSe(previous, current);
+    }
+    private void HandleSprintSpeedChanged(float previous, float current)
+    {
+        onSprintSpeedChanged?.Invoke(current);
+        PlayStatusUpSe(previous, current);
+    }
+    private void HandleMaxGaugeChanged(float previous, float current)
+    {
+        onMaxGaugeChanged?.Invoke(current);
+        PlayStatusUpSe(previous, current);
+    }
+    private void HandleSpecialAttackPowerChanged(float previous, float current)
+    {
+        onSpecialAttackPowerChanged?.Invoke(current);
+        PlayStatusUpSe(previous, current);
+    }
 }

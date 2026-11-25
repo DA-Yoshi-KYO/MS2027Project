@@ -339,6 +339,7 @@ public class CS_PlayerAmbush : NetworkBehaviour
             _hasStruck = true;
             RequestStrike(_target);
             onAmbushHitTiming?.Invoke(_target);
+            CS_NetworkSoundPlayer.instance?.PlaySeForEveryone(CSE_SeId.PlayerSurpriseAttack, transform.position);   // 本人の手元でだけ起きるので全員へ
         }
 
         if (_elapsed >= Mathf.Max(_strikeDelay, _strikeDuration)) EndAmbush();

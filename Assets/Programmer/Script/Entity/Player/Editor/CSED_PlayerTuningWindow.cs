@@ -157,6 +157,7 @@ public class CSED_PlayerTuningWindow : EditorWindow
             new FieldDef("_range", "奇襲できる距離(m)", "悪人との横方向の距離がこれ以内なら奇襲できる(飛び込む距離)"),
             new FieldDef("_backAngle", "背後とみなす角度(度)", "悪人の正面から見て、この角度以上うしろなら背後"),
             new FieldDef("_aboveHeight", "上とみなす高さ(m)", "悪人よりこれ以上高ければ上を取っている"),
+            new FieldDef("_windupTime", "飛び込む前の溜め(秒)", "押してから飛び込むまで、その場で溜める時間。0で溜めなし(押した瞬間に飛び込む)"),
             new FieldDef("_dashSpeed", "飛び込む速さ(m/秒)", ""),
             new FieldDef("_strikeDistance", "着いたとみなす距離(m)", ""),
             new FieldDef("_verticalTolerance", "高さを合わせる誤差(m)", "悪人との足元の高さの差がこれ以内なら、縦に飛び込まない"),

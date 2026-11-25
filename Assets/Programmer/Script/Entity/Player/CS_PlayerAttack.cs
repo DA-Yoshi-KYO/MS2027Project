@@ -37,6 +37,13 @@ using UnityEngine;
  *   奇襲中は通常攻撃を出さない。奇襲が終わった後にボタンを押すと、1段目から始まる
  * ・SAでハイドポイントへ飛んでいる間(CS_PlayerHide.isHiding)は、通常攻撃を出さない
  *   着いた後は普通の状態に戻るので、いつも通り攻撃・奇襲できる(隠れられる箱の中なら、奇襲の「背後か上」は見ない)
+ * ・ジャスト攻撃(手触りの調整。早押し・連打より、リズムよく押すほど強い)
+ *   今の段の判定が出た後、モーションが終わる_justEarlyTime秒前から、終わった_justLateTime秒後までに押すと、次の段をすぐ出す(ジャスト)
+ *   ジャストの段はダメージが_justDamageRate倍、当たると必殺ゲージが_justGaugeGain溜まる。この段で受付より前に押していた(早押し・連打)時はジャストにしない
+ * ・ブリンク攻撃: 待機中に、ブリンク中か、ブリンクが終わって_blinkAttackWindow秒以内に攻撃すると、ブリンクを止めて1段目を強い一撃で出す
+ *   ダメージが_blinkAttackDamageRate倍、当たると必殺ゲージが_blinkAttackGaugeGain溜まる(踏み込みはエイムアシストが行う)
+ *   ジャスト・ブリンクのおまけ(StepBonus)は判定の依頼(HitRpc)と一緒にサーバーへ送り、サーバーがダメージに掛ける
+ *   見た目・手触り(光る・ヒットストップ)はCS_PlayerHitFeelがonJustAttack・onBlinkAttack・currentStepBonusを見て出す
  * ・動けなくなった(死亡・スタン)時はコンボを中断する
  * ・必殺技(CS_PlayerSpecialAttack)を行っている間は、通常攻撃を行わない(isAttacking/isPerformingSpecialで排他制御)
  */
@@ -54,8 +61,27 @@ public class CS_PlayerAttack : NetworkBehaviour
     [Header("攻撃判定")]
     [SerializeField] private LayerMask _targetLayers;           // ダメージを与える対象のレイヤー
 
+    [Header("ジャスト攻撃(モーションの終わり際に合わせて押すと、次の段がすぐ出て強くなる。早押し・連打ではならない)")]
+    [SerializeField][Min(0f)] private float _justEarlyTime = 0.15f;      // モーションが終わる何秒前から受け付けるか
+    [SerializeField][Min(0f)] private float _justLateTime = 0.2f;        // モーションが終わった何秒後まで受け付けるか
+    [SerializeField][Min(1f)] private float _justDamageRate = 1.5f;      // ジャストで出した段のダメージの倍率
+    [SerializeField][Min(0f)] private float _justGaugeGain = 2f;         // ジャストで出した段が当たった時に溜まる必殺ゲージ(1体につき)
+
+    [Header("ブリンク攻撃(ブリンク中・直後に攻撃すると、踏み込んだ強い一撃になる)")]
+    [SerializeField][Min(0f)] private float _blinkAttackWindow = 0.3f;   // ブリンクが終わってから何秒まで受け付けるか(ブリンク中も受け付ける。0で無し)
+    [SerializeField][Min(1f)] private float _blinkAttackDamageRate = 2f; // ブリンク攻撃のダメージの倍率
+    [SerializeField][Min(0f)] private float _blinkAttackGaugeGain = 3f;  // ブリンク攻撃が当たった時に溜まる必殺ゲージ(1体につき)
+
     private const int _noStep = -1;         // 待機中(攻撃していない)を表す値
     private const int _hitBufferSize = 16;  // 一度に判定できるコライダーの上限
+
+    // 段に付いたおまけ(ジャスト・ブリンク攻撃)。判定の依頼と一緒にサーバーへ送る
+    public enum StepBonus : byte
+    {
+        None = 0,
+        Just = 1,    // ジャスト攻撃(モーションの終わり際に合わせて押した)
+        Blink = 2,   // ブリンク攻撃(ブリンク中・直後に押した)
+    }
 
     private CS_Player _player;
     private CS_PlayerStats _stats;
@@ -71,6 +97,9 @@ public class CS_PlayerAttack : NetworkBehaviour
     private float _elapsed;                 // 現在の段が始まってからの経過時間
     private bool _hasHit;                   // 現在の段の攻撃判定を行ったか
     private bool _isInputBuffered;          // 攻撃モーション中に次の入力があったか(先行入力)
+    private bool _isEarlyPressed;           // この段で、ジャストの受付より前に押したか(連打・早押しはジャストにしない)
+    private StepBonus _stepBonus;           // 今の段に付いたおまけ
+    private float _holdUntil;               // この時刻(Time.timeScaleの影響を受けない時間)まで、コンボの進行を止める(ヒットストップ)
 
     public bool isAttacking => _currentStep != _noStep || isAmbushing;   // コンボ中・奇襲中か(CS_PlayerSpecialAttackが参照)
     private bool isAmbushing => _ambush != null && _ambush.isAmbushing;
@@ -79,7 +108,11 @@ public class CS_PlayerAttack : NetworkBehaviour
     public event System.Action<int> onStepStarted;
     // 操作しているクライアントでだけ発生する(引数は何段目か)。判定が出る瞬間に呼ばれる。カメラの揺れなどが購読する
     public event System.Action<int> onStepHitTiming;
+    // ジャスト攻撃・ブリンク攻撃が出た時(操作しているクライアントでだけ発生する。引数は何段目か)。見た目・手触りの演出が購読する
+    public event System.Action<int> onJustAttack;
+    public event System.Action onBlinkAttack;
     public int currentStep => _currentStep;               // 現在の段(0始まり、攻撃していなければ-1)
+    public StepBonus currentStepBonus => _stepBonus;     // 今の段に付いたおまけ(ジャスト・ブリンク攻撃)
     public IReadOnlyList<CSO_AttackData> attackSteps => _attackSteps;
     public LayerMask targetLayers => _targetLayers;       // ダメージを与える対象のレイヤー(カメラの揺れの当たり確認にも使う)
 
@@ -136,12 +169,28 @@ public class CS_PlayerAttack : NetworkBehaviour
     // 攻撃ボタンが押されたときの処理
     private void OnAttackPressed()
     {
-        // 待機中 → 奇襲できる悪人がいれば奇襲、いなければ1段目から開始する
+        // 待機中 → 奇襲できる悪人がいれば奇襲。ブリンク中・直後ならブリンク攻撃。どちらでもなければ1段目から開始する
         if (_currentStep == _noStep)
         {
             if (_ambush != null && _ambush.TryStartAmbush()) return;
 
+            if (_blinkAttackWindow > 0f && _player.timeSinceDashEnded <= _blinkAttackWindow)
+            {
+                _player.CancelDash();
+                StartStep(0, StepBonus.Blink);
+                onBlinkAttack?.Invoke();
+                return;
+            }
+
             StartStep(0);
+            return;
+        }
+
+        // モーションの終わり際(ジャストの受付)に押した → 次の段をすぐ出す(早押し・連打した段はジャストにしない)
+        if (IsInJustWindow())
+        {
+            StartStep(_currentStep + 1, StepBonus.Just);
+            onJustAttack?.Invoke(_currentStep);
             return;
         }
 
@@ -149,6 +198,7 @@ public class CS_PlayerAttack : NetworkBehaviour
         if (!IsStepFinished())
         {
             _isInputBuffered = true;
+            _isEarlyPressed = true;
             return;
         }
 
@@ -162,13 +212,14 @@ public class CS_PlayerAttack : NetworkBehaviour
         if (_currentStep == _noStep) return;
 
         CSO_AttackData step = _attackSteps[_currentStep];
+        if (Time.unscaledTime < _holdUntil) return;   // ヒットストップの間は進めない(モーションと合わせる)
         _elapsed += Time.deltaTime * _stats.comboSpeedRate;   // 暗躍ボーナスでコンボのモーションが速くなる
 
         // 判定のタイミングになったら、一度だけ判定を依頼する
         if (!_hasHit && _elapsed >= step.hitDelay)
         {
             _hasHit = true;
-            RequestHit(_currentStep);
+            RequestHit(_currentStep, _stepBonus);
             onStepHitTiming?.Invoke(_currentStep);
         }
 
@@ -185,13 +236,15 @@ public class CS_PlayerAttack : NetworkBehaviour
         }
     }
 
-    // 指定した段の攻撃を開始する
-    private void StartStep(int stepIndex)
+    // 指定した段の攻撃を開始する(bonus: ジャスト・ブリンク攻撃のおまけ)
+    private void StartStep(int stepIndex, StepBonus bonus = StepBonus.None)
     {
         _currentStep = stepIndex;
         _elapsed = 0f;
         _hasHit = false;
         _isInputBuffered = false;
+        _isEarlyPressed = false;
+        _stepBonus = bonus;
         onStepStarted?.Invoke(stepIndex);
     }
 
@@ -204,6 +257,13 @@ public class CS_PlayerAttack : NetworkBehaviour
         return true;
     }
 
+    // コンボの進行をseconds秒(Time.timeScaleの影響を受けない時間)止める(ヒットストップ。CS_PlayerHitFeelが使う)
+    public void Hold(float seconds)
+    {
+        if (seconds <= 0f) return;
+        _holdUntil = Mathf.Max(_holdUntil, Time.unscaledTime + seconds);
+    }
+
     // コンボを終了して待機に戻る
     private void ResetCombo()
     {
@@ -211,6 +271,17 @@ public class CS_PlayerAttack : NetworkBehaviour
         _elapsed = 0f;
         _hasHit = false;
         _isInputBuffered = false;
+        _isEarlyPressed = false;
+        _stepBonus = StepBonus.None;
+    }
+
+    // ジャストの受付の間か(今の段の判定が出た後、モーションが終わる_justEarlyTime秒前から、終わった_justLateTime秒後まで。早押しした段は除く)
+    private bool IsInJustWindow()
+    {
+        if (!_hasHit || _isEarlyPressed || !HasNextStep()) return false;
+
+        float remaining = _attackSteps[_currentStep].duration - _elapsed;
+        return remaining <= _justEarlyTime && remaining >= -_justLateTime;
     }
 
     private bool HasNextStep()
@@ -237,7 +308,7 @@ public class CS_PlayerAttack : NetworkBehaviour
     }
 
     // 攻撃判定を依頼する(ダメージはサーバーで確定させる)
-    private void RequestHit(int stepIndex)
+    private void RequestHit(int stepIndex, StepBonus bonus)
     {
         // 判定は、攻撃した本人の手元の位置・向き(エイムアシストで補正済み)で行う
         // (サーバー上の位置・向きはNetworkTransformの同期で少し遅れるため、補正した向きがまだ届いていないことがある)
@@ -247,22 +318,22 @@ public class CS_PlayerAttack : NetworkBehaviour
         // オフライン(テストシーン)では、その場で判定する
         if (!IsSpawned)
         {
-            ExecuteHit(stepIndex, position, forward);
+            ExecuteHit(stepIndex, position, forward, bonus);
             return;
         }
 
-        HitRpc(stepIndex, position, forward);
+        HitRpc(stepIndex, position, forward, (byte)bonus);
     }
 
     // Ownerからサーバーへ、判定の実行を依頼する
     [Rpc(SendTo.Server, InvokePermission = RpcInvokePermission.Owner)]
-    private void HitRpc(int stepIndex, Vector3 position, Vector3 forward)
+    private void HitRpc(int stepIndex, Vector3 position, Vector3 forward, byte bonus)
     {
-        ExecuteHit(stepIndex, position, forward);
+        ExecuteHit(stepIndex, position, forward, bonus <= (byte)StepBonus.Blink ? (StepBonus)bonus : StepBonus.None);
     }
 
     // 攻撃判定を行い、当たった相手のダメージ処理を呼ぶ(サーバー、またはオフラインで実行される)
-    private void ExecuteHit(int stepIndex, Vector3 position, Vector3 forward)
+    private void ExecuteHit(int stepIndex, Vector3 position, Vector3 forward, StepBonus bonus)
     {
         // 不正な段番号は無視する(クライアントからの値は信用しない)
         if (stepIndex < 0 || stepIndex >= _attackSteps.Length) return;
@@ -276,12 +347,32 @@ public class CS_PlayerAttack : NetworkBehaviour
 
         foreach (IDamageable target in _hitTargets)
         {
-            float damage = step.CalculateDamage(context, target) * _stats.currentAttackPower;
+            float damage = step.CalculateDamage(context, target) * _stats.currentAttackPower * GetBonusDamageRate(bonus);
 
             DealDamage(target, damage);
             CS_AttackHitDetector.TryKnockback(target, position);   // 攻撃した位置から離れる方向へ下がる
             step.OnHit(context, target);
-            _gauge.Fill(step.gaugeGain);
+            _gauge.Fill(step.gaugeGain + GetBonusGaugeGain(bonus));
+        }
+    }
+
+    private float GetBonusDamageRate(StepBonus bonus)
+    {
+        switch (bonus)
+        {
+            case StepBonus.Just: return _justDamageRate;
+            case StepBonus.Blink: return _blinkAttackDamageRate;
+            default: return 1f;
+        }
+    }
+
+    private float GetBonusGaugeGain(StepBonus bonus)
+    {
+        switch (bonus)
+        {
+            case StepBonus.Just: return _justGaugeGain;
+            case StepBonus.Blink: return _blinkAttackGaugeGain;
+            default: return 0f;
         }
     }
 

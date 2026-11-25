@@ -28,6 +28,7 @@ using UnityEngine;
  * ・キャラクターの必殺技が「効果だけ」(CSO_PlayableCharacter.hasSpecialAttackがfalse。ギロ・イシュなど)の時は、攻撃のモーションを出さず、
  *   ボタンを押した瞬間にサーバーへ頼んでゲージを消費し、onSpecialActivatedを出す(効果が始まる)。onSpecialStarted・onSpecialHitTimingは出さない
  *   (攻撃の見た目・エイムアシストの踏み込み・カメラの揺れが出ないように)。本人の手元ではonEffectOnlyUsedを出す(カットインなどの演出用)
+ * ・カットイン(CS_PlayerSpecialCutIn)が付いていれば、カットインの間は必殺技の進行を止めて待つ(攻撃する必殺技は、カットインが終わってから当たる)
  */
 // ========================================
 
@@ -52,6 +53,7 @@ public class CS_PlayerSpecialAttack : NetworkBehaviour
     private CS_PlayerAttack _attack;
     private CS_PlayerScoring _scoring;
     private CS_PlayerCharacter _character;   // 付いていれば、キャラクターの必殺技の攻撃を使う
+    private CS_PlayerSpecialCutIn _cutIn;     // 必殺技のカットイン。付いていれば、カットインの間は必殺技の進行を止めて待つ
     private readonly Collider[] _hitBuffer = new Collider[_hitBufferSize];
     private readonly HashSet<IDamageable> _hitTargets = new HashSet<IDamageable>();
 
@@ -98,6 +100,7 @@ public class CS_PlayerSpecialAttack : NetworkBehaviour
         _attack = GetComponent<CS_PlayerAttack>();
         _scoring = GetComponent<CS_PlayerScoring>();
         _character = GetComponent<CS_PlayerCharacter>();
+        _cutIn = GetComponent<CS_PlayerSpecialCutIn>();
 
         if (_specialAttackData != null) return;
 
@@ -168,6 +171,7 @@ public class CS_PlayerSpecialAttack : NetworkBehaviour
     private void UpdateSpecial()
     {
         if (!_isPerforming) return;
+        if (_cutIn != null && _cutIn.isPlaying) return;   // カットインの間は進めない(カットインが終わってから当たる)
 
         _elapsed += Time.deltaTime;
 

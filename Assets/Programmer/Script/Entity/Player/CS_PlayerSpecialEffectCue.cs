@@ -3,8 +3,8 @@ using UnityEngine;
 using UnityEngine.UI;
 
 /*
- * 必殺技を使ったこと・効果が続いていることを知らせる仮の演出
- * UI・エフェクト担当の正式な演出(カットインなど)ができたら、このクラスごと消す
+ * 必殺技の効果が続いていることを知らせる仮の表示(残り時間)
+ * UI担当の正式な表示ができたら、このクラスごと消す(必殺技を使った時のカットインはCS_PlayerSpecialCutInへ移した)
  *
  * 制作者：　秋野翔太
  */
@@ -14,9 +14,6 @@ using UnityEngine.UI;
  * メモ
  * ・仮の演出。消す時は、このファイルを消して、Player.prefabのCS_PlayerSpecialEffectCueを外すだけでよい(他のクラスからは参照していない)
  * ・自分のプレイヤー(人が操作しているプレイヤー。CS_Player.isLocalPlayer)の画面にだけ、実行中にCanvasを組み立てて出す
- * ・カットイン: 「効果だけ」の必殺技を使った瞬間(CS_PlayerSpecialAttack.onEffectOnlyUsed)に、画面の真ん中をキャラクターの色の帯が
- *   横切り、必殺技の名前を出す(_cutInTime秒。仕様書「1秒以内とか超短くカットインを入れて」)
- *   攻撃する必殺技は攻撃のモーションが出るので、カットインは出さない
  * ・残り時間: 必殺技の効果が続いている間(CS_PlayerCharacter.isEffectActive)、画面の左に効果の名前・残り秒数・減っていくバーを出す
  *   攻撃する必殺技・効果だけの必殺技の両方で出る。効果の残り時間は同期されているので、効果が始まったのはサーバーでも、本人の画面で分かる
  */
@@ -26,39 +23,21 @@ using UnityEngine.UI;
 public class CS_PlayerSpecialEffectCue : MonoBehaviour
 {
     [SerializeField] private TMP_FontAsset _font;                     // 日本語が出るフォント(BIZUDGothic-Bold SDF)
-    [SerializeField][Min(0.1f)] private float _cutInTime = 0.9f;      // カットインを出す時間(秒)
 
     private CS_Player _player;
     private CS_PlayerCharacter _character;
-    private CS_PlayerSpecialAttack _special;
 
     private GameObject _root;
-    private RectTransform _band;
-    private Image _bandImage;
-    private TextMeshProUGUI _cutInText;
-    private CanvasGroup _cutInGroup;
     private CanvasGroup _timerGroup;
     private Image _timerFill;
     private TextMeshProUGUI _timerText;
 
-    private float _cutInElapsed = -1f;   // カットインを出してからの時間(出していなければ負)
     private float _effectDuration;       // 今続いている効果の長さ(バーの割合に使う)
 
     private void Awake()
     {
         _player = GetComponent<CS_Player>();
         _character = GetComponent<CS_PlayerCharacter>();
-        _special = GetComponent<CS_PlayerSpecialAttack>();
-    }
-
-    private void OnEnable()
-    {
-        if (_special != null) _special.onEffectOnlyUsed += HandleEffectOnlyUsed;
-    }
-
-    private void OnDisable()
-    {
-        if (_special != null) _special.onEffectOnlyUsed -= HandleEffectOnlyUsed;
     }
 
     private void OnDestroy()
@@ -77,61 +56,7 @@ public class CS_PlayerSpecialEffectCue : MonoBehaviour
         if (_root == null) Build();
         else if (!_root.activeSelf) _root.SetActive(true);
 
-        UpdateCutIn(Time.unscaledDeltaTime);
         UpdateTimer();
-    }
-
-    private void HandleEffectOnlyUsed()
-    {
-        if (!_player.isLocalPlayer) return;
-        if (_root == null) Build();
-
-        CSO_PlayableCharacter character = _character != null ? _character.currentCharacter : null;
-        Color color = character != null ? character.themeColor : Color.white;
-        _bandImage.color = new Color(color.r, color.g, color.b, 0.85f);
-        _cutInText.text = character != null ? $"{character.specialName}<size=60%>  {character.displayName}</size>" : "必殺技";
-        _cutInElapsed = 0f;
-    }
-
-    // ========================================
-    // カットイン
-    // ========================================
-
-    private void UpdateCutIn(float deltaTime)
-    {
-        if (_cutInElapsed < 0f)
-        {
-            _cutInGroup.alpha = 0f;
-            return;
-        }
-
-        _cutInElapsed += deltaTime;
-        float t = _cutInElapsed / _cutInTime;
-        if (t >= 1f)
-        {
-            _cutInElapsed = -1f;
-            _cutInGroup.alpha = 0f;
-            return;
-        }
-
-        // 入る(最初の2割) → 止まる → 抜ける(最後の2割)。帯は左から入って右へ抜ける
-        float x;
-        if (t < 0.2f) x = Mathf.Lerp(-1f, 0f, EaseOut(t / 0.2f));
-        else if (t > 0.8f) x = Mathf.Lerp(0f, 1f, EaseIn((t - 0.8f) / 0.2f));
-        else x = 0f;
-
-        _band.anchoredPosition = new Vector2(x * 2200f, 0f);
-        _cutInGroup.alpha = 1f;
-    }
-
-    private static float EaseOut(float t)
-    {
-        return 1f - (1f - t) * (1f - t);
-    }
-
-    private static float EaseIn(float t)
-    {
-        return t * t;
     }
 
     // ========================================
@@ -175,26 +100,6 @@ public class CS_PlayerSpecialEffectCue : MonoBehaviour
         scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
         scaler.referenceResolution = new Vector2(1920f, 1080f);
         scaler.matchWidthOrHeight = 0.5f;
-
-        // カットイン(画面の真ん中を横切る、少し斜めの帯)
-        RectTransform cutIn = CreateRect("CutIn", _root.transform, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(1920f, 1080f));
-        _cutInGroup = cutIn.gameObject.AddComponent<CanvasGroup>();
-        _cutInGroup.alpha = 0f;
-        _cutInGroup.blocksRaycasts = false;
-
-        _band = CreateRect("Band", cutIn, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), Vector2.zero, new Vector2(2400f, 170f));
-        _band.localRotation = Quaternion.Euler(0f, 0f, 6f);
-        _bandImage = _band.gameObject.AddComponent<Image>();
-        _bandImage.raycastTarget = false;
-
-        _cutInText = CreateText(_band, 110f, TextAlignmentOptions.Center);
-        RectTransform cutInTextRect = _cutInText.rectTransform;
-        cutInTextRect.anchorMin = Vector2.zero;
-        cutInTextRect.anchorMax = Vector2.one;
-        cutInTextRect.sizeDelta = Vector2.zero;
-        _cutInText.fontStyle = FontStyles.Bold | FontStyles.Italic;
-        _cutInText.outlineWidth = 0.15f;
-        _cutInText.outlineColor = new Color32(0, 0, 0, 200);
 
         // 残り時間(画面の左)
         RectTransform timer = CreateRect("Timer", _root.transform, new Vector2(0f, 0.5f), new Vector2(0f, 0.5f), new Vector2(40f, 200f), new Vector2(420f, 64f));

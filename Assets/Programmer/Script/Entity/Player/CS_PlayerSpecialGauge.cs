@@ -21,6 +21,9 @@ using UnityEngine;
  *   ※ 仕様(必殺技ゲージは時間経過と悪人を倒すことで溜まる)に合わせ、通常攻撃のヒットでは溜めない
  *     (CSO_AttackDataのGauge Gainは、プレイヤーの攻撃データでは0にしている)
  * ・値はNetworkVariableで持つ(書き込みはサーバーのみ、読み取りは全員可)
+ *   オフライン(スポーン前・ソロのテスト)ではNetworkVariableに書かず、ふつうの変数(_offlineGauge)で持つ
+ *   (スポーン前のNetworkVariableに書くと、そのたびにNetcodeが警告ログをスタックトレース付きで出し、毎フレーム溜まるゲージでは
+ *    大量のメモリ確保(GC)になってカクつきの原因になっていたため)
  * ・TryConsumeFull()は満タンの時だけ消費してtrueを返す。満タンでなければ何もせずfalseを返す
  *   (必殺技側は、発動判定と実際の消費を分けて、判定が通る瞬間に改めてこれを呼んでいる)
  * ・onGaugeChangedはHUD用の変更通知(オフラインのテストシーンでも発生する)
@@ -39,10 +42,11 @@ public class CS_PlayerSpecialGauge : NetworkBehaviour
 
     // 書き込みはサーバーのみ(NetworkVariableのデフォルト)。読み取りは全員可
     private readonly NetworkVariable<float> _currentGauge = new NetworkVariable<float>();
+    private float _offlineGauge;   // オフライン(スポーン前)の現在値
 
     public float maxGauge => _stats.maxGauge;
-    public float currentGauge => _currentGauge.Value;
-    public bool isFull => _currentGauge.Value >= maxGauge;
+    public float currentGauge => IsSpawned ? _currentGauge.Value : _offlineGauge;
+    public bool isFull => currentGauge >= maxGauge;
 
     public event Action<float, float> onGaugeChanged;   // (current, max)
 
@@ -61,6 +65,7 @@ public class CS_PlayerSpecialGauge : NetworkBehaviour
 
     public override void OnNetworkSpawn()
     {
+        if (IsServer && _offlineGauge > 0f) _currentGauge.Value = _offlineGauge;   // スポーン前に溜まっていた分を引き継ぐ
         _currentGauge.OnValueChanged += HandleGaugeChanged;
         _stats.onMaxGaugeChanged += HandleMaxGaugeChanged;
     }
@@ -89,12 +94,9 @@ public class CS_PlayerSpecialGauge : NetworkBehaviour
         if (!this.IsServerOrOffline()) return;
         if (amount <= 0f) return;
 
-        float previous = _currentGauge.Value;
-        _currentGauge.Value = Mathf.Min(maxGauge, _currentGauge.Value + amount);
-        if (_currentGauge.Value != previous)
-        {
-            NotifyOffline();
-        }
+        float previous = currentGauge;
+        float next = Mathf.Min(maxGauge, previous + amount);
+        if (next != previous) SetGauge(next);
     }
 
     // 満タンの時だけ全消費してtrueを返す。満タンでなければ何もしない(サーバーのみ)
@@ -103,17 +105,21 @@ public class CS_PlayerSpecialGauge : NetworkBehaviour
         if (!this.IsServerOrOffline()) return false;
         if (!isFull) return false;
 
-        _currentGauge.Value = 0f;
-        NotifyOffline();
+        SetGauge(0f);
         return true;
     }
 
-    // オフライン時はNetworkVariableの変更通知が届かないため、ここで直接イベントを発生させる
-    private void NotifyOffline()
+    // 現在値を変える。スポーン中はNetworkVariableへ書く(変更通知はOnValueChangedから)。オフラインはふつうの変数へ書き、ここで直接通知する
+    private void SetGauge(float value)
     {
-        if (IsSpawned) return;
+        if (IsSpawned)
+        {
+            _currentGauge.Value = value;
+            return;
+        }
 
-        onGaugeChanged?.Invoke(_currentGauge.Value, maxGauge);
+        _offlineGauge = value;
+        onGaugeChanged?.Invoke(_offlineGauge, maxGauge);
     }
 
     private void HandleGaugeChanged(float previous, float current)
@@ -125,8 +131,8 @@ public class CS_PlayerSpecialGauge : NetworkBehaviour
     private void HandleMaxGaugeChanged(float newMaxGauge)
     {
         if (!this.IsServerOrOffline()) return;
-        if (_currentGauge.Value <= newMaxGauge) return;
+        if (currentGauge <= newMaxGauge) return;
 
-        _currentGauge.Value = newMaxGauge;
+        SetGauge(newMaxGauge);
     }
 }

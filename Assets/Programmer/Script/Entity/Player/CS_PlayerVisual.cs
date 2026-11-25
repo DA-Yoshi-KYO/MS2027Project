@@ -129,6 +129,7 @@ public class CS_PlayerVisual : NetworkBehaviour
 
         if (_attack != null) _attack.onStepStarted += HandleAttackStepStarted;
         if (_special != null) _special.onSpecialStarted += HandleSpecialStarted;
+        if (_special != null) _special.onEffectOnlyUsed += HandleSpecialStarted;   // 効果だけの必殺技も、必殺技のモーションを出す(カットインで見せるため)
         if (_parry != null) _parry.onParried += HandleParried;
         if (_ambush != null) _ambush.onAmbushStarted += HandleAmbushStarted;
     }
@@ -141,6 +142,7 @@ public class CS_PlayerVisual : NetworkBehaviour
 
         if (_attack != null) _attack.onStepStarted -= HandleAttackStepStarted;
         if (_special != null) _special.onSpecialStarted -= HandleSpecialStarted;
+        if (_special != null) _special.onEffectOnlyUsed -= HandleSpecialStarted;
         if (_parry != null) _parry.onParried -= HandleParried;
         if (_ambush != null) _ambush.onAmbushStarted -= HandleAmbushStarted;
     }

@@ -137,6 +137,42 @@ public class CSED_PlayerTuningWindow : EditorWindow
             new FieldDef("_minDuration", "運ぶ時間の最短(秒)", ""),
             new FieldDef("_maxDuration", "運ぶ時間の最長(秒)", ""),
         }),
+        new Section("ジャスト攻撃・ブリンク攻撃", typeof(CS_PlayerAttack), new[]
+        {
+            new FieldDef("_justEarlyTime", "ジャストの受付(終わる何秒前から)", "通常攻撃のモーションが終わる何秒前から、ジャスト攻撃を受け付けるか"),
+            new FieldDef("_justLateTime", "ジャストの受付(終わった何秒後まで)", "モーションが終わった何秒後まで受け付けるか。早押し・連打した段はジャストにならない"),
+            new FieldDef("_justDamageRate", "ジャストのダメージ倍率", ""),
+            new FieldDef("_justGaugeGain", "ジャストで溜まる必殺ゲージ(1体につき)", ""),
+            new FieldDef("_blinkAttackWindow", "ブリンク攻撃の受付(ブリンク後の秒数)", "ブリンク中か、ブリンクが終わってこの秒数以内に攻撃するとブリンク攻撃。0で無し"),
+            new FieldDef("_blinkAttackDamageRate", "ブリンク攻撃のダメージ倍率", ""),
+            new FieldDef("_blinkAttackGaugeGain", "ブリンク攻撃で溜まる必殺ゲージ(1体につき)", ""),
+        }),
+        new Section("攻撃の手応え", typeof(CS_PlayerHitFeel), new[]
+        {
+            new FieldDef("_hitStopTime", "ヒットストップ(通常、秒)", "攻撃が当たった時に一瞬止める時間。0で止めない"),
+            new FieldDef("_finisherHitStopTime", "ヒットストップ(最後の段、秒)", ""),
+            new FieldDef("_specialHitStopTime", "ヒットストップ(必殺技、秒)", ""),
+            new FieldDef("_bonusHitStopTime", "ジャスト・ブリンク攻撃で足す時間(秒)", ""),
+            new FieldDef("_bonusShakeForce", "ジャスト・ブリンク攻撃のカメラの揺れ", "0で揺れない"),
+            new FieldDef("_justSe", "ジャストの効果音", "ジャストで押した瞬間に鳴らす音(専用の音が無いので、今はパリー成功の音。Noneで鳴らさない)"),
+            new FieldDef("_justText", "ジャストの文字", "頭の上に出す文字(文字・色・大きさ・昇る距離・時間)"),
+            new FieldDef("_blinkSe", "ブリンク攻撃の効果音", "ブリンク攻撃を出した瞬間に鳴らす音(専用の音が無いので、今は奇襲の音。Noneで鳴らさない)"),
+            new FieldDef("_blinkText", "ブリンク攻撃の文字", "頭の上に出す文字(文字・色・大きさ・昇る距離・時間)"),
+            new FieldDef("_finishSlowScale", "殲滅スローの速さ(倍)", "悪人グループの最後の1人を倒した時の世界の速さ(ソロのみ)。1で変えない"),
+            new FieldDef("_finishSlowTime", "殲滅スローの時間(秒)", "0でスローにしない"),
+            new FieldDef("_finishShakeForce", "殲滅のカメラの揺れ", "0で揺れない"),
+        }),
+        new Section("必殺技のカットイン", typeof(CS_PlayerSpecialCutIn), new[]
+        {
+            new FieldDef("_duration", "カットインの長さ(秒)", "仕様: 1秒以内。この間に世界がほぼ止まり、カメラがキャラクターの正面へ回り込む"),
+            new FieldDef("_worldTimeScale", "カットイン中の世界の速さ(倍)", "ソロのみ。0でぴったり止まる"),
+            new FieldDef("_yawOffset", "カメラを置く向き(度)", "0で真正面から、180で背中から"),
+            new FieldDef("_startDistance", "回り込んだ直後のカメラの距離(m)", ""),
+            new FieldDef("_endDistance", "最後のカメラの距離(m)", "だんだん寄る"),
+            new FieldDef("_cameraHeight", "カメラの高さ(m)", "足元から"),
+            new FieldDef("_lookHeight", "見る所の高さ(m)", "足元から。胸のあたり"),
+            new FieldDef("_releaseShakeForce", "効果だけの必殺技を解放した時のカメラの揺れ", "0で揺れない"),
+        }),
         new Section("ブリンク(ダッシュボタン)", typeof(CS_Player), new[]
         {
             new FieldDef("_dashDuration", "ブリンクの時間(秒)", "ブリンクが続く時間。速さはキャラクターの基礎数値"),

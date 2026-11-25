@@ -158,6 +158,7 @@ public class CS_Player : NetworkBehaviour
     private CS_PlayerHide _hide;    // SA(ハイドポイントへ飛ぶ)。付いていなければSAしない
     private CS_PlayerRideSAPoint _ride;   // 動く足場に乗る処理。付いていれば、足場が運んだ速度を加速の計算から除く
     private CS_PlayerIntroCamera _introCamera;    // スタート時のカメラの演出。付いていなければ演出しない
+    private CS_PlayerSpecialCutIn _specialCutIn;   // 必殺技のカットイン。付いていなければカットインしない
     private NetworkTransform _networkTransform;
 
     private Vector3 _spawnPosition;     // 操作を始めた時の位置と向き(落ちた時に戻す先)
@@ -194,6 +195,7 @@ public class CS_Player : NetworkBehaviour
 
     private bool _isDashing;
     private float _dashElapsed;
+    private float _dashEndTime = float.NegativeInfinity;   // ダッシュが終わった時刻(ブリンク攻撃の受付に使う)
     private float _dashCooldownRemaining;
     private Vector3 _dashDirection;
     private bool _isSprinting;      // ダッシュ後、ダッシュボタンを押し続けている間か
@@ -212,6 +214,8 @@ public class CS_Player : NetworkBehaviour
     public bool isControlled => _isControlled;          // このプレイヤーを自分(このマシン)が操作しているか(NPCはサーバーでtrue)
     public bool canAct => _isControlled && !_isCarried && !_health.isDead && !isStunned && !isPlayingIntro && !CS_PlayerIntroCamera.isMatchHeld;   // 移動・攻撃してよいか(CS_PlayerAttackも参照)
     public bool isPlayingIntro => _introCamera != null && _introCamera.isPlaying;   // スタート時のカメラの演出中か(自分のプレイヤーのみ。この間は動けない)
+    public bool isPlayingCutIn => _specialCutIn != null && _specialCutIn.isPlaying;   // 必殺技のカットイン中か(自分のプレイヤーのみ。この間は移動・視点の操作をしない)
+    public float timeSinceDashEnded => _isDashing ? 0f : Time.time - _dashEndTime;   // ダッシュ(ブリンク)が終わってからの秒数(ダッシュ中は0。ブリンク攻撃の受付に使う)
     public bool isStunned => _stun != null && _stun.isStunned;   // スタン中か(パリーされた時など。死亡中と同じく行動できない)
     public bool isHiding => _hide != null && _hide.isHiding;     // SAでハイドポイントへ飛んでいる最中か(操作しているマシンでだけ正しい)
     public bool isNpc => _isNpc.Value;                  // NPCか(全クライアントで分かる)
@@ -281,6 +285,7 @@ public class CS_Player : NetworkBehaviour
         _hide = GetComponent<CS_PlayerHide>();
         _ride = GetComponent<CS_PlayerRideSAPoint>();
         _introCamera = GetComponent<CS_PlayerIntroCamera>();
+        _specialCutIn = GetComponent<CS_PlayerSpecialCutIn>();
         _networkTransform = GetComponent<NetworkTransform>();
 
         // 壁などとの衝突で回転しないよう、物理による回転はすべて止める
@@ -776,8 +781,8 @@ public class CS_Player : NetworkBehaviour
             return;
         }
 
-        // スタート時のカメラの演出中は、移動も視点の操作も受け付けない(演出の終わりの位置がずれないように)
-        if (isPlayingIntro)
+        // スタート時のカメラの演出中・必殺技のカットイン中は、移動も視点の操作も受け付けない(演出の終わりの位置がずれないように)
+        if (isPlayingIntro || isPlayingCutIn)
         {
             _moveInput = Vector2.zero;
             return;
@@ -788,7 +793,7 @@ public class CS_Player : NetworkBehaviour
         // マウスは「1フレームの移動量」なのでdeltaTimeを掛けない
         // スティックは「傾き」なので速度として扱いdeltaTimeを掛ける
         Vector2 mouseLook = _mouseLookAction.ReadValue<Vector2>() * _mouseSensitivity;
-        Vector2 stickLook = _stickLookAction.ReadValue<Vector2>() * _stickSensitivity * Time.deltaTime;
+        Vector2 stickLook = _stickLookAction.ReadValue<Vector2>() * _stickSensitivity * Time.unscaledDeltaTime;   // ヒットストップ・スロー中も、視点はいつもの速さで回す
         Vector2 look = mouseLook + stickLook;
 
         // マルチで全員のスタート時の演出が終わるまでは、動けない(視点は動かせる)
@@ -1016,6 +1021,15 @@ public class CS_Player : NetworkBehaviour
         return _rigidbody.rotation * Vector3.forward;
     }
 
+    // ダッシュ(ブリンク)を途中でやめる(ブリンク攻撃に切り替える時に使う)
+    public void CancelDash()
+    {
+        if (!_isDashing) return;
+
+        _isDashing = false;
+        _dashEndTime = Time.time;
+    }
+
     // ダッシュ方向へ一定時間だけ直進する(垂直速度はそのまま)
     private void UpdateDash()
     {
@@ -1028,6 +1042,7 @@ public class CS_Player : NetworkBehaviour
         if (_dashElapsed >= _dashDuration)
         {
             _isDashing = false;
+            _dashEndTime = Time.time;
         }
     }
 
@@ -1058,12 +1073,25 @@ public class CS_Player : NetworkBehaviour
             return;
         }
 
-        Quaternion rotation = Quaternion.Euler(_pitch, _yaw, 0f);
-        Vector3 pivot = transform.position + Vector3.up * _cameraPivotHeight;
-        pivot.y = SmoothCameraPivotY(pivot.y);
-        Vector3 position = pivot - rotation * Vector3.forward * _cameraDistance;
+        Vector3 position = GetNormalCameraPose(out Quaternion rotation);
+
+        // 必殺技のカットイン中は、カットインのカメラの位置に置く(いつもの位置から寄って、終わるといつもの位置へ戻る)
+        if (_specialCutIn != null && _specialCutIn.TryGetCameraPose(position, rotation, out Vector3 cutInPosition, out Quaternion cutInRotation))
+        {
+            target.SetPositionAndRotation(cutInPosition, cutInRotation);
+            return;
+        }
 
         target.SetPositionAndRotation(position, rotation);
+    }
+
+    // いつものカメラの位置と向き(プレイヤーの周り。高さだけ少し遅れて追う)
+    private Vector3 GetNormalCameraPose(out Quaternion rotation)
+    {
+        rotation = Quaternion.Euler(_pitch, _yaw, 0f);
+        Vector3 pivot = transform.position + Vector3.up * _cameraPivotHeight;
+        pivot.y = SmoothCameraPivotY(pivot.y);
+        return pivot - rotation * Vector3.forward * _cameraDistance;
     }
 
     // カメラが追う高さを、上下だけ少し遅らせる(左右・前後はぴったり追う)

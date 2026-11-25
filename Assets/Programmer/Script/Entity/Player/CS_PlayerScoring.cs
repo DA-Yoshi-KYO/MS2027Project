@@ -78,6 +78,8 @@ public class CS_PlayerScoring : NetworkBehaviour
 
     // 自分が悪人を倒した時に発生する(サーバー、またはオフラインのみ)
     public event System.Action<CS_VillainHealth> onVillainDefeated;
+    // 自分が悪人グループの最後の1人を倒した時(倒した本人の手元で発生する)。殲滅スローなどの演出が購読する
+    public event System.Action onGroupDefeatedLocal;
 
     private void Awake()
     {
@@ -165,17 +167,23 @@ public class CS_PlayerScoring : NetworkBehaviour
     // 悪人グループを倒しきった本人の手元で、自動スキャンをしてもらう(サーバー、またはオフラインで呼ぶ)
     private void NotifyGroupDefeated()
     {
-        if (_scan == null) return;
         if (_player != null && _player.isNpc) return;   // NPCはスキャンを使わない
 
         if (IsSpawned) RequestGroupDefeatedScanRpc();
-        else _scan.RequestGroupDefeatedScan();   // オフラインのテストシーン
+        else HandleGroupDefeatedLocal();   // オフラインのテストシーン
     }
 
     [Rpc(SendTo.Owner)]
     private void RequestGroupDefeatedScanRpc()
     {
+        HandleGroupDefeatedLocal();
+    }
+
+    // 倒した本人の手元で、自動スキャンを頼み、演出へ知らせる
+    private void HandleGroupDefeatedLocal()
+    {
         if (_scan != null) _scan.RequestGroupDefeatedScan();
+        onGroupDefeatedLocal?.Invoke();
     }
 
     // 倒した本人の画面に、点数のポップアップを出してもらう(サーバー、またはオフラインで呼ぶ)

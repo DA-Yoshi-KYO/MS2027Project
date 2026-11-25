@@ -75,6 +75,8 @@ GameObject:
   - component: {fileID: 5767155461765081608}
   - component: {fileID: 1004532188241099823}
   - component: {fileID: 7845246467344540114}
+  - component: {fileID: 2270916996254256849}
+  - component: {fileID: 6321010357705532396}
   m_Layer: 31
   m_Name: Player
   m_TagString: PlayerNoTransformation
@@ -241,6 +243,13 @@ MonoBehaviour:
   _targetLayers:
     serializedVersion: 2
     m_Bits: 4294967295
+  _justEarlyTime: 0.15
+  _justLateTime: 0.2
+  _justDamageRate: 1.5
+  _justGaugeGain: 2
+  _blinkAttackWindow: 0.3
+  _blinkAttackDamageRate: 2
+  _blinkAttackGaugeGain: 3
 --- !u!114 &3493219312366666662
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1278,7 +1287,6 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::CS_PlayerSpecialEffectCue
   _font: {fileID: 11400000, guid: e30c1b888243f8b42930f1a1c3601a06, type: 2}
-  _cutInTime: 0.9
 --- !u!114 &1004532188241099823
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1340,6 +1348,71 @@ MonoBehaviour:
   _minDuration: 1.5
   _maxDuration: 3
   _landOffset: 0.1
+--- !u!114 &2270916996254256849
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1825699444668748530}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a9f646e254442e34bae53d61cad9ed41, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CS_PlayerSpecialCutIn
+  _duration: 0.9
+  _worldTimeScale: 0.05
+  _blendInRate: 0.2
+  _blendOutRate: 0.2
+  _yawOffset: 25
+  _startDistance: 2.8
+  _endDistance: 2.1
+  _cameraHeight: 1.2
+  _lookHeight: 1.15
+  _holdScreenEffect: {fileID: 11400000, guid: f3c5f318dc47ba94191d6d9f4c17c9b1, type: 2}
+  _releaseScreenEffect: {fileID: 11400000, guid: fa722642046d80f46a8894a14103b76f, type: 2}
+  _releaseShakeForce: 0.8
+--- !u!114 &6321010357705532396
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1825699444668748530}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 469a1eb768a02e84ca16e864869f7bf4, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CS_PlayerHitFeel
+  _hitStopTime: 0.05
+  _finisherHitStopTime: 0.1
+  _specialHitStopTime: 0.15
+  _bonusHitStopTime: 0.04
+  _hitStopAnimatorSpeed: 0.02
+  _bonusScreenEffect: {fileID: 11400000, guid: fa722642046d80f46a8894a14103b76f, type: 2}
+  _bonusShakeForce: 0.5
+  _hitPointHeight: 1
+  _justText:
+    _text: JUST!
+    _color: {r: 0.45, g: 0.95, b: 1, a: 1}
+    _fontSize: 3.2
+    _riseDistance: 0.6
+    _duration: 0.6
+    _fadeStartRate: 0.4
+  _justTextHeight: 1.9
+  _justSe: 212
+  _blinkText:
+    _text: BLINK!
+    _color: {r: 1, g: 0.55, b: 0.2, a: 1}
+    _fontSize: 3.2
+    _riseDistance: 0.6
+    _duration: 0.6
+    _fadeStartRate: 0.4
+  _blinkSe: 211
+  _finishSlowScale: 0.25
+  _finishSlowTime: 0.45
+  _finishScreenEffect: {fileID: 11400000, guid: fa722642046d80f46a8894a14103b76f, type: 2}
+  _finishShakeForce: 1
 --- !u!1 &3298430547158640491
 GameObject:
   m_ObjectHideFlags: 0

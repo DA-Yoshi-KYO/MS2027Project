@@ -96,6 +96,12 @@ public partial class CS_MayaPreviewInspector
             _originalCustom = _cameraData.customRenderingSettings;
             _originalMask = _cameraData.renderingPathCustomFrameSettingsOverrideMask;
             _originalSettings = _cameraData.renderingPathCustomFrameSettings;
+            // The scene's camera has none: outlines and edges came out as stairs. "Anti-aliasing" in this panel turns it off.
+            if (_cameraData.antialiasing == HDAdditionalCameraData.AntialiasingMode.None)
+            {
+                _cameraData.antialiasing = HDAdditionalCameraData.AntialiasingMode.SubpixelMorphologicalAntiAliasing;
+                _cameraData.SMAAQuality = HDAdditionalCameraData.SMAAQualityLevel.High;
+            }
         }
         return true;
     }
@@ -108,6 +114,7 @@ public partial class CS_MayaPreviewInspector
         _renderScale = PlayerPrefs.GetFloat(RenderScalePrefsKey, 1f);
         CS_MayaPreviewIdleThrottle.ActiveFps = PlayerPrefs.GetInt(ActiveFpsPrefsKey, 15);
         ApplyRenderScale();
+        EnsureCameraData();
 
         if (firstRun) { DefaultGraphics(); return; }
         string saved = PlayerPrefs.GetString(GraphicsPrefsKey, "");

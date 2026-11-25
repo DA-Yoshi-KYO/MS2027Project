@@ -522,7 +522,7 @@ public static partial class CSED_PlacementBuilder
     /// <summary>
     /// 見えない物の一覧を返すメソッド(シーンの構造が変わった時だけ、探し直す)
     /// </summary>
-    private static List<Transform> GetInvisibleUnits()
+    public static List<Transform> GetInvisibleUnits()
     {
         _invisibleUnits.RemoveAll(unit => unit == null);
         if (!_invisibleDirty) return _invisibleUnits;

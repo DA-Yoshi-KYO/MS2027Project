@@ -310,8 +310,52 @@ public static class CSED_PlacementSceneGUI
     // 消す対象は、マウスを動かした時・クリックした時だけ探す(毎回の描き直しで探すと、重い)
     private static Transform _deleteTarget;
 
+    private static readonly Color _policeMarkColor = new Color(0.35f, 0.6f, 1.0f);
+    private static readonly Color _villainMarkColor = new Color(1.0f, 0.6f, 0.15f);
+    private static readonly Color _droneMarkColor = new Color(0.8f, 0.5f, 1.0f);
+
+    // 消すツールの間、見えない物(警察のグループ・悪人の出現点・巡回ドローン)を、建物の向こうでも見えるように、色分けして描く
+    // 警察=青 / 悪人=橙 / ドローン=紫。点の大きさは、画面の上で、遠くても小さくなりすぎないようにする
+    private static void DrawInvisibleMarkers()
+    {
+        UnityEngine.Rendering.CompareFunction previousZTest = Handles.zTest;
+        Handles.zTest = UnityEngine.Rendering.CompareFunction.Always;
+        foreach (Transform unit in CSED_PlacementBuilder.GetInvisibleUnits())
+        {
+            if (unit == null) continue;
+
+            if (unit.GetComponent<CS_VillainSpawnPoint>() != null)
+            {
+                Handles.color = _villainMarkColor;
+                float radius = GetMarkRadius(unit.position, 1.2f);
+                Handles.DrawLine(unit.position, unit.position + Vector3.down * 6.2f, 2.0f);
+                Handles.DrawSolidDisc(unit.position, Vector3.up, radius);
+                Handles.DrawWireDisc(unit.position + Vector3.down * 6.2f, Vector3.up, radius * 1.5f);
+                continue;
+            }
+
+            Handles.color = unit.GetComponent<CS_PoliceSquad>() != null ? _policeMarkColor : _droneMarkColor;
+            int count = unit.childCount;
+            for (int i = 0; i < count; i++)
+            {
+                Vector3 point = unit.GetChild(i).position;
+                Handles.DrawSolidDisc(point, Vector3.up, GetMarkRadius(point, 0.9f));
+                if (count > 1) Handles.DrawAAPolyLine(3.0f, point, unit.GetChild((i + 1) % count).position);
+            }
+        }
+        Handles.zTest = previousZTest;
+    }
+
+    // 点の半径(m)。近くでは最低限の大きさ、遠くでは、画面上で一定の大きさになるようにする
+    private static float GetMarkRadius(Vector3 position, float minimum)
+    {
+        return Mathf.Clamp(HandleUtility.GetHandleSize(position) * 0.07f, minimum, 8.0f);
+    }
+
     private static void HandleDelete(Event e, bool clicked)
     {
+        if (e.type == EventType.Repaint) DrawInvisibleMarkers();
+
         if (e.type == EventType.MouseMove || e.type == EventType.MouseDrag || e.type == EventType.MouseDown)
         {
             GameObject picked = HandleUtility.PickGameObject(e.mousePosition, false);
@@ -326,6 +370,8 @@ public static class CSED_PlacementSceneGUI
 
         if (e.type == EventType.Repaint)
         {
+            UnityEngine.Rendering.CompareFunction previous = Handles.zTest;
+            Handles.zTest = UnityEngine.Rendering.CompareFunction.Always;
             Handles.color = _ngColor;
             Bounds bounds = GetBounds(root);
             Handles.DrawWireCube(bounds.center, bounds.size);
@@ -334,6 +380,7 @@ public static class CSED_PlacementSceneGUI
             {
                 if (child.GetComponent<Renderer>() == null && child.childCount == 0) Handles.SphereHandleCap(0, child.position, Quaternion.identity, 0.8f, EventType.Repaint);
             }
+            Handles.zTest = previous;
         }
         if (clicked)
         {
@@ -369,7 +416,7 @@ public static class CSED_PlacementSceneGUI
             case CSED_PlacementState.Tool.Drone: name = CSED_PlacementState.activeDrone != null ? "ドローン(巡回ポイントを足している。Enter / Escで確定)" : "ドローン(最初の巡回ポイントをクリック)"; break;
             case CSED_PlacementState.Tool.Laser: name = CSED_PlacementState.activeLaser != null ? "レーザー(棒の向きを決める。クリックで確定 / Y・Zで回す軸を切り替え / Escで標準の向きに戻す)" : (CSED_PlacementState.hasPendingStart ? "レーザー(終点をクリック。Escで取り消し)" : "レーザー(始点をクリック)"); break;
             case CSED_PlacementState.Tool.Light: name = CSED_PlacementState.activeLight != null ? "ライト(経路の点を足している。Enter / Escで確定)" : "ライト(最初の経路の点をクリック)"; break;
-            default: name = "消す(置いた物をクリック)"; break;
+            default: name = "消す(置いた物をクリック。青=警察 / 橙=悪人 / 紫=ドローン)"; break;
         }
 
         Handles.BeginGUI();

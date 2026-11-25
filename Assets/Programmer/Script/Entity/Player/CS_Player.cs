@@ -114,6 +114,7 @@ public class CS_Player : NetworkBehaviour
     [SerializeField][Min(0f)] private float _coyoteTime = 0.12f;         // 足場から出た直後でも、ジャンプできる猶予(秒)
     [SerializeField][Min(0f)] private float _jumpBufferTime = 0.12f;     // 着地の少し前に押したジャンプを覚えておく時間(秒)
     [SerializeField][Min(0f)] private float _cameraVerticalSmoothTime = 0.1f;   // カメラが上下にプレイヤーを追う遅れ(秒。ジャンプ・段差でカメラがカクッと動かないように)
+    [SerializeField][Min(0f)] private float _cameraMaxVerticalLag = 0.5f;         // カメラが上下に遅れてよい最大の高さ(m。速く落ちる時も、これ以上は離れずに付いていく)
 
     [Header("空中の勢い(SAで放した後。減速率はSAポイントごと。CS_GrappleSAPointの_releaseDrag)")]
     [SerializeField][Min(0f)] private float _airControlAccel = 25f; // 勢いがある間、入力の移動速度へ近づく加速度(m/秒²)。大きいほど入力で曲げやすい
@@ -188,6 +189,7 @@ public class CS_Player : NetworkBehaviour
     private float _cameraPivotY;            // カメラが追うプレイヤーの高さ(上下だけ遅れて追う)
     private float _cameraPivotYVelocity;
     private bool _hasCameraPivotY;
+    private float _lastCameraTargetY;      // 前のフレームでカメラが追った高さ(ワープを見つけるため)
     private bool _isCarried;                // 運ばれている間か(CS_PlayerTowerCarry。移動・攻撃をせず、位置は運ぶ側が動かす)
     private float _yaw;
     private float _pitch = 11f;
@@ -1067,12 +1069,16 @@ public class CS_Player : NetworkBehaviour
     }
 
     // カメラが追う高さを、上下だけ少し遅らせる(左右・前後はぴったり追う)
-    // 大きく離れた時(復活・落下の戻し・SAで高所へ飛んだ時など)は、遅れずにすぐ合わせる
+    // 遅れは_cameraMaxVerticalLag(m)までにする(高い所から速く落ちる時も、離れすぎずになめらかに付いていく)
+    // 1フレームで大きく動いた時(復活・落下の戻し・ワープなど)と、SAで飛んでいる間は、遅れずにすぐ合わせる
+    // (以前は「3m以上離れたらすぐ合わせる」だったため、タワーから落ちる速さだと、遅れて離れる・一気に追いつくを繰り返してガタガタしていた)
     private float SmoothCameraPivotY(float targetY)
     {
-        const float snapDistance = 3f;
+        const float teleportDistance = 5f;   // 1フレームでこれ以上動いたら、ワープとみなしてすぐ合わせる
         bool isFlying = isHiding || (_lungeRemaining > 0f && _isLungeVertical);   // SAで飛んでいる間は、遅らせない(高さが大きく変わるため)
-        if (_cameraVerticalSmoothTime <= 0f || isFlying || !_hasCameraPivotY || Mathf.Abs(targetY - _cameraPivotY) > snapDistance)
+        bool isTeleported = _hasCameraPivotY && Mathf.Abs(targetY - _lastCameraTargetY) > teleportDistance;
+        _lastCameraTargetY = targetY;
+        if (_cameraVerticalSmoothTime <= 0f || isFlying || !_hasCameraPivotY || isTeleported)
         {
             _hasCameraPivotY = true;
             _cameraPivotY = targetY;
@@ -1081,6 +1087,7 @@ public class CS_Player : NetworkBehaviour
         }
 
         _cameraPivotY = Mathf.SmoothDamp(_cameraPivotY, targetY, ref _cameraPivotYVelocity, _cameraVerticalSmoothTime);
+        _cameraPivotY = Mathf.Clamp(_cameraPivotY, targetY - _cameraMaxVerticalLag, targetY + _cameraMaxVerticalLag);   // 離れすぎない
         return _cameraPivotY;
     }
 }

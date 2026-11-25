@@ -119,6 +119,7 @@ public class CSED_PlayerTuningWindow : EditorWindow
             new FieldDef("_coyoteTime", "足場から出た後もジャンプできる時間(秒)", "段差の端から出た直後でも跳べる猶予。0で猶予なし"),
             new FieldDef("_jumpBufferTime", "着地前のジャンプを覚えておく時間(秒)", "着地の少し前に押したジャンプを、着地した時に跳ぶ。0で覚えない"),
             new FieldDef("_cameraVerticalSmoothTime", "カメラが上下に追う遅れ(秒)", "ジャンプ・段差でカメラがカクッと動かないよう、高さだけ少し遅れて追う。0で遅れなし"),
+            new FieldDef("_cameraMaxVerticalLag", "カメラが上下に遅れる最大(m)", "速く落ちる時も、これ以上は離れずに付いていく"),
             new FieldDef("_mouseSensitivity", "マウスの感度", "マウスを動かした量に対するカメラの回る量"),
             new FieldDef("_stickSensitivity", "スティックの感度(度/秒)", "右スティックを倒しきった時のカメラの回る速さ"),
         }),

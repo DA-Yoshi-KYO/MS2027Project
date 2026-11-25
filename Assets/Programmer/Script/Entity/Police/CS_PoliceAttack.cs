@@ -175,6 +175,7 @@ public class CS_PoliceAttack : MonoBehaviour
         _chargeTimer = _chargingDuration;
         _chargeTarget = target;
         _chargeTargetPosition = target.position;
+        CS_NetworkSoundPlayer.instance?.PlaySeForEveryone(CSE_SeId.PoliceAttackWarning, transform.position);
         return true;
     }
 
@@ -190,6 +191,7 @@ public class CS_PoliceAttack : MonoBehaviour
         // 攻撃した警察(自分)も渡し、プレイヤー側が「警察に倒された」と判定できるようにする
         _activeHitbox = CS_PoliceAttackHitbox.Create(center, transform.position, gameObject, _attackPower, _hitboxRadius, _hitboxLifetime);
         onAttackFired?.Invoke(center, direction);
+        CS_NetworkSoundPlayer.instance?.PlaySeForEveryone(CSE_SeId.PoliceAttack, center);
     }
 
     /// <summary>

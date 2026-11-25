@@ -18,6 +18,21 @@ using UnityEngine;
 [RequireComponent(typeof(NetworkObject))]
 public class CS_NetworkSoundPlayer : NetworkBehaviour
 {
+    private static CS_NetworkSoundPlayer _instance;
+
+    /// <summary>シーンに置かれているもの(無ければnull)。ゲーム側のクラスからSEを全員へ鳴らす時に使う</summary>
+    public static CS_NetworkSoundPlayer instance => _instance;
+
+    private void OnEnable()
+    {
+        _instance = this;
+    }
+
+    private void OnDisable()
+    {
+        if (_instance == this) _instance = null;
+    }
+
     // =========================================================
     // 全員へ2D SEを再生
     // =========================================================

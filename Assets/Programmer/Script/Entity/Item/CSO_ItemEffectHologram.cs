@@ -57,5 +57,6 @@ public class CSO_ItemEffectHologram : CSO_ItemEffect
 
         Vector3 velocity = thrower.forward * _forwardSpeed + Vector3.up * _upwardSpeed;
         projectile.Launch(velocity, target);
+        CS_NetworkSoundPlayer.instance?.PlaySeForEveryone(CSE_SeId.ItemDecoyHologram, position);
     }
 }

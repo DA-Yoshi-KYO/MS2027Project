@@ -260,6 +260,7 @@ public class CS_PoliceBrain : MonoBehaviour, IStunnable
         _stunTimer = Mathf.Max(_stunTimer, duration);
         _attack.CancelAttack();
         _move.SetStopped(true);
+        CS_NetworkSoundPlayer.instance?.PlaySeForEveryone(CSE_SeId.PoliceParriedStun, transform.position);
     }
 
     /// <summary>
@@ -473,6 +474,9 @@ public class CS_PoliceBrain : MonoBehaviour, IStunnable
     {
         // 追う標的が変わった時に、標的のプレイヤーを覚える(追跡している間、毎フレーム知らせるため。プレイヤーでなければnull)
         if (target != _currentTarget) _chasedPlayer = target.GetComponentInParent<CS_PlayerHealth>();
+
+        // 追跡に入った瞬間(発見した時)のSE。追跡の間は毎フレーム呼ばれるので、前の状態が追跡でない時だけ鳴らす
+        if (_state != CSE_PoliceMoveState.Chase) CS_NetworkSoundPlayer.instance?.PlaySeForEveryone(CSE_SeId.PoliceSpotted, transform.position);
 
         _state = CSE_PoliceMoveState.Chase;
         _currentTarget = target;

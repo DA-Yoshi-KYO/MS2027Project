@@ -40,5 +40,7 @@ public class CSO_ItemEffectSmoke : CSO_ItemEffect
         {
             smoke.NetworkObject.Spawn();
         }
+
+        CS_NetworkSoundPlayer.instance?.PlaySeForEveryone(CSE_SeId.ItemSmokeBomb, smoke.transform.position);
     }
 }

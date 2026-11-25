@@ -193,6 +193,25 @@ public class CS_PlayerAttack : NetworkBehaviour
         _hasHit = false;
         _isInputBuffered = false;
         onStepStarted?.Invoke(stepIndex);
+        PlayStepSe(stepIndex);
+    }
+
+    // 通常攻撃の各段のSE(6段目以降は5段目のものを使う)。段の開始は操作している本人の手元で起きるので、全員へ鳴らす
+    private static readonly CSE_SeId[] _stepSeIds =
+    {
+        CSE_SeId.PlayerNormalAttack1,
+        CSE_SeId.PlayerNormalAttack2,
+        CSE_SeId.PlayerNormalAttack3,
+        CSE_SeId.PlayerNormalAttack4,
+        CSE_SeId.PlayerNormalAttack5,
+    };
+
+    private void PlayStepSe(int stepIndex)
+    {
+        if (stepIndex < 0) return;
+
+        CSE_SeId id = _stepSeIds[Mathf.Min(stepIndex, _stepSeIds.Length - 1)];
+        CS_NetworkSoundPlayer.instance?.PlaySeForEveryone(id, transform.position);
     }
 
     // 次の段があれば派生する(派生できたらtrue)
@@ -281,8 +300,16 @@ public class CS_PlayerAttack : NetworkBehaviour
             DealDamage(target, damage);
             CS_AttackHitDetector.TryKnockback(target, position);   // 攻撃した位置から離れる方向へ下がる
             step.OnHit(context, target);
+            PlayHitSe(target, position);   // 当たった相手ごとに鳴らす(空振りでは鳴らさない。判定はサーバーなので全員へ)
             _gauge.Fill(step.gaugeGain);
         }
+    }
+
+    // 攻撃命中のSE。相手の位置(取れなければ攻撃の判定位置)から鳴らす
+    private void PlayHitSe(IDamageable target, Vector3 fallbackPosition)
+    {
+        Vector3 hitPosition = target is Component component ? component.transform.position : fallbackPosition;
+        CS_NetworkSoundPlayer.instance?.PlaySeForEveryone(CSE_SeId.PlayerAttackHit, hitPosition);
     }
 
     // ダメージを与える。スコア(CS_PlayerScoring)があればそれを通し、誰が倒したかをスコアに反映する

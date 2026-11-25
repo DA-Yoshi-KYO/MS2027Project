@@ -172,6 +172,7 @@ public class CS_PlayerParry : NetworkBehaviour
         if (!IsSpawned)
         {
             onParried?.Invoke(target);
+            PlayParrySe();
             return;
         }
 
@@ -184,6 +185,13 @@ public class CS_PlayerParry : NetworkBehaviour
     {
         GameObject target = targetReference.TryGet(out NetworkObject targetObject) ? targetObject.gameObject : null;
         onParried?.Invoke(target);
+        PlayParrySe();
+    }
+
+    // パリー成功のSE。成功は全クライアントで起きるので、各自が自分のPCで鳴らす(全員へ送ると二重になる)
+    private void PlayParrySe()
+    {
+        CS_SoundManager.instance?.PlaySe(CSE_SeId.PlayerParrySuccess, transform.position);
     }
 
     // ========================================

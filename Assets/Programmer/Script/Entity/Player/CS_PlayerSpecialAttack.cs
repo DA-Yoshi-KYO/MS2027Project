@@ -133,6 +133,7 @@ public class CS_PlayerSpecialAttack : NetworkBehaviour
         _elapsed = 0f;
         _hasHit = false;
         onSpecialStarted?.Invoke();
+        CS_NetworkSoundPlayer.instance?.PlaySeForEveryone(CSE_SeId.PlayerSpecialAttack, transform.position);
     }
 
     // 「効果だけ」の必殺技: 攻撃のモーションを出さず、その場でゲージの消費をサーバーへ頼む(効果はonSpecialActivatedで始まる)

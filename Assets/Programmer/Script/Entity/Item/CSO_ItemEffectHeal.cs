@@ -30,5 +30,6 @@ public class CSO_ItemEffectHeal : CSO_ItemEffect
         }
 
         healable.Heal(_healAmount);
+        CS_NetworkSoundPlayer.instance?.PlaySeForEveryone(CSE_SeId.ItemHeal, target.transform.position);
     }
 }

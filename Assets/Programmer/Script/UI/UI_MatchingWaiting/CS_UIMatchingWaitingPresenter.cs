@@ -35,6 +35,14 @@ public class CS_UIMatchingWaitingPresenter : CS_BasePresenter
     {
         _view = GetComponent<CS_UIMatchingWaitingView>();
         _view.SetPresenter(this);
+
+        // 開始(ホスト)で決定音とゲーム開始音、戻るでキャンセル音を鳴らす
+        _view.onStartClicked.Subscribe(_ =>
+        {
+            CS_SoundManager.instance?.PlaySe(CSE_SeId.SystemUIDecide);
+            CS_SoundManager.instance?.PlaySe(CSE_SeId.SystemGameStart);
+        }).AddTo(_disposables);
+        _view.onBackClicked.Subscribe(_ => CS_SoundManager.instance?.PlaySe(CSE_SeId.SystemUICancel)).AddTo(_disposables);
     }
 
     /// <summary>

@@ -220,6 +220,7 @@ public class CS_SecurityDroneSuppression : NetworkBehaviour
         if (_timer > 0.0f) return;
 
         KillPlayersInRange();
+        CS_NetworkSoundPlayer.instance?.PlaySeForEveryone(CSE_SeId.PatrolDroneBeamAttack, _drone.transform.position);
         StartPhase(Phase.Recovery, _drone.data.recoveryTime, CSE_SecurityDroneState.Recovery);
     }
 
@@ -301,6 +302,7 @@ public class CS_SecurityDroneSuppression : NetworkBehaviour
     private void FireTaser()
     {
         Vector3 origin = _drone.transform.position;
+        CS_NetworkSoundPlayer.instance?.PlaySeForEveryone(CSE_SeId.PatrolDroneTaserAttack, origin);
         float distance = _taserRange;
         if (Physics.Raycast(origin, _aimDirection, out RaycastHit wall, _taserRange, CS_PoliceLayers.obstacleLayers, QueryTriggerInteraction.Ignore))
         {

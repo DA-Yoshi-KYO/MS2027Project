@@ -17,6 +17,9 @@ using UnityEngine.Rendering.HighDefinition;
               ・テクスチャはファイル更新日時が変わったら読み直す（Substance再書き出し対応）
  作者       : ヨシモト リョウ
  履歴       : 2026/10/10 新規作成 / 自動HDRP/Lit + Inspector編集 + 保存 に変更
+              2026/11/22 SDF・ハイトマップはリニアで読む / 書き出したコピーへのパス差し替え
+              2026/11/22 トゥーンは特定キャラの調整値ではなくシェーダーの初期値から始める
+              2026/11/22 シェーダー内蔵の画像（布の織り目など）を空にしない
 =====================================+
 */
 
@@ -76,6 +79,8 @@ public class CS_MayaPreviewMaterialLibrary : IDisposable
 
     public const string DefaultShader = "HDRP/Lit";
     private const float SaveDelay = 0.8f;
+    private const string ToonShaderPart = "SHG_NTE_";
+    private const string BackThenFrontProp = "_TransparentBackfaceEnable";
 
     private class ShaderInfo
     {
@@ -117,6 +122,7 @@ public class CS_MayaPreviewMaterialLibrary : IDisposable
     private readonly HashSet<string> _warned = new HashSet<string>();
     private string _folder;
     private float _saveAt = -1f;
+    private bool _sceneSync;              // mbを開いた / 接続した直後の受信中
 
     // 現在のライブラリ（Inspectorから使う）
     public static CS_MayaPreviewMaterialLibrary Current { get; private set; }
@@ -250,7 +256,8 @@ public class CS_MayaPreviewMaterialLibrary : IDisposable
 
         GetOrCreate(def.name);
         Record record = _records[def.name];
-        float[] previousColor = record.mayaColor;
+        // mbを開いた直後に届く値は基準。前のmbと違っても、保存した設定は消さない
+        float[] previousColor = _sceneSync ? null : record.mayaColor;
         string previousBase = record.mayaBase, previousNormal = record.mayaNormal;
         record.mayaColor = def.baseColor;
         record.mayaBase = null;
@@ -400,6 +407,19 @@ public class CS_MayaPreviewMaterialLibrary : IDisposable
         MarkDirty(record);
     }
 
+    // Snapshot の中のテクスチャのパスを差し替える（書き出したコピーを使うとき）
+    public static string Relocate(string json, IDictionary<string, string> paths)
+    {
+        if (string.IsNullOrEmpty(json)) return json;
+        var saved = JsonUtility.FromJson<SavedMaterial>(json);
+        if (saved == null) return json;
+        var textures = new Dictionary<string, string>();
+        if (saved.textures != null) foreach (var v in saved.textures) textures[v.prop] = v.path;
+        foreach (var pair in paths) textures[pair.Key] = pair.Value;
+        saved.textures = ToArray(textures, (k, v) => new TextureValue { prop = k, path = v });
+        return JsonUtility.ToJson(saved);
+    }
+
     public IEnumerable<string> MaterialNames => _records.Keys;
 
     public Material MaterialOf(string materialName) =>
@@ -414,6 +434,10 @@ public class CS_MayaPreviewMaterialLibrary : IDisposable
     public bool IsLinearProp(string materialName, string prop) =>
         _records.TryGetValue(materialName, out Record record) && IsLinear(prop, InfoOf(record));
 
+
+    // SESSION から最初のメッシュまで = そのmbの今の状態（編集ではない）
+    public void BeginSceneSync() => _sceneSync = true;
+    public void EndSceneSync() => _sceneSync = false;
 
     // 変更を全て捨てて HDRP/Lit + Maya の状態に戻す
     public void ResetMaterial(string materialName)
@@ -564,13 +588,13 @@ public class CS_MayaPreviewMaterialLibrary : IDisposable
         int count = info.shader.GetPropertyCount();
         for (int i = 0; i < count; i++)
         {
-            if (info.shader.GetPropertyType(i) == ShaderPropertyType.Texture &&
-                (info.shader.GetPropertyFlags(i) & ShaderPropertyFlags.HideInInspector) == 0)
+            if (info.shader.GetPropertyType(i) == ShaderPropertyType.Texture && IsSlot(info.shader, i))
             {
                 material.SetTexture(info.shader.GetPropertyName(i), null);
             }
         }
 
+        if (info.shader.name.Contains(ToonShaderPart)) StartFromShaderDefaults(material, info.shader);
         ApplyMaya(record, material, info);
 
         foreach (var pair in record.floats) if (material.HasProperty(pair.Key)) SetNumber(material, pair.Key, pair.Value);
@@ -592,6 +616,38 @@ public class CS_MayaPreviewMaterialLibrary : IDisposable
 
         if (notify) MaterialReplaced?.Invoke(record.name);
         if (previous != null) UnityEngine.Object.Destroy(previous);
+    }
+
+    // テンプレートのMaterialは描画設定（キュー・キーワード）のために複製しているだけ。
+    // そのMaterialのキャラ用に調整された値は使わず、シェーダーの初期値に戻す。
+    private static void StartFromShaderDefaults(Material material, Shader shader)
+    {
+        int count = shader.GetPropertyCount();
+        for (int i = 0; i < count; i++)
+        {
+            if ((shader.GetPropertyFlags(i) & ShaderPropertyFlags.HideInInspector) != 0) continue;
+            string prop = shader.GetPropertyName(i);
+            switch (shader.GetPropertyType(i))
+            {
+                case ShaderPropertyType.Float:
+                case ShaderPropertyType.Range:
+                    material.SetFloat(prop, shader.GetPropertyDefaultFloatValue(i));
+                    break;
+                case ShaderPropertyType.Color:
+                    material.SetColor(prop, shader.GetPropertyDefaultVectorValue(i));
+                    break;
+                case ShaderPropertyType.Vector:
+                    material.SetVector(prop, shader.GetPropertyDefaultVectorValue(i));
+                    break;
+            }
+        }
+        // Mayaは +Z が正面。受信時にZを反転するので、Unity側では -Z が正面、+X が画像の右。
+        // 違う向きのモデルは「顔の向き」「SDFの左右を反転」で合わせる。
+        if (material.HasProperty("_FaceFront")) material.SetVector("_FaceFront", new Vector4(0f, 0f, -1f, 0f));
+        if (material.HasProperty("_FaceRight")) material.SetVector("_FaceRight", new Vector4(1f, 0f, 0f, 0f));
+        // 目は半透明・両面で奥行きを書かない。閉じた眼球でも裏面が表に重ならないよう、裏→表の順に描く
+        if (shader.name == CS_MayaPreviewMeshData.EyeShader && material.HasProperty(BackThenFrontProp))
+            material.SetFloat(BackThenFrontProp, 1f);
     }
 
     // Mayaの色・テクスチャ（Inspectorで変更したプロパティは上書きしない）
@@ -617,6 +673,10 @@ public class CS_MayaPreviewMaterialLibrary : IDisposable
         if (string.IsNullOrEmpty(prop) || !material.HasProperty(prop) || record.textures.ContainsKey(prop)) return;
         material.SetTexture(prop, string.IsNullOrEmpty(path) ? null : LoadTexture(path, linear));
     }
+
+    // 人が画像を入れる枠か。シェーダー内蔵の画像（NonModifiableTextureData）には非表示の印が付かないので別に見る。
+    public static bool IsSlot(Shader shader, int index) =>
+        (shader.GetPropertyFlags(index) & (ShaderPropertyFlags.HideInInspector | ShaderPropertyFlags.NonModifiableTextureData)) == 0;
 
     private static void SetNumber(Material material, string prop, float value)
     {
@@ -644,6 +704,7 @@ public class CS_MayaPreviewMaterialLibrary : IDisposable
     {
         if (info != null && prop == info.normalProp) return true;
         if (info != null && prop == info.baseProp) return false;
+        if (CS_MayaPreviewExport.IsDataMap(prop)) return true;
         string lower = prop.ToLowerInvariant();
         return !(lower.Contains("color") || lower.Contains("albedo") || lower.Contains("emiss") || lower.Contains("base"));
     }

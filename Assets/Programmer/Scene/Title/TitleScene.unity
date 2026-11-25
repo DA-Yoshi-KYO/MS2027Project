@@ -453,11 +453,11 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::CS_UITitleFrameJitter
   _pinkRect: {fileID: 1849454815}
   _blueRect: {fileID: 1584794668}
-  _moveRange: {x: 12, y: 8}
-  _minDistanceRate: 0.4
-  _changeIntervalMin: 0.04
-  _changeIntervalMax: 0.04
-  _smoothTime: 0
+  _moveRange: {x: 8, y: 6}
+  _minDistanceRate: 0.3
+  _changeIntervalMin: 0.08
+  _changeIntervalMax: 0.22
+  _smoothTime: 0.06
 --- !u!1 &502232660
 GameObject:
   m_ObjectHideFlags: 0

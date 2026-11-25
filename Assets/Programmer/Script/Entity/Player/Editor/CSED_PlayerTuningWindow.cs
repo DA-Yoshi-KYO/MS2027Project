@@ -119,6 +119,7 @@ public class CSED_PlayerTuningWindow : EditorWindow
             new FieldDef("_coyoteTime", "足場から出た後もジャンプできる時間(秒)", "段差の端から出た直後でも跳べる猶予。0で猶予なし"),
             new FieldDef("_jumpBufferTime", "着地前のジャンプを覚えておく時間(秒)", "着地の少し前に押したジャンプを、着地した時に跳ぶ。0で覚えない"),
             new FieldDef("_cameraVerticalSmoothTime", "カメラが上下に追う遅れ(秒)", "ジャンプ・段差でカメラがカクッと動かないよう、高さだけ少し遅れて追う。0で遅れなし"),
+            new FieldDef("_cameraMaxVerticalLag", "カメラが上下に遅れる最大(m)", "速く落ちる時も、これ以上は離れずに付いていく"),
             new FieldDef("_mouseSensitivity", "マウスの感度", "マウスを動かした量に対するカメラの回る量"),
             new FieldDef("_stickSensitivity", "スティックの感度(度/秒)", "右スティックを倒しきった時のカメラの回る速さ"),
         }),
@@ -126,6 +127,16 @@ public class CSED_PlayerTuningWindow : EditorWindow
         {
             new FieldDef("_airborneDelay", "空中のモーションになるまでの時間(秒)", "接地していない状態がこの秒数続くまでは、空中のモーションにしない(段差の角で一瞬浮いただけで切り替わらないように)。ジャンプは待たない"),
             new FieldDef("_stepHeight", "空中のモーションにしない段差の高さ(m)", "落ちている時、足元からこの高さ以内に地面があれば、空中のモーションにしない"),
+        }),
+        new Section("タワーへ運ぶ(ソロ・AIガイド)", typeof(CS_PlayerTowerCarry), new[]
+        {
+            new FieldDef("_towerTopPoint", "運ぶ先(空ならタワーの屋上を自動で探す)", "運ぶ先の目印。空なら、エリア分けの中心(AEGISタワー)の真上から屋上を探す"),
+            new FieldDef("_carryOnlyWhenCleared", "守れたエリアの後だけ運ぶ", "オフなら、守れなかったエリアの後も運ぶ"),
+            new FieldDef("_startDelay", "運び始めるまでの時間(秒)", "エリアが決着してから運び始めるまで。AIガイドのセリフを先に見せるため"),
+            new FieldDef("_arcHeight", "通る高さ(m)", "出発と到着の高い方より、どれだけ上を通るか"),
+            new FieldDef("_carrySpeed", "運ぶ速さの目安(m/秒)", "運ぶ時間 = 距離 ÷ この速さ(下の最短・最長に収める)"),
+            new FieldDef("_minDuration", "運ぶ時間の最短(秒)", ""),
+            new FieldDef("_maxDuration", "運ぶ時間の最長(秒)", ""),
         }),
         new Section("ブリンク(ダッシュボタン)", typeof(CS_Player), new[]
         {
@@ -146,6 +157,7 @@ public class CSED_PlayerTuningWindow : EditorWindow
             new FieldDef("_range", "奇襲できる距離(m)", "悪人との横方向の距離がこれ以内なら奇襲できる(飛び込む距離)"),
             new FieldDef("_backAngle", "背後とみなす角度(度)", "悪人の正面から見て、この角度以上うしろなら背後"),
             new FieldDef("_aboveHeight", "上とみなす高さ(m)", "悪人よりこれ以上高ければ上を取っている"),
+            new FieldDef("_windupTime", "飛び込む前の溜め(秒)", "押してから飛び込むまで、その場で溜める時間。0で溜めなし(押した瞬間に飛び込む)"),
             new FieldDef("_dashSpeed", "飛び込む速さ(m/秒)", ""),
             new FieldDef("_strikeDistance", "着いたとみなす距離(m)", ""),
             new FieldDef("_verticalTolerance", "高さを合わせる誤差(m)", "悪人との足元の高さの差がこれ以内なら、縦に飛び込まない"),

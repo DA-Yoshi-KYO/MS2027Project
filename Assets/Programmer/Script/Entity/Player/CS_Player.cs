@@ -188,6 +188,7 @@ public class CS_Player : NetworkBehaviour
     private float _cameraPivotY;            // カメラが追うプレイヤーの高さ(上下だけ遅れて追う)
     private float _cameraPivotYVelocity;
     private bool _hasCameraPivotY;
+    private bool _isCarried;                // 運ばれている間か(CS_PlayerTowerCarry。移動・攻撃をせず、位置は運ぶ側が動かす)
     private float _yaw;
     private float _pitch = 11f;
 
@@ -209,7 +210,7 @@ public class CS_Player : NetworkBehaviour
     private float _airMomentumDrag;    // 空中の勢いの減速率(毎秒e^(-減速率)の割合で弱める)。SAで放す時に渡され、勢いが0になれば0に戻る(EndSAMotion)
 
     public bool isControlled => _isControlled;          // このプレイヤーを自分(このマシン)が操作しているか(NPCはサーバーでtrue)
-    public bool canAct => _isControlled && !_health.isDead && !isStunned && !isPlayingIntro && !CS_PlayerIntroCamera.isMatchHeld;   // 移動・攻撃してよいか(CS_PlayerAttackも参照)
+    public bool canAct => _isControlled && !_isCarried && !_health.isDead && !isStunned && !isPlayingIntro && !CS_PlayerIntroCamera.isMatchHeld;   // 移動・攻撃してよいか(CS_PlayerAttackも参照)
     public bool isPlayingIntro => _introCamera != null && _introCamera.isPlaying;   // スタート時のカメラの演出中か(自分のプレイヤーのみ。この間は動けない)
     public bool isStunned => _stun != null && _stun.isStunned;   // スタン中か(パリーされた時など。死亡中と同じく行動できない)
     public bool isHiding => _hide != null && _hide.isHiding;     // SAでハイドポイントへ飛んでいる最中か(操作しているマシンでだけ正しい)
@@ -391,6 +392,7 @@ public class CS_Player : NetworkBehaviour
     private void FixedUpdate()
     {
         if (!_isControlled) return;
+        if (_isCarried) return;   // 運ばれている間は、位置を運ぶ側(CS_PlayerTowerCarry)が動かす
 
         // 床の下へ落ちてしまったら、スポーンした位置へ戻す
         if (ReturnToSpawnIfFallen()) return;
@@ -473,6 +475,19 @@ public class CS_Player : NetworkBehaviour
     public void ClearAimFacing()
     {
         _hasAimFacing = false;
+    }
+
+    // 運ばれている状態にする・戻す(CS_PlayerTowerCarryが使う)。運ばれている間は移動・攻撃・ジャンプ・ダッシュをしない
+    // 戻した時は、ダッシュ・踏み込み・空中の勢い・ジャンプの予約を消し、速度0から動き出す
+    public void SetCarried(bool carried)
+    {
+        _isCarried = carried;
+        _isDashing = false;
+        _isSprinting = false;
+        _lungeRemaining = 0f;
+        _airMomentum = Vector3.zero;
+        _jumpRequested = false;
+        _hasCameraPivotY = false;   // カメラは今の位置からすぐ追う
     }
 
     // 指定した方向へ短く踏み込む(攻撃が届く距離まで詰める)。ダッシュを始めると打ち切られる

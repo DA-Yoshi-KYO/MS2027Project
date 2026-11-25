@@ -21,6 +21,7 @@ using UnityEngine.UIElements;
  *   ▶ 再生 / ■ 停止: プレイせずにSceneビューで悪人を動かす(CSED_VillainPatrolPreview)
  *   真上から見る: Sceneビューを真上からの2D表示にする(もう一度押すと元の視点。CSED_VillainPatrolTopView)
  *   合わせ直す: 真上から見ている時に、路地裏・ルート・実行役が全部入るよう合わせ直す
+ *   エリア分けを表示: エリア分け(CS_CrimeAreaLayout)の扇形の表示をオン・オフする(エリア分けが無いシーンでは出さない)
  * ・パターン(アセット): 使っているパターン、同じパターンを使っているスポーン位置の数
  *   複製: 今のパターンを写した新しいアセットにする(このスポーン位置だけ変えたい時)
  * ・表示は IMGUIContainer で描く。状態が変わったら CSED_VillainPatrolEditorState.onChanged で描き直す
@@ -80,6 +81,7 @@ public class CSED_VillainPatrolOverlay : Overlay, ITransientOverlay
         DrawPattern(spawnPoint, route, pattern);
         DrawTools();
         DrawTopView(containerWindow as SceneView);
+        DrawAreaToggle();
         DrawCurrentRoute(pattern);
         DrawPlayback(pattern);
     }
@@ -131,6 +133,18 @@ public class CSED_VillainPatrolOverlay : Overlay, ITransientOverlay
             if (GUILayout.Button("合わせ直す", EditorStyles.miniButton, GUILayout.Width(70f))) CSED_VillainPatrolTopView.Frame();
         }
         EditorGUILayout.EndHorizontal();
+    }
+
+    // エリア分けの表示のオン・オフ(エリア分けがある時だけ)
+    private static void DrawAreaToggle()
+    {
+        if (CS_CrimeAreaLayout.FindForEditor() == null) return;
+
+        bool show = CS_CrimeAreaLayout.showInEditor;
+        if (GUILayout.Toggle(show, "エリア分けを表示", EditorStyles.miniButton) != show)
+        {
+            CS_CrimeAreaLayout.showInEditor = !show;
+        }
     }
 
     private static void DrawToolButton(string label, CSED_VillainPatrolEditorState.Tool tool)

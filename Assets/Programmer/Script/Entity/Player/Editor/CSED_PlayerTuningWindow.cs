@@ -127,6 +127,16 @@ public class CSED_PlayerTuningWindow : EditorWindow
             new FieldDef("_airborneDelay", "空中のモーションになるまでの時間(秒)", "接地していない状態がこの秒数続くまでは、空中のモーションにしない(段差の角で一瞬浮いただけで切り替わらないように)。ジャンプは待たない"),
             new FieldDef("_stepHeight", "空中のモーションにしない段差の高さ(m)", "落ちている時、足元からこの高さ以内に地面があれば、空中のモーションにしない"),
         }),
+        new Section("タワーへ運ぶ(ソロ・AIガイド)", typeof(CS_PlayerTowerCarry), new[]
+        {
+            new FieldDef("_towerTopPoint", "運ぶ先(空ならタワーの屋上を自動で探す)", "運ぶ先の目印。空なら、エリア分けの中心(AEGISタワー)の真上から屋上を探す"),
+            new FieldDef("_carryOnlyWhenCleared", "守れたエリアの後だけ運ぶ", "オフなら、守れなかったエリアの後も運ぶ"),
+            new FieldDef("_startDelay", "運び始めるまでの時間(秒)", "エリアが決着してから運び始めるまで。AIガイドのセリフを先に見せるため"),
+            new FieldDef("_arcHeight", "通る高さ(m)", "出発と到着の高い方より、どれだけ上を通るか"),
+            new FieldDef("_carrySpeed", "運ぶ速さの目安(m/秒)", "運ぶ時間 = 距離 ÷ この速さ(下の最短・最長に収める)"),
+            new FieldDef("_minDuration", "運ぶ時間の最短(秒)", ""),
+            new FieldDef("_maxDuration", "運ぶ時間の最長(秒)", ""),
+        }),
         new Section("ブリンク(ダッシュボタン)", typeof(CS_Player), new[]
         {
             new FieldDef("_dashDuration", "ブリンクの時間(秒)", "ブリンクが続く時間。速さはキャラクターの基礎数値"),

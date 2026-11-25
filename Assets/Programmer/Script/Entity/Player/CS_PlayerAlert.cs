@@ -64,7 +64,7 @@ public class CS_PlayerAlert : NetworkBehaviour
     private void Start()
     {
         if (IsSpawned) return;
-        if (NetworkManager.Singleton != null && NetworkManager.Singleton.IsListening) return;
+        if (CS_PlayerNetwork.isOnline) return;
 
         RegisterBgmController();
     }
@@ -114,7 +114,7 @@ public class CS_PlayerAlert : NetworkBehaviour
     // 警察側が、警察・巡回ドローンの実際の状態から決めた警戒状態を渡す(毎フレーム呼んでよい。サーバー、またはオフラインのみ)
     public void SetPoliceState(CSE_PlayerAlertState state)
     {
-        if (!HasAuthority()) return;
+        if (!this.IsServerOrOffline()) return;
 
         // 死亡中は、警察が追跡をやめきっていなくても、警戒状態にしない
         SetState(_health.isDead ? CSE_PlayerAlertState.None : state);
@@ -123,7 +123,7 @@ public class CS_PlayerAlert : NetworkBehaviour
     // 警察に倒されたら警戒状態を解除し、自分を警戒対象にしているもの(警察側)へも解除を知らせる
     private void HandleDeath()
     {
-        if (!HasAuthority()) return;
+        if (!this.IsServerOrOffline()) return;
         if (!IsPolice(_health.lastAttacker)) return;
 
         SetState(CSE_PlayerAlertState.None);
@@ -156,11 +156,5 @@ public class CS_PlayerAlert : NetworkBehaviour
     private void HandleStateChanged(CSE_PlayerAlertState previous, CSE_PlayerAlertState current)
     {
         onAlertChanged?.Invoke(current);
-    }
-
-    // 警戒状態を変えてよいか(サーバー、またはオフラインのみ)
-    private bool HasAuthority()
-    {
-        return !IsSpawned || IsServer;
     }
 }

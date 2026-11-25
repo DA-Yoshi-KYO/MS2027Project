@@ -132,7 +132,7 @@ public partial class CS_MayaPreviewInspector
         {
             CS_MayaPreviewOutline outline = CS_MayaPreviewOutline.Of(target);
             if (outline == null) continue;
-            Destroy(outline.gameObject);
+            outline.Remove();
             removed++;
         }
         Flash("アウトラインを削除しました（" + removed + "）");
@@ -159,7 +159,7 @@ public partial class CS_MayaPreviewInspector
         }
         if (GUILayout.Button("アウトラインを削除", _button, GUILayout.Height(RowHeight + 2)))
         {
-            Destroy(outline.gameObject);
+            outline.Remove();
             ClearFields();
         }
         GUILayout.Space(8);

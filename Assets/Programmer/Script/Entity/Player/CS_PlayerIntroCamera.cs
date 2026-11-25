@@ -78,7 +78,7 @@ public class CS_PlayerIntroCamera : NetworkBehaviour
 
     public bool isPlaying => _isPlaying;    // 演出中か(この間はCS_Player.canActがfalse)
     // マルチで、人のプレイヤー全員の演出が終わるのを待っている間か(全マシン共通。この間は誰も動けず、タイマーも減らない)
-    public static bool isMatchHeld => IsOnline() && !s_hasMatchStarted && s_holdStartTime >= 0f;
+    public static bool isMatchHeld => CS_PlayerNetwork.isOnline && !s_hasMatchStarted && s_holdStartTime >= 0f;
 
     // Domain Reloadオフ対策(再生のたびに消す)
     [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.SubsystemRegistration)]
@@ -182,7 +182,7 @@ public class CS_PlayerIntroCamera : NetworkBehaviour
         if (s_lastUpdateFrame == Time.frameCount) return;
         s_lastUpdateFrame = Time.frameCount;
 
-        if (!IsOnline())
+        if (!CS_PlayerNetwork.isOnline)
         {
             // ソロ: 自分の演出の間だけ止める
             CS_Player local = CS_Player.localPlayer;
@@ -254,12 +254,6 @@ public class CS_PlayerIntroCamera : NetworkBehaviour
         }
         s_animators = new Animator[0];
         s_animatorModes = new AnimatorUpdateMode[0];
-    }
-
-    // NetworkManagerが動いているか(マルチか)
-    private static bool IsOnline()
-    {
-        return NetworkManager.Singleton != null && NetworkManager.Singleton.IsListening;
     }
 
     // ゆっくり動き出して、ゆっくり止まる(始めと終わりの速さが0。加速度も0なので、止まる時にカクッとしない)

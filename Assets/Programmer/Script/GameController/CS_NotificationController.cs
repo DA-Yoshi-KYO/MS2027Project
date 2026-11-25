@@ -91,6 +91,17 @@ public class CS_NotificationController : MonoBehaviour
         );
     }
 
+    /// <summary>
+    /// 追加: 帯画像を指定して時間通知を出す。
+    /// backSpriteがnullなら従来のTimeAlert用の画像で表示する。
+    /// </summary>
+    public void ShowTimeAlert(string message, Sprite backSprite)
+    {
+        _model.AddNotification(
+            CS_NotificationData.CreateTimeAlert(message, backSprite)
+        );
+    }
+
     public void ShowKill(string playerName)
     {
         _model.AddNotification(

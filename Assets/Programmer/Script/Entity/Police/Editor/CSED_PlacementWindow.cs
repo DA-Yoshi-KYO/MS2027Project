@@ -147,9 +147,11 @@ public class CSED_PlacementWindow : EditorWindow
                 DrawOverlaySettings(CSED_PlacementOverlay.Kind.Drone);
                 break;
             case CSED_PlacementState.Tool.Laser:
-                EditorGUILayout.HelpBox("始点をクリックし、終点をクリックします。始点を中心に、終点まで往復します。棒は、往復する向きに直角に、通路の端から端まで伸びます(Escで、始点を取り消し)", MessageType.Info);
+                EditorGUILayout.HelpBox("始点をクリックし、終点をクリックします。始点を中心に、終点まで往復します。置いた後は、マウスを動かして棒の向きを決め、もう1回クリックして確定します(Shift: 15度刻み / Escで、標準の向き(往復する向きに直角)に戻す)。始点だけをクリックした段階の Esc は、始点の取り消しです", MessageType.Info);
+                CSED_PlacementState.laserAxis = (CSED_PlacementState.LaserAxis)EditorGUILayout.Popup(new GUIContent("置いた後に回す軸", "縦軸: 棒を水平に回す。往復する向きの軸: 棒を立てたり斜めにしたりする(置いた後に、Y・Zキーでも切り替えられる)"), (int)CSED_PlacementState.laserAxis, new[] { "縦軸(水平に回す)", "往復する向きの軸(棒を立てる)" });
                 CSED_PlacementState.laserBeamAuto = EditorGUILayout.Toggle(new GUIContent("長さを自動", "通路の左右の壁までの幅(一番狭い所)に合わせる。壁が無ければ、下の長さ"), CSED_PlacementState.laserBeamAuto);
                 CSED_PlacementState.laserBeamLength = Mathf.Max(0.1f, EditorGUILayout.FloatField("長さ(m)", CSED_PlacementState.laserBeamLength));
+                CSED_PlacementState.laserThickness = Mathf.Max(0.02f, EditorGUILayout.FloatField(new GUIContent("太さ(m)", "棒の太さ(断面は正方形。当たり判定も、この太さ)。次に置くレーザーから反映される(標準は0.3m)"), CSED_PlacementState.laserThickness));
                 break;
             case CSED_PlacementState.Tool.Light:
                 EditorGUILayout.HelpBox("最初のクリックでライトを作り、クリックするたびに、経路の点を足します(2つ以上)。Enter または Esc で確定します。ライトは、点を順につないだ線の上を動いて、床を円で照らします(曲がり角も通れます)", MessageType.Info);

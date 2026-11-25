@@ -199,7 +199,7 @@ public sealed class CS_UINotificationView :
         }
 
         ApplyVisual(
-            data.type
+            data // 変更: data.type → data
         );
 
         ApplyMessage(
@@ -232,7 +232,7 @@ public sealed class CS_UINotificationView :
         }
 
         ApplyVisual(
-            data.type
+            data // 変更: data.type → data
         );
 
         ApplyMessage(
@@ -485,6 +485,26 @@ public sealed class CS_UINotificationView :
     // =========================================================
     // BackImage切り替え
     // =========================================================
+
+    /// <summary>
+    /// 追加: 通知データに対応するBackImageを適用する。
+    /// 時間通知で帯画像が指定されていればそれを使い、
+    /// 指定がなければ通知タイプごとの画像を使う。
+    /// </summary>
+    private void ApplyVisual(
+        CS_NotificationData data)
+    {
+        if (data.type == CSE_NotificationType.TimeAlert &&
+            data.backSprite != null)
+        {
+            SetBackSprite(data.backSprite);
+            return;
+        }
+
+        ApplyVisual(
+            data.type
+        );
+    }
 
     /// <summary>
     /// 通知タイプに対応するBackImageを適用する。

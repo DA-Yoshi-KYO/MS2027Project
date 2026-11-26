@@ -85,6 +85,7 @@ public class CS_UITitleMenuPresenter : CS_BasePresenter
     {
         // 最初の1回は即配置、以降はアニメーションで移動
         _view.SetSelected(index, !_isFirstSelection);
+        if (!_isFirstSelection) CS_SoundManager.instance?.PlaySe(CSE_SeId.SystemUICursorMove);
         _isFirstSelection = false;
     }
 
@@ -99,6 +100,7 @@ public class CS_UITitleMenuPresenter : CS_BasePresenter
 
     private void HandleSubmit()
     {
+        CS_SoundManager.instance?.PlaySe(CSE_SeId.SystemUIDecide);
         _model?.Decide();
     }
 
@@ -125,6 +127,7 @@ public class CS_UITitleMenuPresenter : CS_BasePresenter
         if (index < 0)
             return;
 
+        CS_SoundManager.instance?.PlaySe(CSE_SeId.SystemUIDecide);
         _model.Select(index);
         _model.Decide();
     }

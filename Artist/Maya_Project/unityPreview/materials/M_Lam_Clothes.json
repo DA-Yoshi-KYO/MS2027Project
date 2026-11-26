@@ -2,7 +2,64 @@
     "version": 1,
     "name": "M_Lam_Clothes",
     "shader": "Shader Graphs/SHG_NTE_Cloth",
-    "floats": [],
+    "floats": [
+        {
+            "prop": "_ClothWeave",
+            "value": 2.0
+        },
+        {
+            "prop": "_ClothThreadSize",
+            "value": 0.44494640827178957
+        },
+        {
+            "prop": "_ClothThreadBump",
+            "value": 0.7835641503334045
+        },
+        {
+            "prop": "_ClothThreadShade",
+            "value": 0.07123289257287979
+        },
+        {
+            "prop": "_ClothFuzzStrength",
+            "value": 0.0
+        },
+        {
+            "prop": "_ClothFuzzSize",
+            "value": 6.0
+        },
+        {
+            "prop": "_ClothMottle",
+            "value": 0.0
+        },
+        {
+            "prop": "_ClothSmoothness",
+            "value": 0.5799999833106995
+        },
+        {
+            "prop": "_ClothThreadSmoothness",
+            "value": 0.10000000149011612
+        },
+        {
+            "prop": "_ClothGlossStrength",
+            "value": 0.1863008737564087
+        },
+        {
+            "prop": "_ClothAnisotropy",
+            "value": -0.75
+        },
+        {
+            "prop": "_ClothSheenStrength",
+            "value": 0.20000000298023225
+        },
+        {
+            "prop": "_ClothMaterial",
+            "value": 5.0
+        },
+        {
+            "prop": "_ClothStitchStrength",
+            "value": 0.0
+        }
+    ],
     "colors": [],
     "vectors": [],
     "textures": []

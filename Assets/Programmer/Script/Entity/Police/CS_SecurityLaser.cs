@@ -146,6 +146,7 @@ public class CS_SecurityLaser : MonoBehaviour
     private void OnTouched(CS_PlayerHealth player)
     {
         if (_blink != null) _blink.StartFlash(_data.flashDuration);
+        CS_SoundManager.instance?.PlaySe(CSE_SeId.SecurityLaserContact, player.transform.position);
 
         if (CS_PoliceSquad.IsNetworkClientOnly()) return;
 

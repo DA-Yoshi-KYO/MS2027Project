@@ -73,6 +73,7 @@ public class CS_NotificationController : MonoBehaviour
 
     public void ShowEvent(string message)
     {
+        CS_SoundManager.instance?.PlaySe(CSE_SeId.EventAnnouncement);
         _model.AddNotification(
             new CS_NotificationData(
                 CSE_NotificationType.Event,
@@ -83,6 +84,7 @@ public class CS_NotificationController : MonoBehaviour
 
     public void ShowTimeAlert(string message = "残り1分！")
     {
+        CS_SoundManager.instance?.PlaySe(CSE_SeId.EventTimeAnnouncement);
         _model.AddNotification(
             new CS_NotificationData(
                 CSE_NotificationType.TimeAlert,
@@ -97,6 +99,7 @@ public class CS_NotificationController : MonoBehaviour
     /// </summary>
     public void ShowTimeAlert(string message, Sprite backSprite)
     {
+        CS_SoundManager.instance?.PlaySe(CSE_SeId.EventTimeAnnouncement);
         _model.AddNotification(
             CS_NotificationData.CreateTimeAlert(message, backSprite)
         );
@@ -104,6 +107,7 @@ public class CS_NotificationController : MonoBehaviour
 
     public void ShowKill(string playerName)
     {
+        CS_SoundManager.instance?.PlaySe(CSE_SeId.EventKillLog);
         _model.AddNotification(
             CS_NotificationData.CreateKill(playerName)
         );

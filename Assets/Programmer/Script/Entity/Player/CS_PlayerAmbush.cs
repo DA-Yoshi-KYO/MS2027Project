@@ -66,7 +66,7 @@ using UnityEngine;
  *   キャラクター(IDamageableを持つもの)は遮るものとして扱わない。飛び込みもこの線の上を進むので、壁をすり抜けて奇襲することもない
  * ・飛び込んでいる間は、_dashPassThroughLayers(悪人・プレイヤー)とぶつからない(Rigidbody.excludeLayers)
  *   間にいる他の悪人・仲間に引っかかって止まり、奇襲が中止されることがないようにするため。着いたら(攻撃に移ったら)元に戻す
- * ・溜め(演出用): 押してから飛び込むまで、その場で悪人の方を向いて_windupTime秒(既定0.25秒。0で今まで通り、すぐ飛び込む)だけ溜める
+ * ・溜め(演出用): 押してから飛び込むまで、その場で悪人の方を向いて_windupTime秒だけ溜める(既定0秒 = 溜めなしで、押した瞬間に飛び込む。0より大きくすると溜めが入る)
  *   溜めた分、飛び込みは速い(_dashSpeed既定60m/秒)。溜めている間はisWindingUpがtrue
  *   飛び込みの1回の時間は、物理の1ステップ(Time.fixedDeltaTime)より少し長くする
  *   (CS_Player.Lunge/Flyは、残り時間が1ステップ以下だと1歩も進まない。速くすると最後の短い距離で止まり、_maxDashTimeまで待ってしまうため)
@@ -108,7 +108,7 @@ public class CS_PlayerAmbush : NetworkBehaviour
     [SerializeField][Min(0f)] private float _chainSkipTime = 1f;          // 連続奇襲で、一度狙った悪人をもう狙わない時間(秒。倒れたことが届くまでの間)
 
     [Header("溜め(押した瞬間の演出用の間)")]
-    [SerializeField][Min(0f)] private float _windupTime = 0.5f;           // 押してから飛び込むまで、その場で溜める時間(秒。0で溜めなし)
+    [SerializeField][Min(0f)] private float _windupTime = 0f;             // 押してから飛び込むまで、その場で溜める時間(秒。0で溜めなし。押した瞬間に飛び込む)
     [SerializeField][Min(0f)] private float _chainWindupRate = 0.5f;      // 連続奇襲の2体目以降は、溜めの時間にこの倍率を掛ける
 
     [Header("巻き込み")]
@@ -339,6 +339,7 @@ public class CS_PlayerAmbush : NetworkBehaviour
             _hasStruck = true;
             RequestStrike(_target);
             onAmbushHitTiming?.Invoke(_target);
+            CS_NetworkSoundPlayer.instance?.PlaySeForEveryone(CSE_SeId.PlayerSurpriseAttack, transform.position);   // 本人の手元でだけ起きるので全員へ
         }
 
         if (_elapsed >= Mathf.Max(_strikeDelay, _strikeDuration)) EndAmbush();

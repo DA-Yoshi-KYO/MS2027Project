@@ -54,6 +54,7 @@ public class CS_PlayerHealth : NetworkBehaviour, IDamageable, IHealable
     private readonly HashSet<object> _invincibleSources = new HashSet<object>();   // 無敵にしている要因(サーバー、またはオフラインでのみ意味を持つ)
     private readonly object _postDamageInvincibleSource = new object();          // 被弾後無敵の要因キー(このクラス専用)
     private Coroutine _postDamageInvincibleCoroutine;
+    private float _seLastHp = -1f;      // 被弾のSE用に、前のHPを覚える(-1 = まだ無い)
     private GameObject _lastAttacker;      // 最後にダメージを与えた相手(サーバー、またはオフラインでのみ意味を持つ)
 
     public float maxHp => _stats.maxHp;
@@ -64,16 +65,45 @@ public class CS_PlayerHealth : NetworkBehaviour, IDamageable, IHealable
 
     public event Action<float, float> onHpChanged;   // (current, max)
     public event Action onDeath;
+    public event Action onRevived;   // 気絶から復活した時(全クライアントで発生する)
 
     private void Awake()
     {
         _stats = GetComponent<CS_PlayerStats>();
         _parry = GetComponent<CS_PlayerParry>();
+
+        // SE。HP・生死は全員に同期されるので、各クライアントが自分のPCで鳴らす(通信しない)
+        onHpChanged += HandleHpChangedSe;
+        onDeath += HandleDeathSe;
+        onRevived += HandleRevivedSe;
+    }
+
+    // 被弾のSE。HPが減った時だけ鳴らす(最初の設定・回復・死亡では鳴らさない。死亡は死亡のSEが鳴る)
+    private void HandleHpChangedSe(float current, float max)
+    {
+        float previous = _seLastHp;
+        _seLastHp = current;
+
+        if (previous < 0f || current >= previous || current <= 0f) return;
+
+        CS_SoundManager.instance?.PlaySe(CSE_SeId.PlayerDamage, transform.position);
+    }
+
+    private void HandleDeathSe()
+    {
+        CS_SoundManager.instance?.PlaySe(CSE_SeId.PlayerDeath, transform.position);
+    }
+
+    private void HandleRevivedSe()
+    {
+        CS_SoundManager.instance?.PlaySe(CSE_SeId.PlayerRespawn, transform.position);
     }
 
     // オフライン(NetworkManagerが動いていない)のテストシーン用
     private void Start()
     {
+        CS_SoundManager.instance?.PlaySe(CSE_SeId.PlayerSpawn, transform.position);   // スポーンのSE(最初のフレーム。各クライアントが自分のPCで鳴らす)
+
         if (IsSpawned) return;
         if (CS_PlayerNetwork.isOnline) return;
 
@@ -208,9 +238,13 @@ public class CS_PlayerHealth : NetworkBehaviour, IDamageable, IHealable
     {
         if (!this.IsServerOrOffline()) return;
 
+        bool wasDead = _isDead.Value;
         _currentHp.Value = maxHp;
         _isDead.Value = false;
         NotifyOffline(false);
+
+        // オフライン時はNetworkVariableの変更通知が届かないため、ここで直接イベントを発生させる
+        if (!IsSpawned && wasDead) onRevived?.Invoke();
     }
 
     private void HandleHpChanged(float previous, float current)
@@ -223,7 +257,10 @@ public class CS_PlayerHealth : NetworkBehaviour, IDamageable, IHealable
         if (current)
         {
             onDeath?.Invoke();
+            return;
         }
+
+        onRevived?.Invoke();
     }
 
     // HP上限が変わったとき、現在HPが上限を超えないようにする(サーバーのみ)

@@ -2,8 +2,48 @@
     "version": 1,
     "name": "M_Lam_Eye",
     "shader": "Shader Graphs/SHG_NTE_Eye",
-    "floats": [],
-    "colors": [],
+    "floats": [
+        {
+            "prop": "_EyeMirrorStrength",
+            "value": 0.1246577575802803
+        },
+        {
+            "prop": "_EyeMirrorBulge",
+            "value": 0.6356164813041687
+        },
+        {
+            "prop": "_EyeMirrorBlur",
+            "value": 0.45808184146881106
+        },
+        {
+            "prop": "_EyeGlintSize",
+            "value": 0.0
+        },
+        {
+            "prop": "_EyeGlintStrength",
+            "value": 0.8958874344825745
+        }
+    ],
+    "colors": [
+        {
+            "prop": "_EyeHighlightColor",
+            "value": {
+                "x": 1.0,
+                "y": 1.0,
+                "z": 1.0,
+                "w": 1.0
+            }
+        },
+        {
+            "prop": "_EyeGlintColor",
+            "value": {
+                "x": 0.33142876625061037,
+                "y": 0.9426940083503723,
+                "z": 1.0,
+                "w": 1.0
+            }
+        }
+    ],
     "vectors": [],
     "textures": []
 }

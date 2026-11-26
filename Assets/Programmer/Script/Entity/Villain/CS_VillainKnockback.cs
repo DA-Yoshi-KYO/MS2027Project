@@ -101,6 +101,7 @@ public class CS_VillainKnockback : NetworkBehaviour, IKnockbackable
         _knockbackCount.Value++;
 
         onKnockbackStarted?.Invoke();
+        CS_NetworkSoundPlayer.instance?.PlaySeForEveryone(CSE_SeId.VillainDamageKnockback, transform.position);
     }
 
     // 奇襲を受けた時に呼ぶ(サーバー、またはオフライン)。攻撃してきた位置の方を一瞬で向き、背中側へ大きく吹き飛ぶ

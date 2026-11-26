@@ -27,6 +27,7 @@ GameObject:
   - component: {fileID: 4061000000000000001}
   - component: {fileID: 6435692268355901182}
   - component: {fileID: 6500811419385134935}
+  - component: {fileID: 7000000000000000001}
   m_Layer: 31
   m_Name: Police
   m_TagString: Untagged
@@ -224,6 +225,23 @@ MonoBehaviour:
   _wanderPauseMin: 1
   _wanderPauseMax: 3
   _wanderMaxWalkTime: 8
+--- !u!114 &7000000000000000001
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 681291065592780614}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 414a5c9b63d4460b8fc7b61f64a6fdda, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CS_MoveFootstepSe
+  _walkSeId: 300
+  _runSeId: 301
+  _stepDistance: 2.2
+  _runSpeed: 4
+  _teleportDistance: 3
 --- !u!114 &5263718849201735512
 MonoBehaviour:
   m_ObjectHideFlags: 0

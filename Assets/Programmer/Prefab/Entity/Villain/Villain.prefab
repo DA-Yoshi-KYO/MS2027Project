@@ -27,6 +27,7 @@ GameObject:
   - component: {fileID: 1948230663525777174}
   - component: {fileID: 3630360828681066918}
   - component: {fileID: 8014300332150766134}
+  - component: {fileID: 7000000000000000002}
   m_Layer: 31
   m_Name: Villain
   m_TagString: Untagged
@@ -398,6 +399,23 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::CS_VillainDefeatEffect
   _height: 1
   _cameraOffset: 0.5
+--- !u!114 &7000000000000000002
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 942901870687269662}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 414a5c9b63d4460b8fc7b61f64a6fdda, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CS_MoveFootstepSe
+  _walkSeId: 501
+  _runSeId: 502
+  _stepDistance: 2.2
+  _runSpeed: 4
+  _teleportDistance: 3
 --- !u!1001 &6001146616934783539
 PrefabInstance:
   m_ObjectHideFlags: 0

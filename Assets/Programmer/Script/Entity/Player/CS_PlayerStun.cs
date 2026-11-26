@@ -27,7 +27,19 @@ public class CS_PlayerStun : NetworkBehaviour, IStunnable
     // 書き込みはサーバーのみ。スタンが終わる時刻(サーバーの時刻)
     private readonly NetworkVariable<double> _stunEndTime = new NetworkVariable<double>();
 
+    private bool _seWasStunned;     // スタン開始のSE用に、前のフレームでスタンしていたかを覚える
+
     public bool isStunned => this.GetSyncedTime() < _stunEndTime.Value;
+
+    // スタンになった瞬間のSE。スタンの終わる時刻は全員に同期されるので、各クライアントが自分のPCで鳴らす(通信しない)
+    private void Update()
+    {
+        bool stunned = isStunned;
+        bool isJustStunned = stunned && !_seWasStunned;
+        _seWasStunned = stunned;
+
+        if (isJustStunned) CS_SoundManager.instance?.PlaySe(CSE_SeId.PlayerStunned, transform.position);
+    }
     public float stunRemaining => Mathf.Max(0f, (float)(_stunEndTime.Value - this.GetSyncedTime()));   // HUD・見た目用
 
     // IStunnable実装。duration秒の間スタンさせる(サーバー、またはオフラインのみ)

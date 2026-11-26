@@ -31,6 +31,8 @@ using UnityEditor;
  * ・犯罪完遂ゲージUI: 有効な間、CS_CrimeAreaProgressFeedで各エリアの完遂率と、プレイヤーの今いるエリアをUIへ流す(プレイ中のみ)
  * ・表示: このオブジェクトかスポーン位置を選ぶと、Sceneビューの地面に扇形をエリアの色で描き、エリア名を出す
  *   スポーン位置もエリアの色の丸で描く。境目はこのオブジェクトを選んだ時につまんで回せる(CSED_CrimeAreaLayoutEditor)
+ *   表示はオン・オフできる(showInEditor。巡回のツールバー・このオブジェクトのInspectorで切り替え。EditorPrefsで覚える)
+ *   オフの間は、扇形・エリア名・スポーン位置の丸・境目の丸を描かない(エリア分けそのものは変わらない)
  *   → フィールドはオブジェクトが多いので、スポーン位置・エリア分けは毎回探さず、Hierarchyが変わった時だけ探し直す(FindForEditor / GetSpawnPointsForEditor)
  */
 // ========================================
@@ -172,6 +174,18 @@ public class CS_CrimeAreaLayout : MonoBehaviour
     private static CS_CrimeAreaLayout _cachedLayout;
     private static bool _isCacheDirty = true;
     private static GUIStyle _labelStyle;
+    private const string _showInEditorKey = "CS_CrimeAreaLayout.ShowInEditor";
+
+    // エディタ用: エリア分けをSceneビューに表示するか(オフにしても、エリア分けそのものは変わらない)
+    public static bool showInEditor
+    {
+        get => EditorPrefs.GetBool(_showInEditorKey, true);
+        set
+        {
+            EditorPrefs.SetBool(_showInEditorKey, value);
+            SceneView.RepaintAll();
+        }
+    }
 
     // Hierarchyが変わったら、覚えておいたスポーン位置・エリア分けを探し直す
     [InitializeOnLoadMethod]
@@ -214,6 +228,8 @@ public class CS_CrimeAreaLayout : MonoBehaviour
     // 扇形・エリア名・スポーン位置をエリアの色で描く(スポーン位置を選んだ時にも、CS_VillainSpawnPointから呼ばれる)
     public void DrawGizmos()
     {
+        if (!showInEditor) return;
+
         Vector3 center = transform.position;
         foreach (Sector sector in _sectors)
         {

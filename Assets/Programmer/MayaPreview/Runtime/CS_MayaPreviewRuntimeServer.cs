@@ -121,6 +121,9 @@ public class CS_MayaPreviewRuntimeServer : MonoBehaviour
         public float[] uvs;
 
         public CSST_SubMeshData[] submeshes;
+
+        // スキンメッシュの時だけ（ジョイント・ウェイト・バインドポーズ）。positions はバインドポーズ
+        public CS_MayaPreviewSkin.SkinData skin;
     }
 
 
@@ -524,6 +527,15 @@ public class CS_MayaPreviewRuntimeServer : MonoBehaviour
                     );
                     break;
 
+                case "JOINT_POSE":
+                    // Mayaの時間が変わった（再生・スクラブ・ポーズ）: ジョイントの行列だけ
+                    CS_MayaPreviewSkin.ApplyPose(
+                        JsonUtility.FromJson<CS_MayaPreviewSkin.PoseData>(
+                            received.json
+                        )
+                    );
+                    break;
+
                 case "MESH_REMOVE":
                     RemoveLiveObject(
                         received.header.name
@@ -739,7 +751,8 @@ public class CS_MayaPreviewRuntimeServer : MonoBehaviour
                     header.type == "MESH_DATA_V2" ||
                     header.type == "SESSION" ||
                     header.type == "MATERIAL_DEF" ||
-                    header.type == "MESH_REMOVE"
+                    header.type == "MESH_REMOVE" ||
+                    header.type == "JOINT_POSE"
                 )
             )
             {
@@ -1274,6 +1287,15 @@ public class CS_MayaPreviewRuntimeServer : MonoBehaviour
         ApplyMaterials(
             targetObject,
             materialNames
+        );
+
+        // スキンメッシュ: バインドポーズから今のポーズへ変形する（スキン無しなら外す）
+        CS_MayaPreviewSkin.Apply(
+            targetObject,
+            mesh,
+            meshData.positions,
+            meshData.normals,
+            meshData.skin
         );
 
         UpdateMeshData(targetObject);

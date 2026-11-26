@@ -17,6 +17,7 @@ using UnityEngine;
           - Control points are welded by position (one shell like in Maya); normals, UVs and
             colours are stored per polygon vertex.
  History: 2026/10/11 New
+          2026/11/26 Skeleton (LimbNode), skin (Skin / Cluster deformers) and bind pose
 =====================================+
 */
 
@@ -76,6 +77,17 @@ public class CS_MayaPreviewFbxNode
     public Quaternion rotation = Quaternion.identity;
     public Vector3 scale = Vector3.one;
     public CS_MayaPreviewFbxMesh mesh;            // null = empty (group)
+    public bool joint;                            // skeleton joint (LimbNode)
+    public CS_MayaPreviewFbxSkin skin;            // skinned mesh: its joints and weights
+}
+
+// Skin of a mesh node. The node's mesh is in the bind pose; the joints are nodes of the same file,
+// written in the bind pose too (their global matrices are the bind matrices).
+public class CS_MayaPreviewFbxSkin
+{
+    public int[] boneNodes;      // node index of each joint
+    public int[] bones;          // 4 per mesh vertex: index into boneNodes
+    public float[] weights;      // 4 per mesh vertex
 }
 
 public static class CS_MayaPreviewFbx
@@ -147,13 +159,15 @@ public static class CS_MayaPreviewFbx
 
         // Models + geometry
         var modelIds = new long[nodes.Count];
-        int geometryCount = 0;
+        var globals = new Matrix4x4[nodes.Count];
+        var skinned = new List<(int, long, int[], int)>();
+        int geometryCount = 0, attributeCount = 0, deformerCount = 0, poseCount = 0;
         for (int i = 0; i < nodes.Count; i++)
         {
             CS_MayaPreviewFbxNode node = nodes[i];
             modelIds[i] = NewId();
             bool hasMesh = node.mesh != null && node.mesh.vertices != null && node.mesh.vertices.Length > 0;
-            Node model = objects.Add("Model").Long(modelIds[i]).Str(Clean(node.name) + Separator + "Model").Str(hasMesh ? "Mesh" : "Null");
+            Node model = objects.Add("Model").Long(modelIds[i]).Str(Clean(node.name) + Separator + "Model").Str(hasMesh ? "Mesh" : node.joint ? "LimbNode" : "Null");
             model.Add("Version").Int(232);
             Node props = model.Add("Properties70");
             Vector3 t = node.position;
@@ -170,22 +184,107 @@ public static class CS_MayaPreviewFbx
 
             long parentId = node.parent >= 0 && node.parent < i ? modelIds[node.parent] : 0;
             Connect(connections, modelIds[i], parentId);
+            globals[i] = (node.parent >= 0 && node.parent < i ? globals[node.parent] : Matrix4x4.identity)
+                         * Matrix4x4.TRS(node.position, node.rotation, node.scale);
+
+            if (node.joint)
+            {
+                long attribute = NewId();
+                attributeCount++;
+                Node limb = objects.Add("NodeAttribute").Long(attribute).Str(Clean(node.name) + Separator + "NodeAttribute").Str("LimbNode");
+                P(limb.Add("Properties70"), "Size", "double", "Number", "").Dbl(1.0);
+                limb.Add("TypeFlags").Str("Skeleton");
+                Connect(connections, attribute, modelIds[i]);
+            }
 
             if (!hasMesh) continue;
             long geometryId = NewId();
             geometryCount++;
-            List<int> local = Geometry(objects, geometryId, node.mesh, Clean(node.name));
+            List<int> local = Geometry(objects, geometryId, node.mesh, Clean(node.name), out int[] control, out int controlCount);
             Connect(connections, geometryId, modelIds[i]);
             foreach (int m in local) Connect(connections, materialIds[m], modelIds[i]);
+            if (node.skin != null) skinned.Add((i, geometryId, control, controlCount));
+        }
+
+        // Skins: one Skin deformer per skinned mesh, one Cluster per joint, and the bind pose.
+        var posed = new List<int>();
+        foreach (var (i, geometryId, control, controlCount) in skinned)
+        {
+            CS_MayaPreviewFbxSkin skin = nodes[i].skin;
+            if (skin.boneNodes == null || skin.bones == null || skin.weights == null) continue;
+            long skinId = NewId();
+            deformerCount++;
+            Node deformer = objects.Add("Deformer").Long(skinId).Str(Clean(nodes[i].name) + Separator + "Deformer").Str("Skin");
+            deformer.Add("Version").Int(101);
+            deformer.Add("Link_DeformAcuracy").Dbl(50.0);
+            Connect(connections, skinId, geometryId);
+
+            // Weights per control point (welded vertices share the Maya vertex, so take the first).
+            var indexes = new List<int>[skin.boneNodes.Length];
+            var weights = new List<double>[skin.boneNodes.Length];
+            var seen = new bool[controlCount];
+            int vertexCount = Mathf.Min(control.Length, skin.bones.Length / 4);
+            for (int v = 0; v < vertexCount; v++)
+            {
+                int point = control[v];
+                if (seen[point]) continue;
+                seen[point] = true;
+                for (int k = 0; k < 4; k++)
+                {
+                    float w = skin.weights[v * 4 + k];
+                    int b = skin.bones[v * 4 + k];
+                    if (w <= 0f || (uint)b >= (uint)skin.boneNodes.Length) continue;
+                    if (indexes[b] == null) { indexes[b] = new List<int>(); weights[b] = new List<double>(); }
+                    indexes[b].Add(point);
+                    weights[b].Add(w);
+                }
+            }
+
+            double[] meshMatrix = FbxMatrix(globals[i]);
+            for (int b = 0; b < skin.boneNodes.Length; b++)
+            {
+                int bone = skin.boneNodes[b];
+                if (bone < 0 || bone >= nodes.Count) continue;
+                long clusterId = NewId();
+                deformerCount++;
+                Node cluster = objects.Add("Deformer").Long(clusterId).Str("Cluster " + Clean(nodes[bone].name) + Separator + "SubDeformer").Str("Cluster");
+                cluster.Add("Version").Int(100);
+                cluster.Add("UserData").Str("").Str("");
+                cluster.Add("Indexes").Ints(indexes[b] != null ? indexes[b].ToArray() : new int[0]);
+                cluster.Add("Weights").Doubles(weights[b] != null ? weights[b].ToArray() : new double[0]);
+                cluster.Add("Transform").Doubles(meshMatrix);
+                cluster.Add("TransformLink").Doubles(FbxMatrix(globals[bone]));
+                Connect(connections, clusterId, skinId);
+                Connect(connections, modelIds[bone], clusterId);
+                if (!posed.Contains(bone)) posed.Add(bone);
+            }
+            if (!posed.Contains(i)) posed.Add(i);
+        }
+        if (posed.Count > 0)
+        {
+            poseCount = 1;
+            Node pose = objects.Add("Pose").Long(NewId()).Str("BindPose" + Separator + "Pose").Str("BindPose");
+            pose.Add("Type").Str("BindPose");
+            pose.Add("Version").Int(100);
+            pose.Add("NbPoseNodes").Int(posed.Count);
+            foreach (int i in posed)
+            {
+                Node poseNode = pose.Add("PoseNode");
+                poseNode.Add("Node").Long(modelIds[i]);
+                poseNode.Add("Matrix").Doubles(FbxMatrix(globals[i]));
+            }
         }
 
         var definitions = new Node("Definitions");
         definitions.Add("Version").Int(100);
-        definitions.Add("Count").Int(1 + nodes.Count + geometryCount + materialCount);
+        definitions.Add("Count").Int(1 + nodes.Count + geometryCount + materialCount + attributeCount + deformerCount + poseCount);
         definitions.Add("ObjectType").Str("GlobalSettings").Add("Count").Int(1);
         if (nodes.Count > 0) definitions.Add("ObjectType").Str("Model").Add("Count").Int(nodes.Count);
         if (geometryCount > 0) definitions.Add("ObjectType").Str("Geometry").Add("Count").Int(geometryCount);
         if (materialCount > 0) definitions.Add("ObjectType").Str("Material").Add("Count").Int(materialCount);
+        if (attributeCount > 0) definitions.Add("ObjectType").Str("NodeAttribute").Add("Count").Int(attributeCount);
+        if (deformerCount > 0) definitions.Add("ObjectType").Str("Deformer").Add("Count").Int(deformerCount);
+        if (poseCount > 0) definitions.Add("ObjectType").Str("Pose").Add("Count").Int(poseCount);
         top.Add(definitions);
         top.Add(objects);
         top.Add(connections);
@@ -295,7 +394,7 @@ public static class CS_MayaPreviewFbx
     }
 
     // Returns the materials connected to the model, in slot order.
-    private static List<int> Geometry(Node objects, long id, CS_MayaPreviewFbxMesh mesh, string name)
+    private static List<int> Geometry(Node objects, long id, CS_MayaPreviewFbxMesh mesh, string name, out int[] controlOfVertex, out int controlCount)
     {
         // Welded control points (mirrored X, centimetres).
         Vector3[] vertices = mesh.vertices;
@@ -315,6 +414,8 @@ public static class CS_MayaPreviewFbx
             }
             control[i] = index;
         }
+        controlOfVertex = control;
+        controlCount = points.Count / 3;
 
         // Local material slots.
         var local = new List<int>();
@@ -440,6 +541,18 @@ public static class CS_MayaPreviewFbx
 
     private static Node P(Node props, string name, string type, string label, string flags) =>
         props.Add("P").Str(name).Str(type).Str(label).Str(flags);
+
+    // Unity global matrix (metres) -> FBX matrix (X mirrored, centimetres), 16 doubles with the
+    // translation in 12..14 (Unity's column-major order is exactly that layout).
+    private static readonly Matrix4x4 ToFbx = Matrix4x4.Scale(new Vector3(-(float)UnitScale, (float)UnitScale, (float)UnitScale));
+    private static readonly Matrix4x4 FromFbx = Matrix4x4.Scale(new Vector3(-1f / (float)UnitScale, 1f / (float)UnitScale, 1f / (float)UnitScale));
+    private static double[] FbxMatrix(Matrix4x4 unity)
+    {
+        Matrix4x4 m = ToFbx * unity * FromFbx;
+        var result = new double[16];
+        for (int i = 0; i < 16; i++) result[i] = m[i];
+        return result;
+    }
 
     private static string Clean(string name)
     {

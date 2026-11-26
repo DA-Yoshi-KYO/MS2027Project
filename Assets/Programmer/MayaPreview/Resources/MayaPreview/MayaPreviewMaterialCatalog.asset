@@ -22,6 +22,36 @@ MonoBehaviour:
   - name: MT_DitherLit
     guid: c99c84bbd47526849b027f9e247f4317
     material: {fileID: 2100000, guid: c99c84bbd47526849b027f9e247f4317, type: 2}
+  - name: MT_Test_MLamClothes
+    guid: bfa0d40df248f7240ad5e4d4ce963e35
+    material: {fileID: 2100000, guid: bfa0d40df248f7240ad5e4d4ce963e35, type: 2}
+  - name: MT_Test_MLamEye
+    guid: 33c086b25c5a00b418982b48c88b10ec
+    material: {fileID: 2100000, guid: 33c086b25c5a00b418982b48c88b10ec, type: 2}
+  - name: MT_Test_MLamFace
+    guid: c2844f2165a79f946930b222a6bba006
+    material: {fileID: 2100000, guid: c2844f2165a79f946930b222a6bba006, type: 2}
+  - name: MT_Test_MLamHair
+    guid: 529ceed61d8d4ce4298ea63054a1db62
+    material: {fileID: 2100000, guid: 529ceed61d8d4ce4298ea63054a1db62, type: 2}
+  - name: MT_Test_MLamSkin
+    guid: cb7a8e7284d39254ca43de9ccb2b84a9
+    material: {fileID: 2100000, guid: cb7a8e7284d39254ca43de9ccb2b84a9, type: 2}
+  - name: MT_Test_OutlineMLamClothes
+    guid: e07cd774573c8dc48bd7ca319eb169a3
+    material: {fileID: 2100000, guid: e07cd774573c8dc48bd7ca319eb169a3, type: 2}
+  - name: MT_Test_OutlineMLamEye
+    guid: c6bef120c7438ef4da18a45408b13bdb
+    material: {fileID: 2100000, guid: c6bef120c7438ef4da18a45408b13bdb, type: 2}
+  - name: MT_Test_OutlineMLamFace
+    guid: 117a46c61db0c6447b47fa00c3bcd7e2
+    material: {fileID: 2100000, guid: 117a46c61db0c6447b47fa00c3bcd7e2, type: 2}
+  - name: MT_Test_OutlineMLamHair
+    guid: e6ac5eb33914a50428eacbe4d4c6fb5f
+    material: {fileID: 2100000, guid: e6ac5eb33914a50428eacbe4d4c6fb5f, type: 2}
+  - name: MT_Test_OutlineMLamSkin
+    guid: c991768cbebacb04f9e6f867e7cea9df
+    material: {fileID: 2100000, guid: c991768cbebacb04f9e6f867e7cea9df, type: 2}
   - name: MT_AmbushAfterimage
     guid: 18a0239ea9bc2d741ade42878b4c4dff
     material: {fileID: 2100000, guid: 18a0239ea9bc2d741ade42878b4c4dff, type: 2}
@@ -61,6 +91,12 @@ MonoBehaviour:
   - name: MT_PlayerOpticalCamo
     guid: c106c1c6d57f90a4c9aa20e19a25ea22
     material: {fileID: 2100000, guid: c106c1c6d57f90a4c9aa20e19a25ea22, type: 2}
+  - name: MT_UILogoGlitch
+    guid: dadc4af9e842dab499c9d21fd8279469
+    material: {fileID: 2100000, guid: dadc4af9e842dab499c9d21fd8279469, type: 2}
+  - name: MT_UIScrollLines
+    guid: 102e150423a6332458cbeee669f189bc
+    material: {fileID: 2100000, guid: 102e150423a6332458cbeee669f189bc, type: 2}
   - name: MT_Bill
     guid: 93dc5de8c8fdade4a8a389739727a447
     material: {fileID: 2100000, guid: 93dc5de8c8fdade4a8a389739727a447, type: 2}
@@ -163,6 +199,18 @@ MonoBehaviour:
   - name: MT_down_cross_02
     guid: a186ec6694a967e468bfa668b3be479f
     material: {fileID: 2100000, guid: a186ec6694a967e468bfa668b3be479f, type: 2}
+  - name: MT_HoloImage_01_ScrollX
+    guid: 05a3a45bce0f5fd8b4d0c617bfe36db4
+    material: {fileID: 2100000, guid: 05a3a45bce0f5fd8b4d0c617bfe36db4, type: 2}
+  - name: MT_HoloImage_02_Static
+    guid: 8a4a92d10f445859912f4369fc140807
+    material: {fileID: 2100000, guid: 8a4a92d10f445859912f4369fc140807, type: 2}
+  - name: MT_HoloImage_03_ScrollY
+    guid: b169ece928d25794a642c9cc8eb9df5b
+    material: {fileID: 2100000, guid: b169ece928d25794a642c9cc8eb9df5b, type: 2}
+  - name: MT_HoloImage_04_Banana
+    guid: 05717d7ea839576d925de34288d6e9f6
+    material: {fileID: 2100000, guid: 05717d7ea839576d925de34288d6e9f6, type: 2}
   - name: MT_Outline_N00_000_00_Body_00_SKIN
     guid: 41c3165385459724888305820ce18e80
     material: {fileID: 2100000, guid: 41c3165385459724888305820ce18e80, type: 2}
@@ -238,6 +286,12 @@ MonoBehaviour:
   - name: MT_Outline_Face
     guid: 209e97b4ebc8fb24f8759ea78e170dff
     material: {fileID: 2100000, guid: 209e97b4ebc8fb24f8759ea78e170dff, type: 2}
+  - name: MT_Hologram_Blue
+    guid: e49b1c7a0d5f40d028ecf9b07db05c29
+    material: {fileID: 2100000, guid: e49b1c7a0d5f40d028ecf9b07db05c29, type: 2}
+  - name: MT_Hologram_Red
+    guid: f5ac2d8b1e6a41e139fd0ac18ec16d3a
+    material: {fileID: 2100000, guid: f5ac2d8b1e6a41e139fd0ac18ec16d3a, type: 2}
   - name: MT_Mutou_HDRP_Clothes
     guid: a457bd4d7cf86274082cd610b5924822
     material: {fileID: 2100000, guid: a457bd4d7cf86274082cd610b5924822, type: 2}

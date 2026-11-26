@@ -137,7 +137,7 @@ public class CSE_MayaPreviewExportImporter : AssetPostprocessor
         // "<file name>" object above it. Several at the top: they stay under that root.
         int top = 0;
         if (manifest.nodes != null) foreach (CS_MayaPreviewExportNode node in manifest.nodes) if (node != null && node.parent < 0) top++;
-        RemapModel(fbxPath, manifest.materials, materials, buildMaterials, top != 1);
+        RemapModel(fbxPath, manifest.materials, materials, buildMaterials, top != 1, manifest.rig || HasSkeleton(fbxPath));
         var model = AssetDatabase.LoadAssetAtPath<GameObject>(fbxPath);
         if (model != null && buildMaterials) SetupOutlines(model, manifest.materials, materials);
         UnityEngine.Object ping = model;
@@ -183,8 +183,26 @@ public class CSE_MayaPreviewExportImporter : AssetPostprocessor
         AssetDatabase.CreateFolder(parent, Path.GetFileName(path));
     }
 
+    // Exports made before the manifest had "rig": look for skeleton joints in the FBX itself.
+    private static bool HasSkeleton(string fbxPath)
+    {
+        try
+        {
+            byte[] bytes = File.ReadAllBytes(fbxPath);
+            byte[] key = System.Text.Encoding.ASCII.GetBytes("LimbNode");
+            for (int i = 0; i + key.Length <= bytes.Length; i++)
+            {
+                int k = 0;
+                while (k < key.Length && bytes[i + k] == key[k]) k++;
+                if (k == key.Length) return true;
+            }
+        }
+        catch (Exception) { /* unreadable: treat as static */ }
+        return false;
+    }
+
     // The FBX uses the MT_ materials (same names as its own materials).
-    private static void RemapModel(string fbxPath, CS_MayaPreviewExportMaterial[] data, List<Material> materials, bool staticModel, bool preserveHierarchy)
+    private static void RemapModel(string fbxPath, CS_MayaPreviewExportMaterial[] data, List<Material> materials, bool staticModel, bool preserveHierarchy, bool rig)
     {
         var importer = AssetImporter.GetAtPath(fbxPath) as ModelImporter;
         if (importer == null)
@@ -197,7 +215,10 @@ public class CSE_MayaPreviewExportImporter : AssetPostprocessor
         if (importer.importLights) { importer.importLights = false; changed = true; }
         // Motion (no materials): the animation settings are left to the user.
         if (staticModel && importer.importAnimation) { importer.importAnimation = false; changed = true; }
-        if (staticModel && importer.animationType != ModelImporterAnimationType.None) { importer.animationType = ModelImporterAnimationType.None; changed = true; }
+        // A skinned model (skeleton exported from Maya): Generic rig, so animations can drive it.
+        // Otherwise a static model: no rig.
+        if (rig && importer.animationType == ModelImporterAnimationType.None) { importer.animationType = ModelImporterAnimationType.Generic; changed = true; }
+        if (staticModel && !rig && importer.animationType != ModelImporterAnimationType.None) { importer.animationType = ModelImporterAnimationType.None; changed = true; }
         if (importer.preserveHierarchy != preserveHierarchy) { importer.preserveHierarchy = preserveHierarchy; changed = true; }
         if (importer.materialImportMode == ModelImporterMaterialImportMode.None)
         {

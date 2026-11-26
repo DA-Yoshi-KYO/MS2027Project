@@ -75,6 +75,7 @@ GameObject:
   - component: {fileID: 5767155461765081608}
   - component: {fileID: 1004532188241099823}
   - component: {fileID: 7845246467344540114}
+  - component: {fileID: 2612349614095301788}
   m_Layer: 31
   m_Name: Player
   m_TagString: PlayerNoTransformation
@@ -201,6 +202,7 @@ MonoBehaviour:
   _coyoteTime: 0.12
   _jumpBufferTime: 0.12
   _cameraVerticalSmoothTime: 0.1
+  _cameraMaxVerticalLag: 0.5
   _airControlAccel: 25
   _groundLayers:
     serializedVersion: 2
@@ -210,6 +212,8 @@ MonoBehaviour:
   _maxFallSpeed: 30
   _dashDuration: 0.2
   _dashCooldown: 0.8
+  _footstepDistance: 2.2
+  _landingMinAirTime: 0.25
   _fallResetHeight: -30
   _cameraTransform: {fileID: 7583572087850885837}
   _virtualCameraTransform: {fileID: 3590718967009566022}
@@ -1340,6 +1344,27 @@ MonoBehaviour:
   _minDuration: 1.5
   _maxDuration: 3
   _landOffset: 0.1
+--- !u!114 &2612349614095301788
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1825699444668748530}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9f87e62437d049c4a92edba191be2c74, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CS_PlayerAIGuideBody
+  _bodyPrefab: {fileID: 1195723513705492013, guid: de91be218f2cbd04fa2aa09451705ecc, type: 3}
+  _scale: 0.35
+  _offset: {x: 0.45, y: 1.5, z: 0}
+  _followTime: 0.25
+  _teleportDistance: 15
+  _bobHeight: 0.08
+  _bobSpeed: 0.8
+  _turnSpeed: 360
+  _carryOffset: {x: 0, y: 2.1, z: 0}
 --- !u!1 &3298430547158640491
 GameObject:
   m_ObjectHideFlags: 0

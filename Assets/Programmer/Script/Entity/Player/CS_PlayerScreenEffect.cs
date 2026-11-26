@@ -19,6 +19,7 @@ using UnityEngine.Rendering;
  *   時間は毎フレーム読むので、再生中にInspectorで値を変えてもすぐ反映される(Priorityだけは最初にVolumeを作った時の値)
  * ・出し方
  *   SetHeld(profile, true/false) : trueの間ずっとかける。fadeInTime / fadeOutTimeで出し入れする
+ *   SetHeldScale(profile, 0〜1)  : SetHeldでかけている強さに掛ける倍率(時間とともに弱めるなどの演出用。既定は1)
  *   Play(profile)                : 1回だけかける。playDuration秒かけてplayWeightCurveの強さで出す
  *   両方が同時に効いている時は強い方を使う
  * ・自分の画面のプレイヤー(CS_Player.isLocalPlayer)の時だけかける
@@ -38,6 +39,7 @@ public class CS_PlayerScreenEffect : MonoBehaviour
         public Volume volume;
         public bool isHeld;             // SetHeldでかけ続けているか
         public float heldWeight;        // SetHeld側の強さ(0〜1)
+        public float heldScale = 1f;    // SetHeld側の強さに掛ける倍率(0〜1。SetHeldScaleで変える。既定は1)
         public float playElapsed = -1f; // Playしてからの経過時間(秒)。負なら再生していない
     }
 
@@ -86,6 +88,14 @@ public class CS_PlayerScreenEffect : MonoBehaviour
         channel.isHeld = isHeld;
     }
 
+    // SetHeldでかけている効果の強さに掛ける倍率(0〜1)を変える(時間とともに弱めるなどの演出用。既定は1)
+    public void SetHeldScale(VolumeProfile profile, float scale)
+    {
+        if (profile == null || !_channels.TryGetValue(profile, out Channel channel)) return;
+
+        channel.heldScale = Mathf.Clamp01(scale);
+    }
+
     // 効果を1回だけかける(再生中に呼ぶと最初からやり直す)
     public void Play(VolumeProfile profile)
     {
@@ -122,7 +132,7 @@ public class CS_PlayerScreenEffect : MonoBehaviour
             }
         }
 
-        ApplyWeight(channel, Mathf.Max(channel.heldWeight, playWeight));
+        ApplyWeight(channel, Mathf.Max(channel.heldWeight * channel.heldScale, playWeight));
     }
 
     // weightが0の時はVolumeごと止め、HDRPの計算対象から外す

@@ -1,0 +1,208 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!21 &2100000
+Material:
+  serializedVersion: 8
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_Name: MT_Character_MLamClothes
+  m_Shader: {fileID: -6465566751694194690, guid: 4cc656f96f994be7b4ce5df1d61db877, type: 3}
+  m_Parent: {fileID: 0}
+  m_ModifiedSerializedProperties: 0
+  m_ValidKeywords:
+  - _ALPHATEST_ON
+  m_InvalidKeywords:
+  - _DOUBLESIDED_ON
+  m_LightmapFlags: 4
+  m_EnableInstancingVariants: 0
+  m_DoubleSidedGI: 1
+  m_CustomRenderQueue: 2450
+  stringTagMap:
+    MotionVector: User
+    RenderType: TransparentCutout
+  disabledShaderPasses:
+  - TransparentDepthPrepass
+  - TransparentDepthPostpass
+  - TransparentBackface
+  - MOTIONVECTORS
+  m_LockedProperties: 
+  m_SavedProperties:
+    serializedVersion: 3
+    m_TexEnvs:
+    - _BaseMap:
+        m_Texture: {fileID: 0}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _ClothFuzzMap:
+        m_Texture: {fileID: 0}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _ClothSeamMap:
+        m_Texture: {fileID: 0}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _ClothStitchMask:
+        m_Texture: {fileID: 0}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _ClothThreadMap:
+        m_Texture: {fileID: 0}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _NTEClothFabricCustomFunction_03c660c14b494b47bae82cd3b4d2fd21_FuzzTex_65_Texture2D:
+        m_Texture: {fileID: 2800000, guid: 4f064dce0289473e92c3d75f8e80fd4f, type: 3}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _NTEClothFabricCustomFunction_03c660c14b494b47bae82cd3b4d2fd21_JacketTex_63_Texture2D:
+        m_Texture: {fileID: 2800000, guid: 7d31231d75b049a0b56dce91bbd49c5f, type: 3}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _NTEClothFabricCustomFunction_03c660c14b494b47bae82cd3b4d2fd21_JerseyTex_60_Texture2D:
+        m_Texture: {fileID: 2800000, guid: aa438ca3af814ba397c673a73711868c, type: 3}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _NTEClothFabricCustomFunction_03c660c14b494b47bae82cd3b4d2fd21_MottleTex_66_Texture2D:
+        m_Texture: {fileID: 2800000, guid: 4da5f3e717714521a26b2c2ff325c7f5, type: 3}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _NTEClothFabricCustomFunction_03c660c14b494b47bae82cd3b4d2fd21_PlainTex_62_Texture2D:
+        m_Texture: {fileID: 2800000, guid: 35c28b771e3443668c4863f382c90917, type: 3}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _NTEClothFabricCustomFunction_03c660c14b494b47bae82cd3b4d2fd21_RibTex_64_Texture2D:
+        m_Texture: {fileID: 2800000, guid: 603ec4f017ae4c22a138b5921a0e670a, type: 3}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - _NTEClothFabricCustomFunction_03c660c14b494b47bae82cd3b4d2fd21_TwillTex_61_Texture2D:
+        m_Texture: {fileID: 2800000, guid: c60cefa8de5144ed9945f4ec2c7d9f80, type: 3}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - unity_Lightmaps:
+        m_Texture: {fileID: 0}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - unity_LightmapsInd:
+        m_Texture: {fileID: 0}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    - unity_ShadowMasks:
+        m_Texture: {fileID: 0}
+        m_Scale: {x: 1, y: 1}
+        m_Offset: {x: 0, y: 0}
+    m_Ints: []
+    m_Floats:
+    - _AddPrecomputedVelocity: 0
+    - _AlphaCutoffEnable: 1
+    - _AlphaDstBlend: 0
+    - _AlphaSrcBlend: 1
+    - _BackFaceShade: 1
+    - _BlendMode: 0
+    - _BottomShade: 0.45
+    - _CelBrightness: 1.15
+    - _CelCastShadowStrength: 0.8
+    - _CelRimStrength: 0.08
+    - _CelRimWidth: 0.3
+    - _CelShadowSaturation: 0.5
+    - _CelShadowSoftness: 0.15
+    - _CelShadowStrength: 0.45
+    - _CelShadowThreshold: 0.45
+    - _ClothAnisotropy: -0.75
+    - _ClothFuzzSize: 6
+    - _ClothFuzzStrength: 0
+    - _ClothGlossStrength: 0.4
+    - _ClothMaterial: 5
+    - _ClothMottle: 0
+    - _ClothSheenStrength: 0.2
+    - _ClothSmoothness: 0.58
+    - _ClothStitchAngle: 0
+    - _ClothStitchEdge: 1
+    - _ClothStitchGrid: 0
+    - _ClothStitchInset: 3
+    - _ClothStitchLength: 1.689514
+    - _ClothStitchOffset: 0
+    - _ClothStitchSpacing: 10
+    - _ClothStitchStrength: 0
+    - _ClothStitchTwin: 0
+    - _ClothStitchWidth: 2.246579
+    - _ClothThreadAngle: 0
+    - _ClothThreadAspect: 1
+    - _ClothThreadBump: 0.4
+    - _ClothThreadShade: 0.4
+    - _ClothThreadSize: 2
+    - _ClothThreadSmoothness: 0.1
+    - _ClothWeave: 2
+    - _ConservativeDepthOffsetEnable: 0
+    - _CullMode: 0
+    - _CullModeForward: 0
+    - _DeepShadowStrength: 0
+    - _DepthOffsetEnable: 0
+    - _DoubleSidedEnable: 1
+    - _DoubleSidedGIMode: 0
+    - _DoubleSidedNormalMode: 1
+    - _DstBlend: 0
+    - _DstBlend2: 0
+    - _EnableBlendModePreserveSpecularLighting: 0
+    - _EnableFogOnTransparent: 1
+    - _ExcludeFromTUAndAA: 0
+    - _LightDirectionGiven: 0
+    - _LightSharpness: 0.6
+    - _NTESaturation: 1
+    - _OpaqueCullMode: 2
+    - _PerPixelSorting: 0
+    - _RenderQueueType: 1
+    - _ShadowMatteFilter: 2.3138e-41
+    - _SkyLight: 2.2
+    - _SrcBlend: 1
+    - _StencilRef: 0
+    - _StencilRefDepth: 0
+    - _StencilRefDistortionVec: 4
+    - _StencilRefMV: 32
+    - _StencilWriteMask: 6
+    - _StencilWriteMaskDepth: 9
+    - _StencilWriteMaskDistortionVec: 4
+    - _StencilWriteMaskMV: 43
+    - _SurfaceType: 0
+    - _TransparentBackfaceEnable: 0
+    - _TransparentCullMode: 2
+    - _TransparentDepthPostpassEnable: 0
+    - _TransparentDepthPrepassEnable: 0
+    - _TransparentSortPriority: 0
+    - _TransparentWritingMotionVec: 0
+    - _TransparentZWrite: 0
+    - _UseShadowThreshold: 0
+    - _ZTestDepthEqualForOpaque: 3
+    - _ZTestTransparent: 4
+    - _ZWrite: 1
+    m_Colors:
+    - _BaseColor: {r: 1, g: 1, b: 1, a: 1}
+    - _CelRimColor: {r: 1, g: 0.96999997, b: 0.94, a: 1}
+    - _ClothFuzzColor: {r: 1, g: 1, b: 1, a: 1}
+    - _ClothGlossColor: {r: 1, g: 1, b: 1, a: 1}
+    - _ClothSheenColor: {r: 1, g: 1, b: 1, a: 1}
+    - _ClothStitchColor: {r: 0.9, g: 0.86, b: 0.78, a: 1}
+    - _DeepShadowColor: {r: 0.54999995, g: 0.15999997, b: 0.15999997, a: 1}
+    - _DoubleSidedConstants: {r: 1, g: 1, b: -1, a: 0}
+    - _EmissionColor: {r: 1, g: 1, b: 1, a: 1}
+    - _EyeHighlightColor: {r: 1, g: 1, b: 1, a: 1}
+    - _MainLightDirection: {r: 0, g: 1, b: 0, a: 0}
+    - _ShadowColor: {r: 0.7, g: 0.7, b: 0.7, a: 1}
+  m_BuildTextureStacks: []
+  m_AllowLocking: 1
+--- !u!114 &2190244826799590339
+MonoBehaviour:
+  m_ObjectHideFlags: 11
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: da692e001514ec24dbc4cca1949ff7e8, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Unity.RenderPipelines.HighDefinition.Editor::UnityEditor.Rendering.HighDefinition.AssetVersion
+  version: 13
+  hdPluginSubTargetMaterialVersions:
+    m_Keys: []
+    m_Values: 

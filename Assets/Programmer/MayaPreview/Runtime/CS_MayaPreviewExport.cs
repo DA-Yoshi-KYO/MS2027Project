@@ -85,6 +85,7 @@ public class CS_MayaPreviewExportManifest
     public string materialFolder;// "Material/<type>" ("" = old "Material")
     public string prefab;        // "Prefab/<type>/<name>.prefab" ("" = no prefab)
     public bool buildMaterials = true;
+    public bool rig;             // the FBX has a skeleton + skin (the importer sets Rig: Generic)
     public CS_MayaPreviewExportNode[] nodes;
     public CS_MayaPreviewExportMaterial[] materials;
     public CS_MayaPreviewExportEntry[] entries;
@@ -620,6 +621,7 @@ public static class CS_MayaPreviewExport
             var manifest = new CS_MayaPreviewExportManifest
             {
                 version = MetresVersion,
+                rig = w.joints.Count > 0,
                 name = name,
                 type = type.id,
                 scene = Scene,

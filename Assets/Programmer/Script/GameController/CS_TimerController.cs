@@ -18,6 +18,7 @@ using UnityEngine;
 /// ・最後の数秒は1つの通知を5、4、3、2、1と更新できる
 /// ・オフラインでは遷移直前にリザルトを保存する
 /// ・オンラインではRPCで各端末へ保存を指示してから全員で遷移する
+/// ・リザルトへのカットシーンが設定されていれば、画面を覆い終わってから遷移する
 /// </summary>
 public class CS_TimerController : NetworkBehaviour
 {
@@ -74,6 +75,15 @@ public class CS_TimerController : NetworkBehaviour
 
     [Min(1)]
     [SerializeField] private int _countdownStartSeconds = 5;
+
+    // 追加: リザルトへのカットシーン
+    [Header("リザルトへのカットシーン(任意。空なら従来どおり即遷移)")]
+    [SerializeField] private CS_ResultCutsceneController _resultCutscene;
+
+    // 追加
+    [Tooltip("オンライン時、サーバーが遷移を始めるまでの待ち時間(秒)。覆うTimelineの長さより少し長くする")]
+    [Min(0f)]
+    [SerializeField] private float _onlineCoverWaitSeconds = 1f;
 
     // =========================================================
     // NetworkVariable
@@ -202,8 +212,8 @@ public class CS_TimerController : NetworkBehaviour
                 // 通常のシーン遷移より先に直接保存する。
                 SaveResultsLocal();
 
-                if (_sceneTransitioner != null)
-                    _sceneTransitioner.StartTransition();
+                // 変更: カットシーンで画面を覆ってから遷移する(未設定なら従来どおりすぐ遷移)
+                StartTransitionWithCutscene();
             }
         }
     }
@@ -259,8 +269,8 @@ public class CS_TimerController : NetworkBehaviour
         _notificationController?.HideCountdown();
         SaveResultsLocal();
 
-        if (_sceneTransitioner != null)
-            _sceneTransitioner.StartTransition();
+        // 変更: カットシーンで画面を覆ってから遷移する(未設定なら従来どおりすぐ遷移)
+        StartTransitionWithCutscene();
     }
 
     // =========================================================
@@ -272,17 +282,33 @@ public class CS_TimerController : NetworkBehaviour
         // ホストを含む全クライアントで、それぞれのstatic Storeへ保存する。
         SaveResultsRpc();
 
-        // RPCを送信・実行するための猶予を1フレーム作る。
-        yield return null;
+        // 変更: カットシーンがあれば、全端末で画面を覆い始め、覆い終わる頃まで待つ
+        if (_resultCutscene != null)
+        {
+            PlayCoverRpc();
+            yield return new WaitForSecondsRealtime(_onlineCoverWaitSeconds);
+        }
+        else
+        {
+            // RPCを送信・実行するための猶予を1フレーム作る。
+            yield return null;
+        }
 
-        if (_sceneTransitioner != null)
-            _sceneTransitioner.StartTransition();
+        StartSceneTransition();
     }
 
     [Rpc(SendTo.ClientsAndHost)]
     private void SaveResultsRpc()
     {
         SaveResultsLocal();
+    }
+
+    // 追加: 全端末でリザルトへのカットシーン(覆う動き)を始める
+    [Rpc(SendTo.ClientsAndHost)]
+    private void PlayCoverRpc()
+    {
+        if (_resultCutscene != null)
+            _resultCutscene.PlayCover();
     }
 
     private void SaveResultsLocal()
@@ -298,6 +324,44 @@ public class CS_TimerController : NetworkBehaviour
         Debug.Log(
             "[CS_TimerController] リザルトデータを保存しました。"
         );
+    }
+
+    // =========================================================
+    // リザルトへのカットシーン（追加）
+    // =========================================================
+
+    /// <summary>
+    /// オフライン用。カットシーンで画面を覆い、覆い終わったらシーン遷移する。
+    /// カットシーン未設定、または始められない時は、従来どおりすぐ遷移する。
+    /// </summary>
+    private void StartTransitionWithCutscene()
+    {
+        if (_resultCutscene == null)
+        {
+            StartSceneTransition();
+            return;
+        }
+
+        _resultCutscene.OnCovered += HandleCutsceneCovered;
+
+        if (!_resultCutscene.PlayCover())
+        {
+            _resultCutscene.OnCovered -= HandleCutsceneCovered;
+            StartSceneTransition();
+        }
+    }
+
+    /// <summary>画面を覆い終わった時。ここでシーン遷移する</summary>
+    private void HandleCutsceneCovered()
+    {
+        _resultCutscene.OnCovered -= HandleCutsceneCovered;
+        StartSceneTransition();
+    }
+
+    private void StartSceneTransition()
+    {
+        if (_sceneTransitioner != null)
+            _sceneTransitioner.StartTransition();
     }
 
     // =========================================================
@@ -453,6 +517,11 @@ public class CS_TimerController : NetworkBehaviour
     public override void OnDestroy()
     {
         UnsubscribeSceneEvent();
+
+        // 追加: カットシーンの通知を解除する
+        if (_resultCutscene != null)
+            _resultCutscene.OnCovered -= HandleCutsceneCovered;
+
         _timerModel?.Dispose();
         base.OnDestroy();
     }

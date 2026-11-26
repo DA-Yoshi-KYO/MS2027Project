@@ -569,6 +569,10 @@ public static class CS_MayaPreviewExport
         public readonly Dictionary<string, string> copiedTextures = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         public readonly HashSet<string> usedFiles = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         public readonly List<string> warnings = new List<string>();
+        // Skeleton joints already written (Maya DAG path -> node index / global bind matrix):
+        // meshes sharing a skeleton (body, hair, clothes) share the joints.
+        public readonly Dictionary<string, int> joints = new Dictionary<string, int>();
+        public readonly Dictionary<string, Matrix4x4> jointGlobals = new Dictionary<string, Matrix4x4>();
         public int meshCount;
         public readonly Dictionary<string, string> claimed = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);   // copy -> its original, of the other exports
     }
@@ -760,6 +764,8 @@ public static class CS_MayaPreviewExport
         bool mayaUnits = IsLive(o) || (o.transform.parent != null && IsLive(o.transform.parent.gameObject)
                                        && o.GetComponent<CS_MayaPreviewOutline>() != null);
         Matrix4x4 toNode = mayaUnits ? Matrix4x4.Scale(Vector3.one * MayaUnitsToMetres) : Matrix4x4.identity;
+        CS_MayaPreviewSkin mayaSkin = warnSkinned && IsLive(o) ? o.GetComponent<CS_MayaPreviewSkin>() : null;
+        if (mayaSkin != null && mayaSkin.VertexCount == 0) mayaSkin = null;
         if (renderer is SkinnedMeshRenderer skinned)
         {
             baked = new Mesh { name = skinned.sharedMesh != null ? skinned.sharedMesh.name : o.name };
@@ -776,6 +782,12 @@ public static class CS_MayaPreviewExport
                 if (warnSkinned) w.warnings.Add("スキンメッシュは動かない形で書き出しました: " + o.name);
             }
             catch (Exception exception) { w.warnings.Add("形を固定できませんでした " + o.name + ": " + exception.Message); }
+        }
+        else if (mayaSkin != null)
+        {
+            // Skinned Maya mesh: the bind pose (the joints are written in the bind pose too).
+            baked = mayaSkin.BindMesh();
+            mesh = baked;
         }
         else
         {
@@ -797,8 +809,59 @@ public static class CS_MayaPreviewExport
             node.mesh = node.name;
             node.materials = indices;
             w.meshCount++;
+            if (mayaSkin != null && data.vertices.Length == mayaSkin.VertexCount) AddSkeleton(w, index, mayaSkin, toNode);
         }
         finally { if (baked != null) UnityEngine.Object.Destroy(baked); }
+    }
+
+    // Skinned Maya mesh: its joints as skeleton nodes (bind pose) next to the mesh, and the weights.
+    // toNode: live mesh units -> node units (centimetres -> metres). Joint matrices only get their
+    // translation converted (S * B * S^-1), so the joints themselves keep scale 1.
+    private static void AddSkeleton(Writer w, int meshIndex, CS_MayaPreviewSkin skin, Matrix4x4 toNode)
+    {
+        CS_MayaPreviewExportNode meshNode = w.nodes[meshIndex];
+        int meshParent = meshNode.parent;
+        Matrix4x4 parentGlobal = GlobalOf(w, meshParent);
+        Matrix4x4 meshGlobal = parentGlobal * Matrix4x4.TRS(meshNode.position, meshNode.rotation, meshNode.scale);
+        Matrix4x4 fromNode = toNode.inverse;
+        string[] joints = skin.Joints;
+        var boneNodes = new int[joints.Length];
+        for (int j = 0; j < joints.Length; j++) boneNodes[j] = -1;
+
+        int Joint(int j)
+        {
+            if (boneNodes[j] >= 0) return boneNodes[j];
+            string path = joints[j];
+            if (w.joints.TryGetValue(path, out int existing)) return boneNodes[j] = existing;
+            int parentJoint = skin.Parents[j];
+            int parentNode = parentJoint >= 0 && parentJoint != j ? Joint(parentJoint) : meshParent;
+            Matrix4x4 parentMatrix = parentJoint >= 0 && parentJoint != j ? w.jointGlobals[joints[parentJoint]] : parentGlobal;
+            Matrix4x4 global = meshGlobal * toNode * skin.BindWorldUnity(j) * fromNode;
+            Matrix4x4 local = parentMatrix.inverse * global;
+            int bar = path.LastIndexOf('|');
+            string name = bar >= 0 ? path.Substring(bar + 1) : path;
+            int index = AddNode(w, name, parentNode, local.GetPosition(), local.rotation, local.lossyScale);
+            w.fbx[index].joint = true;
+            w.joints[path] = index;
+            w.jointGlobals[path] = global;
+            return boneNodes[j] = index;
+        }
+
+        for (int j = 0; j < joints.Length; j++) Joint(j);
+        skin.Influences(out int[] bones, out float[] weights);
+        w.fbx[meshIndex].skin = new CS_MayaPreviewFbxSkin { boneNodes = boneNodes, bones = bones, weights = weights };
+    }
+
+    private static Matrix4x4 GlobalOf(Writer w, int index)
+    {
+        Matrix4x4 result = Matrix4x4.identity;
+        for (int i = index; i >= 0 && i < w.fbx.Count; i = w.fbx[i].parent)
+        {
+            CS_MayaPreviewFbxNode n = w.fbx[i];
+            result = Matrix4x4.TRS(n.position, n.rotation, n.scale) * result;
+            if (n.parent >= i) break;
+        }
+        return result;
     }
 
     private static float Fit(Mesh mesh, Matrix4x4 matrix, Bounds target)

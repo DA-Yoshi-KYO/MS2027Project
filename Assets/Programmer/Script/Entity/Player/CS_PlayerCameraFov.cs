@@ -19,6 +19,9 @@ using UnityEngine;
  *   ブリンク → スプリントと続けると、広がったままボタンを離すまで保つ
  *   SAでハイドポイントへ飛んでいる時(CS_PlayerHide)・奇襲の飛び込み〜当たる瞬間(CS_PlayerAmbush.isLunging)も、ブリンクと同じ広さにする
  *   (CS_PlayerHide・CS_PlayerAmbushは付いていなければ見ない)
+ * ・連続奇襲のスロー中(CS_PlayerAmbushEffect.isChainSlowing)は、元のFOVから_chainSlowZoom(既定7°)狭めてズームする
+ *   狭める量は、待機時間が減るのに合わせて弱まる(CS_PlayerAmbushEffect.chainSlowStrength)
+ *   スロー中はゲームの時間が遅いので、ズームの変化はTime.timeScaleの影響を受けない時間で動かす(付いていなければ見ない)
  * ・変化は指数的になめらかにする(速さは「1秒あたりに目標へ近づく割合」の目安。大きいほど速い)
  * ・自分の画面のプレイヤー(CS_Player.isLocalPlayer)のカメラだけを変える
  *   (他人のプレイヤー・NPCのカメラは無効化されている。ブリンク中かどうかも操作しているマシンでしか分からない)
@@ -33,6 +36,10 @@ public class CS_PlayerCameraFov : MonoBehaviour
     [Header("広げる量(度)")]
     [SerializeField] private float _dashFovAdd = 15f;      // ブリンク中・スプリント中に足す量(同じ広さ)
 
+    [Header("連続奇襲のスロー中のズーム(度)")]
+    [SerializeField][Min(0f)] private float _chainSlowZoom = 7f;     // スロー中に狭める量(0でズームしない)
+    [SerializeField][Min(0.1f)] private float _zoomSpeed = 12f;      // ズームする速さ
+
     [Header("変わる速さ(大きいほど速い)")]
     [SerializeField][Min(0.1f)] private float _widenSpeed = 20f;     // 広がる速さ
     [SerializeField][Min(0.1f)] private float _returnSpeed = 5f;     // 元に戻る(狭まる)速さ
@@ -45,6 +52,7 @@ public class CS_PlayerCameraFov : MonoBehaviour
     private CinemachineCamera _camera;
     private CS_PlayerHide _hide;       // ハイド(付いていなければ見ない)
     private CS_PlayerAmbush _ambush;   // 奇襲(付いていなければ見ない)
+    private CS_PlayerAmbushEffect _ambushEffect;   // 奇襲の演出(連続奇襲のスロー。付いていなければ見ない)
     private float _baseFov;
     private float _currentFov;
 
@@ -54,6 +62,7 @@ public class CS_PlayerCameraFov : MonoBehaviour
         _rigidbody = GetComponent<Rigidbody>();
         _hide = GetComponent<CS_PlayerHide>();
         _ambush = GetComponent<CS_PlayerAmbush>();
+        _ambushEffect = GetComponent<CS_PlayerAmbushEffect>();
         _camera = GetComponentInChildren<CinemachineCamera>(true);
 
         if (_camera == null) return;
@@ -76,8 +85,17 @@ public class CS_PlayerCameraFov : MonoBehaviour
             speed = _widenSpeed;
         }
 
+        // 連続奇襲のスロー中はズームする(スロー中なので、変化はTime.timeScaleの影響を受けない時間で動かす)
+        float deltaTime = Time.deltaTime;
+        if (_ambushEffect != null && _ambushEffect.isChainSlowing && _chainSlowZoom > 0f)
+        {
+            target = _baseFov - _chainSlowZoom * _ambushEffect.chainSlowStrength;   // 待機時間が減るのに合わせて弱まる
+            speed = _zoomSpeed;
+            deltaTime = Time.unscaledDeltaTime;
+        }
+
         // 指数的に目標へ近づける(フレームレートに依存しない)
-        _currentFov = Mathf.Lerp(_currentFov, target, 1f - Mathf.Exp(-speed * Time.deltaTime));
+        _currentFov = Mathf.Lerp(_currentFov, target, 1f - Mathf.Exp(-speed * deltaTime));
         _camera.Lens.FieldOfView = _currentFov;
     }
 

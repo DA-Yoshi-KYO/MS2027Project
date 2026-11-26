@@ -114,6 +114,7 @@ public class CS_Player : NetworkBehaviour
     [SerializeField][Min(0f)] private float _coyoteTime = 0.12f;         // 足場から出た直後でも、ジャンプできる猶予(秒)
     [SerializeField][Min(0f)] private float _jumpBufferTime = 0.12f;     // 着地の少し前に押したジャンプを覚えておく時間(秒)
     [SerializeField][Min(0f)] private float _cameraVerticalSmoothTime = 0.1f;   // カメラが上下にプレイヤーを追う遅れ(秒。ジャンプ・段差でカメラがカクッと動かないように)
+    [SerializeField][Min(0f)] private float _cameraMaxVerticalLag = 0.5f;         // カメラが上下に遅れてよい最大の高さ(m。速く落ちる時も、これ以上は離れずに付いていく)
 
     [Header("空中の勢い(SAで放した後。減速率はSAポイントごと。CS_GrappleSAPointの_releaseDrag)")]
     [SerializeField][Min(0f)] private float _airControlAccel = 25f; // 勢いがある間、入力の移動速度へ近づく加速度(m/秒²)。大きいほど入力で曲げやすい
@@ -122,9 +123,17 @@ public class CS_Player : NetworkBehaviour
     [SerializeField] private LayerMask _groundLayers = ~0;      // 地面と判定するレイヤー
     [SerializeField] private float _groundCheckDistance = 0.15f;  // 接地判定用の余白
 
+    [Header("落下(ふわっとしないよう、落ちている間だけ重力を強くする)")]
+    [SerializeField][Min(1f)] private float _fallGravityMultiplier = 2f;   // 落下中の重力の倍率(1で通常の重力のまま)。上昇中・ジャンプの高さには影響しない
+    [SerializeField][Min(0f)] private float _maxFallSpeed = 30f;           // 落下速度の上限(m/秒)。0なら上限なし
+
     [Header("ダッシュ")]
     [SerializeField] private float _dashDuration = 0.2f;    // ダッシュが続く時間(秒)
     [SerializeField] private float _dashCooldown = 0.8f;    // 次に出せるようになるまでの時間(秒)
+
+    [Header("SE")]
+    [SerializeField][Min(0.1f)] private float _footstepDistance = 2.2f;   // 足音を鳴らす、歩いた距離の間隔(m)
+    [SerializeField][Min(0f)] private float _landingMinAirTime = 0.25f;   // これ以上空中にいてから着地した時だけ、着地音を鳴らす(秒)
 
     [Header("落下の保険")]
     [SerializeField] private float _fallResetHeight = -30f; // これより下に落ちたら、スポーンした位置へ戻す(y座標)
@@ -184,6 +193,8 @@ public class CS_Player : NetworkBehaviour
     private float _cameraPivotY;            // カメラが追うプレイヤーの高さ(上下だけ遅れて追う)
     private float _cameraPivotYVelocity;
     private bool _hasCameraPivotY;
+    private float _lastCameraTargetY;      // 前のフレームでカメラが追った高さ(ワープを見つけるため)
+    private bool _isCarried;                // 運ばれている間か(CS_PlayerTowerCarry。移動・攻撃をせず、位置は運ぶ側が動かす)
     private float _yaw;
     private float _pitch = 11f;
 
@@ -191,6 +202,11 @@ public class CS_Player : NetworkBehaviour
     private float _dashElapsed;
     private float _dashCooldownRemaining;
     private Vector3 _dashDirection;
+    private bool _hasMovementSeBaseline;    // 足音・着地音の前の状態を覚えたか
+    private Vector3 _lastSePosition;        // 足音の距離を数える、前のフレームの位置
+    private bool _wasGroundedForSe;         // 前のフレームで接地していたか(着地音用)
+    private float _airTime;                 // 空中にいる時間(着地音用)
+    private float _footstepDistanceRemaining;   // 次の足音までの距離
     private bool _isSprinting;      // ダッシュ後、ダッシュボタンを押し続けている間か
 
     private Transform _viewDirectionAnchor;     // 位置はプレイヤー、向きはカメラの左右の向き。警戒UIの方向の基準(自分のプレイヤーのみ)
@@ -205,7 +221,7 @@ public class CS_Player : NetworkBehaviour
     private float _airMomentumDrag;    // 空中の勢いの減速率(毎秒e^(-減速率)の割合で弱める)。SAで放す時に渡され、勢いが0になれば0に戻る(EndSAMotion)
 
     public bool isControlled => _isControlled;          // このプレイヤーを自分(このマシン)が操作しているか(NPCはサーバーでtrue)
-    public bool canAct => _isControlled && !_health.isDead && !isStunned && !isPlayingIntro && !CS_PlayerIntroCamera.isMatchHeld;   // 移動・攻撃してよいか(CS_PlayerAttackも参照)
+    public bool canAct => _isControlled && !_isCarried && !_health.isDead && !isStunned && !isPlayingIntro && !CS_PlayerIntroCamera.isMatchHeld;   // 移動・攻撃してよいか(CS_PlayerAttackも参照)
     public bool isPlayingIntro => _introCamera != null && _introCamera.isPlaying;   // スタート時のカメラの演出中か(自分のプレイヤーのみ。この間は動けない)
     public bool isStunned => _stun != null && _stun.isStunned;   // スタン中か(パリーされた時など。死亡中と同じく行動できない)
     public bool isHiding => _hide != null && _hide.isHiding;     // SAでハイドポイントへ飛んでいる最中か(操作しているマシンでだけ正しい)
@@ -381,12 +397,20 @@ public class CS_Player : NetworkBehaviour
         }
 
         // ダッシュ中でない間にダッシュボタンを押し続けていればスプリント(ZZZのような挙動。クールタイムとは無関係)
+        bool wasSprinting = _isSprinting;
         _isSprinting = canAct && !isHiding && !_isDashing && _dashButton.IsPressed();
+
+        // スプリントに入った瞬間(ブリンクのあとも押し続けて、速く走り始めた時)
+        if (_isSprinting && !wasSprinting)
+        {
+            CS_NetworkSoundPlayer.instance?.PlaySeForEveryone(CSE_SeId.PlayerDash, transform.position);
+        }
     }
 
     private void FixedUpdate()
     {
         if (!_isControlled) return;
+        if (_isCarried) return;   // 運ばれている間は、位置を運ぶ側(CS_PlayerTowerCarry)が動かす
 
         // 床の下へ落ちてしまったら、スポーンした位置へ戻す
         if (ReturnToSpawnIfFallen()) return;
@@ -429,7 +453,24 @@ public class CS_Player : NetworkBehaviour
         {
             Move();
             ApplyJump();
+            ApplyFallGravity();
         }
+    }
+
+    // 空中で落ちている間だけ、重力を_fallGravityMultiplier倍にする(落下がふわっとしないように)
+    // 通常の重力(Physics.gravity)に足りない分を足す。落下速度は_maxFallSpeedまで
+    private void ApplyFallGravity()
+    {
+        if (_isGroundedNow || !_rigidbody.useGravity) return;
+
+        Vector3 velocity = _rigidbody.linearVelocity;
+        if (velocity.y >= 0f) return;
+
+        float extraGravity = Mathf.Abs(Physics.gravity.y) * (_fallGravityMultiplier - 1f);
+        float newY = velocity.y - extraGravity * Time.fixedDeltaTime;
+        if (_maxFallSpeed > 0f) newY = Mathf.Max(newY, -_maxFallSpeed);
+
+        _rigidbody.linearVelocity = new Vector3(velocity.x, newY, velocity.z);
     }
 
     // ========================================
@@ -452,6 +493,19 @@ public class CS_Player : NetworkBehaviour
     public void ClearAimFacing()
     {
         _hasAimFacing = false;
+    }
+
+    // 運ばれている状態にする・戻す(CS_PlayerTowerCarryが使う)。運ばれている間は移動・攻撃・ジャンプ・ダッシュをしない
+    // 戻した時は、ダッシュ・踏み込み・空中の勢い・ジャンプの予約を消し、速度0から動き出す
+    public void SetCarried(bool carried)
+    {
+        _isCarried = carried;
+        _isDashing = false;
+        _isSprinting = false;
+        _lungeRemaining = 0f;
+        _airMomentum = Vector3.zero;
+        _jumpRequested = false;
+        _hasCameraPivotY = false;   // カメラは今の位置からすぐ追う
     }
 
     // 指定した方向へ短く踏み込む(攻撃が届く距離まで詰める)。ダッシュを始めると打ち切られる
@@ -535,10 +589,59 @@ public class CS_Player : NetworkBehaviour
 
     private void LateUpdate()
     {
+        UpdateMovementSe();
+
         if (!_isControlled || _npcInput != null) return;   // NPCはカメラを使わない
 
         UpdateCameraTransform();
         UpdateViewDirectionAnchor();
+    }
+
+    // 足音と着地音を、見えている動きから各クライアントが自分のPCで鳴らす(全員のプレイヤー分。通信しない)
+    private void UpdateMovementSe()
+    {
+        Vector3 position = transform.position;
+        bool grounded = IsGrounded();
+
+        if (!_hasMovementSeBaseline)
+        {
+            _hasMovementSeBaseline = true;
+            _lastSePosition = position;
+            _wasGroundedForSe = grounded;
+            return;
+        }
+
+        // 位置が大きく飛んだ時(スポーン・SAの移動・リスポーンなど)は距離に数えない
+        Vector3 delta = position - _lastSePosition;
+        delta.y = 0f;
+        _lastSePosition = position;
+        bool isTeleported = delta.magnitude > 3f;
+
+        if (grounded)
+        {
+            if (!_wasGroundedForSe)
+            {
+                if (_airTime >= _landingMinAirTime) CS_SoundManager.instance?.PlaySe(CSE_SeId.PlayerLanding, position);
+                _footstepDistanceRemaining = _footstepDistance;
+            }
+            _airTime = 0f;
+
+            if (!isTeleported)
+            {
+                _footstepDistanceRemaining -= delta.magnitude;
+                if (_footstepDistanceRemaining <= 0f)
+                {
+                    CS_SoundManager.instance?.PlaySe(CSE_SeId.PlayerFootstep, position);
+                    _footstepDistanceRemaining = _footstepDistance;
+                }
+            }
+        }
+        else
+        {
+            _airTime += Time.deltaTime;
+        }
+
+        _wasGroundedForSe = grounded;
     }
 
     // 警戒UIの方向の基準を、プレイヤーの位置とカメラの左右の向きに合わせる
@@ -941,6 +1044,7 @@ public class CS_Player : NetworkBehaviour
         Vector3 velocity = _rigidbody.linearVelocity;
         _rigidbody.linearVelocity = new Vector3(velocity.x, _stats.currentJumpPower, velocity.z);
         onJumped?.Invoke();
+        CS_NetworkSoundPlayer.instance?.PlaySeForEveryone(CSE_SeId.PlayerJump, transform.position);
     }
 
     // この物理フレームの接地の状態を調べる(FixedUpdateの最初に1回)
@@ -966,6 +1070,7 @@ public class CS_Player : NetworkBehaviour
         _dashCooldownRemaining = _dashCooldown;
         _dashDirection = CalculateDashDirection();
         onDashStarted?.Invoke();
+        CS_NetworkSoundPlayer.instance?.PlaySeForEveryone(CSE_SeId.PlayerBlink, transform.position);   // Shiftを押した瞬間のブリンク回避
     }
 
     // 移動入力があればその方向、無ければ現在向いている方向をダッシュ方向にする
@@ -1031,12 +1136,16 @@ public class CS_Player : NetworkBehaviour
     }
 
     // カメラが追う高さを、上下だけ少し遅らせる(左右・前後はぴったり追う)
-    // 大きく離れた時(復活・落下の戻し・SAで高所へ飛んだ時など)は、遅れずにすぐ合わせる
+    // 遅れは_cameraMaxVerticalLag(m)までにする(高い所から速く落ちる時も、離れすぎずになめらかに付いていく)
+    // 1フレームで大きく動いた時(復活・落下の戻し・ワープなど)と、SAで飛んでいる間は、遅れずにすぐ合わせる
+    // (以前は「3m以上離れたらすぐ合わせる」だったため、タワーから落ちる速さだと、遅れて離れる・一気に追いつくを繰り返してガタガタしていた)
     private float SmoothCameraPivotY(float targetY)
     {
-        const float snapDistance = 3f;
+        const float teleportDistance = 5f;   // 1フレームでこれ以上動いたら、ワープとみなしてすぐ合わせる
         bool isFlying = isHiding || (_lungeRemaining > 0f && _isLungeVertical);   // SAで飛んでいる間は、遅らせない(高さが大きく変わるため)
-        if (_cameraVerticalSmoothTime <= 0f || isFlying || !_hasCameraPivotY || Mathf.Abs(targetY - _cameraPivotY) > snapDistance)
+        bool isTeleported = _hasCameraPivotY && Mathf.Abs(targetY - _lastCameraTargetY) > teleportDistance;
+        _lastCameraTargetY = targetY;
+        if (_cameraVerticalSmoothTime <= 0f || isFlying || !_hasCameraPivotY || isTeleported)
         {
             _hasCameraPivotY = true;
             _cameraPivotY = targetY;
@@ -1045,6 +1154,7 @@ public class CS_Player : NetworkBehaviour
         }
 
         _cameraPivotY = Mathf.SmoothDamp(_cameraPivotY, targetY, ref _cameraPivotYVelocity, _cameraVerticalSmoothTime);
+        _cameraPivotY = Mathf.Clamp(_cameraPivotY, targetY - _cameraMaxVerticalLag, targetY + _cameraMaxVerticalLag);   // 離れすぎない
         return _cameraPivotY;
     }
 }

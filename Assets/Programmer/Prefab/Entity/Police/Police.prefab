@@ -21,13 +21,13 @@ GameObject:
   - component: {fileID: 3140592653589793238}
   - component: {fileID: 2718281828459045235}
   - component: {fileID: 1618033988749894848}
-  - component: {fileID: 1414213562373095048}
   - component: {fileID: 5736041829104377281}
   - component: {fileID: 3917462850172946308}
   - component: {fileID: 4051000000000000003}
   - component: {fileID: 4061000000000000001}
   - component: {fileID: 6435692268355901182}
   - component: {fileID: 6500811419385134935}
+  - component: {fileID: 7000000000000000001}
   m_Layer: 31
   m_Name: Police
   m_TagString: Untagged
@@ -225,6 +225,23 @@ MonoBehaviour:
   _wanderPauseMin: 1
   _wanderPauseMax: 3
   _wanderMaxWalkTime: 8
+--- !u!114 &7000000000000000001
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 681291065592780614}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 414a5c9b63d4460b8fc7b61f64a6fdda, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CS_MoveFootstepSe
+  _walkSeId: 300
+  _runSeId: 301
+  _stepDistance: 2.2
+  _runSpeed: 4
+  _teleportDistance: 3
 --- !u!114 &5263718849201735512
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -354,19 +371,6 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::CS_PoliceFadeOut
   ShowTopMostFoldoutHeaderGroup: 1
   _fadeDuration: 1
---- !u!114 &1414213562373095048
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 681291065592780614}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 38056ec95aba417fabd398c366b49043, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::CS_PoliceMiniMapIcon
-  ShowTopMostFoldoutHeaderGroup: 1
 --- !u!114 &5736041829104377281
 MonoBehaviour:
   m_ObjectHideFlags: 0

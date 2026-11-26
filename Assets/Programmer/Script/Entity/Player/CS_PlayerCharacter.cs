@@ -41,6 +41,7 @@ public class CS_PlayerCharacter : NetworkBehaviour
     private CS_PlayerStats _stats;
     private CS_PlayerSpecialAttack _specialAttack;
     private CS_PlayerTransformation _transformation;
+    private CS_PlayerTowerCarry _towerCarry;   // タワーへ運ばれている間も、警察に見つからないようにする
     private bool _isBoosting;             // 身体能力の強化を掛けているか(サーバー、またはオフラインのみ)
 
     public CSO_PlayableCharacterRoster roster => _roster;
@@ -57,6 +58,7 @@ public class CS_PlayerCharacter : NetworkBehaviour
         _stats = GetComponent<CS_PlayerStats>();
         _specialAttack = GetComponent<CS_PlayerSpecialAttack>();
         _transformation = GetComponent<CS_PlayerTransformation>();
+        _towerCarry = GetComponent<CS_PlayerTowerCarry>();
 
         // スポーン前に決めておく(CS_PlayerStatsがスポーン時にこのキャラクターの基礎数値を使うため)
         if (_roster != null) _serverIndex = _roster.testCharacterIndex;
@@ -86,7 +88,9 @@ public class CS_PlayerCharacter : NetworkBehaviour
     private void Update()
     {
         // 警察に見つからない効果は、全員の手元でタグを切り替える(警察の判定はサーバーで行うが、見た目のずれを無くすため)
-        if (_transformation != null) _transformation.SetHiddenFromPolice(IsEffectActive(CSE_PlayerSpecialEffect.HiddenFromPolice));
+        // タワーへ運ばれている間(CS_PlayerTowerCarry)も同じく見つからない
+        bool isCarried = _towerCarry != null && _towerCarry.isCarrying;
+        if (_transformation != null) _transformation.SetHiddenFromPolice(isCarried || IsEffectActive(CSE_PlayerSpecialEffect.HiddenFromPolice));
 
         UpdateBoost();
     }

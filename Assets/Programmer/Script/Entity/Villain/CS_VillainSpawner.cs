@@ -564,6 +564,8 @@ public class CS_VillainSpawner : MonoBehaviour
         {
             villain.Spawn(true);
         }
+
+        CS_NetworkSoundPlayer.instance?.PlaySeForEveryone(CSE_SeId.VillainSpawn, position);
         return villain;
     }
 

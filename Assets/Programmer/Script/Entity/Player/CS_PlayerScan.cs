@@ -205,6 +205,7 @@ public class CS_PlayerScan : MonoBehaviour
         _scanRadius = radius;
         _scanOrigin = transform.position;
         onScanStarted?.Invoke();
+        CS_NetworkSoundPlayer.instance?.PlaySeForEveryone(CSE_SeId.PlayerScan, transform.position);   // 本人の手元でだけ起きるので全員へ
     }
 
     // 波を広げ、届いた悪人を見えるようにする。消えきったら再使用できるようにする

@@ -134,6 +134,7 @@ public class CS_VillainHealth : NetworkBehaviour, IDamageable
 
         onDefeated?.Invoke();
         onAnyVillainDefeated?.Invoke(this);
+        CS_NetworkSoundPlayer.instance?.PlaySeForEveryone(CSE_SeId.VillainDefeat, transform.position);
 
         // オフラインではOnValueChangedが呼ばれないので、ここで直接止める
         if (!IsSpawned) StopActing();

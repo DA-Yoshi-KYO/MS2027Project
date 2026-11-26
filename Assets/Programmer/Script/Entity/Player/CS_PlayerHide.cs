@@ -83,6 +83,8 @@ public class CS_PlayerHide : NetworkBehaviour
 
     // 隠れているか(書き込みはサーバー、またはオフラインのみ。全員で分かる)
     private readonly NetworkVariable<bool> _isHidden = new NetworkVariable<bool>();
+    private bool _hasHiddenSeBaseline;      // 隠れ始め・隠れ終わりのSEの前の状態を覚えたか
+    private bool _wasHiddenForSe;           // 前のフレームで隠れていたか(SE用)
 
     private const int _sightHitBufferSize = 16;   // 視線の判定で一度に調べる当たりの上限
     private readonly RaycastHit[] _sightHits = new RaycastHit[_sightHitBufferSize];
@@ -158,6 +160,7 @@ public class CS_PlayerHide : NetworkBehaviour
 
     private void Update()
     {
+        UpdateHiddenSe();
         UpdateHidden();
         UpdateGhost();
 
@@ -214,6 +217,7 @@ public class CS_PlayerHide : NetworkBehaviour
         _player.SetSAVelocity(_flyVelocity);
 
         onFlyBegin?.Invoke(_point);
+        CS_NetworkSoundPlayer.instance?.PlaySeForEveryone(CSE_SeId.PlayerHideLeap, transform.position);   // 飛び始めは本人の手元でだけ起きるので全員へ
         return true;
     }
 
@@ -256,6 +260,26 @@ public class CS_PlayerHide : NetworkBehaviour
 
         bool isDead = _health != null && _health.isDead;
         SetHidden(!isDead && isInHideBox);
+    }
+
+    // 隠れ始め・隠れ終わりのSE。隠れている状態は全員に同期されるので、各クライアントが自分のPCで鳴らす(通信しない)
+    private void UpdateHiddenSe()
+    {
+        bool hidden = _isHidden.Value;
+        bool isChanged = _hasHiddenSeBaseline && hidden != _wasHiddenForSe;
+        _wasHiddenForSe = hidden;
+        _hasHiddenSeBaseline = true;
+
+        if (!isChanged || CS_SoundManager.instance == null) return;
+
+        if (hidden)
+        {
+            CS_SoundManager.instance.PlaySe(CSE_SeId.PlayerHideAttach, transform.position);
+            CS_SoundManager.instance.PlaySe(CSE_SeId.PlayerStealthEnter, transform.position);
+            return;
+        }
+
+        CS_SoundManager.instance.PlaySe(CSE_SeId.PlayerStealthExit, transform.position);
     }
 
     private void SetHidden(bool hidden)
@@ -411,7 +435,18 @@ public class CS_PlayerHide : NetworkBehaviour
     {
         Vector3 velocity = _flyVelocity;
 
-        EndFly(velocity, _point.releaseDrag);   // 重力・当たり判定を戻し、速度を通常の状態に渡す(CS_Player.EndSAMotion)。ロープを消すonFlyEndもここで呼ばれる
+        // 放した後の水平距離・上向きの速度が決まっている時は、引っ張る速さに関係なく、その固定値で速度を作る
+        // 水平は毎秒e^(-減速率)で弱まるので、飛ぶ距離は 初速÷減速率。逆算して 初速=距離×減速率 にする
+        float fixedDistance = _point.releaseHorizontalDistance;
+        float drag = _point.releaseDrag;
+        if (fixedDistance >= 0f && drag > 0f)
+        {
+            Vector3 horizontal = new Vector3(_flyVelocity.x, 0f, _flyVelocity.z);
+            horizontal = horizontal.sqrMagnitude > 0.0001f ? horizontal.normalized * (fixedDistance * drag) : Vector3.zero;
+            velocity = new Vector3(horizontal.x, _point.releaseUpSpeed, horizontal.z);
+        }
+
+        EndFly(velocity, drag);   // 重力・当たり判定を戻し、速度を通常の状態に渡す(CS_Player.EndSAMotion)。ロープを消すonFlyEndもここで呼ばれる
 
         BeginGhost(velocity, remainingDistance);
     }
@@ -470,7 +505,7 @@ public class CS_PlayerHide : NetworkBehaviour
     {
         CS_SAPoint endedPoint = _point;
         bool wasFlying = _isFlying;
-
+        
         _isFlying = false;
         _point = null;
         _elapsed = 0f;
@@ -479,6 +514,8 @@ public class CS_PlayerHide : NetworkBehaviour
 
         if (!wasFlying) return;
 
+        Vector3 newVel = exitVelocity;
+        newVel.y = 0f;
         _player.EndSAMotion(exitVelocity, drag);   // SA専用の速度をクリアし、終わった時の速度を渡す(水平は空中の勢いになる)
         onFlyEnd?.Invoke(endedPoint);
     }

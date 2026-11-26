@@ -153,8 +153,18 @@ public class CS_PlayerAlert : NetworkBehaviour
         HandleStateChanged(previous, next);
     }
 
+    // 警戒状態に入った瞬間(なし→発見中・捜索中)のSE。自分のプレイヤーにだけ鳴らす
+    private void PlayAlertSe(CSE_PlayerAlertState previous, CSE_PlayerAlertState current)
+    {
+        if (previous != CSE_PlayerAlertState.None || current == CSE_PlayerAlertState.None) return;
+        if (!TryGetComponent(out CS_Player player) || !player.isLocalPlayer) return;
+
+        CS_SoundManager.instance?.PlaySe(CSE_SeId.PoliceAlert, transform.position);
+    }
+
     private void HandleStateChanged(CSE_PlayerAlertState previous, CSE_PlayerAlertState current)
     {
         onAlertChanged?.Invoke(current);
+        PlayAlertSe(previous, current);
     }
 }

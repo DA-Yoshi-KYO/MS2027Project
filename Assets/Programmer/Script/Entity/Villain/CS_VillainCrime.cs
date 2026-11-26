@@ -74,11 +74,13 @@ public class CS_VillainCrime : NetworkBehaviour
     public override void OnNetworkSpawn()
     {
         _isEscaping.OnValueChanged += HandleEscapingChanged;
+        _crimeAction.OnValueChanged += PlayCrimeStartSe;
     }
 
     public override void OnNetworkDespawn()
     {
         _isEscaping.OnValueChanged -= HandleEscapingChanged;
+        _crimeAction.OnValueChanged -= PlayCrimeStartSe;
     }
 
     // 所属するグループを設定する(CS_VillainGroup.AddMemberから呼ばれる。サーバー、またはオフライン)
@@ -101,7 +103,21 @@ public class CS_VillainCrime : NetworkBehaviour
     public void SetCrimeAction(CSE_VillainCrimeAction action)
     {
         if (IsSpawned && !IsServer) return;
-        if (_crimeAction.Value != action) _crimeAction.Value = action;
+        if (_crimeAction.Value == action) return;
+
+        CSE_VillainCrimeAction previous = _crimeAction.Value;
+        _crimeAction.Value = action;
+
+        // オフラインではOnValueChangedが呼ばれないので、ここで直接鳴らす
+        if (!IsSpawned) PlayCrimeStartSe(previous, action);
+    }
+
+    // 犯罪の動作を始めた時(None→動作)に、全員の端末でその場で鳴らす
+    private void PlayCrimeStartSe(CSE_VillainCrimeAction previous, CSE_VillainCrimeAction current)
+    {
+        if (previous != CSE_VillainCrimeAction.None || current == CSE_VillainCrimeAction.None) return;
+
+        CS_SoundManager.instance?.PlaySe(CSE_SeId.VillainCrimeStart, transform.position);
     }
 
     // グループの犯罪の進行度を設定する(CS_VillainGroupから呼ばれる。サーバー、またはオフライン)
@@ -135,6 +151,8 @@ public class CS_VillainCrime : NetworkBehaviour
     // 反撃・当たり判定を止めてフェードを始める(全クライアント)
     private void StartEscape()
     {
+        CS_SoundManager.instance?.PlaySe(CSE_SeId.VillainEscape, transform.position);
+
         _combat.enabled = false;
 
         foreach (Collider col in GetComponentsInChildren<Collider>())

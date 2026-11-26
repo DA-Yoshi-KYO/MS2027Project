@@ -1,0 +1,3559 @@
+{
+    "version": 4,
+    "name": "GrpMesh",
+    "type": "Test",
+    "scene": "C:/Unity_Date/MS2027Project/Artist/Maya_Project/scenes/Chr_Giro_13.mb",
+    "exportedAt": "2026-11-25 16:58:45",
+    "units": "FBX: centimetres, Y up (Maya). Transforms below: Unity metres",
+    "fbx": "Mesh/Test/GrpMesh.fbx",
+    "materialFolder": "Material/Test",
+    "prefab": "Prefab/Test/GrpMesh.prefab",
+    "buildMaterials": true,
+    "nodes": [
+        {
+            "name": "Grp_Mesh",
+            "parent": -1,
+            "position": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0
+            },
+            "rotation": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0,
+                "w": 1.0
+            },
+            "scale": {
+                "x": 1.0,
+                "y": 1.0,
+                "z": 1.0
+            },
+            "mesh": "",
+            "materials": [],
+            "mayaPath": ""
+        },
+        {
+            "name": "Mesh_Giro",
+            "parent": 0,
+            "position": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0
+            },
+            "rotation": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0,
+                "w": 1.0
+            },
+            "scale": {
+                "x": 1.0,
+                "y": 1.0,
+                "z": 1.0
+            },
+            "mesh": "Mesh_Giro",
+            "materials": [
+                0,
+                1,
+                2,
+                3,
+                4
+            ],
+            "mayaPath": "|Grp_Mesh|Mesh_Giro|Mesh_GiroShape"
+        },
+        {
+            "name": "Mesh_Giro_Outline",
+            "parent": 1,
+            "position": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0
+            },
+            "rotation": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0,
+                "w": 1.0
+            },
+            "scale": {
+                "x": 1.0,
+                "y": 1.0,
+                "z": 1.0
+            },
+            "mesh": "Mesh_Giro_Outline",
+            "materials": [
+                5,
+                6,
+                7,
+                8,
+                9
+            ],
+            "mayaPath": ""
+        }
+    ],
+    "materials": [
+        {
+            "name": "M_Lam_Face",
+            "asset": "MT_Test_MLamFace",
+            "shader": "Shader Graphs/SHG_NTE_Skin",
+            "maya": true,
+            "mayaSettings": "{\"version\":1,\"name\":\"M_Lam_Face\",\"shader\":\"Shader Graphs/SHG_NTE_Skin\",\"floats\":[{\"prop\":\"_CelSpecStrength\",\"value\":2.0},{\"prop\":\"_SkyLight\",\"value\":0.051370538771152499},{\"prop\":\"_CelShadowStrength\",\"value\":1.0}],\"colors\":[{\"prop\":\"_CelRimColor\",\"value\":{\"x\":1.0,\"y\":1.0,\"z\":0.9399999976158142,\"w\":1.0}},{\"prop\":\"_CelSpecColor\",\"value\":{\"x\":1.0,\"y\":1.0,\"z\":0.4554796516895294,\"w\":1.0}},{\"prop\":\"_ShadowColor\",\"value\":{\"x\":1.0,\"y\":1.0,\"z\":1.0,\"w\":0.0}}],\"vectors\":[],\"textures\":[]}",
+            "renderQueue": 2450,
+            "keywords": [
+                "_ALPHATEST_ON",
+                "_DOUBLESIDED_ON"
+            ],
+            "floats": [
+                {
+                    "prop": "_CelBrightness",
+                    "value": 1.5
+                },
+                {
+                    "prop": "_NTESaturation",
+                    "value": 1.0
+                },
+                {
+                    "prop": "_DeepShadowStrength",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_CelShadowThreshold",
+                    "value": 0.5
+                },
+                {
+                    "prop": "_CelShadowSoftness",
+                    "value": 0.20000000298023225
+                },
+                {
+                    "prop": "_CelShadowStrength",
+                    "value": 1.0
+                },
+                {
+                    "prop": "_CelShadowSaturation",
+                    "value": 1.0
+                },
+                {
+                    "prop": "_CelCastShadowStrength",
+                    "value": 1.0
+                },
+                {
+                    "prop": "_LightSharpness",
+                    "value": 0.6000000238418579
+                },
+                {
+                    "prop": "_CelRimStrength",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_CelRimWidth",
+                    "value": 0.7260274291038513
+                },
+                {
+                    "prop": "_SkyLight",
+                    "value": 0.051370538771152499
+                },
+                {
+                    "prop": "_BottomShade",
+                    "value": 0.3499999940395355
+                },
+                {
+                    "prop": "_BackFaceShade",
+                    "value": 0.3499999940395355
+                },
+                {
+                    "prop": "_DetailScale",
+                    "value": 600.0
+                },
+                {
+                    "prop": "_DetailStrength",
+                    "value": 0.5
+                },
+                {
+                    "prop": "_FabricSheen",
+                    "value": 0.3499999940395355
+                },
+                {
+                    "prop": "_FaceSDFStrength",
+                    "value": 1.0
+                },
+                {
+                    "prop": "_FaceSDFSoftness",
+                    "value": 0.019999999552965165
+                },
+                {
+                    "prop": "_FaceSDFFlip",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_NoseHideAngle",
+                    "value": 50.0
+                },
+                {
+                    "prop": "_LightDirectionGiven",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_FaceAngle",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_NoseSinkDepth",
+                    "value": 2.0
+                },
+                {
+                    "prop": "_SkinPart",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_NoseSize",
+                    "value": 0.33332857489585879
+                },
+                {
+                    "prop": "_RenderQueueType",
+                    "value": 1.0
+                },
+                {
+                    "prop": "_AddPrecomputedVelocity",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_DepthOffsetEnable",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_ConservativeDepthOffsetEnable",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_TransparentWritingMotionVec",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_AlphaCutoffEnable",
+                    "value": 1.0
+                },
+                {
+                    "prop": "_TransparentSortPriority",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_UseShadowThreshold",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_DoubleSidedEnable",
+                    "value": 1.0
+                },
+                {
+                    "prop": "_DoubleSidedNormalMode",
+                    "value": 1.0
+                },
+                {
+                    "prop": "_DoubleSidedGIMode",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_TransparentDepthPrepassEnable",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_TransparentDepthPostpassEnable",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_PerPixelSorting",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_SurfaceType",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_BlendMode",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_SrcBlend",
+                    "value": 1.0
+                },
+                {
+                    "prop": "_DstBlend",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_DstBlend2",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_AlphaSrcBlend",
+                    "value": 1.0
+                },
+                {
+                    "prop": "_AlphaDstBlend",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_ZWrite",
+                    "value": 1.0
+                },
+                {
+                    "prop": "_TransparentZWrite",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_CullMode",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_EnableFogOnTransparent",
+                    "value": 1.0
+                },
+                {
+                    "prop": "_CullModeForward",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_TransparentCullMode",
+                    "value": 2.0
+                },
+                {
+                    "prop": "_OpaqueCullMode",
+                    "value": 2.0
+                },
+                {
+                    "prop": "_ZTestDepthEqualForOpaque",
+                    "value": 3.0
+                },
+                {
+                    "prop": "_ZTestTransparent",
+                    "value": 4.0
+                },
+                {
+                    "prop": "_TransparentBackfaceEnable",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_ShadowMatteFilter",
+                    "value": 2.313824024293138e-41
+                },
+                {
+                    "prop": "_EnableBlendModePreserveSpecularLighting",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_ExcludeFromTUAndAA",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_StencilRef",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_StencilWriteMask",
+                    "value": 6.0
+                },
+                {
+                    "prop": "_StencilRefDepth",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_StencilWriteMaskDepth",
+                    "value": 9.0
+                },
+                {
+                    "prop": "_StencilRefMV",
+                    "value": 32.0
+                },
+                {
+                    "prop": "_StencilWriteMaskMV",
+                    "value": 43.0
+                },
+                {
+                    "prop": "_StencilRefDistortionVec",
+                    "value": 4.0
+                },
+                {
+                    "prop": "_StencilWriteMaskDistortionVec",
+                    "value": 4.0
+                }
+            ],
+            "ints": [],
+            "colors": [
+                {
+                    "prop": "_BaseColor",
+                    "value": {
+                        "r": 1.0,
+                        "g": 1.0,
+                        "b": 1.0,
+                        "a": 1.0
+                    }
+                },
+                {
+                    "prop": "_DeepShadowColor",
+                    "value": {
+                        "r": 0.5499998927116394,
+                        "g": 0.15999993681907655,
+                        "b": 0.15999993681907655,
+                        "a": 1.0
+                    }
+                },
+                {
+                    "prop": "_EyeHighlightColor",
+                    "value": {
+                        "r": 1.0,
+                        "g": 1.0,
+                        "b": 1.0,
+                        "a": 1.0
+                    }
+                },
+                {
+                    "prop": "_ShadowColor",
+                    "value": {
+                        "r": 1.0,
+                        "g": 1.0,
+                        "b": 1.0,
+                        "a": 0.0
+                    }
+                },
+                {
+                    "prop": "_CelRimColor",
+                    "value": {
+                        "r": 1.0,
+                        "g": 1.0,
+                        "b": 0.9399999976158142,
+                        "a": 1.0
+                    }
+                },
+                {
+                    "prop": "_EmissionColor",
+                    "value": {
+                        "r": 1.0,
+                        "g": 1.0,
+                        "b": 1.0,
+                        "a": 1.0
+                    }
+                }
+            ],
+            "vectors": [
+                {
+                    "prop": "_MainLightDirection",
+                    "value": {
+                        "x": 0.0,
+                        "y": 1.0,
+                        "z": 0.0,
+                        "w": 0.0
+                    }
+                },
+                {
+                    "prop": "_FaceFront",
+                    "value": {
+                        "x": 0.0,
+                        "y": 0.0,
+                        "z": -1.0,
+                        "w": 0.0
+                    }
+                },
+                {
+                    "prop": "_FaceRight",
+                    "value": {
+                        "x": 1.0,
+                        "y": 0.0,
+                        "z": 0.0,
+                        "w": 0.0
+                    }
+                },
+                {
+                    "prop": "_DoubleSidedConstants",
+                    "value": {
+                        "x": 1.0,
+                        "y": 1.0,
+                        "z": -1.0,
+                        "w": 0.0
+                    }
+                }
+            ],
+            "textures": [
+                {
+                    "prop": "_BaseMap",
+                    "file": "Texture/Test/M_Lam_Face_Base_color.png",
+                    "textureName": "M_Lam_Face_Base_color.png",
+                    "source": "C:/Unity_Date/MS2027Project/Artist/Maya_Project/sourceimages/Character/M_Lam_Face_Base_color.png",
+                    "normal": false,
+                    "linear": false,
+                    "scale": {
+                        "x": 1.0,
+                        "y": 1.0
+                    },
+                    "offset": {
+                        "x": 0.0,
+                        "y": 0.0
+                    }
+                }
+            ],
+            "outlineWidth": 0.0
+        },
+        {
+            "name": "M_Lam_Skin",
+            "asset": "MT_Test_MLamSkin",
+            "shader": "Shader Graphs/SHG_NTE_Skin",
+            "maya": true,
+            "mayaSettings": "{\"version\":1,\"name\":\"M_Lam_Skin\",\"shader\":\"Shader Graphs/SHG_NTE_Skin\",\"floats\":[{\"prop\":\"_SkinPart\",\"value\":1.0},{\"prop\":\"_FabricSheen\",\"value\":0.4301373064517975},{\"prop\":\"_CelShadowSaturation\",\"value\":1.0},{\"prop\":\"_CelShadowSoftness\",\"value\":0.1309587061405182}],\"colors\":[],\"vectors\":[],\"textures\":[]}",
+            "renderQueue": 2450,
+            "keywords": [
+                "_ALPHATEST_ON",
+                "_DOUBLESIDED_ON"
+            ],
+            "floats": [
+                {
+                    "prop": "_CelBrightness",
+                    "value": 1.5
+                },
+                {
+                    "prop": "_NTESaturation",
+                    "value": 1.0
+                },
+                {
+                    "prop": "_DeepShadowStrength",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_CelShadowThreshold",
+                    "value": 0.5
+                },
+                {
+                    "prop": "_CelShadowSoftness",
+                    "value": 0.1309587061405182
+                },
+                {
+                    "prop": "_CelShadowStrength",
+                    "value": 0.6000000238418579
+                },
+                {
+                    "prop": "_CelShadowSaturation",
+                    "value": 1.0
+                },
+                {
+                    "prop": "_CelCastShadowStrength",
+                    "value": 1.0
+                },
+                {
+                    "prop": "_LightSharpness",
+                    "value": 0.6000000238418579
+                },
+                {
+                    "prop": "_CelRimStrength",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_CelRimWidth",
+                    "value": 0.7260274291038513
+                },
+                {
+                    "prop": "_SkyLight",
+                    "value": 0.15000000596046449
+                },
+                {
+                    "prop": "_BottomShade",
+                    "value": 0.3499999940395355
+                },
+                {
+                    "prop": "_BackFaceShade",
+                    "value": 0.3499999940395355
+                },
+                {
+                    "prop": "_DetailScale",
+                    "value": 600.0
+                },
+                {
+                    "prop": "_DetailStrength",
+                    "value": 0.5
+                },
+                {
+                    "prop": "_FabricSheen",
+                    "value": 0.4301373064517975
+                },
+                {
+                    "prop": "_FaceSDFStrength",
+                    "value": 1.0
+                },
+                {
+                    "prop": "_FaceSDFSoftness",
+                    "value": 0.019999999552965165
+                },
+                {
+                    "prop": "_FaceSDFFlip",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_NoseHideAngle",
+                    "value": 50.0
+                },
+                {
+                    "prop": "_LightDirectionGiven",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_FaceAngle",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_NoseSinkDepth",
+                    "value": 2.0
+                },
+                {
+                    "prop": "_SkinPart",
+                    "value": 1.0
+                },
+                {
+                    "prop": "_NoseSize",
+                    "value": 1.7866065502166749
+                },
+                {
+                    "prop": "_RenderQueueType",
+                    "value": 1.0
+                },
+                {
+                    "prop": "_AddPrecomputedVelocity",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_DepthOffsetEnable",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_ConservativeDepthOffsetEnable",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_TransparentWritingMotionVec",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_AlphaCutoffEnable",
+                    "value": 1.0
+                },
+                {
+                    "prop": "_TransparentSortPriority",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_UseShadowThreshold",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_DoubleSidedEnable",
+                    "value": 1.0
+                },
+                {
+                    "prop": "_DoubleSidedNormalMode",
+                    "value": 1.0
+                },
+                {
+                    "prop": "_DoubleSidedGIMode",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_TransparentDepthPrepassEnable",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_TransparentDepthPostpassEnable",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_PerPixelSorting",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_SurfaceType",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_BlendMode",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_SrcBlend",
+                    "value": 1.0
+                },
+                {
+                    "prop": "_DstBlend",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_DstBlend2",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_AlphaSrcBlend",
+                    "value": 1.0
+                },
+                {
+                    "prop": "_AlphaDstBlend",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_ZWrite",
+                    "value": 1.0
+                },
+                {
+                    "prop": "_TransparentZWrite",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_CullMode",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_EnableFogOnTransparent",
+                    "value": 1.0
+                },
+                {
+                    "prop": "_CullModeForward",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_TransparentCullMode",
+                    "value": 2.0
+                },
+                {
+                    "prop": "_OpaqueCullMode",
+                    "value": 2.0
+                },
+                {
+                    "prop": "_ZTestDepthEqualForOpaque",
+                    "value": 3.0
+                },
+                {
+                    "prop": "_ZTestTransparent",
+                    "value": 4.0
+                },
+                {
+                    "prop": "_TransparentBackfaceEnable",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_ShadowMatteFilter",
+                    "value": 2.313824024293138e-41
+                },
+                {
+                    "prop": "_EnableBlendModePreserveSpecularLighting",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_ExcludeFromTUAndAA",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_StencilRef",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_StencilWriteMask",
+                    "value": 6.0
+                },
+                {
+                    "prop": "_StencilRefDepth",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_StencilWriteMaskDepth",
+                    "value": 9.0
+                },
+                {
+                    "prop": "_StencilRefMV",
+                    "value": 32.0
+                },
+                {
+                    "prop": "_StencilWriteMaskMV",
+                    "value": 43.0
+                },
+                {
+                    "prop": "_StencilRefDistortionVec",
+                    "value": 4.0
+                },
+                {
+                    "prop": "_StencilWriteMaskDistortionVec",
+                    "value": 4.0
+                }
+            ],
+            "ints": [],
+            "colors": [
+                {
+                    "prop": "_BaseColor",
+                    "value": {
+                        "r": 1.0,
+                        "g": 1.0,
+                        "b": 1.0,
+                        "a": 1.0
+                    }
+                },
+                {
+                    "prop": "_DeepShadowColor",
+                    "value": {
+                        "r": 0.5499998927116394,
+                        "g": 0.15999993681907655,
+                        "b": 0.15999993681907655,
+                        "a": 1.0
+                    }
+                },
+                {
+                    "prop": "_EyeHighlightColor",
+                    "value": {
+                        "r": 1.0,
+                        "g": 1.0,
+                        "b": 1.0,
+                        "a": 1.0
+                    }
+                },
+                {
+                    "prop": "_ShadowColor",
+                    "value": {
+                        "r": 1.0,
+                        "g": 0.6971427202224731,
+                        "b": 0.6971427202224731,
+                        "a": 1.0
+                    }
+                },
+                {
+                    "prop": "_CelRimColor",
+                    "value": {
+                        "r": 1.0,
+                        "g": 1.0,
+                        "b": 1.0,
+                        "a": 1.0
+                    }
+                },
+                {
+                    "prop": "_EmissionColor",
+                    "value": {
+                        "r": 1.0,
+                        "g": 1.0,
+                        "b": 1.0,
+                        "a": 1.0
+                    }
+                }
+            ],
+            "vectors": [
+                {
+                    "prop": "_MainLightDirection",
+                    "value": {
+                        "x": 0.0,
+                        "y": 1.0,
+                        "z": 0.0,
+                        "w": 0.0
+                    }
+                },
+                {
+                    "prop": "_FaceFront",
+                    "value": {
+                        "x": 0.0,
+                        "y": 0.0,
+                        "z": -1.0,
+                        "w": 0.0
+                    }
+                },
+                {
+                    "prop": "_FaceRight",
+                    "value": {
+                        "x": 1.0,
+                        "y": 0.0,
+                        "z": 0.0,
+                        "w": 0.0
+                    }
+                },
+                {
+                    "prop": "_DoubleSidedConstants",
+                    "value": {
+                        "x": 1.0,
+                        "y": 1.0,
+                        "z": -1.0,
+                        "w": 0.0
+                    }
+                }
+            ],
+            "textures": [
+                {
+                    "prop": "_BaseMap",
+                    "file": "Texture/Test/M_Lam_Skin_Base_color.png",
+                    "textureName": "M_Lam_Skin_Base_color.png",
+                    "source": "C:/Unity_Date/MS2027Project/Artist/Maya_Project/sourceimages/Character/M_Lam_Skin_Base_color.png",
+                    "normal": false,
+                    "linear": false,
+                    "scale": {
+                        "x": 1.0,
+                        "y": 1.0
+                    },
+                    "offset": {
+                        "x": 0.0,
+                        "y": 0.0
+                    }
+                }
+            ],
+            "outlineWidth": 0.0
+        },
+        {
+            "name": "M_Lam_Eye",
+            "asset": "MT_Test_MLamEye",
+            "shader": "Shader Graphs/SHG_NTE_Eye",
+            "maya": true,
+            "mayaSettings": "{\"version\":1,\"name\":\"M_Lam_Eye\",\"shader\":\"Shader Graphs/SHG_NTE_Eye\",\"floats\":[{\"prop\":\"_EyeMirrorStrength\",\"value\":0.1246577575802803},{\"prop\":\"_EyeMirrorBulge\",\"value\":0.6356164813041687},{\"prop\":\"_EyeMirrorBlur\",\"value\":0.45808184146881106},{\"prop\":\"_EyeGlintSize\",\"value\":0.0},{\"prop\":\"_EyeGlintStrength\",\"value\":0.8958874344825745}],\"colors\":[{\"prop\":\"_EyeHighlightColor\",\"value\":{\"x\":1.0,\"y\":1.0,\"z\":1.0,\"w\":1.0}},{\"prop\":\"_EyeGlintColor\",\"value\":{\"x\":0.33142876625061037,\"y\":0.9426940083503723,\"z\":1.0,\"w\":1.0}}],\"vectors\":[],\"textures\":[]}",
+            "renderQueue": 3000,
+            "keywords": [
+                "_DISABLE_SSR_TRANSPARENT",
+                "_DOUBLESIDED_ON",
+                "_ENABLE_FOG_ON_TRANSPARENT",
+                "_SURFACE_TYPE_TRANSPARENT"
+            ],
+            "floats": [
+                {
+                    "prop": "_NTESaturation",
+                    "value": 1.0
+                },
+                {
+                    "prop": "_DeepShadowStrength",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_EyeHighlightPower",
+                    "value": 5.6164422035217289
+                },
+                {
+                    "prop": "_EyeOverlayStrength",
+                    "value": 0.5
+                },
+                {
+                    "prop": "_EyeOverlayFollow",
+                    "value": 1.0
+                },
+                {
+                    "prop": "_EyeGlintStrength",
+                    "value": 0.8958874344825745
+                },
+                {
+                    "prop": "_EyeGlintSize",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_LightDirectionGiven",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_EyeHighlightThreshold",
+                    "value": 0.9100000262260437
+                },
+                {
+                    "prop": "_EyeMirrorStrength",
+                    "value": 0.1246577575802803
+                },
+                {
+                    "prop": "_EyeMirrorBlur",
+                    "value": 0.45808184146881106
+                },
+                {
+                    "prop": "_EyeMirrorBulge",
+                    "value": 0.6356164813041687
+                },
+                {
+                    "prop": "_CelCastShadowStrength",
+                    "value": 0.800000011920929
+                },
+                {
+                    "prop": "_RenderQueueType",
+                    "value": 4.0
+                },
+                {
+                    "prop": "_AddPrecomputedVelocity",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_DepthOffsetEnable",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_ConservativeDepthOffsetEnable",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_TransparentWritingMotionVec",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_AlphaCutoffEnable",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_TransparentSortPriority",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_UseShadowThreshold",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_DoubleSidedEnable",
+                    "value": 1.0
+                },
+                {
+                    "prop": "_DoubleSidedNormalMode",
+                    "value": 1.0
+                },
+                {
+                    "prop": "_DoubleSidedGIMode",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_TransparentDepthPrepassEnable",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_TransparentDepthPostpassEnable",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_PerPixelSorting",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_SurfaceType",
+                    "value": 1.0
+                },
+                {
+                    "prop": "_BlendMode",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_SrcBlend",
+                    "value": 1.0
+                },
+                {
+                    "prop": "_DstBlend",
+                    "value": 10.0
+                },
+                {
+                    "prop": "_DstBlend2",
+                    "value": 10.0
+                },
+                {
+                    "prop": "_AlphaSrcBlend",
+                    "value": 1.0
+                },
+                {
+                    "prop": "_AlphaDstBlend",
+                    "value": 10.0
+                },
+                {
+                    "prop": "_ZWrite",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_TransparentZWrite",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_CullMode",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_EnableFogOnTransparent",
+                    "value": 1.0
+                },
+                {
+                    "prop": "_CullModeForward",
+                    "value": 2.0
+                },
+                {
+                    "prop": "_TransparentCullMode",
+                    "value": 2.0
+                },
+                {
+                    "prop": "_OpaqueCullMode",
+                    "value": 2.0
+                },
+                {
+                    "prop": "_ZTestDepthEqualForOpaque",
+                    "value": 4.0
+                },
+                {
+                    "prop": "_ZTestTransparent",
+                    "value": 4.0
+                },
+                {
+                    "prop": "_TransparentBackfaceEnable",
+                    "value": 1.0
+                },
+                {
+                    "prop": "_RequireSplitLighting",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_ReceivesSSR",
+                    "value": 1.0
+                },
+                {
+                    "prop": "_ReceivesSSRTransparent",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_EnableBlendModePreserveSpecularLighting",
+                    "value": 1.0
+                },
+                {
+                    "prop": "_SupportDecals",
+                    "value": 1.0
+                },
+                {
+                    "prop": "_ExcludeFromTUAndAA",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_StencilRef",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_StencilWriteMask",
+                    "value": 6.0
+                },
+                {
+                    "prop": "_StencilRefDepth",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_StencilWriteMaskDepth",
+                    "value": 9.0
+                },
+                {
+                    "prop": "_StencilRefMV",
+                    "value": 32.0
+                },
+                {
+                    "prop": "_StencilWriteMaskMV",
+                    "value": 41.0
+                },
+                {
+                    "prop": "_StencilRefDistortionVec",
+                    "value": 4.0
+                },
+                {
+                    "prop": "_StencilWriteMaskDistortionVec",
+                    "value": 4.0
+                },
+                {
+                    "prop": "_StencilWriteMaskGBuffer",
+                    "value": 15.0
+                },
+                {
+                    "prop": "_StencilRefGBuffer",
+                    "value": 2.0
+                },
+                {
+                    "prop": "_ZTestGBuffer",
+                    "value": 4.0
+                },
+                {
+                    "prop": "_RayTracing",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_RefractionModel",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_MaterialID",
+                    "value": 1.0
+                },
+                {
+                    "prop": "_MaterialTypeMask",
+                    "value": 2.0
+                },
+                {
+                    "prop": "_TransmissionEnable",
+                    "value": 1.0
+                }
+            ],
+            "ints": [],
+            "colors": [
+                {
+                    "prop": "_BaseColor",
+                    "value": {
+                        "r": 1.0,
+                        "g": 1.0,
+                        "b": 1.0,
+                        "a": 1.0
+                    }
+                },
+                {
+                    "prop": "_DeepShadowColor",
+                    "value": {
+                        "r": 0.5499998927116394,
+                        "g": 0.15999993681907655,
+                        "b": 0.15999993681907655,
+                        "a": 1.0
+                    }
+                },
+                {
+                    "prop": "_EyeHighlightColor",
+                    "value": {
+                        "r": 1.0,
+                        "g": 1.0,
+                        "b": 1.0,
+                        "a": 1.0
+                    }
+                },
+                {
+                    "prop": "_EyeOverlayColor",
+                    "value": {
+                        "r": 1.0,
+                        "g": 1.0,
+                        "b": 1.0,
+                        "a": 1.0
+                    }
+                },
+                {
+                    "prop": "_EyeGlintColor",
+                    "value": {
+                        "r": 0.33142873644828799,
+                        "g": 0.9426940083503723,
+                        "b": 1.0,
+                        "a": 1.0
+                    }
+                },
+                {
+                    "prop": "_EyeMirrorColor",
+                    "value": {
+                        "r": 1.0,
+                        "g": 1.0,
+                        "b": 1.0,
+                        "a": 1.0
+                    }
+                },
+                {
+                    "prop": "_EmissionColor",
+                    "value": {
+                        "r": 1.0,
+                        "g": 1.0,
+                        "b": 1.0,
+                        "a": 1.0
+                    }
+                }
+            ],
+            "vectors": [
+                {
+                    "prop": "_EyeViewForward",
+                    "value": {
+                        "x": 0.0,
+                        "y": 0.0,
+                        "z": 0.0,
+                        "w": 0.0
+                    }
+                },
+                {
+                    "prop": "_EyeViewUp",
+                    "value": {
+                        "x": 0.0,
+                        "y": 1.0,
+                        "z": 0.0,
+                        "w": 0.0
+                    }
+                },
+                {
+                    "prop": "_EyeGaze",
+                    "value": {
+                        "x": 0.0000011100661367891008,
+                        "y": 0.0012823096476495267,
+                        "z": -0.9999992251396179,
+                        "w": 1.0
+                    }
+                },
+                {
+                    "prop": "_EyeGazeCenter",
+                    "value": {
+                        "x": 0.0,
+                        "y": 0.0,
+                        "z": 0.0,
+                        "w": 0.0
+                    }
+                },
+                {
+                    "prop": "_DoubleSidedConstants",
+                    "value": {
+                        "x": 1.0,
+                        "y": 1.0,
+                        "z": -1.0,
+                        "w": 0.0
+                    }
+                }
+            ],
+            "textures": [
+                {
+                    "prop": "_BaseMap",
+                    "file": "Texture/Test/M_Lam_Eye_Base_color.png",
+                    "textureName": "M_Lam_Eye_Base_color.png",
+                    "source": "C:/Unity_Date/MS2027Project/Artist/Maya_Project/sourceimages/Character/M_Lam_Eye_Base_color.png",
+                    "normal": false,
+                    "linear": false,
+                    "scale": {
+                        "x": 1.0,
+                        "y": 1.0
+                    },
+                    "offset": {
+                        "x": 0.0,
+                        "y": 0.0
+                    }
+                }
+            ],
+            "outlineWidth": 0.0
+        },
+        {
+            "name": "M_Lam_Clothes",
+            "asset": "MT_Test_MLamClothes",
+            "shader": "Shader Graphs/SHG_NTE_Cloth",
+            "maya": true,
+            "mayaSettings": "{\"version\":1,\"name\":\"M_Lam_Clothes\",\"shader\":\"Shader Graphs/SHG_NTE_Cloth\",\"floats\":[{\"prop\":\"_ClothWeave\",\"value\":2.0},{\"prop\":\"_ClothThreadSize\",\"value\":0.44494640827178957},{\"prop\":\"_ClothThreadBump\",\"value\":0.7835641503334045},{\"prop\":\"_ClothThreadShade\",\"value\":0.07123289257287979},{\"prop\":\"_ClothFuzzStrength\",\"value\":0.0},{\"prop\":\"_ClothFuzzSize\",\"value\":6.0},{\"prop\":\"_ClothMottle\",\"value\":0.0},{\"prop\":\"_ClothSmoothness\",\"value\":0.5799999833106995},{\"prop\":\"_ClothThreadSmoothness\",\"value\":0.10000000149011612},{\"prop\":\"_ClothGlossStrength\",\"value\":0.1863008737564087},{\"prop\":\"_ClothAnisotropy\",\"value\":-0.75},{\"prop\":\"_ClothSheenStrength\",\"value\":0.20000000298023225},{\"prop\":\"_ClothMaterial\",\"value\":5.0},{\"prop\":\"_ClothStitchStrength\",\"value\":0.0}],\"colors\":[],\"vectors\":[],\"textures\":[]}",
+            "renderQueue": 2450,
+            "keywords": [
+                "_ALPHATEST_ON",
+                "_DOUBLESIDED_ON"
+            ],
+            "floats": [
+                {
+                    "prop": "_CelBrightness",
+                    "value": 1.149999976158142
+                },
+                {
+                    "prop": "_NTESaturation",
+                    "value": 1.0
+                },
+                {
+                    "prop": "_DeepShadowStrength",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_CelShadowThreshold",
+                    "value": 0.44999998807907107
+                },
+                {
+                    "prop": "_CelShadowSoftness",
+                    "value": 0.15000000596046449
+                },
+                {
+                    "prop": "_CelShadowStrength",
+                    "value": 0.44999998807907107
+                },
+                {
+                    "prop": "_CelShadowSaturation",
+                    "value": 0.5
+                },
+                {
+                    "prop": "_CelCastShadowStrength",
+                    "value": 0.800000011920929
+                },
+                {
+                    "prop": "_LightSharpness",
+                    "value": 0.6000000238418579
+                },
+                {
+                    "prop": "_CelRimStrength",
+                    "value": 0.07999999821186066
+                },
+                {
+                    "prop": "_CelRimWidth",
+                    "value": 0.30000001192092898
+                },
+                {
+                    "prop": "_SkyLight",
+                    "value": 2.200000047683716
+                },
+                {
+                    "prop": "_BottomShade",
+                    "value": 0.44999998807907107
+                },
+                {
+                    "prop": "_BackFaceShade",
+                    "value": 1.0
+                },
+                {
+                    "prop": "_LightDirectionGiven",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_ClothWeave",
+                    "value": 2.0
+                },
+                {
+                    "prop": "_ClothThreadSize",
+                    "value": 0.44494640827178957
+                },
+                {
+                    "prop": "_ClothThreadAspect",
+                    "value": 1.0
+                },
+                {
+                    "prop": "_ClothThreadAngle",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_ClothThreadBump",
+                    "value": 0.7835641503334045
+                },
+                {
+                    "prop": "_ClothThreadShade",
+                    "value": 0.07123289257287979
+                },
+                {
+                    "prop": "_ClothFuzzStrength",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_ClothFuzzSize",
+                    "value": 6.0
+                },
+                {
+                    "prop": "_ClothMottle",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_ClothSmoothness",
+                    "value": 0.5799999833106995
+                },
+                {
+                    "prop": "_ClothThreadSmoothness",
+                    "value": 0.10000000149011612
+                },
+                {
+                    "prop": "_ClothGlossStrength",
+                    "value": 0.1863008737564087
+                },
+                {
+                    "prop": "_ClothAnisotropy",
+                    "value": -0.75
+                },
+                {
+                    "prop": "_ClothSheenStrength",
+                    "value": 0.20000000298023225
+                },
+                {
+                    "prop": "_ClothStitchStrength",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_ClothStitchSpacing",
+                    "value": 10.0
+                },
+                {
+                    "prop": "_ClothStitchOffset",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_ClothStitchLength",
+                    "value": 1.6895140409469605
+                },
+                {
+                    "prop": "_ClothStitchWidth",
+                    "value": 2.2465789318084719
+                },
+                {
+                    "prop": "_ClothStitchAngle",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_ClothStitchTwin",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_ClothStitchGrid",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_ClothStitchEdge",
+                    "value": 1.0
+                },
+                {
+                    "prop": "_ClothStitchInset",
+                    "value": 3.0
+                },
+                {
+                    "prop": "_ClothMaterial",
+                    "value": 5.0
+                },
+                {
+                    "prop": "_RenderQueueType",
+                    "value": 1.0
+                },
+                {
+                    "prop": "_AddPrecomputedVelocity",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_DepthOffsetEnable",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_ConservativeDepthOffsetEnable",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_TransparentWritingMotionVec",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_AlphaCutoffEnable",
+                    "value": 1.0
+                },
+                {
+                    "prop": "_TransparentSortPriority",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_UseShadowThreshold",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_DoubleSidedEnable",
+                    "value": 1.0
+                },
+                {
+                    "prop": "_DoubleSidedNormalMode",
+                    "value": 1.0
+                },
+                {
+                    "prop": "_DoubleSidedGIMode",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_TransparentDepthPrepassEnable",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_TransparentDepthPostpassEnable",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_PerPixelSorting",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_SurfaceType",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_BlendMode",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_SrcBlend",
+                    "value": 1.0
+                },
+                {
+                    "prop": "_DstBlend",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_DstBlend2",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_AlphaSrcBlend",
+                    "value": 1.0
+                },
+                {
+                    "prop": "_AlphaDstBlend",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_ZWrite",
+                    "value": 1.0
+                },
+                {
+                    "prop": "_TransparentZWrite",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_CullMode",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_EnableFogOnTransparent",
+                    "value": 1.0
+                },
+                {
+                    "prop": "_CullModeForward",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_TransparentCullMode",
+                    "value": 2.0
+                },
+                {
+                    "prop": "_OpaqueCullMode",
+                    "value": 2.0
+                },
+                {
+                    "prop": "_ZTestDepthEqualForOpaque",
+                    "value": 3.0
+                },
+                {
+                    "prop": "_ZTestTransparent",
+                    "value": 4.0
+                },
+                {
+                    "prop": "_TransparentBackfaceEnable",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_ShadowMatteFilter",
+                    "value": 2.313824024293138e-41
+                },
+                {
+                    "prop": "_EnableBlendModePreserveSpecularLighting",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_ExcludeFromTUAndAA",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_StencilRef",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_StencilWriteMask",
+                    "value": 6.0
+                },
+                {
+                    "prop": "_StencilRefDepth",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_StencilWriteMaskDepth",
+                    "value": 9.0
+                },
+                {
+                    "prop": "_StencilRefMV",
+                    "value": 32.0
+                },
+                {
+                    "prop": "_StencilWriteMaskMV",
+                    "value": 43.0
+                },
+                {
+                    "prop": "_StencilRefDistortionVec",
+                    "value": 4.0
+                },
+                {
+                    "prop": "_StencilWriteMaskDistortionVec",
+                    "value": 4.0
+                }
+            ],
+            "ints": [],
+            "colors": [
+                {
+                    "prop": "_BaseColor",
+                    "value": {
+                        "r": 1.0,
+                        "g": 1.0,
+                        "b": 1.0,
+                        "a": 1.0
+                    }
+                },
+                {
+                    "prop": "_DeepShadowColor",
+                    "value": {
+                        "r": 0.5499999523162842,
+                        "g": 0.15999996662139893,
+                        "b": 0.15999996662139893,
+                        "a": 1.0
+                    }
+                },
+                {
+                    "prop": "_EyeHighlightColor",
+                    "value": {
+                        "r": 1.0,
+                        "g": 1.0,
+                        "b": 1.0,
+                        "a": 1.0
+                    }
+                },
+                {
+                    "prop": "_ShadowColor",
+                    "value": {
+                        "r": 0.699999988079071,
+                        "g": 0.699999988079071,
+                        "b": 0.699999988079071,
+                        "a": 1.0
+                    }
+                },
+                {
+                    "prop": "_CelRimColor",
+                    "value": {
+                        "r": 1.0,
+                        "g": 0.9699999690055847,
+                        "b": 0.9399999976158142,
+                        "a": 1.0
+                    }
+                },
+                {
+                    "prop": "_ClothFuzzColor",
+                    "value": {
+                        "r": 1.0,
+                        "g": 1.0,
+                        "b": 1.0,
+                        "a": 1.0
+                    }
+                },
+                {
+                    "prop": "_ClothGlossColor",
+                    "value": {
+                        "r": 1.0,
+                        "g": 1.0,
+                        "b": 1.0,
+                        "a": 1.0
+                    }
+                },
+                {
+                    "prop": "_ClothSheenColor",
+                    "value": {
+                        "r": 1.0,
+                        "g": 1.0,
+                        "b": 1.0,
+                        "a": 1.0
+                    }
+                },
+                {
+                    "prop": "_ClothStitchColor",
+                    "value": {
+                        "r": 0.8999999761581421,
+                        "g": 0.8600000143051148,
+                        "b": 0.7799999713897705,
+                        "a": 1.0
+                    }
+                },
+                {
+                    "prop": "_EmissionColor",
+                    "value": {
+                        "r": 1.0,
+                        "g": 1.0,
+                        "b": 1.0,
+                        "a": 1.0
+                    }
+                }
+            ],
+            "vectors": [
+                {
+                    "prop": "_MainLightDirection",
+                    "value": {
+                        "x": 0.0,
+                        "y": 1.0,
+                        "z": 0.0,
+                        "w": 0.0
+                    }
+                },
+                {
+                    "prop": "_DoubleSidedConstants",
+                    "value": {
+                        "x": 1.0,
+                        "y": 1.0,
+                        "z": -1.0,
+                        "w": 0.0
+                    }
+                }
+            ],
+            "textures": [
+                {
+                    "prop": "_BaseMap",
+                    "file": "Texture/Test/T_Chara_Giro_BC.png",
+                    "textureName": "T_Chara_Giro_BC.png",
+                    "source": "C:/Unity_Date/MS2027Project/Artist/Maya_Project/sourceimages/Character/T_Chara_Giro_BC.png",
+                    "normal": false,
+                    "linear": false,
+                    "scale": {
+                        "x": 1.0,
+                        "y": 1.0
+                    },
+                    "offset": {
+                        "x": 0.0,
+                        "y": 0.0
+                    }
+                }
+            ],
+            "outlineWidth": 0.0
+        },
+        {
+            "name": "M_Lam_Hair",
+            "asset": "MT_Test_MLamHair",
+            "shader": "Shader Graphs/SHG_NTE_Hair",
+            "maya": true,
+            "mayaSettings": "{\"version\":1,\"name\":\"M_Lam_Hair\",\"shader\":\"Shader Graphs/SHG_NTE_Hair\",\"floats\":[{\"prop\":\"_CelShadowSoftness\",\"value\":0.10273972898721695},{\"prop\":\"_CelShadowThreshold\",\"value\":0.5212330222129822},{\"prop\":\"_CelShadowSaturation\",\"value\":0.36986303329467776},{\"prop\":\"_CelCastShadowStrength\",\"value\":1.0},{\"prop\":\"_CelRimStrength\",\"value\":0.07397212088108063},{\"prop\":\"_CelRimWidth\",\"value\":0.3315078616142273},{\"prop\":\"_SkyLight\",\"value\":0.6739736199378967},{\"prop\":\"_BottomShade\",\"value\":0.0},{\"prop\":\"_BackFaceShade\",\"value\":0.0},{\"prop\":\"_LightSharpness\",\"value\":0.34246575832366946},{\"prop\":\"_HairHighlightFlow\",\"value\":1.0},{\"prop\":\"_HairHighlightStrength\",\"value\":0.1986284703016281}],\"colors\":[{\"prop\":\"_CelRimColor\",\"value\":{\"x\":0.6095019578933716,\"y\":0.497958779335022,\"z\":0.6971427202224731,\"w\":1.0}}],\"vectors\":[],\"textures\":[]}",
+            "renderQueue": 2450,
+            "keywords": [
+                "_ALPHATEST_ON",
+                "_DOUBLESIDED_ON"
+            ],
+            "floats": [
+                {
+                    "prop": "_CelBrightness",
+                    "value": 1.149999976158142
+                },
+                {
+                    "prop": "_NTESaturation",
+                    "value": 1.0
+                },
+                {
+                    "prop": "_DeepShadowStrength",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_CelShadowThreshold",
+                    "value": 0.5212330222129822
+                },
+                {
+                    "prop": "_CelShadowSoftness",
+                    "value": 0.10273972898721695
+                },
+                {
+                    "prop": "_CelShadowStrength",
+                    "value": 0.44999998807907107
+                },
+                {
+                    "prop": "_CelShadowSaturation",
+                    "value": 0.36986303329467776
+                },
+                {
+                    "prop": "_CelCastShadowStrength",
+                    "value": 1.0
+                },
+                {
+                    "prop": "_LightSharpness",
+                    "value": 0.34246575832366946
+                },
+                {
+                    "prop": "_CelRimStrength",
+                    "value": 0.07397212088108063
+                },
+                {
+                    "prop": "_CelRimWidth",
+                    "value": 0.3315078616142273
+                },
+                {
+                    "prop": "_SkyLight",
+                    "value": 0.6739736199378967
+                },
+                {
+                    "prop": "_BottomShade",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_BackFaceShade",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_DetailScale",
+                    "value": 600.0
+                },
+                {
+                    "prop": "_DetailStrength",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_FabricSheen",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_HairHeightStrength",
+                    "value": 1.0
+                },
+                {
+                    "prop": "_LightDirectionGiven",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_HairHighlightStrength",
+                    "value": 0.1986284703016281
+                },
+                {
+                    "prop": "_HairHighlightPosition",
+                    "value": 0.30000001192092898
+                },
+                {
+                    "prop": "_HairHighlightSharpness",
+                    "value": 30.0
+                },
+                {
+                    "prop": "_HairHighlightJitter",
+                    "value": 0.5
+                },
+                {
+                    "prop": "_HairHighlightStreaks",
+                    "value": 160.0
+                },
+                {
+                    "prop": "_HairHighlightFlow",
+                    "value": 1.0
+                },
+                {
+                    "prop": "_RenderQueueType",
+                    "value": 1.0
+                },
+                {
+                    "prop": "_AddPrecomputedVelocity",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_DepthOffsetEnable",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_ConservativeDepthOffsetEnable",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_TransparentWritingMotionVec",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_AlphaCutoffEnable",
+                    "value": 1.0
+                },
+                {
+                    "prop": "_TransparentSortPriority",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_UseShadowThreshold",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_DoubleSidedEnable",
+                    "value": 1.0
+                },
+                {
+                    "prop": "_DoubleSidedNormalMode",
+                    "value": 1.0
+                },
+                {
+                    "prop": "_DoubleSidedGIMode",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_TransparentDepthPrepassEnable",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_TransparentDepthPostpassEnable",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_PerPixelSorting",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_SurfaceType",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_BlendMode",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_SrcBlend",
+                    "value": 1.0
+                },
+                {
+                    "prop": "_DstBlend",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_DstBlend2",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_AlphaSrcBlend",
+                    "value": 1.0
+                },
+                {
+                    "prop": "_AlphaDstBlend",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_ZWrite",
+                    "value": 1.0
+                },
+                {
+                    "prop": "_TransparentZWrite",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_CullMode",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_EnableFogOnTransparent",
+                    "value": 1.0
+                },
+                {
+                    "prop": "_CullModeForward",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_TransparentCullMode",
+                    "value": 2.0
+                },
+                {
+                    "prop": "_OpaqueCullMode",
+                    "value": 2.0
+                },
+                {
+                    "prop": "_ZTestDepthEqualForOpaque",
+                    "value": 3.0
+                },
+                {
+                    "prop": "_ZTestTransparent",
+                    "value": 4.0
+                },
+                {
+                    "prop": "_TransparentBackfaceEnable",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_ShadowMatteFilter",
+                    "value": 2.313824024293138e-41
+                },
+                {
+                    "prop": "_EnableBlendModePreserveSpecularLighting",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_ExcludeFromTUAndAA",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_StencilRef",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_StencilWriteMask",
+                    "value": 6.0
+                },
+                {
+                    "prop": "_StencilRefDepth",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_StencilWriteMaskDepth",
+                    "value": 9.0
+                },
+                {
+                    "prop": "_StencilRefMV",
+                    "value": 32.0
+                },
+                {
+                    "prop": "_StencilWriteMaskMV",
+                    "value": 43.0
+                },
+                {
+                    "prop": "_StencilRefDistortionVec",
+                    "value": 4.0
+                },
+                {
+                    "prop": "_StencilWriteMaskDistortionVec",
+                    "value": 4.0
+                }
+            ],
+            "ints": [],
+            "colors": [
+                {
+                    "prop": "_BaseColor",
+                    "value": {
+                        "r": 1.0,
+                        "g": 1.0,
+                        "b": 1.0,
+                        "a": 1.0
+                    }
+                },
+                {
+                    "prop": "_DeepShadowColor",
+                    "value": {
+                        "r": 0.5499999523162842,
+                        "g": 0.15999996662139893,
+                        "b": 0.15999996662139893,
+                        "a": 1.0
+                    }
+                },
+                {
+                    "prop": "_EyeHighlightColor",
+                    "value": {
+                        "r": 1.0,
+                        "g": 1.0,
+                        "b": 1.0,
+                        "a": 1.0
+                    }
+                },
+                {
+                    "prop": "_ShadowColor",
+                    "value": {
+                        "r": 0.699999988079071,
+                        "g": 0.699999988079071,
+                        "b": 0.699999988079071,
+                        "a": 1.0
+                    }
+                },
+                {
+                    "prop": "_CelRimColor",
+                    "value": {
+                        "r": 0.609501838684082,
+                        "g": 0.4979587197303772,
+                        "b": 0.6971427202224731,
+                        "a": 1.0
+                    }
+                },
+                {
+                    "prop": "_HairHighlightColor",
+                    "value": {
+                        "r": 1.0,
+                        "g": 1.0,
+                        "b": 1.0,
+                        "a": 1.0
+                    }
+                },
+                {
+                    "prop": "_EmissionColor",
+                    "value": {
+                        "r": 1.0,
+                        "g": 1.0,
+                        "b": 1.0,
+                        "a": 1.0
+                    }
+                }
+            ],
+            "vectors": [
+                {
+                    "prop": "_MainLightDirection",
+                    "value": {
+                        "x": 0.0,
+                        "y": 1.0,
+                        "z": 0.0,
+                        "w": 0.0
+                    }
+                },
+                {
+                    "prop": "_DoubleSidedConstants",
+                    "value": {
+                        "x": 1.0,
+                        "y": 1.0,
+                        "z": -1.0,
+                        "w": 0.0
+                    }
+                }
+            ],
+            "textures": [
+                {
+                    "prop": "_BaseMap",
+                    "file": "Texture/Test/M_Lam_Hair_Base_color.png",
+                    "textureName": "M_Lam_Hair_Base_color.png",
+                    "source": "C:/Unity_Date/MS2027Project/Artist/Maya_Project/sourceimages/Character/M_Lam_Hair_Base_color.png",
+                    "normal": false,
+                    "linear": false,
+                    "scale": {
+                        "x": 1.0,
+                        "y": 1.0
+                    },
+                    "offset": {
+                        "x": 0.0,
+                        "y": 0.0
+                    }
+                }
+            ],
+            "outlineWidth": 0.0
+        },
+        {
+            "name": "Outline_M_Lam_Face",
+            "asset": "MT_Test_OutlineMLamFace",
+            "shader": "Shader Graphs/SHG_Outline",
+            "maya": false,
+            "mayaSettings": "",
+            "renderQueue": 2450,
+            "keywords": [
+                "_ALPHATEST_ON",
+                "_DISABLE_SSR_TRANSPARENT",
+                "_DOUBLESIDED_ON",
+                "_NORMALMAP_TANGENT_SPACE"
+            ],
+            "floats": [
+                {
+                    "prop": "_OutlineWidth",
+                    "value": 0.25
+                },
+                {
+                    "prop": "_OutlineTexBlend",
+                    "value": 0.800000011920929
+                },
+                {
+                    "prop": "_OutlineTexDarken",
+                    "value": 0.550000011920929
+                },
+                {
+                    "prop": "_OutlineDepthPush",
+                    "value": 4.0
+                },
+                {
+                    "prop": "_OutlineMaxPixels",
+                    "value": 3.0
+                },
+                {
+                    "prop": "_RenderQueueType",
+                    "value": 1.0
+                },
+                {
+                    "prop": "_AddPrecomputedVelocity",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_DepthOffsetEnable",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_ConservativeDepthOffsetEnable",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_TransparentWritingMotionVec",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_AlphaCutoffEnable",
+                    "value": 1.0
+                },
+                {
+                    "prop": "_TransparentSortPriority",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_UseShadowThreshold",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_DoubleSidedEnable",
+                    "value": 1.0
+                },
+                {
+                    "prop": "_DoubleSidedNormalMode",
+                    "value": 1.0
+                },
+                {
+                    "prop": "_DoubleSidedGIMode",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_TransparentDepthPrepassEnable",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_TransparentDepthPostpassEnable",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_PerPixelSorting",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_SurfaceType",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_BlendMode",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_SrcBlend",
+                    "value": 1.0
+                },
+                {
+                    "prop": "_DstBlend",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_DstBlend2",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_AlphaSrcBlend",
+                    "value": 1.0
+                },
+                {
+                    "prop": "_AlphaDstBlend",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_ZWrite",
+                    "value": 1.0
+                },
+                {
+                    "prop": "_TransparentZWrite",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_CullMode",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_EnableFogOnTransparent",
+                    "value": 1.0
+                },
+                {
+                    "prop": "_CullModeForward",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_TransparentCullMode",
+                    "value": 2.0
+                },
+                {
+                    "prop": "_OpaqueCullMode",
+                    "value": 2.0
+                },
+                {
+                    "prop": "_ZTestDepthEqualForOpaque",
+                    "value": 3.0
+                },
+                {
+                    "prop": "_ZTestTransparent",
+                    "value": 4.0
+                },
+                {
+                    "prop": "_TransparentBackfaceEnable",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_EnableBlendModePreserveSpecularLighting",
+                    "value": 1.0
+                },
+                {
+                    "prop": "_ExcludeFromTUAndAA",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_StencilRef",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_StencilWriteMask",
+                    "value": 6.0
+                },
+                {
+                    "prop": "_StencilRefDepth",
+                    "value": 1.0
+                },
+                {
+                    "prop": "_StencilWriteMaskDepth",
+                    "value": 9.0
+                },
+                {
+                    "prop": "_StencilRefMV",
+                    "value": 33.0
+                },
+                {
+                    "prop": "_StencilWriteMaskMV",
+                    "value": 43.0
+                },
+                {
+                    "prop": "_StencilRefDistortionVec",
+                    "value": 4.0
+                },
+                {
+                    "prop": "_StencilWriteMaskDistortionVec",
+                    "value": 4.0
+                }
+            ],
+            "ints": [],
+            "colors": [
+                {
+                    "prop": "_OutlineColor",
+                    "value": {
+                        "r": 0.0,
+                        "g": 0.0,
+                        "b": 0.0,
+                        "a": 1.0
+                    }
+                },
+                {
+                    "prop": "_OutlineTint",
+                    "value": {
+                        "r": 1.0,
+                        "g": 1.0,
+                        "b": 1.0,
+                        "a": 1.0
+                    }
+                },
+                {
+                    "prop": "_EmissionColor",
+                    "value": {
+                        "r": 1.0,
+                        "g": 1.0,
+                        "b": 1.0,
+                        "a": 1.0
+                    }
+                }
+            ],
+            "vectors": [
+                {
+                    "prop": "_DoubleSidedConstants",
+                    "value": {
+                        "x": 1.0,
+                        "y": 1.0,
+                        "z": -1.0,
+                        "w": 0.0
+                    }
+                }
+            ],
+            "textures": [
+                {
+                    "prop": "_BaseMap",
+                    "file": "Texture/Test/M_Lam_Face_Base_color.png",
+                    "textureName": "M_Lam_Face_Base_color.png",
+                    "source": "C:/Unity_Date/MS2027Project/Artist/Maya_Project/sourceimages/Character/M_Lam_Face_Base_color.png",
+                    "normal": false,
+                    "linear": false,
+                    "scale": {
+                        "x": 1.0,
+                        "y": 1.0
+                    },
+                    "offset": {
+                        "x": 0.0,
+                        "y": 0.0
+                    }
+                },
+                {
+                    "prop": "_OutlineWidthMask",
+                    "file": "",
+                    "textureName": "UnityWhite",
+                    "source": "",
+                    "normal": false,
+                    "linear": false,
+                    "scale": {
+                        "x": 1.0,
+                        "y": 1.0
+                    },
+                    "offset": {
+                        "x": 0.0,
+                        "y": 0.0
+                    }
+                }
+            ],
+            "outlineWidth": 0.0024999999441206457
+        },
+        {
+            "name": "Outline_M_Lam_Skin",
+            "asset": "MT_Test_OutlineMLamSkin",
+            "shader": "Shader Graphs/SHG_Outline",
+            "maya": false,
+            "mayaSettings": "",
+            "renderQueue": 2450,
+            "keywords": [
+                "_ALPHATEST_ON",
+                "_DISABLE_SSR_TRANSPARENT",
+                "_DOUBLESIDED_ON",
+                "_NORMALMAP_TANGENT_SPACE"
+            ],
+            "floats": [
+                {
+                    "prop": "_OutlineWidth",
+                    "value": 0.25
+                },
+                {
+                    "prop": "_OutlineTexBlend",
+                    "value": 0.800000011920929
+                },
+                {
+                    "prop": "_OutlineTexDarken",
+                    "value": 0.550000011920929
+                },
+                {
+                    "prop": "_OutlineDepthPush",
+                    "value": 4.0
+                },
+                {
+                    "prop": "_OutlineMaxPixels",
+                    "value": 3.0
+                },
+                {
+                    "prop": "_RenderQueueType",
+                    "value": 1.0
+                },
+                {
+                    "prop": "_AddPrecomputedVelocity",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_DepthOffsetEnable",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_ConservativeDepthOffsetEnable",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_TransparentWritingMotionVec",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_AlphaCutoffEnable",
+                    "value": 1.0
+                },
+                {
+                    "prop": "_TransparentSortPriority",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_UseShadowThreshold",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_DoubleSidedEnable",
+                    "value": 1.0
+                },
+                {
+                    "prop": "_DoubleSidedNormalMode",
+                    "value": 1.0
+                },
+                {
+                    "prop": "_DoubleSidedGIMode",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_TransparentDepthPrepassEnable",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_TransparentDepthPostpassEnable",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_PerPixelSorting",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_SurfaceType",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_BlendMode",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_SrcBlend",
+                    "value": 1.0
+                },
+                {
+                    "prop": "_DstBlend",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_DstBlend2",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_AlphaSrcBlend",
+                    "value": 1.0
+                },
+                {
+                    "prop": "_AlphaDstBlend",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_ZWrite",
+                    "value": 1.0
+                },
+                {
+                    "prop": "_TransparentZWrite",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_CullMode",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_EnableFogOnTransparent",
+                    "value": 1.0
+                },
+                {
+                    "prop": "_CullModeForward",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_TransparentCullMode",
+                    "value": 2.0
+                },
+                {
+                    "prop": "_OpaqueCullMode",
+                    "value": 2.0
+                },
+                {
+                    "prop": "_ZTestDepthEqualForOpaque",
+                    "value": 3.0
+                },
+                {
+                    "prop": "_ZTestTransparent",
+                    "value": 4.0
+                },
+                {
+                    "prop": "_TransparentBackfaceEnable",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_EnableBlendModePreserveSpecularLighting",
+                    "value": 1.0
+                },
+                {
+                    "prop": "_ExcludeFromTUAndAA",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_StencilRef",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_StencilWriteMask",
+                    "value": 6.0
+                },
+                {
+                    "prop": "_StencilRefDepth",
+                    "value": 1.0
+                },
+                {
+                    "prop": "_StencilWriteMaskDepth",
+                    "value": 9.0
+                },
+                {
+                    "prop": "_StencilRefMV",
+                    "value": 33.0
+                },
+                {
+                    "prop": "_StencilWriteMaskMV",
+                    "value": 43.0
+                },
+                {
+                    "prop": "_StencilRefDistortionVec",
+                    "value": 4.0
+                },
+                {
+                    "prop": "_StencilWriteMaskDistortionVec",
+                    "value": 4.0
+                }
+            ],
+            "ints": [],
+            "colors": [
+                {
+                    "prop": "_OutlineColor",
+                    "value": {
+                        "r": 0.0,
+                        "g": 0.0,
+                        "b": 0.0,
+                        "a": 1.0
+                    }
+                },
+                {
+                    "prop": "_OutlineTint",
+                    "value": {
+                        "r": 1.0,
+                        "g": 1.0,
+                        "b": 1.0,
+                        "a": 1.0
+                    }
+                },
+                {
+                    "prop": "_EmissionColor",
+                    "value": {
+                        "r": 1.0,
+                        "g": 1.0,
+                        "b": 1.0,
+                        "a": 1.0
+                    }
+                }
+            ],
+            "vectors": [
+                {
+                    "prop": "_DoubleSidedConstants",
+                    "value": {
+                        "x": 1.0,
+                        "y": 1.0,
+                        "z": -1.0,
+                        "w": 0.0
+                    }
+                }
+            ],
+            "textures": [
+                {
+                    "prop": "_BaseMap",
+                    "file": "Texture/Test/M_Lam_Skin_Base_color.png",
+                    "textureName": "M_Lam_Skin_Base_color.png",
+                    "source": "C:/Unity_Date/MS2027Project/Artist/Maya_Project/sourceimages/Character/M_Lam_Skin_Base_color.png",
+                    "normal": false,
+                    "linear": false,
+                    "scale": {
+                        "x": 1.0,
+                        "y": 1.0
+                    },
+                    "offset": {
+                        "x": 0.0,
+                        "y": 0.0
+                    }
+                },
+                {
+                    "prop": "_OutlineWidthMask",
+                    "file": "",
+                    "textureName": "UnityWhite",
+                    "source": "",
+                    "normal": false,
+                    "linear": false,
+                    "scale": {
+                        "x": 1.0,
+                        "y": 1.0
+                    },
+                    "offset": {
+                        "x": 0.0,
+                        "y": 0.0
+                    }
+                }
+            ],
+            "outlineWidth": 0.0024999999441206457
+        },
+        {
+            "name": "Outline_M_Lam_Eye",
+            "asset": "MT_Test_OutlineMLamEye",
+            "shader": "Shader Graphs/SHG_Outline",
+            "maya": false,
+            "mayaSettings": "",
+            "renderQueue": 2450,
+            "keywords": [
+                "_ALPHATEST_ON",
+                "_DISABLE_SSR_TRANSPARENT",
+                "_DOUBLESIDED_ON",
+                "_NORMALMAP_TANGENT_SPACE"
+            ],
+            "floats": [
+                {
+                    "prop": "_OutlineWidth",
+                    "value": 0.25
+                },
+                {
+                    "prop": "_OutlineTexBlend",
+                    "value": 0.800000011920929
+                },
+                {
+                    "prop": "_OutlineTexDarken",
+                    "value": 0.550000011920929
+                },
+                {
+                    "prop": "_OutlineDepthPush",
+                    "value": 4.0
+                },
+                {
+                    "prop": "_OutlineMaxPixels",
+                    "value": 3.0
+                },
+                {
+                    "prop": "_RenderQueueType",
+                    "value": 1.0
+                },
+                {
+                    "prop": "_AddPrecomputedVelocity",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_DepthOffsetEnable",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_ConservativeDepthOffsetEnable",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_TransparentWritingMotionVec",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_AlphaCutoffEnable",
+                    "value": 1.0
+                },
+                {
+                    "prop": "_TransparentSortPriority",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_UseShadowThreshold",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_DoubleSidedEnable",
+                    "value": 1.0
+                },
+                {
+                    "prop": "_DoubleSidedNormalMode",
+                    "value": 1.0
+                },
+                {
+                    "prop": "_DoubleSidedGIMode",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_TransparentDepthPrepassEnable",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_TransparentDepthPostpassEnable",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_PerPixelSorting",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_SurfaceType",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_BlendMode",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_SrcBlend",
+                    "value": 1.0
+                },
+                {
+                    "prop": "_DstBlend",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_DstBlend2",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_AlphaSrcBlend",
+                    "value": 1.0
+                },
+                {
+                    "prop": "_AlphaDstBlend",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_ZWrite",
+                    "value": 1.0
+                },
+                {
+                    "prop": "_TransparentZWrite",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_CullMode",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_EnableFogOnTransparent",
+                    "value": 1.0
+                },
+                {
+                    "prop": "_CullModeForward",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_TransparentCullMode",
+                    "value": 2.0
+                },
+                {
+                    "prop": "_OpaqueCullMode",
+                    "value": 2.0
+                },
+                {
+                    "prop": "_ZTestDepthEqualForOpaque",
+                    "value": 3.0
+                },
+                {
+                    "prop": "_ZTestTransparent",
+                    "value": 4.0
+                },
+                {
+                    "prop": "_TransparentBackfaceEnable",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_EnableBlendModePreserveSpecularLighting",
+                    "value": 1.0
+                },
+                {
+                    "prop": "_ExcludeFromTUAndAA",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_StencilRef",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_StencilWriteMask",
+                    "value": 6.0
+                },
+                {
+                    "prop": "_StencilRefDepth",
+                    "value": 1.0
+                },
+                {
+                    "prop": "_StencilWriteMaskDepth",
+                    "value": 9.0
+                },
+                {
+                    "prop": "_StencilRefMV",
+                    "value": 33.0
+                },
+                {
+                    "prop": "_StencilWriteMaskMV",
+                    "value": 43.0
+                },
+                {
+                    "prop": "_StencilRefDistortionVec",
+                    "value": 4.0
+                },
+                {
+                    "prop": "_StencilWriteMaskDistortionVec",
+                    "value": 4.0
+                }
+            ],
+            "ints": [],
+            "colors": [
+                {
+                    "prop": "_OutlineColor",
+                    "value": {
+                        "r": 0.0,
+                        "g": 0.0,
+                        "b": 0.0,
+                        "a": 1.0
+                    }
+                },
+                {
+                    "prop": "_OutlineTint",
+                    "value": {
+                        "r": 1.0,
+                        "g": 1.0,
+                        "b": 1.0,
+                        "a": 1.0
+                    }
+                },
+                {
+                    "prop": "_EmissionColor",
+                    "value": {
+                        "r": 1.0,
+                        "g": 1.0,
+                        "b": 1.0,
+                        "a": 1.0
+                    }
+                }
+            ],
+            "vectors": [
+                {
+                    "prop": "_DoubleSidedConstants",
+                    "value": {
+                        "x": 1.0,
+                        "y": 1.0,
+                        "z": -1.0,
+                        "w": 0.0
+                    }
+                }
+            ],
+            "textures": [
+                {
+                    "prop": "_BaseMap",
+                    "file": "Texture/Test/M_Lam_Eye_Base_color.png",
+                    "textureName": "M_Lam_Eye_Base_color.png",
+                    "source": "C:/Unity_Date/MS2027Project/Artist/Maya_Project/sourceimages/Character/M_Lam_Eye_Base_color.png",
+                    "normal": false,
+                    "linear": false,
+                    "scale": {
+                        "x": 1.0,
+                        "y": 1.0
+                    },
+                    "offset": {
+                        "x": 0.0,
+                        "y": 0.0
+                    }
+                },
+                {
+                    "prop": "_OutlineWidthMask",
+                    "file": "",
+                    "textureName": "UnityWhite",
+                    "source": "",
+                    "normal": false,
+                    "linear": false,
+                    "scale": {
+                        "x": 1.0,
+                        "y": 1.0
+                    },
+                    "offset": {
+                        "x": 0.0,
+                        "y": 0.0
+                    }
+                }
+            ],
+            "outlineWidth": 0.0024999999441206457
+        },
+        {
+            "name": "Outline_M_Lam_Clothes",
+            "asset": "MT_Test_OutlineMLamClothes",
+            "shader": "Shader Graphs/SHG_Outline",
+            "maya": false,
+            "mayaSettings": "",
+            "renderQueue": 2450,
+            "keywords": [
+                "_ALPHATEST_ON",
+                "_DISABLE_SSR_TRANSPARENT",
+                "_DOUBLESIDED_ON",
+                "_NORMALMAP_TANGENT_SPACE"
+            ],
+            "floats": [
+                {
+                    "prop": "_OutlineWidth",
+                    "value": 0.25
+                },
+                {
+                    "prop": "_OutlineTexBlend",
+                    "value": 0.800000011920929
+                },
+                {
+                    "prop": "_OutlineTexDarken",
+                    "value": 0.550000011920929
+                },
+                {
+                    "prop": "_OutlineDepthPush",
+                    "value": 4.0
+                },
+                {
+                    "prop": "_OutlineMaxPixels",
+                    "value": 3.0
+                },
+                {
+                    "prop": "_RenderQueueType",
+                    "value": 1.0
+                },
+                {
+                    "prop": "_AddPrecomputedVelocity",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_DepthOffsetEnable",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_ConservativeDepthOffsetEnable",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_TransparentWritingMotionVec",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_AlphaCutoffEnable",
+                    "value": 1.0
+                },
+                {
+                    "prop": "_TransparentSortPriority",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_UseShadowThreshold",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_DoubleSidedEnable",
+                    "value": 1.0
+                },
+                {
+                    "prop": "_DoubleSidedNormalMode",
+                    "value": 1.0
+                },
+                {
+                    "prop": "_DoubleSidedGIMode",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_TransparentDepthPrepassEnable",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_TransparentDepthPostpassEnable",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_PerPixelSorting",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_SurfaceType",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_BlendMode",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_SrcBlend",
+                    "value": 1.0
+                },
+                {
+                    "prop": "_DstBlend",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_DstBlend2",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_AlphaSrcBlend",
+                    "value": 1.0
+                },
+                {
+                    "prop": "_AlphaDstBlend",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_ZWrite",
+                    "value": 1.0
+                },
+                {
+                    "prop": "_TransparentZWrite",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_CullMode",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_EnableFogOnTransparent",
+                    "value": 1.0
+                },
+                {
+                    "prop": "_CullModeForward",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_TransparentCullMode",
+                    "value": 2.0
+                },
+                {
+                    "prop": "_OpaqueCullMode",
+                    "value": 2.0
+                },
+                {
+                    "prop": "_ZTestDepthEqualForOpaque",
+                    "value": 3.0
+                },
+                {
+                    "prop": "_ZTestTransparent",
+                    "value": 4.0
+                },
+                {
+                    "prop": "_TransparentBackfaceEnable",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_EnableBlendModePreserveSpecularLighting",
+                    "value": 1.0
+                },
+                {
+                    "prop": "_ExcludeFromTUAndAA",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_StencilRef",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_StencilWriteMask",
+                    "value": 6.0
+                },
+                {
+                    "prop": "_StencilRefDepth",
+                    "value": 1.0
+                },
+                {
+                    "prop": "_StencilWriteMaskDepth",
+                    "value": 9.0
+                },
+                {
+                    "prop": "_StencilRefMV",
+                    "value": 33.0
+                },
+                {
+                    "prop": "_StencilWriteMaskMV",
+                    "value": 43.0
+                },
+                {
+                    "prop": "_StencilRefDistortionVec",
+                    "value": 4.0
+                },
+                {
+                    "prop": "_StencilWriteMaskDistortionVec",
+                    "value": 4.0
+                }
+            ],
+            "ints": [],
+            "colors": [
+                {
+                    "prop": "_OutlineColor",
+                    "value": {
+                        "r": 0.0,
+                        "g": 0.0,
+                        "b": 0.0,
+                        "a": 1.0
+                    }
+                },
+                {
+                    "prop": "_OutlineTint",
+                    "value": {
+                        "r": 1.0,
+                        "g": 1.0,
+                        "b": 1.0,
+                        "a": 1.0
+                    }
+                },
+                {
+                    "prop": "_EmissionColor",
+                    "value": {
+                        "r": 1.0,
+                        "g": 1.0,
+                        "b": 1.0,
+                        "a": 1.0
+                    }
+                }
+            ],
+            "vectors": [
+                {
+                    "prop": "_DoubleSidedConstants",
+                    "value": {
+                        "x": 1.0,
+                        "y": 1.0,
+                        "z": -1.0,
+                        "w": 0.0
+                    }
+                }
+            ],
+            "textures": [
+                {
+                    "prop": "_BaseMap",
+                    "file": "Texture/Test/T_Chara_Giro_BC.png",
+                    "textureName": "T_Chara_Giro_BC.png",
+                    "source": "C:/Unity_Date/MS2027Project/Artist/Maya_Project/sourceimages/Character/T_Chara_Giro_BC.png",
+                    "normal": false,
+                    "linear": false,
+                    "scale": {
+                        "x": 1.0,
+                        "y": 1.0
+                    },
+                    "offset": {
+                        "x": 0.0,
+                        "y": 0.0
+                    }
+                },
+                {
+                    "prop": "_OutlineWidthMask",
+                    "file": "",
+                    "textureName": "UnityWhite",
+                    "source": "",
+                    "normal": false,
+                    "linear": false,
+                    "scale": {
+                        "x": 1.0,
+                        "y": 1.0
+                    },
+                    "offset": {
+                        "x": 0.0,
+                        "y": 0.0
+                    }
+                }
+            ],
+            "outlineWidth": 0.0024999999441206457
+        },
+        {
+            "name": "Outline_M_Lam_Hair",
+            "asset": "MT_Test_OutlineMLamHair",
+            "shader": "Shader Graphs/SHG_Outline",
+            "maya": false,
+            "mayaSettings": "",
+            "renderQueue": 2450,
+            "keywords": [
+                "_ALPHATEST_ON",
+                "_DISABLE_SSR_TRANSPARENT",
+                "_DOUBLESIDED_ON",
+                "_NORMALMAP_TANGENT_SPACE"
+            ],
+            "floats": [
+                {
+                    "prop": "_OutlineWidth",
+                    "value": 0.25
+                },
+                {
+                    "prop": "_OutlineTexBlend",
+                    "value": 0.800000011920929
+                },
+                {
+                    "prop": "_OutlineTexDarken",
+                    "value": 0.550000011920929
+                },
+                {
+                    "prop": "_OutlineDepthPush",
+                    "value": 4.0
+                },
+                {
+                    "prop": "_OutlineMaxPixels",
+                    "value": 3.0
+                },
+                {
+                    "prop": "_RenderQueueType",
+                    "value": 1.0
+                },
+                {
+                    "prop": "_AddPrecomputedVelocity",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_DepthOffsetEnable",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_ConservativeDepthOffsetEnable",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_TransparentWritingMotionVec",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_AlphaCutoffEnable",
+                    "value": 1.0
+                },
+                {
+                    "prop": "_TransparentSortPriority",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_UseShadowThreshold",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_DoubleSidedEnable",
+                    "value": 1.0
+                },
+                {
+                    "prop": "_DoubleSidedNormalMode",
+                    "value": 1.0
+                },
+                {
+                    "prop": "_DoubleSidedGIMode",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_TransparentDepthPrepassEnable",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_TransparentDepthPostpassEnable",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_PerPixelSorting",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_SurfaceType",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_BlendMode",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_SrcBlend",
+                    "value": 1.0
+                },
+                {
+                    "prop": "_DstBlend",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_DstBlend2",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_AlphaSrcBlend",
+                    "value": 1.0
+                },
+                {
+                    "prop": "_AlphaDstBlend",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_ZWrite",
+                    "value": 1.0
+                },
+                {
+                    "prop": "_TransparentZWrite",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_CullMode",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_EnableFogOnTransparent",
+                    "value": 1.0
+                },
+                {
+                    "prop": "_CullModeForward",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_TransparentCullMode",
+                    "value": 2.0
+                },
+                {
+                    "prop": "_OpaqueCullMode",
+                    "value": 2.0
+                },
+                {
+                    "prop": "_ZTestDepthEqualForOpaque",
+                    "value": 3.0
+                },
+                {
+                    "prop": "_ZTestTransparent",
+                    "value": 4.0
+                },
+                {
+                    "prop": "_TransparentBackfaceEnable",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_EnableBlendModePreserveSpecularLighting",
+                    "value": 1.0
+                },
+                {
+                    "prop": "_ExcludeFromTUAndAA",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_StencilRef",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_StencilWriteMask",
+                    "value": 6.0
+                },
+                {
+                    "prop": "_StencilRefDepth",
+                    "value": 1.0
+                },
+                {
+                    "prop": "_StencilWriteMaskDepth",
+                    "value": 9.0
+                },
+                {
+                    "prop": "_StencilRefMV",
+                    "value": 33.0
+                },
+                {
+                    "prop": "_StencilWriteMaskMV",
+                    "value": 43.0
+                },
+                {
+                    "prop": "_StencilRefDistortionVec",
+                    "value": 4.0
+                },
+                {
+                    "prop": "_StencilWriteMaskDistortionVec",
+                    "value": 4.0
+                }
+            ],
+            "ints": [],
+            "colors": [
+                {
+                    "prop": "_OutlineColor",
+                    "value": {
+                        "r": 0.0,
+                        "g": 0.0,
+                        "b": 0.0,
+                        "a": 1.0
+                    }
+                },
+                {
+                    "prop": "_OutlineTint",
+                    "value": {
+                        "r": 1.0,
+                        "g": 1.0,
+                        "b": 1.0,
+                        "a": 1.0
+                    }
+                },
+                {
+                    "prop": "_EmissionColor",
+                    "value": {
+                        "r": 1.0,
+                        "g": 1.0,
+                        "b": 1.0,
+                        "a": 1.0
+                    }
+                }
+            ],
+            "vectors": [
+                {
+                    "prop": "_DoubleSidedConstants",
+                    "value": {
+                        "x": 1.0,
+                        "y": 1.0,
+                        "z": -1.0,
+                        "w": 0.0
+                    }
+                }
+            ],
+            "textures": [
+                {
+                    "prop": "_BaseMap",
+                    "file": "Texture/Test/M_Lam_Hair_Base_color.png",
+                    "textureName": "M_Lam_Hair_Base_color.png",
+                    "source": "C:/Unity_Date/MS2027Project/Artist/Maya_Project/sourceimages/Character/M_Lam_Hair_Base_color.png",
+                    "normal": false,
+                    "linear": false,
+                    "scale": {
+                        "x": 1.0,
+                        "y": 1.0
+                    },
+                    "offset": {
+                        "x": 0.0,
+                        "y": 0.0
+                    }
+                },
+                {
+                    "prop": "_OutlineWidthMask",
+                    "file": "",
+                    "textureName": "UnityWhite",
+                    "source": "",
+                    "normal": false,
+                    "linear": false,
+                    "scale": {
+                        "x": 1.0,
+                        "y": 1.0
+                    },
+                    "offset": {
+                        "x": 0.0,
+                        "y": 0.0
+                    }
+                }
+            ],
+            "outlineWidth": 0.0024999999441206457
+        }
+    ],
+    "entries": [
+        {
+            "label": "Grp_Mesh",
+            "mayaGroup": "|Grp_Mesh",
+            "mayaMesh": "",
+            "scenePath": ""
+        }
+    ],
+    "renames": []
+}

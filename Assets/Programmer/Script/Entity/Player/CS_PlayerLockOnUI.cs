@@ -19,6 +19,8 @@ using UnityEngine;
  *   そろっている一番近い悪人を探し、その悪人をロックオンする。いなければロックオンを外す
  * ・マーカーの位置は悪人のTransformの位置 + UICanvas側Presenterの_worldOffset(既定は1m上)
  * ・オフライン(NetworkManagerが動いていない)のテストシーンでも単体で動く(自分のプレイヤー扱い、playerNumberは0)
+ * ・探し直す間隔はTime.timeScaleの影響を受けない時間で数える(連続奇襲のスロー中も、表示が遅れないように)
+ * ・奇襲を当てた瞬間(CS_PlayerAmbush.onAmbushHitTiming)は、待たずにすぐ探し直す(当てた悪人から、次の対象へすぐ移す)
  */
 // ========================================
 
@@ -68,11 +70,30 @@ public class CS_PlayerLockOnUI : NetworkBehaviour
         base.OnDestroy();
     }
 
+    private void OnEnable()
+    {
+        _ambush.onAmbushHitTiming += HandleAmbushHit;
+    }
+
+    private void OnDisable()
+    {
+        _ambush.onAmbushHitTiming -= HandleAmbushHit;
+    }
+
+    // 奇襲を当てた瞬間は、待たずにすぐ探し直す(当てた悪人は対象から外れているので、次の対象へ移る)
+    private void HandleAmbushHit(CS_VillainHealth villain)
+    {
+        if (_lockOnModel == null) return;
+
+        _searchTimer = _searchInterval;
+        UpdateTarget();
+    }
+
     private void Update()
     {
         if (_lockOnModel == null) return;
 
-        _searchTimer -= Time.deltaTime;
+        _searchTimer -= Time.unscaledDeltaTime;
         if (_searchTimer > 0f) return;
         _searchTimer = _searchInterval;
 

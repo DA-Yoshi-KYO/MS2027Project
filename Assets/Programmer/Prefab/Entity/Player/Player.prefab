@@ -163,7 +163,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: d5a57f767e5e46a458fc5d3c628d0cbb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Unity.Netcode.Runtime::Unity.Netcode.NetworkObject
-  GlobalObjectIdHash: 2681437817
+  GlobalObjectIdHash: 2789187359
   InScenePlacedSourceGlobalObjectIdHash: 0
   m_InScenePlacedDisabledByDefault: 0
   DeferredDespawnTick: 0
@@ -672,6 +672,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::CS_PlayerCameraFov
   _dashFovAdd: 15
+  _chainSlowZoom: 7
+  _zoomSpeed: 12
   _widenSpeed: 20
   _returnSpeed: 5
   _minSprintSpeed: 0.5
@@ -896,6 +898,9 @@ MonoBehaviour:
   _verticalTolerance: 0.3
   _strikeDelay: 0.1
   _strikeDuration: 0.4
+  _hitStopTime: 0.1
+  _villainHitStopTime: 0.1
+  _inputBufferTime: 0.3
   _freezeMargin: 0.5
   _strikeTolerance: 2
   _dashPassThroughLayers:
@@ -904,9 +909,41 @@ MonoBehaviour:
   _pressGraceTime: 0.3
   _chainSkipTime: 1
   _windupTime: 0.5
+  _skipChainWindup: 1
   _chainWindupRate: 0.5
-  _splashRadius: 1.5
-  _splashIncludesRaidBoss: 0
+  _chainWindowTime: 1
+  _useChainTime: 1
+  _chainTimeScale: 0.05
+  _returnTime: 0.1
+  _returnCurve:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 0
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    - serializedVersion: 3
+      time: 1
+      value: 1
+      inSlope: 0
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
+  _slowWithoutChain: 1
+  _playerMotionRealTime: 0
+  _holdUntilRelease: 1
+  _splashRadius: 1
+  _splashIncludesRaidBoss: 1
 --- !u!114 &4718293045561290871
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1152,14 +1189,82 @@ MonoBehaviour:
   _windupScreenEffect: {fileID: 11400000, guid: f3c5f318dc47ba94191d6d9f4c17c9b1, type: 2}
   _lungeScreenEffect: {fileID: 11400000, guid: cb0190860b8041f41ab2a95fcf2b32a3, type: 2}
   _hitScreenEffect: {fileID: 11400000, guid: fa722642046d80f46a8894a14103b76f, type: 2}
-  _windupAnimatorSpeed: 0.2
+  _useWindupEffects: 0
+  _windupAnimatorSpeed: 0.1
+  _useCameraShake: 0
+  _useHitMicroShake: 1
+  _hitMicroShakeForce: 0.3
+  _hitMicroShakeTime: 0.2
+  _hitMicroShakeShape: 3
   _lungeShakeForce: 0.08
   _lungeShakeInterval: 0.04
   _finishHitShakeForce: 1.6
   _hitShakeForce: 0.8
-  _hitStopTime: 0.06
   _hitStopAnimatorSpeed: 0
   _burstOffset: {x: 0, y: 1, z: 0}
+  _showComboHud: 1
+  _comboMinCount: 2
+  _comboAnchor: {x: 0.2, y: 0.62}
+  _comboNumberSize: 300
+  _comboGrowPerCount: 0.3
+  _comboMaxGrow: 2
+  _comboFont: {fileID: 11400000, guid: 4b46cead5b478d4418697f88f2c78914, type: 2}
+  _comboItalic: 1
+  _comboShakeAmplitude: 40
+  _comboShakeTime: 0.2
+  _comboShakeGrowPerCount: 0.25
+  _comboMaxShakeGrow: 3
+  _comboConfirmEffect: 1
+  _comboConfirmColor: {r: 1, g: 1, b: 1, a: 1}
+  _comboConfirmPunchScale: 1.5
+  _comboConfirmPunchTime: 0.25
+  _comboConfirmShake: 28
+  _comboConfirmHoldTime: 0.7
+  _comboNumberColor: {r: 1, g: 1, b: 1, a: 0.43137255}
+  _comboNumberOutlineColor: {r: 1, g: 1, b: 1, a: 1}
+  _comboNumberOutlineWidth: 0.3
+  _comboLabel: COMBO
+  _comboLabelSize: 60
+  _comboLabelColor: {r: 1, g: 1, b: 1, a: 0.43137255}
+  _comboPunchScale: 1.3
+  _comboPunchTime: 0.15
+  _comboFadeTime: 0.3
+  _comboSortingOrder: 100
+  _chainShakeStep: 0.1
+  _maxChainShakeScale: 2
+  _useChainSlowVisuals: 1
+  _chainSlowLookScale: 0.4
+  _chainSlowLookSmoothTime: 0.12
+  _lookAtNextTarget: 1
+  _lookAtSpeed: 5
+  _lookAtHeight: 1
+  _lookAtPitchOffset: 40
+  _fadeWithWaitTime: 1
+  _fadeEndStrength: 0.75
+  _fadeCurve:
+    serializedVersion: 2
+    m_Curve:
+    - serializedVersion: 3
+      time: 0
+      value: 0
+      inSlope: 0
+      outSlope: 1
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    - serializedVersion: 3
+      time: 1
+      value: 1
+      inSlope: 1
+      outSlope: 0
+      tangentMode: 0
+      weightedMode: 0
+      inWeight: 0
+      outWeight: 0
+    m_PreInfinity: 2
+    m_PostInfinity: 2
+    m_RotationOrder: 4
 --- !u!114 &1927538632315227214
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1894,7 +1999,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 8211388652041010643, guid: da07e20c2bfc65e4ca8fe6762518ce3a, type: 3}
       propertyPath: GlobalObjectIdHash
-      value: 2593234121
+      value: 4256807303
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []

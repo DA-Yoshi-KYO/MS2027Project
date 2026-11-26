@@ -145,6 +145,17 @@ public class CS_Player : NetworkBehaviour
     [SerializeField] private float _mouseSensitivity = 0.1f;    // マウス移動量(ピクセル)に対する回転量
     [SerializeField] private float _stickSensitivity = 180f;    // スティック全開時の回転速度(度/秒)
 
+    // 視点の重さ(演出用。連続奇襲のスローの間、CS_PlayerAmbushEffectがSetLookWeightで重くする)
+    private float _lookScale = 1f;        // 視点の回転量の倍率(1で普段どおり)
+    private float _lookSmoothTime;        // 視点の回転に付ける慣性の時間(秒。0で慣性なし)
+    private Vector2 _smoothedLook;        // 慣性を付けた、1フレームの回転量
+
+    // 視点を向ける先(演出用。連続奇襲のスローの間、CS_PlayerAmbushEffectがSetLookTargetで次の奇襲対象を指定する)
+    private Transform _lookTarget;        // 向ける先(nullなら向けない)
+    private float _lookTargetSpeed;       // 向ける速さ(1秒あたりに近づく割合の目安)
+    private float _lookTargetHeight;      // 向ける先の足元からの高さ(m)
+    private float _lookTargetPitchOffset; // 向ける先より、これだけ見下ろす(度。自分のプレイヤーが画面から外れないように)
+
     // 書き込みはサーバーのみ(NetworkVariableのデフォルト)。CS_PlayerSpawnerがスポーン前に割り当てる
     private readonly NetworkVariable<int> _playerNumber = new NetworkVariable<int>();
     // 書き込みはサーバーのみ。CS_PlayerSpawnerがスポーン前に印を付ける
@@ -472,6 +483,36 @@ public class CS_Player : NetworkBehaviour
         transform.rotation = rotation;
     }
 
+    // 視点の操作を重くする(演出用)。scale: 回転量の倍率 / smoothTime: 回転に付ける慣性の時間(秒)
+    public void SetLookWeight(float scale, float smoothTime)
+    {
+        _lookScale = Mathf.Max(0f, scale);
+        _lookSmoothTime = Mathf.Max(0f, smoothTime);
+    }
+
+    // 視点の操作の重さを普段どおりに戻す
+    public void ClearLookWeight()
+    {
+        _lookScale = 1f;
+        _lookSmoothTime = 0f;
+        _smoothedLook = Vector2.zero;
+    }
+
+    // 視点をtargetの方へなめらかに向ける(演出用。nullで向けない)。視点の操作も効いたまま
+    // speed: 向ける速さ / height: 向ける先の足元からの高さ(m) / pitchOffset: 向ける先より見下ろす角度(度)
+    public void SetLookTarget(Transform target, float speed, float height, float pitchOffset)
+    {
+        _lookTarget = target;
+        _lookTargetSpeed = Mathf.Max(0f, speed);
+        _lookTargetHeight = height;
+        _lookTargetPitchOffset = pitchOffset;
+    }
+
+    public void ClearLookTarget()
+    {
+        _lookTarget = null;
+    }
+
     public void ClearAimFacing()
     {
         _hasAimFacing = false;
@@ -787,15 +828,43 @@ public class CS_Player : NetworkBehaviour
 
         // マウスは「1フレームの移動量」なのでdeltaTimeを掛けない
         // スティックは「傾き」なので速度として扱いdeltaTimeを掛ける
+        // スティックはスロー(Time.timeScale)の影響を受けない時間で数える(スロー中もマウスと同じく普段の速さで回せる。重さはSetLookWeightで決める)
+        // 時間が止まっている時(Time.timeScale = 0)は回さない
+        float stickDeltaTime = Time.timeScale > 0f ? Time.unscaledDeltaTime : 0f;
         Vector2 mouseLook = _mouseLookAction.ReadValue<Vector2>() * _mouseSensitivity;
-        Vector2 stickLook = _stickLookAction.ReadValue<Vector2>() * _stickSensitivity * Time.deltaTime;
-        Vector2 look = mouseLook + stickLook;
+        Vector2 stickLook = _stickLookAction.ReadValue<Vector2>() * _stickSensitivity * stickDeltaTime;
+        Vector2 look = (mouseLook + stickLook) * _lookScale;
+        if (_lookSmoothTime > 0f)
+        {
+            // 回転に慣性を付ける(動き出し・止まりが遅れる)
+            float rate = 1f - Mathf.Exp(-Time.unscaledDeltaTime / _lookSmoothTime);
+            _smoothedLook = Vector2.Lerp(_smoothedLook, look, rate);
+            look = _smoothedLook;
+        }
 
         // マルチで全員のスタート時の演出が終わるまでは、動けない(視点は動かせる)
         if (CS_PlayerIntroCamera.isMatchHeld) _moveInput = Vector2.zero;
 
         _yaw += look.x;
         _pitch = Mathf.Clamp(_pitch - look.y, _minPitch, _maxPitch);
+        UpdateLookTarget();
+    }
+
+    // 向ける先(SetLookTarget)があれば、視点をそちらへなめらかに向ける(Time.timeScaleの影響を受けない時間で動かす)
+    private void UpdateLookTarget()
+    {
+        if (_lookTarget == null) return;
+
+        Vector3 pivot = transform.position + Vector3.up * _cameraPivotHeight;
+        Vector3 direction = _lookTarget.position + Vector3.up * _lookTargetHeight - pivot;
+        float horizontal = new Vector2(direction.x, direction.z).magnitude;
+        if (horizontal < 0.01f) return;
+
+        float targetYaw = Mathf.Atan2(direction.x, direction.z) * Mathf.Rad2Deg;
+        float targetPitch = -Mathf.Atan2(direction.y, horizontal) * Mathf.Rad2Deg + _lookTargetPitchOffset;
+        float rate = 1f - Mathf.Exp(-_lookTargetSpeed * Time.unscaledDeltaTime);
+        _yaw = Mathf.LerpAngle(_yaw, targetYaw, rate);
+        _pitch = Mathf.Clamp(Mathf.Lerp(_pitch, targetPitch, rate), _minPitch, _maxPitch);
     }
 
     // 体の向きを更新する

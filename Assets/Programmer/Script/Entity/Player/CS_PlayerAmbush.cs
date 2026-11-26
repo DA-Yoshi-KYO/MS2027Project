@@ -30,6 +30,27 @@ using UnityEngine;
  *      動けなくなった(死亡・スタン)・悪人が倒れた時は中止する
  *   3. 攻撃: 着いてから_strikeDelay秒後に、その悪人1体だけへ奇襲を当てる(範囲の当たり判定は使わないので空振りしない)
  *   4. _strikeDuration秒で奇襲が終わり、動けるようになる。この後に攻撃ボタンを押すと、通常攻撃の1段目から始まる
+ *      当てた瞬間にヒットストップ(_hitStopTime秒)をかけるので、終わるのはその分だけ遅くなる
+ * ・ヒットストップ: 当てた瞬間、自分を_hitStopTime秒、食らった悪人を_villainHitStopTime秒(既定0。止めない)止める
+ * ・先行入力: 当てた後〜当て終わるまでに押した攻撃ボタンを_inputBufferTime秒まで覚えておき、当て終わったらすぐ次の奇襲を始める
+ * ・連続奇襲のスロー(ソロ(通信していない時)だけ。_useChainTime)
+ *   当てた瞬間に、ゲーム全体の時間(Time.timeScale)を_chainTimeScale倍(既定0.05倍)にする
+ *   _slowWithoutChainがオン(既定)なら、次の対象がいない時(単体の奇襲・最後の1体)もスローにし、待機時間が過ぎたら解除する
+ *   オフなら、次に奇襲できる悪人がいる時だけスローにし、最後の1体に当てた時に解除する
+ *   _holdUntilReleaseがオンなら、スロー中に当てた悪人は吹き飛ばさず、その場で止めたままにする(CS_VillainKnockback.BlowAwayに無限の止める時間を渡す)
+ *   オフ(既定)なら、普段どおりヒットストップの後に吹き飛び始める(スロー中なのでゆっくり動き、解除すると残りを一気に吹き飛ぶ)
+ *   当て終わってから連続奇襲の受付時間(_chainWindowTime。実時間)が過ぎた時(_slowWithoutChainがオフなら、最後の1体に当てた時も)に、
+ *   スローを解除し、止めていた悪人を一斉に吹き飛ばす(最後の1体はヒットストップの後に、他の悪人もそれに合わせる)
+ *   解除する時は、_returnTime秒(実時間)かけて、_returnCurveの形でなめらかに等倍へ戻す(物理の更新間隔も一緒に戻す)
+ *   戻っている途中に次の奇襲を当てたら、すぐスローに戻す。他の演出がゲームの速さを変えたら、戻すのをやめる
+ *   スロー中(戻っている途中も)は、奇襲の段階(溜め・飛び込み・当て)を実時間で進め、飛び込みの速さも実時間に合わせる
+ *   自分のモーション(Animator)は、_playerMotionRealTimeがオンなら実時間、オフ(既定)ならスローのまま動かす
+ *   物理の更新間隔(Time.fixedDeltaTime)も同じ倍率で縮める
+ *   戻す時: 物理の更新間隔は必ず戻す。ゲームの速さは、自分が変えた値のまま(1%以内)の時だけ戻す(開始演出などが止めた後なら触らない)
+ *   見た目(モノクロ・視点の重さ・ズーム)はCS_PlayerAmbushEffect・CS_PlayerCameraFovが isChainTime を見て行う
+ * ・連続数(chainCount): 連続奇襲で何体目に当てたか(1体目は1)。連続奇襲でない奇襲を始めると0に戻す。見た目(連続数に応じたカメラ揺れ)用
+ *   自分: 当ての段階のまま動けず、Animatorも止まる(Animatorを止めるのはCS_PlayerAmbushEffectがhitStopTimeを見て行う)
+ *   悪人: 吹き飛ぶ前に、その場で止まる(CS_VillainKnockback.BlowAway。サーバーで行うので全員の画面で止まる。巻き込んだ悪人も同じ)
  * ・連続奇襲: 奇襲を始めた攻撃ボタンを押し続けている間は、奇襲が終わるたびに、次に奇襲できる悪人へ続けて奇襲する
  *   奇襲できる悪人がいない間は待ち、ボタンを離す・必殺技の合図(LT)を押す・動けなくなると終わる(押し直すまで続けない)
  *   一度狙った悪人(倒した・中止した悪人)は_chainSkipTime秒のあいだ狙わない
@@ -70,7 +91,10 @@ using UnityEngine;
  *   溜めた分、飛び込みは速い(_dashSpeed既定60m/秒)。溜めている間はisWindingUpがtrue
  *   飛び込みの1回の時間は、物理の1ステップ(Time.fixedDeltaTime)より少し長くする
  *   (CS_Player.Lunge/Flyは、残り時間が1ステップ以下だと1歩も進まない。速くすると最後の短い距離で止まり、_maxDashTimeまで待ってしまうため)
- *   連続奇襲の2体目以降は、溜めの時間に_chainWindupRate(既定0.5)を掛ける
+ *   連続奇襲の2体目以降は、_skipChainWindupがオンなら溜めを省略してすぐ飛び込む(オフなら溜めの時間に_chainWindupRate(既定0.5)を掛ける)
+ *   連続奇襲になるのは、奇襲を始めたボタンを押し続けている時と、奇襲を当て終わってから_chainWindowTime秒以内に押し直した時
+ *   (受付時間はTime.timeScaleの影響を受けない時間で数える。連続奇襲のスロー(CS_PlayerAmbushEffect)の間も長くならない)
+ *   当て終わった時に、onAmbushFinishedを本人の手元で出す(連続奇襲のスローに使う)
  *   溜めの間もisAmbushingはtrue。死亡・スタン・悪人が倒れた時は、飛び込みと同じく中止する
  *   サーバーの予約・悪人を止める時間にも、溜めの分を足す(StartRpcで溜めの時間を送る。_windupTimeより長い値は受け付けない)
  *   見た目用に、溜めが始まった時にonAmbushWindupStarted(悪人, 溜めの秒数)を本人の手元で出す(溜めが0秒の時は出さない)
@@ -101,6 +125,9 @@ public class CS_PlayerAmbush : NetworkBehaviour
     [SerializeField][Min(0f)] private float _verticalTolerance = 0.3f;    // 悪人との足元の高さの差がこれ以内なら、高さは合っているとみなす(m)
     [SerializeField][Min(0f)] private float _strikeDelay = 0.1f;          // 着いてから奇襲が当たるまでの時間(秒)
     [SerializeField][Min(0f)] private float _strikeDuration = 0.4f;       // 着いてから奇襲が終わる(動けるようになる)までの時間(秒)
+    [SerializeField][Min(0f)] private float _hitStopTime = 0.1f;          // 当てた瞬間に、自分を止める時間(秒。ヒットストップ。0で止めない)
+    [SerializeField][Min(0f)] private float _villainHitStopTime = 0f;     // 当てた瞬間に、食らった悪人を止める時間(秒。吹き飛ぶ前に止まる・モーションを止める。0で止めない)
+    [SerializeField][Min(0f)] private float _inputBufferTime = 0.25f;     // 当てた後に押した攻撃ボタンを覚えておく時間(秒。先行入力。0で覚えない)
     [SerializeField][Min(0f)] private float _freezeMargin = 0.5f;         // 悪人を止める時間・予約の期限に足す余裕(秒。通信の遅れの分)
     [SerializeField][Min(0f)] private float _strikeTolerance = 2f;        // 当てる時、着いたとみなす距離からさらにこれだけ離れていても許す(m)
     [SerializeField] private LayerMask _dashPassThroughLayers = 1 << 31;  // 飛び込み中にぶつからないレイヤー(悪人・プレイヤーのいるレイヤー)
@@ -109,7 +136,18 @@ public class CS_PlayerAmbush : NetworkBehaviour
 
     [Header("溜め(押した瞬間の演出用の間)")]
     [SerializeField][Min(0f)] private float _windupTime = 0.5f;           // 押してから飛び込むまで、その場で溜める時間(秒。0で溜めなし)
-    [SerializeField][Min(0f)] private float _chainWindupRate = 0.5f;      // 連続奇襲の2体目以降は、溜めの時間にこの倍率を掛ける
+    [SerializeField] private bool _skipChainWindup = true;                // 連続奇襲の2体目以降は溜めを省略して、すぐ飛び込む
+    [SerializeField][Min(0f)] private float _chainWindupRate = 0.5f;      // 溜めを省略しない時、連続奇襲の2体目以降は、溜めの時間にこの倍率を掛ける
+    [SerializeField][Min(0f)] private float _chainWindowTime = 1f;        // 奇襲を当て終わってから、この秒数以内に押し直しても連続奇襲とみなす
+
+    [Header("連続奇襲のスロー(ソロだけ)")]
+    [SerializeField] private bool _useChainTime = true;                    // 次の対象がいる時、最後の1体までスローにして、最後に一斉に吹き飛ばすか
+    [SerializeField][Range(0.01f, 1f)] private float _chainTimeScale = 0.05f;   // スロー中のゲームの速さ(倍)
+    [SerializeField][Min(0f)] private float _returnTime = 0.3f;            // スローから等倍へ戻るのにかける時間(秒。実時間。0ですぐ戻る)
+    [SerializeField] private AnimationCurve _returnCurve = AnimationCurve.EaseInOut(0f, 0f, 1f, 1f);   // 戻り方(横軸: 経過の割合0〜1 / 縦軸: 等倍へ戻った割合0〜1)
+    [SerializeField] private bool _slowWithoutChain = true;               // 次の対象がいない時(単体の奇襲・最後の1体)もスローにするか(オフなら、最後の1体でスローを解除する)
+    [SerializeField] private bool _playerMotionRealTime = false;         // スロー中も、自分のモーション(Animator)は実時間で動かすか(オフならモーションもスローになる)
+    [SerializeField] private bool _holdUntilRelease = false;              // スロー中に当てた悪人を、解除まで止めたままにするか(オフならヒットストップの後、スローのまま吹き飛び始める)
 
     [Header("巻き込み")]
     [SerializeField][Min(0f)] private float _splashRadius = 0.7f;         // 奇襲で倒した悪人から、この半径以内の悪人も一撃で倒す(m。0で巻き込まない。密着している悪人だけ)
@@ -148,9 +186,41 @@ public class CS_PlayerAmbush : NetworkBehaviour
     private CS_VillainHealth _lastFoundTarget;  // 最後にFindAmbushTargetで見つかった悪人(本人の手元。押した瞬間の猶予に使う)
     private float _lastFoundTime;               // それが見つかった時刻(Time.time)
     private bool _isChainHeld;                  // 奇襲を始めたボタンを押し続けているか(押し続けている間は、続けて奇襲する)
+    private float _lastStrikeEndTime = float.NegativeInfinity;   // 最後に奇襲を当て終わった時刻(Time.unscaledTime)
+    private float _bufferedPressTime = float.NegativeInfinity;   // 当てた後に攻撃ボタンが押された時刻(Time.unscaledTime。先行入力)
+    private int _chainCount;                     // 連続奇襲で何体目に当てたか
+    private bool _isChainTime;                   // 連続奇襲のスロー中か
+    private float _chainTimeEnd = float.PositiveInfinity;   // スローを解除する時刻(Time.unscaledTime。奇襲中は無限)
+    private float _savedTimeScale;               // スローの前のTime.timeScale
+    private float _savedFixedDeltaTime;          // スローの前のTime.fixedDeltaTime
+    private float _appliedTimeScale;             // 最後に自分が入れたTime.timeScale(他の演出が変えていないかを比べる)
+    private bool _isReturning;                   // スローから等倍へ戻っている途中か
+    private float _returnElapsed;                // 戻り始めてからの時間(秒。実時間)
+    private float _returnFrom;                   // 戻り始めた時のTime.timeScale
+    private bool _holdBlowAway;                  // 今当てる悪人を、吹き飛ばさずに止めておくか(当てる処理の間だけ)
+    private readonly List<CS_VillainKnockback> _heldVillains = new List<CS_VillainKnockback>();   // スロー中に止めている悪人
+    private readonly Dictionary<Animator, AnimatorUpdateMode> _animatorModes = new Dictionary<Animator, AnimatorUpdateMode>();   // スロー中に実時間で動かしている自分のAnimatorと元の設定
     private readonly Dictionary<CS_VillainHealth, float> _skipUntil = new Dictionary<CS_VillainHealth, float>();   // 一度狙った悪人と、また狙えるようになる時刻
 
     public float range => _range;                   // 奇襲できる距離(m)
+    public float chainWindowTime => _chainWindowTime;   // 当て終わってから、連続奇襲とみなす時間(秒。Time.timeScaleの影響を受けない)
+    public float hitStopTime => _hitStopTime;   // 自分のヒットストップの時間(秒。CS_PlayerAmbushEffectがAnimatorを止める時間に使う)
+    public float villainHitStopTime => _villainHitStopTime;   // 食らった悪人のヒットストップの時間(秒。CS_PlayerAmbushEffectが悪人のAnimatorを止めるかに使う)
+    public bool hasStruck => _hasStruck;          // 今の奇襲を当てたか(本人の手元。見た目用)
+    // 連続奇襲が続いている間か(奇襲中、または当て終わってから受付時間(_chainWindowTime。実時間)の間)。コンボ数の表示用
+    public bool isInChainWindow => isAmbushing || Time.unscaledTime <= _lastStrikeEndTime + _chainWindowTime;
+    public bool isChainTime => _isChainTime;
+    // 連続奇襲のスローの、待機時間の残り(0〜1)。奇襲中は1、当て終わると受付時間(_chainWindowTime。実時間)をかけて0へ減る。スロー中でなければ0
+    public float chainTimeRemainingRate
+    {
+        get
+        {
+            if (!_isChainTime) return 0f;
+            if (isAmbushing || float.IsPositiveInfinity(_chainTimeEnd)) return 1f;
+            return _chainWindowTime > 0f ? Mathf.Clamp01((_chainTimeEnd - Time.unscaledTime) / _chainWindowTime) : 0f;
+        }
+    }      // 連続奇襲のスロー中か(本人の手元。見た目用)
+    public int chainCount => _chainCount;         // 連続奇襲で何体目に当てたか(1体目は1。見た目用)
     public bool isAmbushing => _phase != Phase.None;   // 奇襲中か(CS_PlayerAttackが、通常攻撃・必殺技を止めるのに使う)
     public bool isWindingUp => _phase == Phase.Windup;   // 飛び込む前に溜めている間か(本人の手元。見た目用)
     public bool isLunging => _phase == Phase.Dash || (_phase == Phase.Strike && !_hasStruck);   // 飛び込み〜当たる瞬間か(本人の手元。見た目用)
@@ -160,6 +230,7 @@ public class CS_PlayerAmbush : NetworkBehaviour
     public event Action<CS_VillainHealth, float> onAmbushWindupStarted;   // 溜めを始めた時(本人の手元のみ。溜めの秒数つき。溜めが0秒の時は出ない)。見た目用
     public event Action<CS_VillainHealth> onAmbushStarted;     // 飛び込みを始めた時(本人の手元のみ。溜めがあれば溜めの後)。見た目用
     public event Action<CS_VillainHealth> onAmbushHitTiming;   // 奇襲が当たる瞬間(本人の手元のみ)。見た目・カメラの揺れ用
+    public event Action onAmbushFinished;   // 奇襲を当て終わった時(動けるようになった時。本人の手元のみ。中止した時は出ない)。連続奇襲のスロー用
 
     private void Awake()
     {
@@ -171,8 +242,17 @@ public class CS_PlayerAmbush : NetworkBehaviour
         _collider = GetComponent<Collider>();
     }
 
+    private void OnDisable()
+    {
+        ReleaseChainTime(0f, true);
+    }
+
     private void Update()
     {
+        // 当て終わってから受付時間が過ぎたら、スローを解除して止めていた悪人を吹き飛ばす
+        if (_isChainTime && _phase == Phase.None && Time.unscaledTime >= _chainTimeEnd) ReleaseChainTime(0f);
+        UpdateReturn();
+
         if (_phase == Phase.None)
         {
             UpdateChain();
@@ -186,7 +266,14 @@ public class CS_PlayerAmbush : NetworkBehaviour
             return;
         }
 
-        _elapsed += Time.deltaTime;
+        // 当てた後に押された攻撃ボタンを覚えておく(先行入力。当て終わったら次の奇襲を始める)
+        if (_hasStruck && _inputBufferTime > 0f && _player.attackAction != null && _player.attackAction.WasPressedThisFrame())
+        {
+            _bufferedPressTime = Time.unscaledTime;
+        }
+
+        // スロー中は、奇襲の段階を実時間で進める
+        _elapsed += isTimeSlowed ? Time.unscaledDeltaTime : Time.deltaTime;
         if (_phase == Phase.Windup) UpdateWindup();
         else if (_phase == Phase.Dash) UpdateDash();
         else UpdateStrike();
@@ -204,8 +291,11 @@ public class CS_PlayerAmbush : NetworkBehaviour
         CS_VillainHealth villain = FindAmbushTarget() ?? GetRecentTarget();
         if (villain == null) return false;
 
-        // 連続奇襲の2体目以降は、溜めを短くする(押し続けている間は_isChainHeldがtrueのまま続く)
-        _windupDuration = _windupTime * (_isChainHeld ? _chainWindupRate : 1f);
+        // 連続奇襲の2体目以降は、溜めを省略する(または短くする)
+        // 押し続けている間は_isChainHeldがtrueのまま続く。当て終わってすぐ押し直した時も連続奇襲とみなす
+        bool isChain = _isChainHeld || Time.unscaledTime <= _lastStrikeEndTime + _chainWindowTime;
+        _windupDuration = !isChain ? _windupTime : _skipChainWindup ? 0f : _windupTime * _chainWindupRate;
+        if (!isChain) _chainCount = 0;
 
         _target = villain;
         _targetCollider = villain.GetComponentInChildren<Collider>();
@@ -220,6 +310,7 @@ public class CS_PlayerAmbush : NetworkBehaviour
         if (!isAmbushing) return false;
 
         _isChainHeld = true;
+        _chainTimeEnd = float.PositiveInfinity;   // 奇襲中はスローを続ける
         if (_phase == Phase.Windup) onAmbushWindupStarted?.Invoke(villain, _windupDuration);
         else onAmbushStarted?.Invoke(villain);
         return true;
@@ -303,7 +394,9 @@ public class CS_PlayerAmbush : NetworkBehaviour
         // 毎フレーム向きと距離を決め直す(悪人が動いても追いかける)
         float moveDistance = move.magnitude;
         // 残りが短い時も1回は物理の更新で進めるよう、時間は物理の1ステップより少し長くする(短いと、踏み込みが1歩も進まず最後で止まる)
-        float duration = Mathf.Max(moveDistance / _dashSpeed, Time.fixedDeltaTime * _minDashStepRate);
+        // スロー中は実時間で同じ速さに見えるよう、ゲームの時間に直す(物理の更新間隔もスローに合わせて縮めてある)
+        float timeRate = isTimeSlowed ? Time.timeScale / Mathf.Max(0.0001f, _savedTimeScale) : 1f;
+        float duration = Mathf.Max(moveDistance / _dashSpeed * timeRate, Time.fixedDeltaTime * _minDashStepRate);
         if (Mathf.Approximately(move.y, 0f)) _player.Lunge(move, moveDistance, duration);
         else _player.Fly(move / moveDistance, moveDistance, duration);
     }
@@ -329,7 +422,7 @@ public class CS_PlayerAmbush : NetworkBehaviour
         return collider != null ? collider.bounds.min.y : target.position.y;
     }
 
-    // 着いてから_strikeDelay秒後に当て、_strikeDuration秒で終わる
+    // 着いてから_strikeDelay秒後に当て、_strikeDuration秒(とヒットストップの分)で終わる
     private void UpdateStrike()
     {
         FaceTarget();
@@ -337,11 +430,28 @@ public class CS_PlayerAmbush : NetworkBehaviour
         if (!_hasStruck && _elapsed >= _strikeDelay)
         {
             _hasStruck = true;
+            _chainCount++;
+
+            // 連続奇襲のスローが使える時は、いったん吹き飛ばさずに止めておき、次の対象がいるかで決める
+            bool canChainTime = CanUseChainTime();
+            _holdBlowAway = canChainTime && _holdUntilRelease;
             RequestStrike(_target);
+            _holdBlowAway = false;
+
+            // 当てた悪人は、すぐ奇襲の対象から外す(倒れたことが届く前でも、ロックオン表示・次の対象に出ないように)
+            _skipUntil[_target] = Time.time + _chainSkipTime;
+            if (canChainTime)
+            {
+                // 次の対象がいる時(と、_slowWithoutChainがオンなら単体・最後の1体の時も): スローにする(待機時間が過ぎたら解除)
+                // 次の対象がいなくて_slowWithoutChainがオフの時: スローを解除し、悪人のヒットストップの後に一斉に吹き飛ばす
+                if (_slowWithoutChain || FindAmbushTarget() != null) EnterChainTime();
+                else ReleaseChainTime(_villainHitStopTime);
+            }
+
             onAmbushHitTiming?.Invoke(_target);
         }
 
-        if (_elapsed >= Mathf.Max(_strikeDelay, _strikeDuration)) EndAmbush();
+        if (_elapsed >= Mathf.Max(_strikeDelay, _strikeDuration) + _hitStopTime) EndAmbush();
     }
 
     private void EndAmbush()
@@ -352,6 +462,13 @@ public class CS_PlayerAmbush : NetworkBehaviour
         // 狙った悪人(倒した・中止した)は、しばらく連続奇襲で狙わない
         if (_target != null) _skipUntil[_target] = Time.time + _chainSkipTime;
 
+        // 当て終わった時刻(すぐ押し直した時に、連続奇襲として溜めを省略するのに使う)
+        bool isFinished = _phase != Phase.None && _hasStruck;
+        if (isFinished) _lastStrikeEndTime = Time.unscaledTime;
+
+        // スロー中は、受付時間が過ぎたら解除する(次の奇襲を始めたら延びる)
+        if (_isChainTime) _chainTimeEnd = Time.unscaledTime + _chainWindowTime;
+
         _phase = Phase.None;
         _target = null;
         _targetCollider = null;
@@ -359,6 +476,15 @@ public class CS_PlayerAmbush : NetworkBehaviour
         _hasStruck = false;
         _player.ClearAimFacing();
         SetPassThrough(false);
+
+        if (isFinished) onAmbushFinished?.Invoke();
+
+        // 当てた後に攻撃ボタンが押されていたら、すぐ次の奇襲を始める(先行入力。連続奇襲になるので溜めは省略される)
+        if (isFinished && Time.unscaledTime - _bufferedPressTime <= _inputBufferTime)
+        {
+            _bufferedPressTime = float.NegativeInfinity;
+            TryStartAmbush();
+        }
     }
 
     // 飛び込み中だけ、悪人・プレイヤーとぶつからないようにする(間にいるキャラクターに引っかかって止まらないように)
@@ -426,7 +552,7 @@ public class CS_PlayerAmbush : NetworkBehaviour
 
         // 溜めの分も足す(送られてきた値は、サーバー側の溜めの時間より長くならないようにする)
         float windup = float.IsFinite(windupDuration) ? Mathf.Clamp(windupDuration, 0f, _windupTime) : _windupTime;
-        float duration = windup + _maxDashTime + Mathf.Max(_strikeDelay, _strikeDuration) + _freezeMargin;
+        float duration = windup + _maxDashTime + Mathf.Max(_strikeDelay, _strikeDuration) + _hitStopTime + _freezeMargin;
         _reservedTarget = ambushed;
         _reservedUntil = Time.time + duration;
         if (ambushed.TryGetComponent(out CS_VillainCombat combat)) combat.Freeze(duration);
@@ -532,9 +658,133 @@ public class CS_PlayerAmbush : NetworkBehaviour
 
     // 奇襲を食らった悪人を、プレイヤーの方へ一瞬で向かせて背中側へ大きく吹き飛ばす(サーバー、またはオフラインで実行される)
     // 吹き飛ぶ距離・時間は悪人側(CS_VillainKnockbackのBlow Away)で決める。倒した後に呼ぶ(倒れた悪人も吹き飛ぶ)
-    private static void BlowAway(CS_VillainHealth villain, Vector3 attackerPosition)
+    // 吹き飛ぶ前に、ヒットストップの間その場で止まる。連続奇襲のスローが使える時は、止めたままにする(ReleaseChainTimeで吹き飛ばす)
+    private void BlowAway(CS_VillainHealth villain, Vector3 attackerPosition)
     {
-        if (villain.TryGetComponent(out CS_VillainKnockback knockback)) knockback.BlowAway(attackerPosition);
+        if (!villain.TryGetComponent(out CS_VillainKnockback knockback)) return;
+
+        knockback.BlowAway(attackerPosition, _holdBlowAway ? float.PositiveInfinity : _villainHitStopTime);
+        if (_holdBlowAway && !_heldVillains.Contains(knockback)) _heldVillains.Add(knockback);
+    }
+
+    // ========================================
+    // 連続奇襲のスロー(ソロだけ)
+    // ========================================
+
+    // スローが使えるか(ソロで通信していない時の、自分のプレイヤーだけ。マルチでTime.timeScaleを変えると全員が遅くなるため)
+    private bool CanUseChainTime()
+    {
+        if (!_useChainTime || IsSpawned || !_player.isLocalPlayer || !CS_GameModeStore.isSolo) return false;
+        NetworkManager manager = NetworkManager.Singleton;
+        return manager == null || !manager.IsListening;
+    }
+
+    // スロー中か、スローから等倍へ戻っている途中か(奇襲の段階を実時間で進めるのに使う)
+    private bool isTimeSlowed => _isChainTime || _isReturning;
+
+    private void EnterChainTime()
+    {
+        if (_isChainTime) return;
+        if (Time.timeScale <= 0f) return;   // 演出などで時間が止まっている
+
+        // 等倍へ戻っている途中なら、スローの前の値はそのまま使う(途中の値を覚え直さない)
+        if (!_isReturning)
+        {
+            _savedTimeScale = Time.timeScale;
+            _savedFixedDeltaTime = Time.fixedDeltaTime;
+        }
+        _isReturning = false;
+        Time.timeScale = _savedTimeScale * _chainTimeScale;
+        Time.fixedDeltaTime = _savedFixedDeltaTime * _chainTimeScale;
+        _appliedTimeScale = Time.timeScale;   // 実際に入った値(戻す時に、他の演出が変えていないかを比べる)
+
+        // _playerMotionRealTimeがオンなら、自分のモーションは実時間で動かす(オフならモーションもスローになる)
+        foreach (Animator animator in _playerMotionRealTime ? GetComponentsInChildren<Animator>(true) : new Animator[0])
+        {
+            if (_animatorModes.ContainsKey(animator)) continue;
+            _animatorModes.Add(animator, animator.updateMode);
+            animator.updateMode = AnimatorUpdateMode.UnscaledTime;
+        }
+        _isChainTime = true;
+    }
+
+    // スローを解除し、止めていた悪人をdelay秒後に一斉に吹き飛ばす(スロー中でなくても、止めていた悪人は吹き飛ばす)
+    // ゲームの速さは_returnTime秒かけて等倍へ戻す(immediateなら、すぐ戻す。無効にされた時など)
+    private void ReleaseChainTime(float delay, bool immediate = false)
+    {
+        if (_isChainTime)
+        {
+            _isChainTime = false;
+            if (!immediate && _returnTime > 0f && IsOwnTimeScale())
+            {
+                // なめらかに戻す(UpdateReturn)
+                _isReturning = true;
+                _returnElapsed = 0f;
+                _returnFrom = Time.timeScale;
+            }
+            else
+            {
+                RestoreTimeScale();
+            }
+
+            foreach (KeyValuePair<Animator, AnimatorUpdateMode> pair in _animatorModes)
+            {
+                if (pair.Key != null) pair.Key.updateMode = pair.Value;
+            }
+            _animatorModes.Clear();
+        }
+
+        foreach (CS_VillainKnockback knockback in _heldVillains)
+        {
+            if (knockback != null) knockback.ReleaseHold(delay);
+        }
+        _heldVillains.Clear();
+        _chainTimeEnd = float.PositiveInfinity;
+        if (immediate && _isReturning) RestoreTimeScale();
+    }
+
+    // スローから等倍へ、_returnTime秒(実時間)かけて_returnCurveの形で戻す
+    private void UpdateReturn()
+    {
+        if (!_isReturning) return;
+
+        // 他の演出がゲームの速さを変えたら、戻すのをやめる(物理の更新間隔だけは戻す)
+        if (!IsOwnTimeScale())
+        {
+            _isReturning = false;
+            Time.fixedDeltaTime = _savedFixedDeltaTime;
+            return;
+        }
+
+        _returnElapsed += Time.unscaledDeltaTime;
+        float t = _returnTime > 0f ? Mathf.Clamp01(_returnElapsed / _returnTime) : 1f;
+        if (t >= 1f)
+        {
+            RestoreTimeScale();
+            return;
+        }
+
+        float k = _returnCurve != null && _returnCurve.length > 0 ? Mathf.Clamp01(_returnCurve.Evaluate(t)) : t;
+        float scale = Mathf.Lerp(_returnFrom, _savedTimeScale, k);
+        Time.timeScale = scale;
+        Time.fixedDeltaTime = _savedFixedDeltaTime * (scale / Mathf.Max(0.0001f, _savedTimeScale));
+        _appliedTimeScale = Time.timeScale;
+    }
+
+    // ゲームの速さが、最後に自分が入れた値のまま(1%以内)か(開始演出などが止めた(0にした)後ならfalse)
+    // ※ Mathf.Approximatelyは小さい値だと厳しすぎて、少しのずれで戻らなくなるので使わない
+    private bool IsOwnTimeScale()
+    {
+        return Mathf.Abs(Time.timeScale - _appliedTimeScale) <= _appliedTimeScale * 0.01f;
+    }
+
+    // ゲームの速さと物理の更新間隔を、スローの前に戻す
+    // ゲームの速さは自分が入れた値のままの時だけ戻す。物理の更新間隔は、変えるのはここだけなので必ず戻す(戻らないと、地上の移動などがおかしくなる)
+    private void RestoreTimeScale()
+    {
+        if (IsOwnTimeScale()) Time.timeScale = _savedTimeScale;
+        Time.fixedDeltaTime = _savedFixedDeltaTime;
+        _isReturning = false;
     }
 
     // ダメージを与える。スコア(CS_PlayerScoring)があればそれを通し、誰が倒したかをスコアに反映する

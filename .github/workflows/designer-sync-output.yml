@@ -2,7 +2,8 @@ name: Sync Designer Assets to Output
 
 # designer_develop の Assets/Designer 以下の実体ファイルのうち、push で追加・変更・削除されたものだけを designer_output へ反映する。
 # (develop 側にだけあるファイルを消さないため、全体ミラー(rsync --delete)はしない)
-# .meta は designer_output 側で一元管理する(Generate Designer Meta Files が生成)ため同期しない。
+# .meta も同期する。.meta(GUID)の正は designer_develop で、designer_output 側に別の GUID があれば designer_develop のもので上書きする。
+# .meta が無いファイルの .meta は Generate Designer Meta Files が designer_develop 上で生成する。
 # 詳細: ClaudeUsers/meta自動生成フローガイド.md
 
 on:
@@ -40,26 +41,46 @@ jobs:
           path: .dev-src
           fetch-depth: 0  # push 前後の差分(before..after)を取るため
 
-      - name: Apply Assets/Designer changes (実体ファイルのみ、.metaは触らない)
+      - name: Apply Assets/Designer changes (実体ファイルと .meta)
         env:
           BEFORE: ${{ github.event.before }}
           AFTER: ${{ github.sha }}
         run: |
           mkdir -p Assets/Designer
+
+          # designer_output に別の GUID の .meta があれば、designer_develop のもので上書きする(警告に残す)
+          guid_of() { sed -n 's/^guid: *//p' "$1" | head -n 1; }
+          warn_if_guid_differs() {
+            local src="$1" dst="$2"
+            if [ -f "$dst" ] && [ "$(guid_of "$src")" != "$(guid_of "$dst")" ]; then
+              echo "::warning::GUID を designer_develop のもので上書きします: $dst ($(guid_of "$dst") -> $(guid_of "$src"))"
+            fi
+          }
+
           if [ "$GITHUB_EVENT_NAME" = "push" ] && [ -n "$BEFORE" ] && [ "${BEFORE//0/}" != "" ] \
              && git -C .dev-src cat-file -e "$BEFORE^{commit}" 2>/dev/null; then
             # push の差分だけを反映する。designer_develop で消したファイルだけが消え、develop 側にだけあるファイルには触らない
             git -C .dev-src diff --name-status -z --no-renames "$BEFORE" "$AFTER" -- Assets/Designer \
             | while IFS= read -r -d '' status && IFS= read -r -d '' path; do
-                case "$path" in *.meta) continue ;; esac
                 case "$status" in
                   D) rm -f -- "$path" ;;
-                  *) mkdir -p -- "$(dirname -- "$path")"; cp -p -- ".dev-src/$path" "$path" ;;
+                  *)
+                    case "$path" in *.meta) warn_if_guid_differs ".dev-src/$path" "$path" ;; esac
+                    mkdir -p -- "$(dirname -- "$path")"; cp -p -- ".dev-src/$path" "$path" ;;
                 esac
               done
           else
             # 手動実行など差分が取れない場合は、追加・更新だけを反映する(削除はしない)
-            rsync -a --exclude '*.meta' .dev-src/Assets/Designer/ Assets/Designer/
+            # .meta は GUID が違うものを警告に残してから上書きする
+            find .dev-src/Assets/Designer -name '*.meta' -print0 | while IFS= read -r -d '' m; do
+              warn_if_guid_differs "$m" "${m#.dev-src/}"
+            done
+            rsync -a .dev-src/Assets/Designer/ Assets/Designer/
+          fi
+          # Assets/Designer フォルダ自体の .meta も designer_develop のものを正とする
+          if [ -f .dev-src/Assets/Designer.meta ]; then
+            warn_if_guid_differs .dev-src/Assets/Designer.meta Assets/Designer.meta
+            cp -p .dev-src/Assets/Designer.meta Assets/Designer.meta
           fi
           rm -rf .dev-src
 
@@ -76,6 +97,7 @@ jobs:
           git config user.name "sync-bot"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add -A Assets/Designer
+          [ -e Assets/Designer.meta ] && git add Assets/Designer.meta
           if ! git diff --cached --quiet; then
             git commit -m "chore: sync Assets/Designer from designer_develop"
             git push origin HEAD:designer_output

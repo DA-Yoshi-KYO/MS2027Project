@@ -99,6 +99,9 @@ public static class CSED_HdaTopOutputBaker
         string districtFolder = areaFolder + "/" + districtFolderName;
         EnsureFolder(districtFolder);
 
+        // 前回のベイクで作ったアセット(エリアPrefabを保存してから削除する)
+        List<string> oldAssetPaths = GetFilePaths(districtFolder);
+
         List<GameObject> districtPrefabs = new List<GameObject>();
         for (int i = 0; i < syncs.Count; i++)
         {
@@ -129,8 +132,30 @@ public static class CSED_HdaTopOutputBaker
             }
         }
 
-        if (districtPrefabs.Count > 0) SaveAreaPrefab(areaName, areaFolder, districtPrefabs);
+        if (districtPrefabs.Count == 0) return 0;
+
+        // エリアPrefabを保存してから、前回のアセットを消す(失敗したときに前回分を残すため)
+        SaveAreaPrefab(areaName, areaFolder, districtPrefabs);
+        foreach (string oldPath in oldAssetPaths)
+        {
+            AssetDatabase.DeleteAsset(oldPath);
+        }
+
         return districtPrefabs.Count;
+    }
+
+    /// <summary>
+    /// フォルダ内のファイル(フォルダは除く)のパスを返す。
+    /// </summary>
+    private static List<string> GetFilePaths(string folder)
+    {
+        List<string> paths = new List<string>();
+        foreach (string guid in AssetDatabase.FindAssets("", new[] { folder }))
+        {
+            string path = AssetDatabase.GUIDToAssetPath(guid);
+            if (!AssetDatabase.IsValidFolder(path)) paths.Add(path);
+        }
+        return paths;
     }
 
     /// <summary>
@@ -147,7 +172,8 @@ public static class CSED_HdaTopOutputBaker
                 instance.transform.SetParent(areaRoot.transform, false);
             }
 
-            string areaPrefabPath = AssetDatabase.GenerateUniqueAssetPath(areaFolder + "/" + areaName + ".prefab");
+            // 同じパスに上書きする(GUIDが変わらないので、シーンに置いたエリアPrefabが自動で更新される)
+            string areaPrefabPath = areaFolder + "/" + areaName + ".prefab";
             PrefabUtility.SaveAsPrefabAsset(areaRoot, areaPrefabPath);
         }
         finally

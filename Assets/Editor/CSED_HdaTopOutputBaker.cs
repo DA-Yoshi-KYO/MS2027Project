@@ -16,6 +16,7 @@ using UnityEngine;
 ///
 /// Houdini Engine の Bake() は保存先が固定(HoudiniEngineAssetCache/Baked)なので、
 /// ベイク後にアセットを地区フォルダへ移動する(GUIDは変わらないので参照は壊れない)。
+/// 地区Prefabのメッシュには、当たり判定(MeshCollider、Convex なし)も付ける。
 ///
 /// 使い方:
 ///   1. Hierarchy で「〇〇_OUTPUTS」(または HEU_GeoSync を子に持つ親)を選ぶ
@@ -124,7 +125,9 @@ public static class CSED_HdaTopOutputBaker
             GameObject prefab = MoveBakedAssets(Selection.activeObject as GameObject, districtFolder);
             if (prefab != null)
             {
-                districtPrefabs.Add(prefab);
+                string prefabPath = AssetDatabase.GetAssetPath(prefab);
+                AddMeshColliders(prefabPath);
+                districtPrefabs.Add(AssetDatabase.LoadAssetAtPath<GameObject>(prefabPath));
             }
             else
             {
@@ -142,6 +145,34 @@ public static class CSED_HdaTopOutputBaker
         }
 
         return districtPrefabs.Count;
+    }
+
+    /// <summary>
+    /// Prefab内のメッシュすべてに MeshCollider(Convex なし)を付けて保存し、付けた数を返す。
+    /// コライダーが既にあるオブジェクトは飛ばすので、何回呼んでも重複しない。
+    /// </summary>
+    public static int AddMeshColliders(string prefabPath)
+    {
+        GameObject root = PrefabUtility.LoadPrefabContents(prefabPath);
+        try
+        {
+            int addedCount = 0;
+            foreach (MeshFilter meshFilter in root.GetComponentsInChildren<MeshFilter>(true))
+            {
+                if (meshFilter.sharedMesh == null || meshFilter.GetComponent<Collider>() != null) continue;
+
+                MeshCollider meshCollider = meshFilter.gameObject.AddComponent<MeshCollider>();
+                meshCollider.sharedMesh = meshFilter.sharedMesh;
+                addedCount++;
+            }
+
+            if (addedCount > 0) PrefabUtility.SaveAsPrefabAsset(root, prefabPath);
+            return addedCount;
+        }
+        finally
+        {
+            PrefabUtility.UnloadPrefabContents(root);
+        }
     }
 
     /// <summary>

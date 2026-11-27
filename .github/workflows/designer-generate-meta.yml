@@ -1,8 +1,9 @@
 name: Generate Designer Meta Files
 
-# designer_output 上で Unity を batchmode 起動し、Assets/Designer 以下の不足 .meta を生成して commit する。
-# 既存ファイルの .meta(GUID) は変更しないため、参照は壊れない。
-# .meta を生成する前に develop を designer_output へ取り込み、develop 側の既存 .meta(GUID)と食い違わないようにする。
+# designer_develop 上で Unity を batchmode 起動し、Assets/Designer 以下の不足 .meta を生成して designer_develop に commit する。
+# .meta(GUID)の正は designer_develop。既存ファイルの .meta(GUID) は変更しないため、参照は壊れない。
+# 生成前に、designer_output にだけある .meta を designer_develop へ取り込み、同じファイルに別の GUID が作られないようにする。
+# 生成した .meta は designer_output にも反映する(その前に develop を designer_output へ取り込む)。
 # 完了後、designer_output の更新を「作業完了」として Discord のデザイナー進捗チャンネルへ通知する。
 # 必要な Secrets: UNITY_LICENSE / UNITY_EMAIL / UNITY_PASSWORD / DISCORD_WEBHOOK_DESIGNER
 # 詳細: ClaudeUsers/meta自動生成フローガイド.md
@@ -32,33 +33,30 @@ jobs:
     if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout designer_output (LFS は後で必要な場合のみ取得)
+      - name: Checkout designer_develop (LFS は後で必要な場合のみ取得)
         uses: actions/checkout@v4
         with:
-          ref: designer_output
-          fetch-depth: 0  # develop とのマージに履歴が必要
+          ref: designer_develop
+          fetch-depth: 0  # push の競合時に rebase、designer_output との突き合わせに履歴が必要
         env:
           GIT_LFS_SKIP_SMUDGE: 1
 
-      # .meta を生成する前に develop を取り込む。
-      # develop 側に既にある .meta(GUID)を先に取り込めば、そのファイルは「.meta あり」と判定され、
-      # designer_output で別の GUID の .meta が作られることを防げる。
-      # 競合した場合は自動で解決せず、ワークフローを失敗させる(管理者が手動で解決する)。
-      # この push は GITHUB_TOKEN によるため他のワークフローは起動せず、「作業完了」通知も飛ばない。
-      - name: Merge develop into designer_output
+      # designer_output にだけある .meta(以前 bot が作ったもの)を designer_develop へ取り込む。
+      # 取り込まずに Unity を起動すると、同じファイルに別の GUID の .meta が作られて食い違うため。
+      # designer_develop に既にある .meta は designer_develop が正なので上書きしない。
+      - name: Import .meta that exist only in designer_output
         run: |
           git config user.name "unity-meta-bot"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git fetch origin develop
-          if git merge-base --is-ancestor origin/develop HEAD; then
-            echo "develop は取り込み済みです。"
-          elif git merge --no-edit -m "Merge branch 'develop' into designer_output" origin/develop; then
-            git push origin HEAD:designer_output
-          else
-            echo "::error::develop の取り込みで競合しました。designer_output に develop を手動でマージして競合を解決してください。"
-            git merge --abort
-            exit 1
-          fi
+          git fetch origin designer_output
+          git ls-tree -r -z --name-only origin/designer_output -- Assets/Designer Assets/Designer.meta \
+          | while IFS= read -r -d '' m; do
+              case "$m" in *.meta) ;; *) continue ;; esac
+              [ -e "$m" ] && continue         # designer_develop にある .meta が正
+              [ -e "${m%.meta}" ] || continue # 実体が無い .meta は取り込まない
+              git checkout origin/designer_output -- "$m"
+              echo "取り込み: $m"
+            done
 
       - name: Check for files without .meta
         id: check
@@ -113,22 +111,77 @@ jobs:
           # DesignerMetaGenerator は Assets/Editor にありコンパイルエラーで見つからなくなるため、コンパイル不要の標準メソッドを呼ぶ(meta は起動時のインポートで生成される)
           customParameters: -ignorecompilererrors
 
-      - name: Commit generated .meta files
-        if: steps.check.outputs.needed == 'true'
+      # 新しく増えた .meta(取り込んだもの + Unity が作ったもの)だけを designer_develop に commit する。
+      # デザイナーの既存 .meta を Unity が再シリアライズしても commit しない。
+      # push が拒否されたら fetch して載せ直す(bot の commit は .meta だけなので通常は競合しない)。
+      # この push は GITHUB_TOKEN によるため同期ワークフローは起動しない。designer_output への反映は次の工程で直接行う。
+      - name: Commit new .meta files to designer_develop
+        id: commit
         run: |
           # Docker 内で root 所有になったファイルを戻す
           sudo chown -R "$(id -u):$(id -g)" .
           git config user.name "unity-meta-bot"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          # .meta 以外(Unity が再シリアライズしたアセット等)はコミットしない
+          git ls-files -z --others --exclude-standard -- Assets/Designer.meta ':(glob)Assets/Designer/**/*.meta' \
+            | xargs -0 -r git add --
+          if git diff --cached --quiet; then
+            echo "No new .meta files to commit"
+            exit 0
+          fi
+          git diff --cached --name-status
+          git diff --cached --name-only -z > "$RUNNER_TEMP/new-meta-list"
+          git commit -m "chore: auto-generate .meta files for Assets/Designer"
+          pushed=false
+          for i in 1 2 3 4 5; do
+            if git push origin HEAD:designer_develop; then pushed=true; break; fi
+            echo "push が拒否されました。designer_develop を取り込み直して再試行します($i/5)"
+            git fetch origin designer_develop
+            git reset --hard HEAD  # Unity が再シリアライズしたファイルを捨てる(commit 済みの .meta は残る)
+            if ! git rebase origin/designer_develop; then
+              git rebase --abort
+              break
+            fi
+          done
+          if [ "$pushed" = "true" ]; then
+            echo "pushed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::warning::.meta を designer_develop へ push できませんでした。designer_output への反映も見送ります。次回の実行で再生成されます。"
+          fi
+
+      # designer_develop に push できた .meta を designer_output にも反映する。
+      # 先に develop を designer_output へ取り込む(develop 側の既存 .meta と食い違わないようにするため)。
+      # 競合した場合は自動で解決せず、ワークフローを失敗させる(管理者が手動で解決する)。
+      # designer_output への push も GITHUB_TOKEN によるため他のワークフローは起動せず、「作業完了」通知も飛ばない。
+      - name: Update designer_output
+        if: steps.commit.outputs.pushed == 'true'
+        run: |
+          git fetch origin designer_output develop
+          git worktree add -B designer_output "$RUNNER_TEMP/out" origin/designer_output
+          cd "$RUNNER_TEMP/out"
+          if git merge-base --is-ancestor origin/develop HEAD; then
+            echo "develop は取り込み済みです。"
+          elif ! git merge --no-edit -m "Merge branch 'develop' into designer_output" origin/develop; then
+            echo "::error::develop の取り込みで競合しました。designer_output に develop を手動でマージして競合を解決してください。"
+            git merge --abort
+            exit 1
+          fi
+          # designer_develop の .meta を正として designer_output にコピーする(GUID が違えば警告に残す)
+          while IFS= read -r -d '' m; do
+            old=$(sed -n 's/^guid: *//p' "$m" 2>/dev/null | head -n 1)
+            new=$(sed -n 's/^guid: *//p' "$GITHUB_WORKSPACE/$m" | head -n 1)
+            if [ -n "$old" ] && [ "$old" != "$new" ]; then
+              echo "::warning::GUID を designer_develop のもので上書きします: $m ($old -> $new)"
+            fi
+            mkdir -p -- "$(dirname -- "$m")"
+            cp -p -- "$GITHUB_WORKSPACE/$m" "$m"
+          done < "$RUNNER_TEMP/new-meta-list"
+          git config user.name "unity-meta-bot"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add -A -- Assets/Designer.meta ':(glob)Assets/Designer/**/*.meta'
           if ! git diff --cached --quiet; then
-            git diff --cached --name-status
             git commit -m "chore: auto-generate .meta files for Assets/Designer"
-            git push origin HEAD:designer_output
-          else
-            echo "No new .meta files to commit"
           fi
+          git push origin HEAD:designer_output
 
       # ---- 「作業完了」通知 ----
       - name: Download designer_develop commits

@@ -28,6 +28,7 @@ GameObject:
   - component: {fileID: 6435692268355901182}
   - component: {fileID: 6500811419385134935}
   - component: {fileID: 7000000000000000001}
+  - component: {fileID: 9032410406781742018}
   m_Layer: 31
   m_Name: Police
   m_TagString: Untagged
@@ -217,6 +218,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::CS_PoliceBrain
   _thinkInterval: 0.2
   _searchDuration: 3
+  _directChaseDistance: 5
   _arriveDistance: 1
   _gatherRadius: 3.5
   _gatherViewRatio: 0.7
@@ -225,23 +227,6 @@ MonoBehaviour:
   _wanderPauseMin: 1
   _wanderPauseMax: 3
   _wanderMaxWalkTime: 8
---- !u!114 &7000000000000000001
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 681291065592780614}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 414a5c9b63d4460b8fc7b61f64a6fdda, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::CS_MoveFootstepSe
-  _walkSeId: 300
-  _runSeId: 301
-  _stepDistance: 2.2
-  _runSpeed: 4
-  _teleportDistance: 3
 --- !u!114 &5263718849201735512
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -413,7 +398,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: eec759925a4c40cfb437b0c879391eac, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::CS_PoliceTestModel
-  ShowTopMostFoldoutHeaderGroup: 1
   _parts:
   - _renderer: {fileID: 4051000000000000007}
     _color: {r: 0.08, g: 0.1, b: 0.25, a: 1}
@@ -488,6 +472,54 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: a845a8a78e1c4dad9636df9c96b99d63, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::CS_PoliceAttackImpactEffect
+--- !u!114 &7000000000000000001
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 681291065592780614}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 414a5c9b63d4460b8fc7b61f64a6fdda, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CS_MoveFootstepSe
+  _walkSeId: 300
+  _runSeId: 301
+  _stepDistance: 2.2
+  _runSpeed: 4
+  _teleportDistance: 3
+--- !u!114 &9032410406781742018
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 681291065592780614}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 93b01aa7a8c60384793453c021f99373, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CS_PoliceVisionLight
+  ShowTopMostFoldoutHeaderGroup: 1
+  _material: {fileID: 2100000, guid: e64cab2cff45bdd40a2deca2174618f0, type: 2}
+  _showDistance: 40
+  _showSuspicionRange: 1
+  _groundOnly: 1
+  _groundOnlyAlpha: 0.55
+  _patrolColor: {r: 0.35, g: 0.65, b: 1, a: 1}
+  _waryColor: {r: 1, g: 0.75, b: 0.15, a: 1}
+  _chaseColor: {r: 1, g: 0.2, b: 0.15, a: 1}
+  _lightBeamAlpha: 0.42
+  _lightBeamTipAlpha: 0.12
+  _lightGroundAlpha: 0.36
+  _lightWallAlpha: 0.38
+  _lightSpillAlpha: 0.09
+  _innerEdgeSoftness: 0.18
+  _innerTipSoftness: 0.12
+  _innerSilhouetteSoftness: 0.15
+  _outerEdgeSoftness: 0.6
+  _outerTipSoftness: 0.55
 --- !u!1 &4051000000000000001
 GameObject:
   m_ObjectHideFlags: 0

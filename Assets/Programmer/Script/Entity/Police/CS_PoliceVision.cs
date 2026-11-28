@@ -54,6 +54,9 @@ public class CS_PoliceVision : MonoBehaviour
     [Tooltip("この距離以内なら、視野角に関係なく(背後でも)気付く")]
     private float _noticeDistance = 1.5f;
 
+    // transformの位置から目までの高さ(視界の表示にも使う)
+    public float eyeHeight => _eyeHeight;
+
     // 発見視界の視野角度(視野全体の幅)
     public float viewAngle => _viewAngle;
 

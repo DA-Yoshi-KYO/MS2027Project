@@ -32,7 +32,7 @@ Material:
     serializedVersion: 3
     m_TexEnvs:
     - _BaseMap:
-        m_Texture: {fileID: 0}
+        m_Texture: {fileID: 2800000, guid: 98e8d68309356584493914525132fe93, type: 3}
         m_Scale: {x: 1, y: 1}
         m_Offset: {x: 0, y: 0}
     - _ClothFuzzMap:
@@ -111,7 +111,7 @@ Material:
     - _ClothAnisotropy: -0.75
     - _ClothFuzzSize: 6
     - _ClothFuzzStrength: 0
-    - _ClothGlossStrength: 0.4
+    - _ClothGlossStrength: 0.18630087
     - _ClothMaterial: 5
     - _ClothMottle: 0
     - _ClothSheenStrength: 0.2
@@ -128,9 +128,9 @@ Material:
     - _ClothStitchWidth: 2.246579
     - _ClothThreadAngle: 0
     - _ClothThreadAspect: 1
-    - _ClothThreadBump: 0.4
-    - _ClothThreadShade: 0.4
-    - _ClothThreadSize: 2
+    - _ClothThreadBump: 0.78356415
+    - _ClothThreadShade: 0.07123289
+    - _ClothThreadSize: 0.4449464
     - _ClothThreadSmoothness: 0.1
     - _ClothWeave: 2
     - _ConservativeDepthOffsetEnable: 0
@@ -190,7 +190,7 @@ Material:
     - _ShadowColor: {r: 0.7, g: 0.7, b: 0.7, a: 1}
   m_BuildTextureStacks: []
   m_AllowLocking: 1
---- !u!114 &2190244826799590339
+--- !u!114 &1473172863764194852
 MonoBehaviour:
   m_ObjectHideFlags: 11
   m_CorrespondingSourceObject: {fileID: 0}

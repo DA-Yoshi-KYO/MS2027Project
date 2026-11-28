@@ -49,7 +49,7 @@ public class CS_PlayerStealthBonus : NetworkBehaviour
     private readonly NetworkVariable<int> _streak = new NetworkVariable<int>();
 
     public int streak => _streak.Value;     // 今の連続撃破数
-    public int bonusLevel => Mathf.Clamp(_streak.Value - _bonusStartCount + 1, 0, maxBonusLevel);    // ボーナスの段階(0で無し)
+    public int bonusLevel => CalculateBonusLevel(_streak.Value);    // ボーナスの段階(0で無し)
     public int maxBonusLevel => Mathf.Max(0, _bonusMaxCount - _bonusStartCount + 1);
     public float scoreMultiplier => 1f + _scoreStep * bonusLevel;
     public float statusMultiplier => 1f + _statusStep * bonusLevel;
@@ -136,8 +136,18 @@ public class CS_PlayerStealthBonus : NetworkBehaviour
         ApplyScanRadius();
         onStreakChanged?.Invoke(current);
 
-        // 連続撃破が増えた時のSE(途切れて0に戻る時は鳴らさない)。全クライアントで起きるので、各自のPCで鳴らす
-        if (current > previous) CS_SoundManager.instance?.PlaySe(CSE_SeId.PlayerLimitBreakBonus, transform.position);
+        // ボーナスの段階が上がった時だけ、自分のプレイヤーのPCでだけSEを鳴らす(他の人のプレイヤーの段階では鳴らさない。途切れて下がる時も鳴らさない)
+        bool isMine = !IsSpawned || IsOwner;
+        if (isMine && CalculateBonusLevel(current) > CalculateBonusLevel(previous))
+        {
+            CS_SoundManager.instance?.PlaySe(CSE_SeId.PlayerLimitBreakBonus, transform.position);
+        }
+    }
+
+    // 連続撃破数から、ボーナスの段階を求める(0で無し)
+    private int CalculateBonusLevel(int streakCount)
+    {
+        return Mathf.Clamp(streakCount - _bonusStartCount + 1, 0, maxBonusLevel);
     }
 
     private void ApplyScanRadius()

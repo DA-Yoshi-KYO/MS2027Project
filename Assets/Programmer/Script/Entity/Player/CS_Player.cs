@@ -136,6 +136,7 @@ public class CS_Player : NetworkBehaviour
     [SerializeField][Min(0.1f)] private float _runFootstepDistance = 3.8f;    // 走っている時の、足音を鳴らす距離の間隔(m)
     [SerializeField][Min(1f)] private float _runFootstepSpeedRate = 1.1f;    // 歩く速さのこの倍率より速く動いていたら、走っているとみなす
     [SerializeField][Min(0f)] private float _landingMinAirTime = 0.25f;   // これ以上空中にいてから着地した時だけ、着地音を鳴らす(秒)
+    [SerializeField] private bool _playSprintSe = false;   // スプリントに入った瞬間にダッシュのSE(PlayerDash)を鳴らすか(ブリンクの音と二重になるため既定オフ)
 
     [Header("落下の保険")]
     [SerializeField] private float _fallResetHeight = -30f; // これより下に落ちたら、スポーンした位置へ戻す(y座標)
@@ -415,7 +416,7 @@ public class CS_Player : NetworkBehaviour
         _isSprinting = canAct && !isHiding && !_isDashing && _dashButton.IsPressed();
 
         // スプリントに入った瞬間(ブリンクのあとも押し続けて、速く走り始めた時)
-        if (_isSprinting && !wasSprinting)
+        if (_playSprintSe && _isSprinting && !wasSprinting)
         {
             CS_NetworkSoundPlayer.instance?.PlaySeForEveryone(CSE_SeId.PlayerDash, transform.position);
         }

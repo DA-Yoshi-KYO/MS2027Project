@@ -19,6 +19,9 @@ using UnityEngine;
 [RequireComponent(typeof(CS_UIMatchingWaitingView))]
 public class CS_UIMatchingWaitingPresenter : CS_BasePresenter
 {
+    [Header("SE")]
+    [SerializeField] private bool _playGameStartSe = false;   // 開始時にゲーム開始のSE(SystemGameStart)を鳴らすか(音を作り直すまで保留のため既定オフ)
+
     private CS_UIMatchingWaitingView _view;
 
     /// <summary>
@@ -40,7 +43,7 @@ public class CS_UIMatchingWaitingPresenter : CS_BasePresenter
         _view.onStartClicked.Subscribe(_ =>
         {
             CS_SoundManager.instance?.PlaySe(CSE_SeId.SystemUIDecide);
-            CS_SoundManager.instance?.PlaySe(CSE_SeId.SystemGameStart);
+            if (_playGameStartSe) CS_SoundManager.instance?.PlaySe(CSE_SeId.SystemGameStart);
         }).AddTo(_disposables);
         _view.onBackClicked.Subscribe(_ => CS_SoundManager.instance?.PlaySe(CSE_SeId.SystemUICancel)).AddTo(_disposables);
     }

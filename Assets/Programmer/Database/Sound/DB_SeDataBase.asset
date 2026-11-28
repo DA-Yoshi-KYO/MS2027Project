@@ -17,7 +17,7 @@ MonoBehaviour:
     _clips:
     - {fileID: 8300000, guid: 7c2ad0d76f7a9f545b40b3f4be8fce68, type: 3}
     _basicSettings:
-      _volume: 0.631
+      _volume: 1
       _pitchRandom: 0
       _maxConcurrent: 1
     _threeDimensionalSettings:
@@ -77,8 +77,8 @@ MonoBehaviour:
     _clips:
     - {fileID: 8300000, guid: fb2f2b067a5cc38469d3723697dac43a, type: 3}
     _basicSettings:
-      _volume: 0.89
-      _pitchRandom: 0
+      _volume: 0.5
+      _pitchRandom: 0.5
       _maxConcurrent: 4
     _threeDimensionalSettings:
       _is3D: 1
@@ -90,7 +90,7 @@ MonoBehaviour:
     - {fileID: 8300000, guid: 2113bc27f3d6fb241a78236c2a41c9c3, type: 3}
     _basicSettings:
       _volume: 0.707
-      _pitchRandom: 0
+      _pitchRandom: 0.1
       _maxConcurrent: 4
     _threeDimensionalSettings:
       _is3D: 1
@@ -101,8 +101,8 @@ MonoBehaviour:
     _clips:
     - {fileID: 8300000, guid: a22f297b2eb02cc419f985eb363bbb9c, type: 3}
     _basicSettings:
-      _volume: 0.695
-      _pitchRandom: 0
+      _volume: 1
+      _pitchRandom: 0.1
       _maxConcurrent: 4
     _threeDimensionalSettings:
       _is3D: 1
@@ -125,7 +125,7 @@ MonoBehaviour:
     _clips:
     - {fileID: 8300000, guid: 7e090f4ed1a72bf4c97ec621ad7cf289, type: 3}
     _basicSettings:
-      _volume: 0.519
+      _volume: 0.8
       _pitchRandom: 0
       _maxConcurrent: 4
     _threeDimensionalSettings:
@@ -197,8 +197,8 @@ MonoBehaviour:
     _clips:
     - {fileID: 8300000, guid: e017ba4485166c24893b855e911e0b11, type: 3}
     _basicSettings:
-      _volume: 0.664
-      _pitchRandom: 0
+      _volume: 1
+      _pitchRandom: 0.5
       _maxConcurrent: 4
     _threeDimensionalSettings:
       _is3D: 1
@@ -209,8 +209,8 @@ MonoBehaviour:
     _clips:
     - {fileID: 8300000, guid: f148c4a8abe325e46adbf24bc00ace62, type: 3}
     _basicSettings:
-      _volume: 0.502
-      _pitchRandom: 0
+      _volume: 1
+      _pitchRandom: 0.5
       _maxConcurrent: 4
     _threeDimensionalSettings:
       _is3D: 1
@@ -433,9 +433,9 @@ MonoBehaviour:
       _minDistance: 1
       _maxDistance: 100
       _rolloff: 0
-  - _id: 300
+  - _id: 230
     _clips:
-    - {fileID: 8300000, guid: cef998641a0a6cd4682e3be674a54696, type: 3}
+    - {fileID: 8300000, guid: b151d5e62ab140a288eba81f5f8a5705, type: 3}
     _basicSettings:
       _volume: 1
       _pitchRandom: 0
@@ -444,6 +444,18 @@ MonoBehaviour:
       _is3D: 1
       _minDistance: 1
       _maxDistance: 100
+      _rolloff: 0
+  - _id: 300
+    _clips:
+    - {fileID: 8300000, guid: cef998641a0a6cd4682e3be674a54696, type: 3}
+    _basicSettings:
+      _volume: 0.1
+      _pitchRandom: 0
+      _maxConcurrent: 4
+    _threeDimensionalSettings:
+      _is3D: 1
+      _minDistance: 1
+      _maxDistance: 30
       _rolloff: 0
   - _id: 301
     _clips:

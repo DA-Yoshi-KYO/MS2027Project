@@ -198,6 +198,7 @@ public class CS_PlayerAmbush : NetworkBehaviour
     private float _returnElapsed;                // 戻り始めてからの時間(秒。実時間)
     private float _returnFrom;                   // 戻り始めた時のTime.timeScale
     private bool _holdBlowAway;                  // 今当てる悪人を、吹き飛ばさずに止めておくか(当てる処理の間だけ)
+    private bool _playAmbushSeOnFinish;          // 当て終わった時に奇襲のSEを鳴らすか(スローにならなかった奇襲)
     private readonly List<CS_VillainKnockback> _heldVillains = new List<CS_VillainKnockback>();   // スロー中に止めている悪人
     private readonly Dictionary<Animator, AnimatorUpdateMode> _animatorModes = new Dictionary<Animator, AnimatorUpdateMode>();   // スロー中に実時間で動かしている自分のAnimatorと元の設定
     private readonly Dictionary<CS_VillainHealth, float> _skipUntil = new Dictionary<CS_VillainHealth, float>();   // 一度狙った悪人と、また狙えるようになる時刻
@@ -449,7 +450,13 @@ public class CS_PlayerAmbush : NetworkBehaviour
             }
 
             onAmbushHitTiming?.Invoke(_target);
-            CS_NetworkSoundPlayer.instance?.PlaySeForEveryone(CSE_SeId.PlayerSurpriseAttack, transform.position);   // 本人の手元でだけ起きるので全員へ
+
+            // 当てた瞬間はヒット音だけ鳴らす(スロー中は、低く引き伸ばしたスロー用のヒット音)。奇襲のSEは、スローが終わる時(ReleaseChainTime)に鳴らす
+            // スローにならなかった時(マルチ・スローを使わない設定)は、通常のヒット音を鳴らし、奇襲のSEは当て終わった時(EndAmbush)に鳴らす
+            // 本人の手元でだけ起きるので全員へ
+            CSE_SeId hitSe = _isChainTime ? CSE_SeId.PlayerSurpriseAttackSlowHit : CSE_SeId.PlayerAttackHit;
+            CS_NetworkSoundPlayer.instance?.PlaySeForEveryone(hitSe, transform.position);
+            _playAmbushSeOnFinish = !_isChainTime;
         }
 
         if (_elapsed >= Mathf.Max(_strikeDelay, _strikeDuration) + _hitStopTime) EndAmbush();
@@ -479,6 +486,10 @@ public class CS_PlayerAmbush : NetworkBehaviour
         SetPassThrough(false);
 
         if (isFinished) onAmbushFinished?.Invoke();
+
+        // スローにならなかった奇襲は、当て終わった時に奇襲のSEを鳴らす
+        if (isFinished && _playAmbushSeOnFinish) PlayAmbushSe();
+        _playAmbushSeOnFinish = false;
 
         // 当てた後に攻撃ボタンが押されていたら、すぐ次の奇襲を始める(先行入力。連続奇襲になるので溜めは省略される)
         if (isFinished && Time.unscaledTime - _bufferedPressTime <= _inputBufferTime)
@@ -716,6 +727,8 @@ public class CS_PlayerAmbush : NetworkBehaviour
         if (_isChainTime)
         {
             _isChainTime = false;
+            if (!immediate) PlayAmbushSe();   // スローが終わる時に奇襲のSEを鳴らす(無効にされた時などは鳴らさない)
+
             if (!immediate && _returnTime > 0f && IsOwnTimeScale())
             {
                 // なめらかに戻す(UpdateReturn)
@@ -770,6 +783,12 @@ public class CS_PlayerAmbush : NetworkBehaviour
         Time.timeScale = scale;
         Time.fixedDeltaTime = _savedFixedDeltaTime * (scale / Mathf.Max(0.0001f, _savedTimeScale));
         _appliedTimeScale = Time.timeScale;
+    }
+
+    // 奇襲のSEを鳴らす(本人の手元でだけ起きるので全員へ)
+    private void PlayAmbushSe()
+    {
+        CS_NetworkSoundPlayer.instance?.PlaySeForEveryone(CSE_SeId.PlayerSurpriseAttack, transform.position);
     }
 
     // ゲームの速さが、最後に自分が入れた値のまま(1%以内)か(開始演出などが止めた(0にした)後ならfalse)

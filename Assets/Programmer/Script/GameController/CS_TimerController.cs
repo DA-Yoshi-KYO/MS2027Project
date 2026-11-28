@@ -75,6 +75,9 @@ public class CS_TimerController : NetworkBehaviour
     [Min(1)]
     [SerializeField] private int _countdownStartSeconds = 5;
 
+    [Header("SE")]
+    [SerializeField] private bool _playGameEndSe = false;   // ゲーム終了時に終了のSE(SystemGameEnd)を鳴らすか(音を作り直すまで保留のため既定オフ)
+
     // =========================================================
     // NetworkVariable
     // =========================================================
@@ -187,7 +190,7 @@ public class CS_TimerController : NetworkBehaviour
         {
             _isFinished = true;
             _notificationController?.HideCountdown();
-            CS_SoundManager.instance?.PlaySe(CSE_SeId.SystemGameEnd);
+            if (_playGameEndSe) CS_SoundManager.instance?.PlaySe(CSE_SeId.SystemGameEnd);
             onTimeUp?.Invoke();   // 結果の保存・遷移より前に知らせる(ソロの判定がリザルトの内容を決めるため)
 
             if (IsOnline())
@@ -257,7 +260,7 @@ public class CS_TimerController : NetworkBehaviour
             return;
 
         _isFinished = true;
-        CS_SoundManager.instance?.PlaySe(CSE_SeId.SystemGameEnd);
+        if (_playGameEndSe) CS_SoundManager.instance?.PlaySe(CSE_SeId.SystemGameEnd);
         _notificationController?.HideCountdown();
         SaveResultsLocal();
 

@@ -5,20 +5,21 @@
  * ------------------------------------------------
  * 2026-09-24 | 初回作成
  * 2026-11-13 | 復活後の無敵中のプレイヤーは、狙わない・追いかけない・攻撃を当てないようにした(仕様書「リスポーン」: この間は警察に視認されない。Issue #453)
+ * 2026-11-28 | 悪人は、見つけても標的にしないようにした(Issue #570)
  * ================================================ */
 
 using UnityEngine;
 
 /// <summary>
 /// 警察の視界を管理するクラス
-/// 視界に映っている標的(プレイヤー・悪人)の中から、追うべき標的を選ぶ
+/// 視界に映っている標的(プレイヤー・陽動ホログラム)の中から、追うべき標的を選ぶ
+/// 悪人は、見つけても標的にしない(警察は悪人を追わない・倒さない)
 /// </summary>
 public class CS_PoliceVision : MonoBehaviour
 {
-    // 標的の優先度(大きいほど優先。要件: プレイヤー > 悪人)
+    // 標的の優先度(大きいほど優先)
     // 陽動ホログラムは、気付いたら引き付けられるよう最優先にする
     public const int noTargetPriority = 0;
-    public const int villainPriority = 1;
     public const int playerPriority = 2;
     public const int hologramPriority = 3;
 
@@ -102,7 +103,7 @@ public class CS_PoliceVision : MonoBehaviour
     /// <summary>
     /// 巡回時の視界の中にいるプレイヤーのうち、一番近いプレイヤー(怪しいプレイヤー)を探すメソッド
     /// 巡回時の視界が、発見視界より大きい時だけ使う。見つけた(発見視界に入った)ことにはならず、近づいて確かめるのに使う
-    /// 悪人・ホログラムは対象にしない
+    /// ホログラムは対象にしない
     /// </summary>
     /// <returns>怪しいプレイヤー(いなければnull)</returns>
     public Transform FindSuspect()
@@ -142,7 +143,7 @@ public class CS_PoliceVision : MonoBehaviour
 
         if (!_isInitialized) return null;
 
-        // キャラクター(プレイヤー・悪人)は、Entityレイヤーのコライダーから探す
+        // プレイヤーは、Entityレイヤーのコライダーから探す
         // (警察自身もEntityだが、HPを持たないので標的にはならない)
         int count = Physics.OverlapSphereNonAlloc(transform.position, _viewDistance, _overlapBuffer, CS_PoliceLayers.entityLayers, QueryTriggerInteraction.Ignore);
         for (int i = 0; i < count; i++)
@@ -203,13 +204,6 @@ public class CS_PoliceVision : MonoBehaviour
         {
             priority = playerPriority;
             return IsPlayerTargetable(player) ? player.transform : null;
-        }
-
-        CS_VillainHealth villain = targetCollider.GetComponentInParent<CS_VillainHealth>();
-        if (villain != null && !villain.isDefeated)
-        {
-            priority = villainPriority;
-            return villain.transform;
         }
 
         priority = noTargetPriority;

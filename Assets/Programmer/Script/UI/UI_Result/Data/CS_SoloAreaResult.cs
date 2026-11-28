@@ -1,11 +1,12 @@
 /* ================================================
- *
+ * 
  * ================================================
- * 制作者：吉田京志郎
+ * 制作者：元浪梨緒
  * ------------------------------------------------
- * 2026-11-20 | 初回作成
+ * 2026-11-28 | 初回作成
  * ================================================ */
 
+using System.Collections.Generic;
 using UnityEngine;
 
 /// <summary>
@@ -28,12 +29,22 @@ public readonly struct CS_SoloAreaResult
     public readonly int areaCount;            // エリアの数
     public readonly float stoppedRate;        // 食い止めた率(0〜1)。倒した悪人の合計 ÷ 出した悪人の合計
 
-    public CS_SoloAreaResult(CSE_SoloEndReason reason, int protectedAreaCount, int areaCount, float stoppedRate)
+    // 追加: エリアごとのクリアタイム(エリアの並び順)。クリアできなかったエリアも入れる。無ければnull
+    public readonly IReadOnlyList<CS_SoloAreaTime> areaTimes;
+
+    // 追加した areaTimes は省略できる(今までの呼び出しは、そのままコンパイルできる)
+    public CS_SoloAreaResult(
+        CSE_SoloEndReason reason,
+        int protectedAreaCount,
+        int areaCount,
+        float stoppedRate,
+        IReadOnlyList<CS_SoloAreaTime> areaTimes = null)
     {
         this.reason = reason;
         this.protectedAreaCount = protectedAreaCount;
         this.areaCount = areaCount;
         this.stoppedRate = Mathf.Clamp01(stoppedRate);
+        this.areaTimes = areaTimes;
     }
 
     public bool isCleared => reason == CSE_SoloEndReason.AllCleared;

@@ -4,6 +4,7 @@
  * 制作者：宇留野陸斗
  * ------------------------------------------------
  * 2026-09-25 | 初回作成
+ * 2026-11-28 | 悪人には当てないようにした(Issue #570)
  * ================================================ */
 
 using System.Collections.Generic;
@@ -12,6 +13,7 @@ using UnityEngine;
 /// <summary>
 /// 警察の攻撃判定オブジェクト
 /// 生成された位置に一定時間残り、その間に判定の球に入った相手(IDamageable)に1回ずつダメージを与える
+/// 悪人には当たらない(プレイヤーを狙った攻撃の範囲に悪人がいても、巻き込まない)
 /// </summary>
 public class CS_PoliceAttackHitbox : MonoBehaviour
 {
@@ -90,6 +92,9 @@ public class CS_PoliceAttackHitbox : MonoBehaviour
             Collider hitCollider = _hitBuffer[i];
             IDamageable target = hitCollider.GetComponentInParent<IDamageable>();
             if (target == null || _hitTargets.Contains(target)) continue;
+
+            // 警察は悪人を倒さないので、攻撃の範囲に巻き込んでも当てない
+            if (target is CS_VillainHealth) continue;
 
             // 変身していないプレイヤーは警察の攻撃対象ではないので当てない(ここでは当てずに、判定が残っている間に変身したら当たる)
             if (target is CS_PlayerHealth player && !CS_PoliceVision.IsPlayerTargetable(player)) continue;

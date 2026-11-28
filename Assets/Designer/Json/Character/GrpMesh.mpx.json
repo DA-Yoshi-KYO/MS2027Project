@@ -2,8 +2,8 @@
     "version": 4,
     "name": "GrpMesh",
     "type": "Character",
-    "scene": "C:/MS27/MS2027Project/Artist/Maya_Project/scenes/Chr_Giro_13.mb",
-    "exportedAt": "2026-11-27 21:42:20",
+    "scene": "C:/MS27/MS2027Project/Artist/Maya_Project/scenes/Chr_Giro_14.mb",
+    "exportedAt": "2026-11-28 19:24:47",
     "units": "FBX: centimetres, Y up (Maya). Transforms below: Unity metres",
     "fbx": "Mesh/Character/GrpMesh.fbx",
     "materialFolder": "Material/Character",
@@ -2592,6 +2592,129 @@
             "mesh": "",
             "materials": [],
             "mayaPath": ""
+        },
+        {
+            "name": "Mesh_Giro_Outline",
+            "parent": 1,
+            "position": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0
+            },
+            "rotation": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0,
+                "w": 1.0
+            },
+            "scale": {
+                "x": 1.0,
+                "y": 1.0,
+                "z": 1.0
+            },
+            "mesh": "Mesh_Giro_Outline",
+            "materials": [
+                5,
+                6,
+                7,
+                8,
+                9
+            ],
+            "mayaPath": ""
+        },
+        {
+            "name": "Mesh_Nose",
+            "parent": 0,
+            "position": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0
+            },
+            "rotation": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0,
+                "w": 1.0
+            },
+            "scale": {
+                "x": 1.0,
+                "y": 1.0,
+                "z": 1.0
+            },
+            "mesh": "Mesh_Nose",
+            "materials": [
+                0
+            ],
+            "mayaPath": "|Grp_Mesh|Mesh_Nose|Mesh_NoseShape"
+        },
+        {
+            "name": "Jnt_L_Toe",
+            "parent": 91,
+            "position": {
+                "x": 0.08736175298690796,
+                "y": 0.0,
+                "z": -0.0000036619603633880617
+            },
+            "rotation": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0,
+                "w": 1.0
+            },
+            "scale": {
+                "x": 1.0,
+                "y": 1.0,
+                "z": 1.0
+            },
+            "mesh": "",
+            "materials": [],
+            "mayaPath": ""
+        },
+        {
+            "name": "Jnt_R_Toe",
+            "parent": 95,
+            "position": {
+                "x": -0.08736199140548706,
+                "y": 0.0,
+                "z": 0.0000036992132663726808
+            },
+            "rotation": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0,
+                "w": 1.0
+            },
+            "scale": {
+                "x": 1.0,
+                "y": 1.0,
+                "z": 1.0
+            },
+            "mesh": "",
+            "materials": [],
+            "mayaPath": ""
+        },
+        {
+            "name": "Jnt_Weapon",
+            "parent": 2,
+            "position": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": 0.0
+            },
+            "rotation": {
+                "x": 0.0,
+                "y": 0.0,
+                "z": -0.7071068286895752,
+                "w": 0.7071068286895752
+            },
+            "scale": {
+                "x": 1.0,
+                "y": 1.0,
+                "z": 1.0
+            },
+            "mesh": "",
+            "materials": [],
+            "mayaPath": ""
         }
     ],
     "materials": [
@@ -2604,6 +2727,7 @@
             "renderQueue": 2225,
             "keywords": [
                 "_DISABLE_SSR_TRANSPARENT",
+                "_DOUBLESIDED_ON",
                 "_NORMALMAP_TANGENT_SPACE"
             ],
             "floats": [
@@ -2885,11 +3009,11 @@
                 },
                 {
                     "prop": "_CullMode",
-                    "value": 2.0
+                    "value": 0.0
                 },
                 {
                     "prop": "_CullModeForward",
-                    "value": 2.0
+                    "value": 0.0
                 },
                 {
                     "prop": "_TransparentCullMode",
@@ -2921,7 +3045,7 @@
                 },
                 {
                     "prop": "_DoubleSidedEnable",
-                    "value": 0.0
+                    "value": 1.0
                 },
                 {
                     "prop": "_DoubleSidedNormalMode",
@@ -3216,6 +3340,7 @@
             "renderQueue": 2225,
             "keywords": [
                 "_DISABLE_SSR_TRANSPARENT",
+                "_DOUBLESIDED_ON",
                 "_NORMALMAP_TANGENT_SPACE"
             ],
             "floats": [
@@ -3497,11 +3622,11 @@
                 },
                 {
                     "prop": "_CullMode",
-                    "value": 2.0
+                    "value": 0.0
                 },
                 {
                     "prop": "_CullModeForward",
-                    "value": 2.0
+                    "value": 0.0
                 },
                 {
                     "prop": "_TransparentCullMode",
@@ -3533,7 +3658,7 @@
                 },
                 {
                     "prop": "_DoubleSidedEnable",
-                    "value": 0.0
+                    "value": 1.0
                 },
                 {
                     "prop": "_DoubleSidedNormalMode",
@@ -3828,6 +3953,7 @@
             "renderQueue": 2225,
             "keywords": [
                 "_DISABLE_SSR_TRANSPARENT",
+                "_DOUBLESIDED_ON",
                 "_NORMALMAP_TANGENT_SPACE"
             ],
             "floats": [
@@ -4109,11 +4235,11 @@
                 },
                 {
                     "prop": "_CullMode",
-                    "value": 2.0
+                    "value": 0.0
                 },
                 {
                     "prop": "_CullModeForward",
-                    "value": 2.0
+                    "value": 0.0
                 },
                 {
                     "prop": "_TransparentCullMode",
@@ -4145,7 +4271,7 @@
                 },
                 {
                     "prop": "_DoubleSidedEnable",
-                    "value": 0.0
+                    "value": 1.0
                 },
                 {
                     "prop": "_DoubleSidedNormalMode",
@@ -4897,6 +5023,7 @@
             "renderQueue": 2225,
             "keywords": [
                 "_DISABLE_SSR_TRANSPARENT",
+                "_DOUBLESIDED_ON",
                 "_NORMALMAP_TANGENT_SPACE"
             ],
             "floats": [
@@ -5178,11 +5305,11 @@
                 },
                 {
                     "prop": "_CullMode",
-                    "value": 2.0
+                    "value": 0.0
                 },
                 {
                     "prop": "_CullModeForward",
-                    "value": 2.0
+                    "value": 0.0
                 },
                 {
                     "prop": "_TransparentCullMode",
@@ -5214,7 +5341,7 @@
                 },
                 {
                     "prop": "_DoubleSidedEnable",
-                    "value": 0.0
+                    "value": 1.0
                 },
                 {
                     "prop": "_DoubleSidedNormalMode",
@@ -5499,6 +5626,1306 @@
             ],
             "textures": [],
             "outlineWidth": 0.0
+        },
+        {
+            "name": "Outline_M_Lam_Face",
+            "asset": "MT_Character_OutlineMLamFace",
+            "shader": "Shader Graphs/SHG_Outline",
+            "maya": false,
+            "mayaSettings": "",
+            "renderQueue": 2450,
+            "keywords": [
+                "_ALPHATEST_ON",
+                "_DISABLE_SSR_TRANSPARENT",
+                "_DOUBLESIDED_ON",
+                "_NORMALMAP_TANGENT_SPACE"
+            ],
+            "floats": [
+                {
+                    "prop": "_OutlineWidth",
+                    "value": 0.25
+                },
+                {
+                    "prop": "_OutlineTexBlend",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_OutlineTexDarken",
+                    "value": 0.550000011920929
+                },
+                {
+                    "prop": "_OutlineDepthPush",
+                    "value": 4.0
+                },
+                {
+                    "prop": "_OutlineMaxPixels",
+                    "value": 3.0
+                },
+                {
+                    "prop": "_RenderQueueType",
+                    "value": 1.0
+                },
+                {
+                    "prop": "_AddPrecomputedVelocity",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_DepthOffsetEnable",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_ConservativeDepthOffsetEnable",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_TransparentWritingMotionVec",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_AlphaCutoffEnable",
+                    "value": 1.0
+                },
+                {
+                    "prop": "_TransparentSortPriority",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_UseShadowThreshold",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_DoubleSidedEnable",
+                    "value": 1.0
+                },
+                {
+                    "prop": "_DoubleSidedNormalMode",
+                    "value": 1.0
+                },
+                {
+                    "prop": "_DoubleSidedGIMode",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_TransparentDepthPrepassEnable",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_TransparentDepthPostpassEnable",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_PerPixelSorting",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_SurfaceType",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_BlendMode",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_SrcBlend",
+                    "value": 1.0
+                },
+                {
+                    "prop": "_DstBlend",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_DstBlend2",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_AlphaSrcBlend",
+                    "value": 1.0
+                },
+                {
+                    "prop": "_AlphaDstBlend",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_ZWrite",
+                    "value": 1.0
+                },
+                {
+                    "prop": "_TransparentZWrite",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_CullMode",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_EnableFogOnTransparent",
+                    "value": 1.0
+                },
+                {
+                    "prop": "_CullModeForward",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_TransparentCullMode",
+                    "value": 2.0
+                },
+                {
+                    "prop": "_OpaqueCullMode",
+                    "value": 2.0
+                },
+                {
+                    "prop": "_ZTestDepthEqualForOpaque",
+                    "value": 3.0
+                },
+                {
+                    "prop": "_ZTestTransparent",
+                    "value": 4.0
+                },
+                {
+                    "prop": "_TransparentBackfaceEnable",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_EnableBlendModePreserveSpecularLighting",
+                    "value": 1.0
+                },
+                {
+                    "prop": "_ExcludeFromTUAndAA",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_StencilRef",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_StencilWriteMask",
+                    "value": 6.0
+                },
+                {
+                    "prop": "_StencilRefDepth",
+                    "value": 1.0
+                },
+                {
+                    "prop": "_StencilWriteMaskDepth",
+                    "value": 9.0
+                },
+                {
+                    "prop": "_StencilRefMV",
+                    "value": 33.0
+                },
+                {
+                    "prop": "_StencilWriteMaskMV",
+                    "value": 43.0
+                },
+                {
+                    "prop": "_StencilRefDistortionVec",
+                    "value": 4.0
+                },
+                {
+                    "prop": "_StencilWriteMaskDistortionVec",
+                    "value": 4.0
+                }
+            ],
+            "ints": [],
+            "colors": [
+                {
+                    "prop": "_OutlineColor",
+                    "value": {
+                        "r": 0.4399999976158142,
+                        "g": 0.4399999976158142,
+                        "b": 0.4399999976158142,
+                        "a": 1.0
+                    }
+                },
+                {
+                    "prop": "_OutlineTint",
+                    "value": {
+                        "r": 1.0,
+                        "g": 1.0,
+                        "b": 1.0,
+                        "a": 1.0
+                    }
+                },
+                {
+                    "prop": "_EmissionColor",
+                    "value": {
+                        "r": 1.0,
+                        "g": 1.0,
+                        "b": 1.0,
+                        "a": 1.0
+                    }
+                }
+            ],
+            "vectors": [
+                {
+                    "prop": "_DoubleSidedConstants",
+                    "value": {
+                        "x": 1.0,
+                        "y": 1.0,
+                        "z": -1.0,
+                        "w": 0.0
+                    }
+                }
+            ],
+            "textures": [
+                {
+                    "prop": "_OutlineWidthMask",
+                    "file": "",
+                    "textureName": "UnityWhite",
+                    "source": "",
+                    "normal": false,
+                    "linear": false,
+                    "scale": {
+                        "x": 1.0,
+                        "y": 1.0
+                    },
+                    "offset": {
+                        "x": 0.0,
+                        "y": 0.0
+                    }
+                }
+            ],
+            "outlineWidth": 0.0024999999441206457
+        },
+        {
+            "name": "Outline_M_Lam_Skin",
+            "asset": "MT_Character_OutlineMLamSkin",
+            "shader": "Shader Graphs/SHG_Outline",
+            "maya": false,
+            "mayaSettings": "",
+            "renderQueue": 2450,
+            "keywords": [
+                "_ALPHATEST_ON",
+                "_DISABLE_SSR_TRANSPARENT",
+                "_DOUBLESIDED_ON",
+                "_NORMALMAP_TANGENT_SPACE"
+            ],
+            "floats": [
+                {
+                    "prop": "_OutlineWidth",
+                    "value": 0.25
+                },
+                {
+                    "prop": "_OutlineTexBlend",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_OutlineTexDarken",
+                    "value": 0.550000011920929
+                },
+                {
+                    "prop": "_OutlineDepthPush",
+                    "value": 4.0
+                },
+                {
+                    "prop": "_OutlineMaxPixels",
+                    "value": 3.0
+                },
+                {
+                    "prop": "_RenderQueueType",
+                    "value": 1.0
+                },
+                {
+                    "prop": "_AddPrecomputedVelocity",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_DepthOffsetEnable",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_ConservativeDepthOffsetEnable",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_TransparentWritingMotionVec",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_AlphaCutoffEnable",
+                    "value": 1.0
+                },
+                {
+                    "prop": "_TransparentSortPriority",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_UseShadowThreshold",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_DoubleSidedEnable",
+                    "value": 1.0
+                },
+                {
+                    "prop": "_DoubleSidedNormalMode",
+                    "value": 1.0
+                },
+                {
+                    "prop": "_DoubleSidedGIMode",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_TransparentDepthPrepassEnable",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_TransparentDepthPostpassEnable",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_PerPixelSorting",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_SurfaceType",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_BlendMode",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_SrcBlend",
+                    "value": 1.0
+                },
+                {
+                    "prop": "_DstBlend",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_DstBlend2",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_AlphaSrcBlend",
+                    "value": 1.0
+                },
+                {
+                    "prop": "_AlphaDstBlend",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_ZWrite",
+                    "value": 1.0
+                },
+                {
+                    "prop": "_TransparentZWrite",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_CullMode",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_EnableFogOnTransparent",
+                    "value": 1.0
+                },
+                {
+                    "prop": "_CullModeForward",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_TransparentCullMode",
+                    "value": 2.0
+                },
+                {
+                    "prop": "_OpaqueCullMode",
+                    "value": 2.0
+                },
+                {
+                    "prop": "_ZTestDepthEqualForOpaque",
+                    "value": 3.0
+                },
+                {
+                    "prop": "_ZTestTransparent",
+                    "value": 4.0
+                },
+                {
+                    "prop": "_TransparentBackfaceEnable",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_EnableBlendModePreserveSpecularLighting",
+                    "value": 1.0
+                },
+                {
+                    "prop": "_ExcludeFromTUAndAA",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_StencilRef",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_StencilWriteMask",
+                    "value": 6.0
+                },
+                {
+                    "prop": "_StencilRefDepth",
+                    "value": 1.0
+                },
+                {
+                    "prop": "_StencilWriteMaskDepth",
+                    "value": 9.0
+                },
+                {
+                    "prop": "_StencilRefMV",
+                    "value": 33.0
+                },
+                {
+                    "prop": "_StencilWriteMaskMV",
+                    "value": 43.0
+                },
+                {
+                    "prop": "_StencilRefDistortionVec",
+                    "value": 4.0
+                },
+                {
+                    "prop": "_StencilWriteMaskDistortionVec",
+                    "value": 4.0
+                }
+            ],
+            "ints": [],
+            "colors": [
+                {
+                    "prop": "_OutlineColor",
+                    "value": {
+                        "r": 0.4399999976158142,
+                        "g": 0.4399999976158142,
+                        "b": 0.4399999976158142,
+                        "a": 1.0
+                    }
+                },
+                {
+                    "prop": "_OutlineTint",
+                    "value": {
+                        "r": 1.0,
+                        "g": 1.0,
+                        "b": 1.0,
+                        "a": 1.0
+                    }
+                },
+                {
+                    "prop": "_EmissionColor",
+                    "value": {
+                        "r": 1.0,
+                        "g": 1.0,
+                        "b": 1.0,
+                        "a": 1.0
+                    }
+                }
+            ],
+            "vectors": [
+                {
+                    "prop": "_DoubleSidedConstants",
+                    "value": {
+                        "x": 1.0,
+                        "y": 1.0,
+                        "z": -1.0,
+                        "w": 0.0
+                    }
+                }
+            ],
+            "textures": [
+                {
+                    "prop": "_OutlineWidthMask",
+                    "file": "",
+                    "textureName": "UnityWhite",
+                    "source": "",
+                    "normal": false,
+                    "linear": false,
+                    "scale": {
+                        "x": 1.0,
+                        "y": 1.0
+                    },
+                    "offset": {
+                        "x": 0.0,
+                        "y": 0.0
+                    }
+                }
+            ],
+            "outlineWidth": 0.0024999999441206457
+        },
+        {
+            "name": "Outline_M_Lam_Eye",
+            "asset": "MT_Character_OutlineMLamEye",
+            "shader": "Shader Graphs/SHG_Outline",
+            "maya": false,
+            "mayaSettings": "",
+            "renderQueue": 2450,
+            "keywords": [
+                "_ALPHATEST_ON",
+                "_DISABLE_SSR_TRANSPARENT",
+                "_DOUBLESIDED_ON",
+                "_NORMALMAP_TANGENT_SPACE"
+            ],
+            "floats": [
+                {
+                    "prop": "_OutlineWidth",
+                    "value": 0.25
+                },
+                {
+                    "prop": "_OutlineTexBlend",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_OutlineTexDarken",
+                    "value": 0.550000011920929
+                },
+                {
+                    "prop": "_OutlineDepthPush",
+                    "value": 4.0
+                },
+                {
+                    "prop": "_OutlineMaxPixels",
+                    "value": 3.0
+                },
+                {
+                    "prop": "_RenderQueueType",
+                    "value": 1.0
+                },
+                {
+                    "prop": "_AddPrecomputedVelocity",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_DepthOffsetEnable",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_ConservativeDepthOffsetEnable",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_TransparentWritingMotionVec",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_AlphaCutoffEnable",
+                    "value": 1.0
+                },
+                {
+                    "prop": "_TransparentSortPriority",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_UseShadowThreshold",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_DoubleSidedEnable",
+                    "value": 1.0
+                },
+                {
+                    "prop": "_DoubleSidedNormalMode",
+                    "value": 1.0
+                },
+                {
+                    "prop": "_DoubleSidedGIMode",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_TransparentDepthPrepassEnable",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_TransparentDepthPostpassEnable",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_PerPixelSorting",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_SurfaceType",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_BlendMode",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_SrcBlend",
+                    "value": 1.0
+                },
+                {
+                    "prop": "_DstBlend",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_DstBlend2",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_AlphaSrcBlend",
+                    "value": 1.0
+                },
+                {
+                    "prop": "_AlphaDstBlend",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_ZWrite",
+                    "value": 1.0
+                },
+                {
+                    "prop": "_TransparentZWrite",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_CullMode",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_EnableFogOnTransparent",
+                    "value": 1.0
+                },
+                {
+                    "prop": "_CullModeForward",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_TransparentCullMode",
+                    "value": 2.0
+                },
+                {
+                    "prop": "_OpaqueCullMode",
+                    "value": 2.0
+                },
+                {
+                    "prop": "_ZTestDepthEqualForOpaque",
+                    "value": 3.0
+                },
+                {
+                    "prop": "_ZTestTransparent",
+                    "value": 4.0
+                },
+                {
+                    "prop": "_TransparentBackfaceEnable",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_EnableBlendModePreserveSpecularLighting",
+                    "value": 1.0
+                },
+                {
+                    "prop": "_ExcludeFromTUAndAA",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_StencilRef",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_StencilWriteMask",
+                    "value": 6.0
+                },
+                {
+                    "prop": "_StencilRefDepth",
+                    "value": 1.0
+                },
+                {
+                    "prop": "_StencilWriteMaskDepth",
+                    "value": 9.0
+                },
+                {
+                    "prop": "_StencilRefMV",
+                    "value": 33.0
+                },
+                {
+                    "prop": "_StencilWriteMaskMV",
+                    "value": 43.0
+                },
+                {
+                    "prop": "_StencilRefDistortionVec",
+                    "value": 4.0
+                },
+                {
+                    "prop": "_StencilWriteMaskDistortionVec",
+                    "value": 4.0
+                }
+            ],
+            "ints": [],
+            "colors": [
+                {
+                    "prop": "_OutlineColor",
+                    "value": {
+                        "r": 0.4399999976158142,
+                        "g": 0.4399999976158142,
+                        "b": 0.4399999976158142,
+                        "a": 1.0
+                    }
+                },
+                {
+                    "prop": "_OutlineTint",
+                    "value": {
+                        "r": 1.0,
+                        "g": 1.0,
+                        "b": 1.0,
+                        "a": 1.0
+                    }
+                },
+                {
+                    "prop": "_EmissionColor",
+                    "value": {
+                        "r": 1.0,
+                        "g": 1.0,
+                        "b": 1.0,
+                        "a": 1.0
+                    }
+                }
+            ],
+            "vectors": [
+                {
+                    "prop": "_DoubleSidedConstants",
+                    "value": {
+                        "x": 1.0,
+                        "y": 1.0,
+                        "z": -1.0,
+                        "w": 0.0
+                    }
+                }
+            ],
+            "textures": [
+                {
+                    "prop": "_OutlineWidthMask",
+                    "file": "",
+                    "textureName": "UnityWhite",
+                    "source": "",
+                    "normal": false,
+                    "linear": false,
+                    "scale": {
+                        "x": 1.0,
+                        "y": 1.0
+                    },
+                    "offset": {
+                        "x": 0.0,
+                        "y": 0.0
+                    }
+                }
+            ],
+            "outlineWidth": 0.0024999999441206457
+        },
+        {
+            "name": "Outline_M_Lam_Clothes",
+            "asset": "MT_Character_OutlineMLamClothes",
+            "shader": "Shader Graphs/SHG_Outline",
+            "maya": false,
+            "mayaSettings": "",
+            "renderQueue": 2450,
+            "keywords": [
+                "_ALPHATEST_ON",
+                "_DISABLE_SSR_TRANSPARENT",
+                "_DOUBLESIDED_ON",
+                "_NORMALMAP_TANGENT_SPACE"
+            ],
+            "floats": [
+                {
+                    "prop": "_OutlineWidth",
+                    "value": 0.25
+                },
+                {
+                    "prop": "_OutlineTexBlend",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_OutlineTexDarken",
+                    "value": 0.550000011920929
+                },
+                {
+                    "prop": "_OutlineDepthPush",
+                    "value": 4.0
+                },
+                {
+                    "prop": "_OutlineMaxPixels",
+                    "value": 3.0
+                },
+                {
+                    "prop": "_RenderQueueType",
+                    "value": 1.0
+                },
+                {
+                    "prop": "_AddPrecomputedVelocity",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_DepthOffsetEnable",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_ConservativeDepthOffsetEnable",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_TransparentWritingMotionVec",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_AlphaCutoffEnable",
+                    "value": 1.0
+                },
+                {
+                    "prop": "_TransparentSortPriority",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_UseShadowThreshold",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_DoubleSidedEnable",
+                    "value": 1.0
+                },
+                {
+                    "prop": "_DoubleSidedNormalMode",
+                    "value": 1.0
+                },
+                {
+                    "prop": "_DoubleSidedGIMode",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_TransparentDepthPrepassEnable",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_TransparentDepthPostpassEnable",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_PerPixelSorting",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_SurfaceType",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_BlendMode",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_SrcBlend",
+                    "value": 1.0
+                },
+                {
+                    "prop": "_DstBlend",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_DstBlend2",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_AlphaSrcBlend",
+                    "value": 1.0
+                },
+                {
+                    "prop": "_AlphaDstBlend",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_ZWrite",
+                    "value": 1.0
+                },
+                {
+                    "prop": "_TransparentZWrite",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_CullMode",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_EnableFogOnTransparent",
+                    "value": 1.0
+                },
+                {
+                    "prop": "_CullModeForward",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_TransparentCullMode",
+                    "value": 2.0
+                },
+                {
+                    "prop": "_OpaqueCullMode",
+                    "value": 2.0
+                },
+                {
+                    "prop": "_ZTestDepthEqualForOpaque",
+                    "value": 3.0
+                },
+                {
+                    "prop": "_ZTestTransparent",
+                    "value": 4.0
+                },
+                {
+                    "prop": "_TransparentBackfaceEnable",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_EnableBlendModePreserveSpecularLighting",
+                    "value": 1.0
+                },
+                {
+                    "prop": "_ExcludeFromTUAndAA",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_StencilRef",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_StencilWriteMask",
+                    "value": 6.0
+                },
+                {
+                    "prop": "_StencilRefDepth",
+                    "value": 1.0
+                },
+                {
+                    "prop": "_StencilWriteMaskDepth",
+                    "value": 9.0
+                },
+                {
+                    "prop": "_StencilRefMV",
+                    "value": 33.0
+                },
+                {
+                    "prop": "_StencilWriteMaskMV",
+                    "value": 43.0
+                },
+                {
+                    "prop": "_StencilRefDistortionVec",
+                    "value": 4.0
+                },
+                {
+                    "prop": "_StencilWriteMaskDistortionVec",
+                    "value": 4.0
+                }
+            ],
+            "ints": [],
+            "colors": [
+                {
+                    "prop": "_OutlineColor",
+                    "value": {
+                        "r": 0.4399999976158142,
+                        "g": 0.4399999976158142,
+                        "b": 0.4399999976158142,
+                        "a": 1.0
+                    }
+                },
+                {
+                    "prop": "_OutlineTint",
+                    "value": {
+                        "r": 1.0,
+                        "g": 1.0,
+                        "b": 1.0,
+                        "a": 1.0
+                    }
+                },
+                {
+                    "prop": "_EmissionColor",
+                    "value": {
+                        "r": 1.0,
+                        "g": 1.0,
+                        "b": 1.0,
+                        "a": 1.0
+                    }
+                }
+            ],
+            "vectors": [
+                {
+                    "prop": "_DoubleSidedConstants",
+                    "value": {
+                        "x": 1.0,
+                        "y": 1.0,
+                        "z": -1.0,
+                        "w": 0.0
+                    }
+                }
+            ],
+            "textures": [
+                {
+                    "prop": "_OutlineWidthMask",
+                    "file": "",
+                    "textureName": "UnityWhite",
+                    "source": "",
+                    "normal": false,
+                    "linear": false,
+                    "scale": {
+                        "x": 1.0,
+                        "y": 1.0
+                    },
+                    "offset": {
+                        "x": 0.0,
+                        "y": 0.0
+                    }
+                }
+            ],
+            "outlineWidth": 0.0024999999441206457
+        },
+        {
+            "name": "Outline_M_Lam_Hair",
+            "asset": "MT_Character_OutlineMLamHair",
+            "shader": "Shader Graphs/SHG_Outline",
+            "maya": false,
+            "mayaSettings": "",
+            "renderQueue": 2450,
+            "keywords": [
+                "_ALPHATEST_ON",
+                "_DISABLE_SSR_TRANSPARENT",
+                "_DOUBLESIDED_ON",
+                "_NORMALMAP_TANGENT_SPACE"
+            ],
+            "floats": [
+                {
+                    "prop": "_OutlineWidth",
+                    "value": 0.25
+                },
+                {
+                    "prop": "_OutlineTexBlend",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_OutlineTexDarken",
+                    "value": 0.550000011920929
+                },
+                {
+                    "prop": "_OutlineDepthPush",
+                    "value": 4.0
+                },
+                {
+                    "prop": "_OutlineMaxPixels",
+                    "value": 3.0
+                },
+                {
+                    "prop": "_RenderQueueType",
+                    "value": 1.0
+                },
+                {
+                    "prop": "_AddPrecomputedVelocity",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_DepthOffsetEnable",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_ConservativeDepthOffsetEnable",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_TransparentWritingMotionVec",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_AlphaCutoffEnable",
+                    "value": 1.0
+                },
+                {
+                    "prop": "_TransparentSortPriority",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_UseShadowThreshold",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_DoubleSidedEnable",
+                    "value": 1.0
+                },
+                {
+                    "prop": "_DoubleSidedNormalMode",
+                    "value": 1.0
+                },
+                {
+                    "prop": "_DoubleSidedGIMode",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_TransparentDepthPrepassEnable",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_TransparentDepthPostpassEnable",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_PerPixelSorting",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_SurfaceType",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_BlendMode",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_SrcBlend",
+                    "value": 1.0
+                },
+                {
+                    "prop": "_DstBlend",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_DstBlend2",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_AlphaSrcBlend",
+                    "value": 1.0
+                },
+                {
+                    "prop": "_AlphaDstBlend",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_ZWrite",
+                    "value": 1.0
+                },
+                {
+                    "prop": "_TransparentZWrite",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_CullMode",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_EnableFogOnTransparent",
+                    "value": 1.0
+                },
+                {
+                    "prop": "_CullModeForward",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_TransparentCullMode",
+                    "value": 2.0
+                },
+                {
+                    "prop": "_OpaqueCullMode",
+                    "value": 2.0
+                },
+                {
+                    "prop": "_ZTestDepthEqualForOpaque",
+                    "value": 3.0
+                },
+                {
+                    "prop": "_ZTestTransparent",
+                    "value": 4.0
+                },
+                {
+                    "prop": "_TransparentBackfaceEnable",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_EnableBlendModePreserveSpecularLighting",
+                    "value": 1.0
+                },
+                {
+                    "prop": "_ExcludeFromTUAndAA",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_StencilRef",
+                    "value": 0.0
+                },
+                {
+                    "prop": "_StencilWriteMask",
+                    "value": 6.0
+                },
+                {
+                    "prop": "_StencilRefDepth",
+                    "value": 1.0
+                },
+                {
+                    "prop": "_StencilWriteMaskDepth",
+                    "value": 9.0
+                },
+                {
+                    "prop": "_StencilRefMV",
+                    "value": 33.0
+                },
+                {
+                    "prop": "_StencilWriteMaskMV",
+                    "value": 43.0
+                },
+                {
+                    "prop": "_StencilRefDistortionVec",
+                    "value": 4.0
+                },
+                {
+                    "prop": "_StencilWriteMaskDistortionVec",
+                    "value": 4.0
+                }
+            ],
+            "ints": [],
+            "colors": [
+                {
+                    "prop": "_OutlineColor",
+                    "value": {
+                        "r": 0.4399999976158142,
+                        "g": 0.4399999976158142,
+                        "b": 0.4399999976158142,
+                        "a": 1.0
+                    }
+                },
+                {
+                    "prop": "_OutlineTint",
+                    "value": {
+                        "r": 1.0,
+                        "g": 1.0,
+                        "b": 1.0,
+                        "a": 1.0
+                    }
+                },
+                {
+                    "prop": "_EmissionColor",
+                    "value": {
+                        "r": 1.0,
+                        "g": 1.0,
+                        "b": 1.0,
+                        "a": 1.0
+                    }
+                }
+            ],
+            "vectors": [
+                {
+                    "prop": "_DoubleSidedConstants",
+                    "value": {
+                        "x": 1.0,
+                        "y": 1.0,
+                        "z": -1.0,
+                        "w": 0.0
+                    }
+                }
+            ],
+            "textures": [
+                {
+                    "prop": "_OutlineWidthMask",
+                    "file": "",
+                    "textureName": "UnityWhite",
+                    "source": "",
+                    "normal": false,
+                    "linear": false,
+                    "scale": {
+                        "x": 1.0,
+                        "y": 1.0
+                    },
+                    "offset": {
+                        "x": 0.0,
+                        "y": 0.0
+                    }
+                }
+            ],
+            "outlineWidth": 0.0024999999441206457
         }
     ],
     "entries": [

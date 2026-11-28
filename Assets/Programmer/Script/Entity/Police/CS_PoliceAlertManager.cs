@@ -10,6 +10,7 @@
  * 2026-11-06 | 警察に追跡・ドローンに目撃・ライトに照射されている時間と、レーザーに当たった時に、プレイヤーを減点するようにした(見つかった瞬間の減点はやめた)
  * 2026-11-09 | 警戒状態を、タイマーではなく、警察・巡回ドローンの実際の状態から決めてCS_PlayerAlertへ渡すようにした
  * 2026-11-13 | 復活後の無敵中のプレイヤーは、見つかっても警戒状態にせず、減点もしないようにした(仕様書「リスポーン」: この間は警察に視認されない。Issue #453)
+ * 2026-11-28 | 悪人グループとプレイヤーの戦闘に駆け付ける警察を出すようにした(CS_PoliceBattleResponse。Issue #569)
  * ================================================ */
 
 using System.Collections.Generic;
@@ -37,6 +38,7 @@ using UnityEngine;
 ///   複数に同時に見られていても、減点は1人分。防犯レーザーに当たった時は、決められた点数を1回引く(ReportLaserHit)
 ///   点数は、スコアの結果(CS_PlayerResultDataHolder)の「警察に見つかった」へ加える
 /// ・警戒状態が解除されたら(CS_PlayerAlertが「なし」に戻って、少し待っても見つからなければ)、そのプレイヤーへの指示をやめる
+/// ・悪人グループとプレイヤーの戦闘が始まったら、遠くの見えない場所に警察を出して、現場へ向かわせる(CS_PoliceBattleResponse。警戒状態とは別)
 /// 警察への指示はサーバー(またはオフライン)だけで行う
 /// </summary>
 public class CS_PoliceAlertManager : MonoBehaviour
@@ -141,6 +143,9 @@ public class CS_PoliceAlertManager : MonoBehaviour
     // 見られなくなったプレイヤーを集める際に使い回すリスト
     private readonly List<CS_PlayerHealth> _exposureBuffer = new List<CS_PlayerHealth>();
 
+    // 悪人グループとプレイヤーの戦闘に、警察を駆け付けさせる処理
+    private CS_PoliceBattleResponse _battleResponse = null;
+
     [Header("＝＝＝ 警戒状態 ＝＝＝")]
     [SerializeField]
     [Tooltip("警戒状態の設定(付近の範囲・防犯装置に触れた時・増援・減点)。警戒状態は、警察・巡回ドローンの実際の状態から決まる")]
@@ -233,6 +238,7 @@ public class CS_PoliceAlertManager : MonoBehaviour
         }
 
         _instance = this;
+        if (_alertData != null) _battleResponse = new CS_PoliceBattleResponse(_alertData);
     }
 
     private void OnDestroy()
@@ -243,6 +249,7 @@ public class CS_PoliceAlertManager : MonoBehaviour
         _exposedTimes.Clear();
         _touchedUntil.Clear();
         _lastReinforceTimes.Clear();
+        _battleResponse?.Clear();
     }
 
     private void Update()
@@ -251,6 +258,7 @@ public class CS_PoliceAlertManager : MonoBehaviour
 
         UpdateAlertStates();
         UpdateExposurePenalty(Time.deltaTime);
+        if (!CS_PoliceSquad.IsNetworkClientOnly()) _battleResponse?.Tick(Time.deltaTime);
         if (_states.Count == 0) return;
 
         _dispatchTimer -= Time.deltaTime;

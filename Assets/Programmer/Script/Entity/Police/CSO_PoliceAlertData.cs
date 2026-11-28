@@ -113,6 +113,22 @@ public class CSO_PoliceAlertData : ScriptableObject
     // 戦闘の駆け付けの警察を出せるだけの設定が揃っているか
     public bool hasBattlePolice => _useBattlePolice && _battlePoliceCount > 0 && _reinforcePolice != null && _reinforceStatus != null && _playerBaseStats != null;
 
+    [Header("＝＝＝ 巡回する警察の出現範囲(軽量化。プレイヤーから遠い警察のグループは出さない) ＝＝＝")]
+    [SerializeField]
+    [Tooltip("プレイヤーの近くの警察のグループだけを出すか(オフなら、すべてのグループを常に出す)")]
+    private bool _useSquadRange = true;
+    public bool useSquadRange => _useSquadRange;
+
+    [SerializeField, Min(10f)]
+    [Tooltip("巡回している位置が、どれかのプレイヤーからこの距離(m。水平)以内に入ったグループを出す。出ていない間も、巡回の位置は進む")]
+    private float _squadSpawnDistance = 80.0f;
+    public float squadSpawnDistance => _squadSpawnDistance;
+
+    [SerializeField, Min(10f)]
+    [Tooltip("グループの全員が、どのプレイヤーからもこの距離(m。水平)より離れて、追跡や駆け付けをしていなければ消す。出す距離より大きくする(境目で出たり消えたりしないように)")]
+    private float _squadDespawnDistance = 100.0f;
+    public float squadDespawnDistance => Mathf.Max(_squadDespawnDistance, _squadSpawnDistance);
+
     // 増援を出せるだけの設定(プレハブ・ステータス・基準ステータス・人数)が揃っているか
     public bool hasReinforcement => _reinforcePolice != null && _reinforceStatus != null && _playerBaseStats != null && _reinforceCount > 0;
 }

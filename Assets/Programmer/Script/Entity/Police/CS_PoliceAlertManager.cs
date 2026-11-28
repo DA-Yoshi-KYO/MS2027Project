@@ -220,6 +220,21 @@ public class CS_PoliceAlertManager : MonoBehaviour
     }
 
     /// <summary>
+    /// 巡回する警察のグループを、プレイヤーの近くだけに出す時の距離を取得するメソッド
+    /// </summary>
+    /// <param name="spawnDistance">この距離以内に入ったグループを出す(m)</param>
+    /// <param name="despawnDistance">この距離より離れたグループを消す(m)</param>
+    /// <returns>距離で出し分けるならtrue(管理クラスが無いシーン・機能がオフの時はfalseで、すべて出す)</returns>
+    public static bool TryGetSquadRange(out float spawnDistance, out float despawnDistance)
+    {
+        CSO_PoliceAlertData data = _instance != null ? _instance._alertData : null;
+        bool isUsed = data != null && data.useSquadRange;
+        spawnDistance = isUsed ? data.squadSpawnDistance : 0.0f;
+        despawnDistance = isUsed ? data.squadDespawnDistance : 0.0f;
+        return isUsed;
+    }
+
+    /// <summary>
     /// プレイヤーが警戒状態かを判定するメソッド
     /// </summary>
     /// <param name="player">判定するプレイヤー</param>

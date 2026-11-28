@@ -8,6 +8,7 @@
  * 2026-11-06 | 増援を、見つけた警察と挟む形の位置に、遠くから出すようにした(距離を伸ばし、並べる角度の間隔を追加)
  * 2026-11-06 | 追跡・目撃・照射されている時間による減点の設定(間隔・点数)と、レーザーに当たった時の減点を追加
  * 2026-11-09 | レーザー・ライトに触れた時に発見中にする秒数と、増援を出す間隔を追加
+ * 2026-11-28 | 悪人グループとプレイヤーの戦闘に駆け付ける警察の設定を追加(Issue #569)
  * ================================================ */
 
 using UnityEngine;
@@ -83,6 +84,50 @@ public class CSO_PoliceAlertData : ScriptableObject
     [Tooltip("増援を並べる角度の間隔(度)。増援は、プレイヤーから見て、見つけた警察の反対側(挟む形)に出る。複数いる時は、反対側の向きを中心に、この間隔で左右に並べる")]
     private float _reinforceSpreadAngle = 30.0f;
     public float reinforceSpreadAngle => _reinforceSpreadAngle;
+
+    [Header("＝＝＝ 戦闘の駆け付け(悪人グループとプレイヤーの戦闘が始まったら、遠くに警察を出して向かわせる) ＝＝＝")]
+    [SerializeField]
+    [Tooltip("戦闘が始まったら警察を出すか(要テストの機能。オフで無効)。出す警察のプレハブ・ステータス・基準ステータスは、増援と同じものを使う")]
+    private bool _useBattlePolice = true;
+
+    [SerializeField, Min(0)]
+    [Tooltip("1回の戦闘で出す警察の人数(同じ悪人グループの戦闘では、1回だけ出す)")]
+    private int _battlePoliceCount = 2;
+    public int battlePoliceCount => _battlePoliceCount;
+
+    [SerializeField, Min(0f)]
+    [Tooltip("戦闘が始まってから、この時間(秒)が経ったら、警察を出す(途中で戦闘が終わっても出る。0なら、すぐに出す)")]
+    private float _battleSpawnDelay = 5.0f;
+    public float battleSpawnDelay => _battleSpawnDelay;
+
+    [SerializeField, Min(1f)]
+    [Tooltip("戦闘の場所から、この距離(m)だけ離れた、どのプレイヤーからも見えない場所に出す(見つからなければ、1.5倍の距離まで広げて探す)")]
+    private float _battleSpawnDistance = 60.0f;
+    public float battleSpawnDistance => _battleSpawnDistance;
+
+    [SerializeField, Min(5f)]
+    [Tooltip("プレイヤーからこの距離(m)以内の悪人を、戦闘が始まるかの見張りの対象にする。プレイヤーの攻撃が届く距離より大きくする")]
+    private float _battleWatchRadius = 40.0f;
+    public float battleWatchRadius => _battleWatchRadius;
+
+    // 戦闘の駆け付けの警察を出せるだけの設定が揃っているか
+    public bool hasBattlePolice => _useBattlePolice && _battlePoliceCount > 0 && _reinforcePolice != null && _reinforceStatus != null && _playerBaseStats != null;
+
+    [Header("＝＝＝ 巡回する警察の出現範囲(軽量化。プレイヤーから遠い警察のグループは出さない) ＝＝＝")]
+    [SerializeField]
+    [Tooltip("プレイヤーの近くの警察のグループだけを出すか(オフなら、すべてのグループを常に出す)")]
+    private bool _useSquadRange = true;
+    public bool useSquadRange => _useSquadRange;
+
+    [SerializeField, Min(10f)]
+    [Tooltip("巡回している位置が、どれかのプレイヤーからこの距離(m。水平)以内に入ったグループを出す。出ていない間も、巡回の位置は進む")]
+    private float _squadSpawnDistance = 80.0f;
+    public float squadSpawnDistance => _squadSpawnDistance;
+
+    [SerializeField, Min(10f)]
+    [Tooltip("グループの全員が、どのプレイヤーからもこの距離(m。水平)より離れて、追跡や駆け付けをしていなければ消す。出す距離より大きくする(境目で出たり消えたりしないように)")]
+    private float _squadDespawnDistance = 100.0f;
+    public float squadDespawnDistance => Mathf.Max(_squadDespawnDistance, _squadSpawnDistance);
 
     // 増援を出せるだけの設定(プレハブ・ステータス・基準ステータス・人数)が揃っているか
     public bool hasReinforcement => _reinforcePolice != null && _reinforceStatus != null && _playerBaseStats != null && _reinforceCount > 0;

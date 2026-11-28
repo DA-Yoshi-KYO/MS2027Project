@@ -8,6 +8,7 @@
  * 2026-11-02 | 巡回ポイントの配列をシリアライズせず、開始時に子オブジェクトから作るようにした
  * 2026-11-02 | 巡回ルートの表示を、オン/オフの設定ではなく、選択している時だけ表示するようにした
  * 2026-11-09 | メンバーが隊列を組まず、離れて、同じルートをそれぞれ回る「離れて巡回」を追加した
+ * 2026-11-28 | 軽量化のため、プレイヤーの近くを巡回している時だけ警察を出すようにした(出ていない間は、巡回の位置だけを進める)
  * ================================================ */
 
 using System;
@@ -23,6 +24,9 @@ using UnityEngine.AI;
 ///   「離れて巡回」がオンなら、隊列は組まず、メンバーがそれぞれ、同じルートを、等間隔にずれた位置から回る
 /// ・メンバーが見つけた標的をグループ内で共有する
 /// ・詰まったメンバーを出現位置から出し直す(再スポーン)
+/// ・軽量化: 巡回している位置がプレイヤーの近くに来た時だけ警察を出し、全員が遠ざかって何もしていなければ消す
+///   出ていない間は、巡回の位置だけを、巡回の速さで進める(次に出る時は、その位置から巡回を続ける)
+///   距離はCSO_PoliceAlertData(CS_PoliceAlertManager)で設定する。管理クラスが無いシーンでは、常に出す
 /// 出現と判断はサーバー(またはオフライン)だけで行う
 /// 巡回ルートのScene上の表示はCSED_PoliceSquadGizmoが行う
 /// </summary>
@@ -31,6 +35,19 @@ public class CS_PoliceSquad : MonoBehaviour, IPoliceGroup
     // 先頭の回避の優先度(NavMeshAgentは値が小さいほど優先され、ぶつかった時に相手が道を譲る)
     // 後ろの警察ほど値を大きくし、先頭の進路を譲らせる
     private const int _leaderAvoidancePriority = 30;
+
+    // プレイヤーとの距離を調べて、警察を出し入れする間隔(秒)
+    private const float _rangeCheckInterval = 0.5f;
+
+    // 巡回の位置から出す時に、近くの歩ける場所(NavMesh)を探す距離(m)
+    private const float _spawnSampleDistance = 3.0f;
+
+    // 出ていない間の、メンバーごとの巡回の位置(隊列で巡回する時は、0番目の先頭の位置だけを使う)
+    private Vector3[] _awayPositions = new Vector3[0];
+
+    // 次に距離を調べる時刻と、前に巡回の位置を進めた時刻
+    private float _nextRangeCheckTime = 0.0f;
+    private float _lastAdvanceTime = 0.0f;
 
     // グループのメンバー(0番目が先頭)
     private readonly List<CS_PoliceBrain> _members = new List<CS_PoliceBrain>();
@@ -165,11 +182,15 @@ public class CS_PoliceSquad : MonoBehaviour, IPoliceGroup
         _sharedTarget = new CS_PoliceSharedTarget(_shareDuration);
         _groupPatrolSpeed = CalculateGroupPatrolSpeed();
         InitializeSpreadPatrol();
+        ResetAwayPatrol();
         _isReady = true;
 
         // ソロ: 今のエリアの部隊だけ出す。エリアが変わるたびに出す・消すを切り替える
         if (CS_SoloAreaProgression.instance != null) CS_SoloAreaProgression.instance.onAreaChanged += HandleAreaChanged;
-        SyncWithArea();
+        Sync();
+
+        // 全グループが同じフレームで距離を調べないよう、最初の時刻をずらす
+        _nextRangeCheckTime = Time.time + UnityEngine.Random.Range(0.0f, _rangeCheckInterval);
     }
 
     private void OnDestroy()
@@ -179,38 +200,185 @@ public class CS_PoliceSquad : MonoBehaviour, IPoliceGroup
 
     private void HandleAreaChanged(CS_CrimeArea area)
     {
-        SyncWithArea();
+        Sync();
     }
 
     /// <summary>
-    /// 出現位置が今のエリアなら警察を出し、違うなら消すメソッド(ソロ以外は常に出す)
+    /// 今の状況に合わせて、警察を出す・消すを切り替えるメソッド
+    /// ソロで、出現位置が今のエリアでなければ、常に消す。それ以外は、プレイヤーの近くを巡回している時だけ出す
     /// </summary>
-    private void SyncWithArea()
+    private void Sync()
     {
         if (!_isReady) return;
 
-        bool shouldExist = CS_SoloAreaProgression.IsActiveAt(_spawnPoint.position);
-        if (shouldExist && _members.Count == 0)
+        if (!CS_SoloAreaProgression.IsActiveAt(_spawnPoint.position))
         {
-            _formation.Clear();
-            for (int i = 0; i < _memberStatuses.Length; i++)
-            {
-                _members.Add(SpawnMember(i));
-            }
+            if (_members.Count > 0) DespawnMembers();
+            ResetAwayPatrol();
+            return;
         }
-        else if (!shouldExist && _members.Count > 0)
+
+        bool isRanged = CS_PoliceAlertManager.TryGetSquadRange(out float spawnDistance, out float despawnDistance);
+        if (_members.Count == 0)
         {
-            foreach (CS_PoliceBrain member in _members)
-            {
-                if (member != null) CS_PoliceSpawnUtility.Despawn(member.gameObject);
-            }
-            _members.Clear();
-            _formation.Clear();
+            AdvanceAwayPatrol();
+            if (!isRanged || IsAnyAwayPositionNearPlayer(spawnDistance)) SpawnMembers();
         }
+        else if (isRanged && CanLeave(despawnDistance))
+        {
+            RememberAwayPatrol();
+            DespawnMembers();
+        }
+    }
+
+    // 全員を、出ていない間に進めた巡回の位置から出す
+    private void SpawnMembers()
+    {
+        _formation.Clear();
+        for (int i = 0; i < _memberStatuses.Length; i++)
+        {
+            _members.Add(SpawnMember(i, GetResumePosition(i), GetResumeRotation(i)));
+        }
+    }
+
+    private void DespawnMembers()
+    {
+        foreach (CS_PoliceBrain member in _members)
+        {
+            if (member != null) CS_PoliceSpawnUtility.Despawn(member.gameObject);
+        }
+        _members.Clear();
+        _formation.Clear();
+    }
+
+    // 巡回を最初の状態に戻す(巡回の位置は出現位置。離れて巡回する時は、それぞれの最初のポイント)
+    private void ResetAwayPatrol()
+    {
+        _patrolIndex = 0;
+        InitializeSpreadPatrol();
+        _awayPositions = new Vector3[_memberStatuses.Length];
+        for (int i = 0; i < _awayPositions.Length; i++)
+        {
+            _awayPositions[i] = IsSpreadPatrol() ? _patrolPoints[_memberPatrolIndices[i]].position : _spawnPoint.position;
+        }
+        _lastAdvanceTime = Time.time;
+    }
+
+    // 出ていない間、巡回の速さで、巡回の位置を進める(ポイントを順に、まっすぐ進んだことにする)
+    private void AdvanceAwayPatrol()
+    {
+        float travel = _groupPatrolSpeed * (Time.time - _lastAdvanceTime);
+        _lastAdvanceTime = Time.time;
+        if (_patrolPoints.Length < 2 || travel <= 0.0f) return;
+
+        if (!IsSpreadPatrol())
+        {
+            _awayPositions[0] = AdvanceAlongRoute(_awayPositions[0], ref _patrolIndex, travel);
+            return;
+        }
+
+        for (int i = 0; i < _awayPositions.Length; i++)
+        {
+            _awayPositions[i] = AdvanceAlongRoute(_awayPositions[i], ref _memberPatrolIndices[i], travel);
+        }
+    }
+
+    // positionから、目指しているポイント(targetIndex)の順に、travelの長さだけ進んだ位置を返す
+    private Vector3 AdvanceAlongRoute(Vector3 position, ref int targetIndex, float travel)
+    {
+        // ポイントが重なっていても終わるように、進むポイントの数に上限を付ける
+        for (int i = 0; i < _patrolPoints.Length * 4 && travel > 0.0f; i++)
+        {
+            Vector3 target = _patrolPoints[targetIndex].position;
+            float distance = Vector3.Distance(position, target);
+            if (distance > travel) return Vector3.MoveTowards(position, target, travel);
+
+            travel -= distance;
+            position = target;
+            targetIndex = (targetIndex + 1) % _patrolPoints.Length;
+        }
+        return position;
+    }
+
+    private bool IsAnyAwayPositionNearPlayer(float distance)
+    {
+        if (!IsSpreadPatrol()) return IsNearAnyPlayer(_awayPositions[0], distance);
+
+        foreach (Vector3 position in _awayPositions)
+        {
+            if (IsNearAnyPlayer(position, distance)) return true;
+        }
+        return false;
+    }
+
+    // どれかのプレイヤー(NPCを含む)が、水平方向で、距離以内にいるか
+    private static bool IsNearAnyPlayer(Vector3 position, float distance)
+    {
+        foreach (CS_Player player in CS_Player.activePlayers)
+        {
+            if (player == null) continue;
+
+            Vector3 offset = player.transform.position - position;
+            offset.y = 0.0f;
+            if (offset.sqrMagnitude <= distance * distance) return true;
+        }
+        return false;
+    }
+
+    // 全員が、どのプレイヤーからも離れていて、巡回・待機しているだけ(追跡・駆け付け・探索・攻撃をしていない)なら、消してよい
+    private bool CanLeave(float distance)
+    {
+        foreach (CS_PoliceBrain member in _members)
+        {
+            if (member == null || !member.isIdle || IsNearAnyPlayer(member.transform.position, distance)) return false;
+        }
+        return true;
+    }
+
+    // 消す前に、今の位置を、出ていない間の巡回の位置にする
+    private void RememberAwayPatrol()
+    {
+        for (int i = 0; i < _members.Count && i < _awayPositions.Length; i++)
+        {
+            _awayPositions[i] = _members[i].transform.position;
+        }
+        _lastAdvanceTime = Time.time;
+    }
+
+    // 出す位置: 巡回の位置(隊列の時は、先頭の位置から横にずらす)。近くの歩ける場所に合わせる
+    private Vector3 GetResumePosition(int slot)
+    {
+        bool isSpread = IsSpreadPatrol();
+        Vector3 basePosition = _awayPositions[isSpread ? slot : 0];
+
+        // 巡回の位置は、ポイントの間をまっすぐ進めているので、建物の中などになった時は、目指しているポイントに出す
+        if (NavMesh.SamplePosition(basePosition, out NavMeshHit baseHit, _spawnSampleDistance, NavMesh.AllAreas)) basePosition = baseHit.position;
+        else if (_patrolPoints.Length > 0) basePosition = _patrolPoints[isSpread ? _memberPatrolIndices[slot] : _patrolIndex].position;
+        if (isSpread) return basePosition;
+
+        Vector3 position = basePosition + GetResumeRotation(slot) * Vector3.right * ((slot - 1) * _formationSpacing);
+        return NavMesh.SamplePosition(position, out NavMeshHit hit, _formationSpacing, NavMesh.AllAreas) ? hit.position : basePosition;
+    }
+
+    // 出す時の向き: 次に目指すポイントの方向
+    private Quaternion GetResumeRotation(int slot)
+    {
+        if (_patrolPoints.Length == 0) return _spawnPoint.rotation;
+
+        bool isSpread = IsSpreadPatrol();
+        Vector3 direction = _patrolPoints[isSpread ? _memberPatrolIndices[slot] : _patrolIndex].position - _awayPositions[isSpread ? slot : 0];
+        direction.y = 0.0f;
+        return direction.sqrMagnitude > 0.01f ? Quaternion.LookRotation(direction) : _spawnPoint.rotation;
     }
 
     private void Update()
     {
+        if (_isReady && Time.time >= _nextRangeCheckTime)
+        {
+            _nextRangeCheckTime = Time.time + _rangeCheckInterval;
+            Sync();
+        }
+
         // マルチのシーン遷移では、警察(NetworkObject)が先に破棄され、このグループはシーンが切り替わるまで数フレーム残る
         // 破棄された警察を触らないよう、先頭が破棄されていたら何もしない
         if (_members.Count == 0 || _members[0] == null) return;
@@ -361,7 +529,7 @@ public class CS_PoliceSquad : MonoBehaviour, IPoliceGroup
         if (slot < 0) return;
 
         CS_PoliceSpawnUtility.Despawn(member.gameObject);
-        _members[slot] = SpawnMember(slot);
+        _members[slot] = SpawnMember(slot, GetStartPosition(slot), _spawnPoint.rotation);
 
         // 先頭が出し直された場合、前の先頭の道筋は使えないので記録し直す
         if (slot == 0) _formation.Clear();
@@ -419,17 +587,24 @@ public class CS_PoliceSquad : MonoBehaviour, IPoliceGroup
     }
 
     /// <summary>
-    /// 出現位置にメンバーを1人出現させるメソッド
+    /// 出し直す(詰まった)メンバーの位置を取得するメソッド
+    /// 同じ位置に重ならないよう、出現位置を横にずらす(離れて巡回する時は、ルートの上の、自分の今のポイントに出現する)
     /// </summary>
-    /// <param name="slot">メンバーの番号(ステータスの選択と、出現位置を横にずらすのに使う)</param>
-    /// <returns>出現させたメンバー</returns>
-    private CS_PoliceBrain SpawnMember(int slot)
+    private Vector3 GetStartPosition(int slot)
     {
-        // 同じ位置に重ならないよう、出現位置を横にずらす(離れて巡回する時は、ルートの上の、自分の最初のポイントに出現する)
-        Vector3 position = IsSpreadPatrol() && slot < _memberPatrolIndices.Length
+        return IsSpreadPatrol() && slot < _memberPatrolIndices.Length
             ? _patrolPoints[_memberPatrolIndices[slot]].position
             : _spawnPoint.position + _spawnPoint.right * ((slot - 1) * _formationSpacing);
-        CS_PoliceBrain member = CS_PoliceSpawnUtility.Spawn(_policePrefab, position, _spawnPoint.rotation);
+    }
+
+    /// <summary>
+    /// 指定した位置にメンバーを1人出現させるメソッド
+    /// </summary>
+    /// <param name="slot">メンバーの番号(ステータスの選択と、回避の優先度に使う)</param>
+    /// <returns>出現させたメンバー</returns>
+    private CS_PoliceBrain SpawnMember(int slot, Vector3 position, Quaternion rotation)
+    {
+        CS_PoliceBrain member = CS_PoliceSpawnUtility.Spawn(_policePrefab, position, rotation);
 
         // ぶつかった時は後ろの警察が道を譲るよう、先頭ほど回避の優先度を高くする
         member.GetComponent<NavMeshAgent>().avoidancePriority = _leaderAvoidancePriority + slot;

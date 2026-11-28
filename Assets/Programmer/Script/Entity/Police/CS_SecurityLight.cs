@@ -323,6 +323,7 @@ public class CS_SecurityLight : MonoBehaviour
     private void OnLit(CS_PlayerHealth player)
     {
         if (_blink != null) _blink.StartFlash(_data.flashDuration);
+        CS_SoundManager.instance?.PlaySe(CSE_SeId.StreetLightDetected, transform.position);
 
         if (CS_PoliceSquad.IsNetworkClientOnly()) return;
 

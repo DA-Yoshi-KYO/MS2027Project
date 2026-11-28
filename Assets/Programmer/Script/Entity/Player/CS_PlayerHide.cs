@@ -83,6 +83,8 @@ public class CS_PlayerHide : NetworkBehaviour
 
     // 隠れているか(書き込みはサーバー、またはオフラインのみ。全員で分かる)
     private readonly NetworkVariable<bool> _isHidden = new NetworkVariable<bool>();
+    private bool _hasHiddenSeBaseline;      // 隠れ始め・隠れ終わりのSEの前の状態を覚えたか
+    private bool _wasHiddenForSe;           // 前のフレームで隠れていたか(SE用)
 
     private const int _sightHitBufferSize = 16;   // 視線の判定で一度に調べる当たりの上限
     private readonly RaycastHit[] _sightHits = new RaycastHit[_sightHitBufferSize];
@@ -158,6 +160,7 @@ public class CS_PlayerHide : NetworkBehaviour
 
     private void Update()
     {
+        UpdateHiddenSe();
         UpdateHidden();
         UpdateGhost();
 
@@ -214,6 +217,7 @@ public class CS_PlayerHide : NetworkBehaviour
         _player.SetSAVelocity(_flyVelocity);
 
         onFlyBegin?.Invoke(_point);
+        CS_NetworkSoundPlayer.instance?.PlaySeForEveryone(CSE_SeId.PlayerHideLeap, transform.position);   // 飛び始めは本人の手元でだけ起きるので全員へ
         return true;
     }
 
@@ -256,6 +260,26 @@ public class CS_PlayerHide : NetworkBehaviour
 
         bool isDead = _health != null && _health.isDead;
         SetHidden(!isDead && isInHideBox);
+    }
+
+    // 隠れ始め・隠れ終わりのSE。隠れている状態は全員に同期されるので、各クライアントが自分のPCで鳴らす(通信しない)
+    private void UpdateHiddenSe()
+    {
+        bool hidden = _isHidden.Value;
+        bool isChanged = _hasHiddenSeBaseline && hidden != _wasHiddenForSe;
+        _wasHiddenForSe = hidden;
+        _hasHiddenSeBaseline = true;
+
+        if (!isChanged || CS_SoundManager.instance == null) return;
+
+        if (hidden)
+        {
+            CS_SoundManager.instance.PlaySe(CSE_SeId.PlayerHideAttach, transform.position);
+            CS_SoundManager.instance.PlaySe(CSE_SeId.PlayerStealthEnter, transform.position);
+            return;
+        }
+
+        CS_SoundManager.instance.PlaySe(CSE_SeId.PlayerStealthExit, transform.position);
     }
 
     private void SetHidden(bool hidden)

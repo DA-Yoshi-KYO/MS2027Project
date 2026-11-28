@@ -139,6 +139,8 @@ public class CS_ThrownBomb : NetworkBehaviour
     // 範囲ダメージを与えて、自身を取り除く
     private void Explode()
     {
+        CS_NetworkSoundPlayer.instance?.PlaySeForEveryone(CSE_SeId.ItemBomb, transform.position);
+
         if (_explodeEffect != null)
         {
             _explodeEffect.Apply(gameObject);

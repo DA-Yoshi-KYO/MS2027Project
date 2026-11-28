@@ -15,6 +15,7 @@ using UnityEngine;
  * ・境目の丸(扇形の端、始まりの向きの線の先)をドラッグすると、中心の周りに回る(Undoできる)
  *   中心を動かす時は、普段どおりオブジェクトを動かす
  * ・扇形の塗り・エリア名・スポーン位置の色は、CS_CrimeAreaLayout.DrawGizmosが描く
+ * ・Inspectorの一番上の「Sceneビューに表示」で表示をオン・オフできる(オフの間は境目の丸も出さない)
  */
 // ========================================
 
@@ -26,6 +27,10 @@ public class CSED_CrimeAreaLayoutEditor : Editor
 
     public override void OnInspectorGUI()
     {
+        bool show = EditorGUILayout.Toggle("Sceneビューに表示", CS_CrimeAreaLayout.showInEditor);
+        if (show != CS_CrimeAreaLayout.showInEditor) CS_CrimeAreaLayout.showInEditor = show;
+        EditorGUILayout.Space();
+
         DrawDefaultInspector();
 
         CS_CrimeAreaLayout layout = (CS_CrimeAreaLayout)target;
@@ -56,6 +61,8 @@ public class CSED_CrimeAreaLayoutEditor : Editor
     // 境目の丸をドラッグして、扇形の始まりの向きを変える
     private void OnSceneGUI()
     {
+        if (!CS_CrimeAreaLayout.showInEditor) return;
+
         CS_CrimeAreaLayout layout = (CS_CrimeAreaLayout)target;
         Vector3 center = layout.transform.position;
         Plane ground = new Plane(Vector3.up, center);

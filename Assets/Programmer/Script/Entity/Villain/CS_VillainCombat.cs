@@ -412,7 +412,7 @@ public class CS_VillainCombat : NetworkBehaviour
 
         if (_attackPhase.Value == CSE_VillainAttackPhase.Charge)
         {
-            _attackPhase.Value = CSE_VillainAttackPhase.Hit;
+            SetAttackPhase(CSE_VillainAttackPhase.Hit);
         }
 
         if (_attackElapsed < _chargeTime + _hitActiveTime)
@@ -421,7 +421,7 @@ public class CS_VillainCombat : NetworkBehaviour
             return;
         }
 
-        _attackPhase.Value = CSE_VillainAttackPhase.None;
+        SetAttackPhase(CSE_VillainAttackPhase.None);
         _attackCooldown = _attackInterval;
         _state = State.Chase;
     }
@@ -510,6 +510,33 @@ public class CS_VillainCombat : NetworkBehaviour
         _group?.ReleaseAttackSlot(this);
     }
 
+    // 攻撃の段階を変える(サーバー、またはオフライン)。オフラインはOnValueChangedが呼ばれないので直接鳴らす
+    private void SetAttackPhase(CSE_VillainAttackPhase phase)
+    {
+        CSE_VillainAttackPhase previous = _attackPhase.Value;
+        _attackPhase.Value = phase;
+        if (!IsSpawned) PlayAttackSe(previous, phase);
+    }
+
+    public override void OnNetworkSpawn()
+    {
+        _attackPhase.OnValueChanged += PlayAttackSe;
+    }
+
+    public override void OnNetworkDespawn()
+    {
+        _attackPhase.OnValueChanged -= PlayAttackSe;
+    }
+
+    // 溜め・攻撃の始まりを、全員の端末でその場で鳴らす
+    private void PlayAttackSe(CSE_VillainAttackPhase previous, CSE_VillainAttackPhase current)
+    {
+        if (previous == current) return;
+
+        if (current == CSE_VillainAttackPhase.Charge) CS_SoundManager.instance?.PlaySe(CSE_SeId.VillainAttackWarning, transform.position);
+        else if (current == CSE_VillainAttackPhase.Hit) CS_SoundManager.instance?.PlaySe(CSE_SeId.VillainAttack, transform.position);
+    }
+
     private void StartAttack()
     {
         _state = State.Attack;
@@ -517,7 +544,7 @@ public class CS_VillainCombat : NetworkBehaviour
         Vector3 toTarget = GetFlatDirection(_target.position);
         _attackAimDirection = toTarget.sqrMagnitude > 0f ? toTarget : transform.forward;
         _damagedTargets.Clear();
-        _attackPhase.Value = CSE_VillainAttackPhase.Charge;
+        SetAttackPhase(CSE_VillainAttackPhase.Charge);
     }
 
     // 正面の攻撃範囲(hitCenter)にいるプレイヤーのうち、今回の攻撃でまだ当たっていない相手にダメージを与える
@@ -559,7 +586,7 @@ public class CS_VillainCombat : NetworkBehaviour
     {
         if (_state != State.Attack) return;
 
-        _attackPhase.Value = CSE_VillainAttackPhase.None;
+        SetAttackPhase(CSE_VillainAttackPhase.None);
         _attackCooldown = _attackInterval;
         _state = State.Chase;
     }

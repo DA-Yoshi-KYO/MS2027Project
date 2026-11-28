@@ -41,6 +41,11 @@ public class CS_UIRoomConnectionPresenter : CS_BasePresenter
     {
         _view = GetComponent<CS_UIRoomConnectionView>();
         _view.SetPresenter(this);
+
+        // ホスト・参加・ソロの決定音
+        _view.onHostClicked.Subscribe(_ => CS_SoundManager.instance?.PlaySe(CSE_SeId.SystemUIDecide)).AddTo(_disposables);
+        _view.onJoinClicked.Subscribe(_ => CS_SoundManager.instance?.PlaySe(CSE_SeId.SystemUIDecide)).AddTo(_disposables);
+        _view.onSoloClicked.Subscribe(_ => CS_SoundManager.instance?.PlaySe(CSE_SeId.SystemUIDecide)).AddTo(_disposables);
     }
 
     /// <summary>

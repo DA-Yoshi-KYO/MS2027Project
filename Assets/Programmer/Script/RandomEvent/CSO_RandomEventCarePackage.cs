@@ -89,6 +89,7 @@ public class CSO_RandomEventCarePackage : CSO_RandomEvent
         state.box = Instantiate(_carePackagePrefab, state.position + Vector3.up * _boxHeight, Quaternion.identity);
         state.box.Setup(_openTime, opener => HandleOpened(context, state, opener));
         if (NetworkManager.Singleton != null && NetworkManager.Singleton.IsListening) state.box.NetworkObject.Spawn();
+        CS_NetworkSoundPlayer.instance?.PlaySeForEveryone(CSE_SeId.EventCarePackage, state.box.transform.position);
     }
 
     // 箱が開封されたら、中身を抽選して開ける

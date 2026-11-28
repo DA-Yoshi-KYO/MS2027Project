@@ -50,10 +50,27 @@ public class CS_PlayerSpecialGauge : NetworkBehaviour
 
     public event Action<float, float> onGaugeChanged;   // (current, max)
 
+    private CS_Player _player;
+    private bool _seWasFull;    // 満タンのSE用に、前に満タンだったかを覚える
+
+    // 満タンになった瞬間のSE。自分のプレイヤーのゲージでだけ鳴らす
+    private void HandleGaugeChangedSe(float current, float max)
+    {
+        bool isFull = max > 0f && current >= max;
+        bool isJustFull = isFull && !_seWasFull;
+        _seWasFull = isFull;
+
+        if (!isJustFull || _player == null || !_player.isLocalPlayer) return;
+
+        CS_SoundManager.instance?.PlaySe(CSE_SeId.PlayerSpecialGaugeFull, transform.position);
+    }
+
     private void Awake()
     {
         _stats = GetComponent<CS_PlayerStats>();
         _scoring = GetComponent<CS_PlayerScoring>();
+        _player = GetComponent<CS_Player>();
+        onGaugeChanged += HandleGaugeChangedSe;
         if (_scoring != null) _scoring.onVillainDefeated += HandleVillainDefeated;
     }
 

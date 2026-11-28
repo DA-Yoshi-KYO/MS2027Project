@@ -187,6 +187,7 @@ public class CS_TimerController : NetworkBehaviour
         {
             _isFinished = true;
             _notificationController?.HideCountdown();
+            CS_SoundManager.instance?.PlaySe(CSE_SeId.SystemGameEnd);
             onTimeUp?.Invoke();   // 結果の保存・遷移より前に知らせる(ソロの判定がリザルトの内容を決めるため)
 
             if (IsOnline())
@@ -256,6 +257,7 @@ public class CS_TimerController : NetworkBehaviour
             return;
 
         _isFinished = true;
+        CS_SoundManager.instance?.PlaySe(CSE_SeId.SystemGameEnd);
         _notificationController?.HideCountdown();
         SaveResultsLocal();
 

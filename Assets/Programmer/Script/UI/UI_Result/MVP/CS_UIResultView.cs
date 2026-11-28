@@ -19,9 +19,9 @@ using UnityEngine.UI;
 /// ・ソロ  : キャラ・総合ランク・称号(複数)・総合タイム・エリアごとのタイムとランク・各回数
 /// ・マルチ: プレイヤーごとに CS_UIPlayerResultItemView を並べる(順位・キャラ・称号(複数)・各回数)
 ///
-/// 登場の演出(PlayIntro で始める)
+/// 登場の演出(PlayIntro で始める。戻り値は、演出が全部終わるまでの時間)
 ///   ソロ
-///     1. BackHeadImage と総合ランクが、画面の上の外から、下へ動く(同時)       … CS_UISlideIn
+///     1. BackHeadImage・総合ランク・キャラのアイコンが、画面の上の外から、下へ動く(同時) … CS_UISlideIn
 ///     2. BackImage(ボードの本体)が、閉じた状態から、上から下へ開く           … CS_UIRevealMask
 ///     3. 称号が、画面の左の外から、右へスライドして入る(上の枠から順に)     … CS_UISlideIn
 ///     4. 総合クリアタイム                                                      … CS_UICountUpText
@@ -29,7 +29,7 @@ using UnityEngine.UI;
 ///     6. 警察に見つかった回数
 ///     7. 奇襲の成功回数
 ///     8. SAの使用回数
-///   マルチ(これまでどおり)
+///   マルチ
 ///     警察に見つかった回数 → 奇襲の成功回数 → SAの使用回数(プレイヤー全員が同時)
 ///   部品(上の右側のクラス)が付いていない部分は、何もせず飛ばす(すでに表示されている)
 /// </summary>
@@ -65,6 +65,9 @@ public class CS_UIResultView : CS_BaseView<CS_UIResultPresenter>
 
     [Tooltip("総合ランクの Image に付けた CS_UISlideIn(FromTop)")]
     [SerializeField] private CS_UISlideIn _soloRankSlide;
+
+    [Tooltip("キャラのアイコン(CharacterImage)に付けた CS_UISlideIn(FromTop)。BackHeadImage・総合ランクと同時に、上から下へ動く")]
+    [SerializeField] private CS_UISlideIn _soloCharacterSlide;
 
     [Tooltip("ボードの本体(BackImage と中身をまとめた Body)に付けた CS_UIRevealMask")]
     [SerializeField] private CS_UIRevealMask _soloBodyReveal;
@@ -130,9 +133,9 @@ public class CS_UIResultView : CS_BaseView<CS_UIResultPresenter>
         );
 
         // 各回数。カウントアップの準備(部品が付いていなければ、すぐ表示する)
-        CS_ResultNumberUtility.SetCount(_soloFoundByPoliceText, s.foundByPoliceCount, "");
-        CS_ResultNumberUtility.SetCount(_soloSurpriseAttackText, s.surpriseAttackCount, "");
-        CS_ResultNumberUtility.SetCount(_soloSaUseText, s.saUseCount, "");
+        CS_ResultNumberUtility.SetCount(_soloFoundByPoliceText, s.foundByPoliceCount, "回");
+        CS_ResultNumberUtility.SetCount(_soloSurpriseAttackText, s.surpriseAttackCount, "回");
+        CS_ResultNumberUtility.SetCount(_soloSaUseText, s.saUseCount, "回");
     }
 
     /// <summary>
@@ -247,19 +250,26 @@ public class CS_UIResultView : CS_BaseView<CS_UIResultPresenter>
     /// (カットシーンが開き終わった時など)。
     /// ・今表示されているパネル(ソロ/マルチ)だけが対象
     /// ・何回呼んでも、それぞれの部品は、最初の1回しか動かない
-    /// 変更: 以前の PlayCountUps() の代わり。名前を、数字以外も含む演出全体に合わせた。
+    /// 変更: 戻り値を追加。演出が全部終わるまでの時間(秒)を返す。
+    ///       リザルトの最後の流れ(ボタンの受け付け → カットシーン → タイトルへ)の開始時刻に使う。
+    ///       戻り値を使わない呼び出しは、そのままコンパイルできる。
     /// </summary>
-    public void PlayIntro()
+    /// <returns>演出が全部終わるまでの時間(秒)。部品が1つもなければ 0</returns>
+    public float PlayIntro()
     {
+        float end = 0f;
+
         if (IsPanelShown(_soloPanel))
         {
-            PlaySoloIntro();
+            end = Mathf.Max(end, PlaySoloIntro());
         }
 
         if (IsPanelShown(_multiPanel))
         {
-            PlayMultiIntro();
+            end = Mathf.Max(end, PlayMultiIntro());
         }
+
+        return end;
     }
 
     /// <summary>パネルが表示されているか。パネルの設定が空なら、表示されている扱い</summary>
@@ -275,22 +285,27 @@ public class CS_UIResultView : CS_BaseView<CS_UIResultPresenter>
     /// <summary>
     /// ソロの演出。各部分の始まる時刻を、前の部分が終わる時刻から計算して、順番に始める。
     /// 部品が付いていない部分は、時間を使わずに飛ばす。
+    /// 戻り値: 演出が全部終わるまでの時間(秒)
     /// </summary>
-    private void PlaySoloIntro()
+    private float PlaySoloIntro()
     {
         float time = 0f;
+        float end = 0f;
 
-        // 1. BackHeadImage と総合ランクが、上から下へ動く(同時)
+        // 1. BackHeadImage・総合ランク・キャラのアイコンが、上から下へ動く(同時)
         float slideTime = 0f;
         slideTime = Mathf.Max(slideTime, PlaySlide(_soloHeadSlide, time));
         slideTime = Mathf.Max(slideTime, PlaySlide(_soloRankSlide, time));
+        slideTime = Mathf.Max(slideTime, PlaySlide(_soloCharacterSlide, time));
         time += slideTime;
+        end = Mathf.Max(end, time);
 
         // 2. BackImage(ボードの本体)が、上から下へ開く
         if (_soloBodyReveal != null)
         {
             _soloBodyReveal.Play(time);
             time += _soloBodyReveal.duration;
+            end = Mathf.Max(end, time);
         }
 
         // 3. 称号が、左からスライドして入る(上の枠から順に)
@@ -298,7 +313,10 @@ public class CS_UIResultView : CS_BaseView<CS_UIResultPresenter>
 
         for (int i = 0; i < titleSlides.Count; i++)
         {
-            titleSlides[i].Play(time + i * _titleInterval);
+            float titleStart = time + i * _titleInterval;
+
+            titleSlides[i].Play(titleStart);
+            end = Mathf.Max(end, titleStart + titleSlides[i].duration);
         }
 
         if (titleSlides.Count > 0)
@@ -308,7 +326,9 @@ public class CS_UIResultView : CS_BaseView<CS_UIResultPresenter>
         }
 
         // 4〜8. 数字(とエリアのランク)
-        PlaySteps(BuildSoloNumberSteps(), time);
+        float stepsEnd = PlaySteps(BuildSoloNumberSteps(), time);
+
+        return Mathf.Max(end, stepsEnd);
     }
 
     /// <summary>スライドを、待ち時間 delay で始めて、かかる時間を返す。部品が空なら 0</summary>
@@ -401,14 +421,15 @@ public class CS_UIResultView : CS_BaseView<CS_UIResultPresenter>
     }
 
     // ---------------------------------------------------------
-    // マルチ(これまでどおり)
+    // マルチ
     // ---------------------------------------------------------
 
     /// <summary>
     /// マルチの演出。プレイヤー全員が、同じ段で同時に出る。
     ///   警察に見つかった回数 → 奇襲の成功回数 → SAの使用回数
+    /// 戻り値: 演出が全部終わるまでの時間(秒)
     /// </summary>
-    private void PlayMultiIntro()
+    private float PlayMultiIntro()
     {
         var found = new List<CS_UICountUpText>();
         var surprise = new List<CS_UICountUpText>();
@@ -432,7 +453,7 @@ public class CS_UIResultView : CS_BaseView<CS_UIResultPresenter>
             (sa, new List<CS_UIRankStamp>()),
         };
 
-        PlaySteps(steps, 0f);
+        return PlaySteps(steps, 0f);
     }
 
     // ---------------------------------------------------------
@@ -442,12 +463,14 @@ public class CS_UIResultView : CS_BaseView<CS_UIResultPresenter>
     /// <summary>
     /// 数字(とランク画像)の段を、startDelay から、_stepInterval 秒ずつ遅らせて始める。
     /// 同じ段のものは、同時に始まる。部品が1つもない段は、待ち時間を作らずに飛ばす。
+    /// 戻り値: 最後の部品が登場し終わる時刻(秒)。部品が1つもなければ startDelay
     /// </summary>
-    private void PlaySteps(
+    private float PlaySteps(
         List<(List<CS_UICountUpText> numbers, List<CS_UIRankStamp> stamps)> steps,
         float startDelay)
     {
         float delay = startDelay;
+        float end = startDelay;
 
         foreach (var step in steps)
         {
@@ -458,13 +481,21 @@ public class CS_UIResultView : CS_BaseView<CS_UIResultPresenter>
             }
 
             foreach (CS_UICountUpText number in step.numbers)
+            {
                 number.Play(delay);
+                end = Mathf.Max(end, delay + number.totalSeconds);
+            }
 
             foreach (CS_UIRankStamp stamp in step.stamps)
+            {
                 stamp.Play(delay);
+                end = Mathf.Max(end, delay + stamp.totalSeconds);
+            }
 
             delay += _stepInterval;
         }
+
+        return end;
     }
 
     /// <summary>1つの数字だけを入れた一覧を作る。部品が付いていなければ、空の一覧</summary>

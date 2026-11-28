@@ -22,6 +22,8 @@ using UnityEngine;
 ///   Covered   → View.SetCovered()                      画面を覆った状態に置く
 ///   Revealing → View.PlayReveal() → 終わったら Model.NotifyRevealed()
 ///   Revealed  → View.SetRevealed()                     左右の外に置く
+///   Closing   → View.PlayClose() → 終わったら Model.NotifyClosed()   追加(開く動きの逆再生)
+///   Closed    → View.SetCovered()                      追加(閉じ終わりは、覆った状態と同じ姿)
 /// </summary>
 public class CS_UIResultCutscenePresenter : CS_BasePresenter
 {
@@ -102,6 +104,15 @@ public class CS_UIResultCutscenePresenter : CS_BasePresenter
 
             case CSE_ResultCutsceneState.Revealed:
                 _view.SetRevealed();
+                break;
+
+            case CSE_ResultCutsceneState.Closing:
+                _view.PlayClose(_model.NotifyClosed);
+                break;
+
+            case CSE_ResultCutsceneState.Closed:
+                // 閉じ終わりは、画面を覆った状態と同じ姿(開く Timeline の最初)
+                _view.SetCovered();
                 break;
         }
     }

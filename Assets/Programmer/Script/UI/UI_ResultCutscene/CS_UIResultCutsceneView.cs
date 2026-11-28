@@ -18,10 +18,12 @@ using UnityEngine.Playables;
 ///   ・覆うTimeline(coverDirector)  : Group(G1〜G3の親)を、画面の上の外から下へ動かす。
 ///                                     G1が画面の下の外へ出た所(G2とG3が画面を覆った状態)で終わる
 ///   ・開くTimeline(revealDirector) : G2を左へ、G3を右へ、画面の外まで動かす
+///   ・閉じる動き(追加)             : 開くTimelineを逆再生する。G2は左から右へ、G3は右から左へ動いて、画面を覆う
+///                                     (新しいTimelineは作らない)
 ///
 /// 2つのDirectorは、どちらも省略できる(空でよい)。シーンごとに必要な方だけ設定する。
 ///   ・インゲーム : 覆うTimelineだけ設定する(開くは空)
-///   ・リザルト   : 開くTimelineだけ設定する(覆うは空)
+///   ・リザルト   : 開くTimelineだけ設定する(覆うは空)。閉じる動きも、この開くTimelineを使う
 ///                  → 覆う動きは再生されない。画像は、覆った状態の位置にシーン上で置いておく
 ///   空のDirectorに「再生して」と指示が来た時は、何もせずにすぐ「終わった」と返す
 ///   (後の処理が止まらないようにするため)
@@ -37,7 +39,7 @@ using UnityEngine.Playables;
 ///
 /// 状態の置き方(アニメーションなし。設定されているDirectorだけ反映する)
 ///   Hidden   : 覆うTimelineの「最初」、開くTimelineの「最初」(+ _visualRoot を非表示)
-///   Covered  : 覆うTimelineの「最後」、開くTimelineの「最初」
+///   Covered  : 覆うTimelineの「最後」、開くTimelineの「最初」(閉じ終わりも同じ)
 ///   Revealed : 覆うTimelineの「最後」、開くTimelineの「最後」(+ 必要なら _visualRoot を非表示)
 /// </summary>
 public sealed class CS_UIResultCutsceneView :
@@ -53,7 +55,7 @@ public sealed class CS_UIResultCutsceneView :
     [SerializeField]
     private PlayableDirector _coverDirector;
 
-    [Tooltip("開くTimeline(G2は左へ、G3は右へ)。リザルトで使う。インゲームでは空でよい。Play On Awake はオフにする")]
+    [Tooltip("開くTimeline(G2は左へ、G3は右へ)。リザルトで使う。閉じる動きもこれを逆再生する。Play On Awake はオフにする")]
     [SerializeField]
     private PlayableDirector _revealDirector;
 
@@ -74,6 +76,13 @@ public sealed class CS_UIResultCutsceneView :
     [Tooltip("開き終わった後に、_visualRoot を非表示にする(画面外の画像を描画し続けないため)")]
     [SerializeField]
     private bool _deactivateAfterReveal = true;
+
+    [Header("閉じる動き(リザルトの最後)")]
+
+    [Tooltip("開くTimelineを逆再生する速さの倍率。1なら開く時と同じ速さ、2なら2倍の速さ")]
+    [Min(0.1f)]
+    [SerializeField]
+    private float _closeSpeed = 1f;
 
     // =========================================================
     // 内部フィールド
@@ -159,7 +168,7 @@ public sealed class CS_UIResultCutsceneView :
     }
 
     /// <summary>
-    /// G1を画面の下の外へ、G2とG3で画面を覆った状態に置く。リザルトの最初の状態。
+    /// G1を画面の下の外へ、G2とG3で画面を覆った状態に置く。リザルトの最初の状態。閉じ終わりも同じ姿。
     /// 覆うDirectorが空なら、シーン上に置いてある位置のまま。
     /// </summary>
     public void SetCovered()
@@ -230,6 +239,37 @@ public sealed class CS_UIResultCutsceneView :
     }
 
     /// <summary>
+    /// 追加: 閉じる動き。開くTimelineを「最後 → 最初」へ逆再生する。
+    /// G2は左から右へ、G3は右から左へ動いて、画面を覆う。終わったら onFinished を呼ぶ。
+    /// ・開き終わった後は _visualRoot が非表示になっているので、始める瞬間に表示する
+    /// ・開くDirectorが空なら、何もせずにすぐ onFinished を呼ぶ
+    /// ・逆再生は、時間を自分で少しずつ戻して、1コマごとに反映する(Director の再生機能は使わない)
+    /// </summary>
+    public void PlayClose(
+        Action onFinished)
+    {
+        if (!_isReady ||
+            _revealDirector == null ||
+            !isActiveAndEnabled)
+        {
+            // 動かせなくても、後の処理(シーン遷移など)が止まらないように終了を知らせる
+            onFinished?.Invoke();
+            return;
+        }
+
+        StopWait();
+        SetVisualActive(true);
+
+        _waitCoroutine =
+            StartCoroutine(
+                CloseRoutine(
+                    _revealDirector,
+                    onFinished
+                )
+            );
+    }
+
+    /// <summary>
     /// Timeline を最初から再生し、終わるまで待って onFinished を呼ぶ。
     /// </summary>
     private void PlayDirector(
@@ -290,6 +330,48 @@ public sealed class CS_UIResultCutsceneView :
         _waitCoroutine = null;
 
         onFinished?.Invoke();
+    }
+
+    /// <summary>
+    /// 追加: Timeline の時間を、最後から 0 まで戻しながら、1コマごとに反映する(逆再生)。
+    /// 終わったら、最初の姿勢(= 画面を覆った状態)で止めて、onFinished を呼ぶ。
+    /// </summary>
+    private IEnumerator CloseRoutine(
+        PlayableDirector director,
+        Action onFinished)
+    {
+        // 自動で進まないように止めてから、自分で時間を決める
+        director.Pause();
+
+        double time = director.duration;
+
+        ApplyTime(director, time);
+
+        while (time > 0d)
+        {
+            // unscaledDeltaTime = timeScale=0 でも進む時間
+            time -= Time.unscaledDeltaTime * _closeSpeed;
+
+            ApplyTime(director, Math.Max(0d, time));
+
+            yield return null;
+        }
+
+        ApplyTime(director, 0d);
+
+        // 終了の通知で次の処理(タイトルへの遷移など)が始まるので、先に参照を捨てておく
+        _waitCoroutine = null;
+
+        onFinished?.Invoke();
+    }
+
+    /// <summary>Timeline の時間を決めて、その時間の姿勢を1回だけ反映する</summary>
+    private static void ApplyTime(
+        PlayableDirector director,
+        double time)
+    {
+        director.time = time;
+        director.Evaluate();
     }
 
     private void StopWait()

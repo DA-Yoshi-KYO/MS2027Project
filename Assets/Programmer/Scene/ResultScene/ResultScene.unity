@@ -271,6 +271,10 @@ PrefabInstance:
       propertyPath: m_Name
       value: ResultCutSceneCanvas
       objectReference: {fileID: 0}
+    - target: {fileID: 410978763872268267, guid: ac187e7246631fc40a2f622436c4f9f3, type: 3}
+      propertyPath: m_IsActive
+      value: 1
+      objectReference: {fileID: 0}
     - target: {fileID: 7729201521008025833, guid: ac187e7246631fc40a2f622436c4f9f3, type: 3}
       propertyPath: m_Pivot.x
       value: 0
@@ -991,6 +995,10 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 0}
     m_Modifications:
+    - target: {fileID: 2198473249390550919, guid: bd1a7afa8c2dea24e896f40d11eddd05, type: 3}
+      propertyPath: _cutscene
+      value: 
+      objectReference: {fileID: 1680485943}
     - target: {fileID: 2918866849741879735, guid: bd1a7afa8c2dea24e896f40d11eddd05, type: 3}
       propertyPath: m_LocalPosition.x
       value: -3.47992
@@ -1043,10 +1051,6 @@ PrefabInstance:
       propertyPath: _cutscene
       value: 
       objectReference: {fileID: 1680485943}
-    - target: {fileID: 6331862017011192884, guid: bd1a7afa8c2dea24e896f40d11eddd05, type: 3}
-      propertyPath: _countUpFallbackSeconds
-      value: 10
-      objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []

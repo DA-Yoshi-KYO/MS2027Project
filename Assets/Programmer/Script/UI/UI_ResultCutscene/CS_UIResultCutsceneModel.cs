@@ -12,7 +12,8 @@ using System;
 /// <summary>
 /// リザルトへのカットシーンの状態を管理するModel
 /// ・今の状態(CSE_ResultCutsceneState)だけを持つ
-/// ・「始めて」(RequestCover / RequestReveal)と「終わった」(NotifyCovered / NotifyRevealed)を受け付ける
+/// ・「始めて」(RequestCover / RequestReveal / RequestClose)と
+///   「終わった」(NotifyCovered / NotifyRevealed / NotifyClosed)を受け付ける
 /// ・状態に合わない呼び出し(例: すでに動いている最中にもう一度 RequestCover)は無視する
 /// ・Presenter / View のことは知らない
 /// ・MonoBehaviourではないので、使用者(CS_ResultCutsceneController)が new して生成し、Dispose する
@@ -34,6 +35,9 @@ public class CS_UIResultCutsceneModel : CS_BaseModel
 
     /// <summary>画面を開き終わった時の通知(リザルト側の演出が終わった)</summary>
     public event Action OnRevealed;
+
+    /// <summary>追加: 画面を閉じ終わった時の通知(リザルトの最後。ここでタイトルへ遷移する)</summary>
+    public event Action OnClosed;
 
     // =========================================================
     // 生成
@@ -80,6 +84,19 @@ public class CS_UIResultCutsceneModel : CS_BaseModel
         return true;
     }
 
+    /// <summary>
+    /// 追加: G2を左から右へ、G3を右から左へ動かして画面を閉じる(開く動きの逆)。Revealed の時だけ有効
+    /// 戻り値: 始められたか
+    /// </summary>
+    public bool RequestClose()
+    {
+        if (_state.Value != CSE_ResultCutsceneState.Revealed)
+            return false;
+
+        _state.Value = CSE_ResultCutsceneState.Closing;
+        return true;
+    }
+
     // =========================================================
     // 終わった(Presenter が、Viewの動きが終わった時に呼ぶ)
     // =========================================================
@@ -102,6 +119,16 @@ public class CS_UIResultCutsceneModel : CS_BaseModel
         OnRevealed?.Invoke();
     }
 
+    /// <summary>追加</summary>
+    public void NotifyClosed()
+    {
+        if (_state.Value != CSE_ResultCutsceneState.Closing)
+            return;
+
+        _state.Value = CSE_ResultCutsceneState.Closed;
+        OnClosed?.Invoke();
+    }
+
     // =========================================================
     // 破棄
     // =========================================================
@@ -110,6 +137,7 @@ public class CS_UIResultCutsceneModel : CS_BaseModel
     {
         OnCovered = null;
         OnRevealed = null;
+        OnClosed = null;
         _state.Dispose();
     }
 }

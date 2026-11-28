@@ -13,8 +13,8 @@ using UnityEngine;
 /// <summary>
 /// リザルトへのカットシーンの Controller
 /// ・Model を生成して Presenter に渡す(Modelの使用者)
-/// ・外から PlayCover() / PlayReveal() で動かす
-/// ・動きが終わったら OnCovered / OnRevealed で知らせる
+/// ・外から PlayCover() / PlayReveal() / PlayClose() で動かす
+/// ・動きが終わったら OnCovered / OnRevealed / OnClosed で知らせる
 ///
 /// インゲームのシーンでの使い方
 ///   _startCovered = OFF にする。
@@ -22,7 +22,8 @@ using UnityEngine;
 ///
 /// リザルトのシーンでの使い方
 ///   _startCovered = ON にする(画面を覆った状態から始まる)。
-///   _autoReveal = ON なら、_revealDelay 秒後に自動で開く
+///   _autoReveal = ON なら、_revealDelay 秒後に自動で開く(→ OnRevealed)
+///   リザルトの演出が終わった後、PlayClose() で閉じる(→ OnClosed。ここでタイトルへ遷移する)
 /// </summary>
 public class CS_ResultCutsceneController : MonoBehaviour
 {
@@ -61,6 +62,9 @@ public class CS_ResultCutsceneController : MonoBehaviour
     /// <summary>画面を開き終わった時</summary>
     public event Action OnRevealed;
 
+    /// <summary>追加: 画面を閉じ終わった時(リザルトの最後。ここでタイトルへ遷移する)</summary>
+    public event Action OnClosed;
+
     // =========================================================
     // 内部フィールド
     // =========================================================
@@ -81,6 +85,7 @@ public class CS_ResultCutsceneController : MonoBehaviour
 
         _model.OnCovered += HandleCovered;
         _model.OnRevealed += HandleRevealed;
+        _model.OnClosed += HandleClosed;
     }
 
     private void Start()
@@ -124,6 +129,16 @@ public class CS_ResultCutsceneController : MonoBehaviour
         return _model.RequestReveal();
     }
 
+    /// <summary>
+    /// 追加: G2を左から右へ、G3を右から左へ動かして画面を閉じる(開く動きの逆再生)。
+    /// 閉じ終わると OnClosed が来る。
+    /// 戻り値: 始められたか(開き終わった状態でない場合は false)
+    /// </summary>
+    public bool PlayClose()
+    {
+        return _model.RequestClose();
+    }
+
     // =========================================================
     // 自動で開く
     // =========================================================
@@ -153,6 +168,11 @@ public class CS_ResultCutsceneController : MonoBehaviour
         OnRevealed?.Invoke();
     }
 
+    private void HandleClosed()
+    {
+        OnClosed?.Invoke();
+    }
+
     // =========================================================
     // OnDestroy
     // =========================================================
@@ -161,11 +181,13 @@ public class CS_ResultCutsceneController : MonoBehaviour
     {
         OnCovered = null;
         OnRevealed = null;
+        OnClosed = null;
 
         if (_model != null)
         {
             _model.OnCovered -= HandleCovered;
             _model.OnRevealed -= HandleRevealed;
+            _model.OnClosed -= HandleClosed;
             _model.Dispose();
         }
     }

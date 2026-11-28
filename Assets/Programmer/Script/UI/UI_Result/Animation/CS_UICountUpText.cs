@@ -109,6 +109,12 @@ public sealed class CS_UICountUpText : MonoBehaviour
     /// <summary>アニメーション中か</summary>
     public bool isPlaying => _coroutine != null;
 
+    /// <summary>
+    /// 追加: Play してから、数え終わるまでの時間(秒)。_startDelay を含む。
+    /// Play に渡す追加の待ち時間は含まない(呼ぶ側が足す)。リザルトの演出が終わる時刻の計算に使う。
+    /// </summary>
+    public float totalSeconds => _startDelay + _duration;
+
     // =========================================================
     // 初期化
     // =========================================================

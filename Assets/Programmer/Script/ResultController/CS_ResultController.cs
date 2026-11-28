@@ -15,7 +15,8 @@ using UnityEngine;
 /// ・リザルトシーンの GameControllerManager にアタッチする
 /// ・CS_ResultDataStore から実データを受け取って表示する
 /// ・データがない場合はデバッグ用の仮データを表示する
-/// ・数字のカウントアップは、カットシーンが開き終わってから始める(カットシーン未設定ならすぐ始める)
+/// ・登場の演出は、カットシーンが開き終わってから始める(カットシーン未設定ならすぐ始める)
+/// ・演出が全部終わる時間を、CS_ResultExitController に渡す(その後、ボタンでタイトルへ戻れる)
 /// </summary>
 public class CS_ResultController : MonoBehaviour
 {
@@ -29,14 +30,16 @@ public class CS_ResultController : MonoBehaviour
     [Header("ソロのランクのしきい値(DB_ResultRankSettings)")]
     [SerializeField] private CSO_ResultRankSettings _rankSettings;
 
-    // 追加
-    [Header("カットシーン(任意)。設定すると、開き終わってから数字のカウントアップを始める")]
+    [Header("カットシーン(任意)。設定すると、開き終わってから登場の演出を始める")]
     [SerializeField] private CS_ResultCutsceneController _cutscene;
 
-    // 追加
-    [Tooltip("カットシーンの開き終わりが来なかった時の保険(秒)。この時間がたったら、カウントアップを始める")]
+    [Tooltip("カットシーンの開き終わりが来なかった時の保険(秒)。この時間がたったら、登場の演出を始める")]
     [Min(0.5f)]
     [SerializeField] private float _countUpFallbackSeconds = 5f;
+
+    // 追加
+    [Header("演出が終わった後の流れ(任意)。設定すると、ボタンでタイトルへ戻れる")]
+    [SerializeField] private CS_ResultExitController _exitController;
 
     [Header("デバッグ設定（ResultScene 単体で再生するとき用）")]
     [SerializeField] private bool _isMultiDebug = false;
@@ -49,8 +52,8 @@ public class CS_ResultController : MonoBehaviour
     private CS_UIResultModel _model;
     private CS_UIResultPresenter _presenter;
 
-    // カウントアップを始めたか(開き終わりと保険の両方が来ても、1回だけ始める)
-    private bool _hasStartedCountUps;
+    // 登場の演出を始めたか(開き終わりと保険の両方が来ても、1回だけ始める)
+    private bool _hasStartedIntro;
 
     // =========================================================
     // Awake : Model 生成
@@ -93,12 +96,12 @@ public class CS_ResultController : MonoBehaviour
             ShowDebugResult();
         }
 
-        // 追加: 数字のカウントアップを始めるタイミングを決める
-        ScheduleCountUps();
+        // 登場の演出を始めるタイミングを決める
+        ScheduleIntro();
     }
 
     // =========================================================
-    // カウントアップを始めるタイミング(追加)
+    // 登場の演出を始めるタイミング
     // =========================================================
 
     /// <summary>
@@ -106,11 +109,11 @@ public class CS_ResultController : MonoBehaviour
     ///   (開き終わりが来なくても、_countUpFallbackSeconds 秒後には始める)
     /// ・設定されていなければ、すぐ始める
     /// </summary>
-    private void ScheduleCountUps()
+    private void ScheduleIntro()
     {
         if (_cutscene == null)
         {
-            StartCountUps();
+            StartIntro();
             return;
         }
 
@@ -120,7 +123,7 @@ public class CS_ResultController : MonoBehaviour
 
     private void HandleCutsceneRevealed()
     {
-        StartCountUps();
+        StartIntro();
     }
 
     /// <summary>開き終わりが来なかった時でも、数字が見えないままにならないようにする保険</summary>
@@ -129,26 +132,34 @@ public class CS_ResultController : MonoBehaviour
         // WaitForSecondsRealtime = timeScale=0 でも進む待ち時間
         yield return new WaitForSecondsRealtime(_countUpFallbackSeconds);
 
-        StartCountUps();
+        StartIntro();
     }
 
-    private void StartCountUps()
+    private void StartIntro()
     {
-        if (_hasStartedCountUps)
+        if (_hasStartedIntro)
         {
             return;
         }
 
-        _hasStartedCountUps = true;
+        _hasStartedIntro = true;
 
         if (_cutscene != null)
         {
             _cutscene.OnRevealed -= HandleCutsceneRevealed;
         }
 
-        if (_view != null)
+        if (_view == null)
         {
-            _view.PlayIntro();
+            return;
+        }
+
+        // 変更: 演出が全部終わるまでの時間を受け取って、終わった後の流れに渡す
+        float introSeconds = _view.PlayIntro();
+
+        if (_exitController != null)
+        {
+            _exitController.BeginWaiting(introSeconds);
         }
     }
 

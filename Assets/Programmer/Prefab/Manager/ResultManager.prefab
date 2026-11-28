@@ -10,6 +10,7 @@ GameObject:
   m_Component:
   - component: {fileID: 2918866849741879735}
   - component: {fileID: 6331862017011192884}
+  - component: {fileID: 2198473249390550919}
   m_Layer: 0
   m_Name: ResultManager
   m_TagString: Untagged
@@ -45,5 +46,25 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::CS_ResultController
   _view: {fileID: 0}
+  _rankSettings: {fileID: 11400000, guid: 6cdba0f06d27b114aa482f5931a930a6, type: 2}
+  _cutscene: {fileID: 0}
+  _countUpFallbackSeconds: 10
+  _exitController: {fileID: 2198473249390550919}
   _isMultiDebug: 0
   _debugPlayerCount: 4
+--- !u!114 &2198473249390550919
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 3261981453224661800}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6f769a6c81fb17445ab2871e825bfcc6, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::CS_ResultExitController
+  _cutscene: {fileID: 0}
+  _titleSceneName: TitleScene
+  _inputDelayAfterIntro: 0.3
+  _promptObject: {fileID: 0}

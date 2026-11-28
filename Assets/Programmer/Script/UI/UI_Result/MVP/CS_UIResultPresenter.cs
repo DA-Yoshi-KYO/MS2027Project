@@ -49,8 +49,9 @@ public class CS_UIResultPresenter : CS_BasePresenter
             .Subscribe(_view.UpdateSoloResult)
             .AddTo(_disposables);
 
-        model.soloAreaResult
-            .Subscribe(_view.UpdateSoloAreaResult)
+        // 変更: 旧 soloAreaResult(終わり方などのテキスト)から、ランクとタイムのまとめに変えた
+        model.soloRankSummary
+            .Subscribe(_view.UpdateSoloRankSummary)
             .AddTo(_disposables);
 
         // マルチ用

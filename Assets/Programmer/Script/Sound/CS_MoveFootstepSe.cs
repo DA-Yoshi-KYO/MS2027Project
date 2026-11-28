@@ -15,12 +15,12 @@ using UnityEngine;
  * ・足すだけで動く。外しても、ゲームの動きは変わらない
  *
  * ・鳴らし方は2通り(_useLoop)
- *   ループ(オン・既定): 動いている間(速さが_moveSpeed以上)、足音の音素材をループで流し続ける。止まったら_fadeOutTime秒で消す
+ *   ループ(オン): 動いている間(速さが_moveSpeed以上)、足音の音素材をループで流し続ける。止まったら_fadeOutTime秒で消す
  *     何歩分も入った長い音素材用。このキャラが持つAudioSource(実行時に子として作る)で鳴らす
  *     設定(音量・3D・出力先)はSEのデータベースのものを使う(CS_SoundManager.TrySetupLoopSe)
  *     歩き⇔走りが切り替わったら、今の足音を_fadeOutTime秒で消してから、もう一方を流す
  *     流し始めの位置は、音素材の中からランダムに選ぶ(何人も同時に歩き出しても、足音がそろわない)
- *   1歩ずつ(オフ): 動いた距離_stepDistanceごとに、足音を1回鳴らす(1歩分の短い音素材用)
+ *   1歩ずつ(オフ・既定): 動いた距離_stepDistanceごとに、足音を1回鳴らす(1歩分の短い音素材用)
  */
 // ========================================
 
@@ -31,7 +31,7 @@ public class CS_MoveFootstepSe : MonoBehaviour
     [SerializeField] private CSE_SeId _runSeId = CSE_SeId.None;     // 走っている時の足音
 
     [Header("鳴らし方")]
-    [SerializeField] private bool _useLoop = true;                      // 動いている間ループで流すか(オフなら1歩ずつ鳴らす)
+    [SerializeField] private bool _useLoop = false;                     // 動いている間ループで流すか(オフなら1歩ずつ鳴らす)
     [SerializeField, Min(0f)] private float _runSpeed = 4f;             // これ以上の速さなら走りの足音(m/秒)
     [SerializeField, Min(0.1f)] private float _teleportDistance = 3f;   // 1フレームでこれ以上動いたら、飛んだとみなして数えない(m)
 
@@ -42,7 +42,7 @@ public class CS_MoveFootstepSe : MonoBehaviour
     [SerializeField] private bool _randomStartTime = true;              // 流し始めの位置を、音素材の中からランダムに選ぶか
 
     [Header("1歩ずつ")]
-    [SerializeField, Min(0.1f)] private float _stepDistance = 2.2f;     // 足音を鳴らす、動いた距離の間隔(m)
+    [SerializeField, Min(0.1f)] private float _stepDistance = 4.4f;     // 足音を鳴らす、動いた距離の間隔(m)
 
     private const float _speedSmoothRate = 0.2f;    // 速さをなめらかにする割合
 

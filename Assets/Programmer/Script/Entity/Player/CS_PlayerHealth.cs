@@ -43,6 +43,9 @@ public class CS_PlayerHealth : NetworkBehaviour, IDamageable, IHealable
     [Header("被弾後の無敵")]
     [SerializeField] private float _postDamageInvincibleDuration = 3f;   // 被弾後、無敵になる秒数(0以下で無効)
 
+    [Header("SE")]
+    [SerializeField] private bool _playSpawnSe = false;   // ゲーム開始時(最初のスポーン)に出現のSE(PlayerSpawn)を鳴らすか
+
     private CS_PlayerStats _stats;
     private CS_PlayerParry _parry;   // パリー(当たる直前にブリンクを押していればダメージを無効にする)。付いていなければnull
     private bool _isHpInitialized;   // 現在HPを満タンで初期化したか(サーバー、またはオフラインのみ)
@@ -102,7 +105,7 @@ public class CS_PlayerHealth : NetworkBehaviour, IDamageable, IHealable
     // オフライン(NetworkManagerが動いていない)のテストシーン用
     private void Start()
     {
-        CS_SoundManager.instance?.PlaySe(CSE_SeId.PlayerSpawn, transform.position);   // スポーンのSE(最初のフレーム。各クライアントが自分のPCで鳴らす)
+        if (_playSpawnSe) CS_SoundManager.instance?.PlaySe(CSE_SeId.PlayerSpawn, transform.position);   // スポーンのSE(最初のフレーム。各クライアントが自分のPCで鳴らす)
 
         if (IsSpawned) return;
         if (CS_PlayerNetwork.isOnline) return;

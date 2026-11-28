@@ -212,7 +212,9 @@ MonoBehaviour:
   _maxFallSpeed: 30
   _dashDuration: 0.2
   _dashCooldown: 0.8
-  _footstepDistance: 2.2
+  _footstepDistance: 4.4
+  _runFootstepDistance: 3.6
+  _runFootstepSpeedRate: 1.1
   _landingMinAirTime: 0.25
   _fallResetHeight: -30
   _cameraTransform: {fileID: 7583572087850885837}
@@ -259,6 +261,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::CS_PlayerHealth
   ShowTopMostFoldoutHeaderGroup: 1
   _postDamageInvincibleDuration: 3
+  _playSpawnSe: 0
 --- !u!114 &7030629410015274216
 MonoBehaviour:
   m_ObjectHideFlags: 0

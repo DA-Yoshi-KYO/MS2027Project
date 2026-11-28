@@ -132,7 +132,9 @@ public class CS_Player : NetworkBehaviour
     [SerializeField] private float _dashCooldown = 0.8f;    // 次に出せるようになるまでの時間(秒)
 
     [Header("SE")]
-    [SerializeField][Min(0.1f)] private float _footstepDistance = 2.2f;   // 足音を鳴らす、歩いた距離の間隔(m)
+    [SerializeField][Min(0.1f)] private float _footstepDistance = 4.4f;   // 足音を鳴らす、歩いた距離の間隔(m)
+    [SerializeField][Min(0.1f)] private float _runFootstepDistance = 3.8f;    // 走っている時の、足音を鳴らす距離の間隔(m)
+    [SerializeField][Min(1f)] private float _runFootstepSpeedRate = 1.1f;    // 歩く速さのこの倍率より速く動いていたら、走っているとみなす
     [SerializeField][Min(0f)] private float _landingMinAirTime = 0.25f;   // これ以上空中にいてから着地した時だけ、着地音を鳴らす(秒)
 
     [Header("落下の保険")]
@@ -218,6 +220,7 @@ public class CS_Player : NetworkBehaviour
     private bool _wasGroundedForSe;         // 前のフレームで接地していたか(着地音用)
     private float _airTime;                 // 空中にいる時間(着地音用)
     private float _footstepDistanceRemaining;   // 次の足音までの距離
+    private float _footstepSpeed;               // 足音用の、なめらかにした動く速さ(m/秒。走っているかの判定)
     private bool _isSprinting;      // ダッシュ後、ダッシュボタンを押し続けている間か
 
     private Transform _viewDirectionAnchor;     // 位置はプレイヤー、向きはカメラの左右の向き。警戒UIの方向の基準(自分のプレイヤーのみ)
@@ -658,22 +661,27 @@ public class CS_Player : NetworkBehaviour
         _lastSePosition = position;
         bool isTeleported = delta.magnitude > 3f;
 
+        // 走っているか(速さで判定する。isSprintingは操作している本人の手元にしか無いため、他の人のプレイヤーでも同じになるよう速さを使う)
+        if (!isTeleported && Time.deltaTime > 0f) _footstepSpeed = Mathf.Lerp(_footstepSpeed, delta.magnitude / Time.deltaTime, 0.2f);
+        bool isRunning = _stats != null && _footstepSpeed > _stats.currentMoveSpeed * _runFootstepSpeedRate;
+        float footstepDistance = isRunning ? _runFootstepDistance : _footstepDistance;
+
         if (grounded)
         {
             if (!_wasGroundedForSe)
             {
                 if (_airTime >= _landingMinAirTime) CS_SoundManager.instance?.PlaySe(CSE_SeId.PlayerLanding, position);
-                _footstepDistanceRemaining = _footstepDistance;
+                _footstepDistanceRemaining = footstepDistance;
             }
             _airTime = 0f;
 
             if (!isTeleported)
             {
-                _footstepDistanceRemaining -= delta.magnitude;
+                _footstepDistanceRemaining = Mathf.Min(_footstepDistanceRemaining, footstepDistance) - delta.magnitude;   // 走り出したら、すぐ走りの間隔にする
                 if (_footstepDistanceRemaining <= 0f)
                 {
                     CS_SoundManager.instance?.PlaySe(CSE_SeId.PlayerFootstep, position);
-                    _footstepDistanceRemaining = _footstepDistance;
+                    _footstepDistanceRemaining = footstepDistance;
                 }
             }
         }

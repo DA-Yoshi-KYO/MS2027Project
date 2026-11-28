@@ -240,7 +240,6 @@ public static class CS_MayaPreviewFbx
                 }
             }
 
-            double[] meshMatrix = FbxMatrix(globals[i]);
             for (int b = 0; b < skin.boneNodes.Length; b++)
             {
                 int bone = skin.boneNodes[b];
@@ -252,7 +251,10 @@ public static class CS_MayaPreviewFbx
                 cluster.Add("UserData").Str("").Str("");
                 cluster.Add("Indexes").Ints(indexes[b] != null ? indexes[b].ToArray() : new int[0]);
                 cluster.Add("Weights").Doubles(weights[b] != null ? weights[b].ToArray() : new double[0]);
-                cluster.Add("Transform").Doubles(meshMatrix);
+                // Like Maya's FBX export: Transform = the mesh seen from the joint at bind time
+                // (TransformLink^-1 * mesh global). Writing the mesh global alone makes the FBX SDK
+                // (Unity, Maya) read an identity bind matrix and the mesh collapses.
+                cluster.Add("Transform").Doubles(FbxMatrix(globals[bone].inverse * globals[i]));
                 cluster.Add("TransformLink").Doubles(FbxMatrix(globals[bone]));
                 Connect(connections, clusterId, skinId);
                 Connect(connections, modelIds[bone], clusterId);

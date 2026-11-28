@@ -190,6 +190,30 @@ public class CS_SoundManager : MonoBehaviour
         PlaySeInternal(id, data, clip, mode, followTransform.position, followTransform);
     }
 
+    /// <summary>
+    /// 呼び出し側が持つAudioSourceに、SEをループ再生する設定を入れる(再生はしない)
+    /// 足音など、動いている間だけ鳴らし続けるSE用。プールのAudioSourceは使わない
+    /// 設定するもの: 音(複数あればランダムに1つ)・音量・ピッチ・3D設定・出力先(SEのAudioMixerGroup)・ループ
+    /// </summary>
+    public bool TrySetupLoopSe(CSE_SeId id, AudioSource source)
+    {
+        if (source == null)
+            return false;
+
+        if (!TryGetPlayableSeData(id, out CS_SeData data, out AudioClip clip))
+            return false;
+
+        SePlayMode mode = data.is3D
+            ? SePlayMode.ThreeDimensionalFollow
+            : SePlayMode.TwoDimensional;
+
+        ConfigureSeAudioSource(source, data, clip, mode);
+        source.loop = true;
+        source.playOnAwake = false;
+        source.outputAudioMixerGroup = _seMixerGroup;
+        return true;
+    }
+
     private bool TryGetPlayableSeData(
         CSE_SeId id,
         out CS_SeData data,
